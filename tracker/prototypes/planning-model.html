@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planning model prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --surface: #ffffff;
+    --ink: #1f2320;
+    --ink-2: #565d56;
+    --ink-3: #79817a;
+    --line: #e3e1d9;
+    --line-strong: #cfcdc3;
+    --accent: #2f6b4f;
+    --accent-ink: #ffffff;
+    --accent-soft: #e6efe9;
+    --event: #35636e;
+    --event-soft: #e3edef;
+    --task: #2f6b4f;
+    --task-soft: #e6efe9;
+    --ai: #6d5a9c;
+    --ai-soft: #ece8f4;
+    --warn: #a05a1f;
+    --warn-soft: #f6ead9;
+    --radius: 10px;
+    --shadow: 0 1px 2px rgba(31,35,32,.06), 0 6px 18px -8px rgba(31,35,32,.14);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: "Schibsted Grotesk", "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.45;
+    min-height: 100vh;
+  }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 6px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-track { background: transparent; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+  .frame { max-width: 1100px; margin: 0 auto; padding: 28px 24px 64px; }
+
+  header.top { margin-bottom: 20px; }
+  .top h1 { font-size: 21px; font-weight: 700; letter-spacing: -0.015em; }
+  .top p.sub { color: var(--ink-2); margin-top: 4px; max-width: 62ch; }
+
+  .tabs { display: flex; gap: 8px; margin: 22px 0 6px; flex-wrap: wrap; }
+  .tab {
+    font: inherit; font-weight: 600; font-size: 13px;
+    padding: 9px 16px; border-radius: 999px;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2);
+    cursor: pointer; transition: background .15s ease-out, color .15s ease-out, border-color .15s ease-out;
+  }
+  .tab:hover { border-color: var(--accent); color: var(--ink); }
+  .tab[aria-selected="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .tabdesc { color: var(--ink-3); font-size: 13px; min-height: 20px; margin-bottom: 14px; }
+
+  .panel { display: none; }
+  .panel.active { display: block; animation: rise .28s cubic-bezier(.2,.8,.3,1); }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .board {
+    display: grid; gap: 16px;
+    background: transparent;
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .card > .cardhead {
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  }
+  .cardhead h2 { font-size: 14px; font-weight: 600; letter-spacing: -0.005em; }
+  .cardhead .meta { color: var(--ink-3); font-size: 12px; }
+
+  /* ---------- shared: task rows ---------- */
+  ul.tasks { list-style: none; }
+  .task-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+  }
+  .task-row:last-child { border-bottom: none; }
+  .task-row:hover { background: #faf9f6; }
+  .task-row .grab { color: var(--line-strong); cursor: grab; margin-top: 2px; flex: none; }
+  .task-row:hover .grab { color: var(--ink-3); }
+  .check {
+    width: 16px; height: 16px; border: 1.5px solid var(--line-strong); border-radius: 5px;
+    flex: none; margin-top: 2px; background: var(--surface); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: border-color .12s ease-out;
+  }
+  .check:hover { border-color: var(--accent); }
+  .check.done { background: var(--accent); border-color: var(--accent); }
+  .check.done svg { display: block; }
+  .check svg { display: none; }
+  .t-main { flex: 1; min-width: 0; }
+  .t-title { font-weight: 500; }
+  .t-title.done { color: var(--ink-3); text-decoration: line-through; }
+  .t-sub { display: flex; gap: 6px; align-items: center; margin-top: 3px; flex-wrap: wrap; }
+  .chip {
+    font-size: 11px; font-weight: 600; letter-spacing: .01em;
+    padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+  }
+  .chip.proj { background: #eef0ea; color: var(--ink-2); }
+  .chip.due { background: var(--warn-soft); color: var(--warn); }
+  .chip.due.ok { background: #eef0ea; color: var(--ink-3); }
+  .chip.ai { background: var(--ai-soft); color: var(--ai); display: inline-flex; gap: 5px; align-items: center; }
+  .chip.time { background: var(--task-soft); color: var(--task); font-variant-numeric: tabular-nums; }
+  .chip.running { background: var(--ai-soft); color: var(--ai); }
+  .chip.running .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ai); display: inline-block; margin-right: 4px; animation: pulse 1.6s ease-out infinite; }
+  @keyframes pulse { 0% { opacity: 1 } 55% { opacity: .25 } 100% { opacity: 1 } }
+  .chip.review { background: var(--warn-soft); color: var(--warn); }
+
+  .plan-btn {
+    font: inherit; font-size: 12px; font-weight: 600; color: var(--accent);
+    background: var(--accent-soft); border: none; border-radius: 6px;
+    padding: 4px 10px; cursor: pointer; flex: none; margin-top: 1px;
+    transition: filter .12s ease-out;
+  }
+  .plan-btn:hover { filter: brightness(.95); }
+
+  .icon { width: 14px; height: 14px; stroke: currentColor; stroke-width: 1.7; fill: none; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .icon.sm { width: 12px; height: 12px; }
+
+  /* ---------- calendar column ---------- */
+  .cal { position: relative; }
+  .cal-scroll { overflow-y: auto; max-height: 640px; }
+  .cal-grid { position: relative; margin: 8px 0 8px 0; }
+  .hour { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); }
+  .hour span {
+    position: absolute; top: -8px; left: 12px; width: 40px;
+    font-size: 11px; color: var(--ink-3); background: var(--surface);
+    font-variant-numeric: tabular-nums;
+  }
+  .lane { position: absolute; top: 0; bottom: 0; }
+  .block {
+    position: absolute; left: 0; right: 0;
+    border-radius: 8px; padding: 6px 10px; overflow: hidden;
+    font-size: 12.5px; line-height: 1.3;
+    box-shadow: 0 1px 2px rgba(31,35,32,.08);
+  }
+  .block .b-time { font-size: 11px; font-variant-numeric: tabular-nums; opacity: .75; }
+  .block .b-title { font-weight: 600; margin-top: 1px; }
+  .block.event { background: var(--event-soft); color: var(--event); border: 1px solid #c8dade; }
+  .block.taskblock { background: var(--task-soft); color: var(--task); border: 1px solid #c4d8cc; }
+  .block.taskblock .b-title { display: flex; gap: 6px; align-items: center; }
+  .block.aiblock { background: var(--ai-soft); color: var(--ai); border: 1px solid #d5cde8; }
+  .block.aiblock.done-run { opacity: .62; }
+  .block.ghost {
+    border: 1.5px dashed var(--accent); background: transparent; color: var(--accent);
+    display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px;
+    box-shadow: none;
+  }
+  .nowline { position: absolute; left: 0; right: 0; border-top: 2px solid #c0392b; z-index: 3; }
+  .nowline::before { content: ""; position: absolute; left: -1px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: #c0392b; }
+
+  .lane-head {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: .06em;
+    padding: 10px 0 6px;
+  }
+
+  /* ---------- Model A layout ---------- */
+  #panel-a .board { grid-template-columns: 300px 1fr; align-items: start; }
+  .hint {
+    margin: 12px 16px; padding: 10px 12px; border-radius: 8px;
+    background: var(--accent-soft); color: var(--accent); font-size: 12.5px;
+    display: flex; gap: 8px; align-items: flex-start;
+  }
+  .a-lanes { display: grid; grid-template-columns: 56px 1fr 132px; gap: 0 10px; padding: 0 16px 4px; }
+  .a-lanehead-row { display: grid; grid-template-columns: 56px 1fr 132px; gap: 0 10px; padding: 4px 16px 0; }
+
+  /* ---------- Model B layout ---------- */
+  #panel-b .board { grid-template-columns: 1fr 1fr; align-items: start; }
+  .agenda { list-style: none; }
+  .agenda li { display: flex; gap: 14px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .agenda li:last-child { border-bottom: none; }
+  .agenda .when { font-variant-numeric: tabular-nums; color: var(--ink-3); font-size: 12.5px; width: 88px; flex: none; padding-top: 1px; }
+  .agenda .what { font-weight: 500; }
+  .agenda .where { color: var(--ink-3); font-size: 12.5px; margin-top: 2px; }
+  .freeslot { color: var(--ink-3); font-style: normal; }
+  .freeslot .what { color: var(--ink-3); font-weight: 400; }
+  .weekstrip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .day-cell { text-align: center; padding: 8px 2px 9px; border-radius: 8px; border: 1px solid transparent; }
+  .day-cell .dow { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; }
+  .day-cell .dom { font-weight: 600; font-size: 14px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .day-cell .pips { display: flex; gap: 3px; justify-content: center; margin-top: 5px; height: 4px; }
+  .pip { width: 4px; height: 4px; border-radius: 50%; background: var(--event); }
+  .pip.ai { background: var(--ai); }
+  .day-cell.today { background: var(--ink); border-color: var(--ink); }
+  .day-cell.today .dow, .day-cell.today .dom { color: #fff; }
+  .groups h3 {
+    font-size: 11px; font-weight: 600; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: .06em;
+    padding: 12px 16px 6px; border-bottom: 1px solid var(--line);
+    background: #faf9f6;
+  }
+
+  /* ---------- Model C layout ---------- */
+  #panel-c .board { grid-template-columns: 1fr 380px; align-items: start; }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 18px; color: var(--ink-2); font-size: 12.5px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+  .swatch.ev { background: var(--event-soft); border: 1px solid #c8dade; }
+  .swatch.tk { background: var(--task-soft); border: 1px solid #c4d8cc; }
+  .swatch.aiw { background: var(--ai-soft); border: 1px solid #d5cde8; }
+
+  @media (max-width: 860px) {
+    #panel-a .board, #panel-b .board, #panel-c .board { grid-template-columns: 1fr; }
+    .frame { padding: 20px 14px 48px; }
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+  <header class="top">
+    <h1>How should your to-dos meet your calendar?</h1>
+    <p class="sub">Same day, same tasks, same events, three interaction models. Thursday 27 August. Green is your planned work, blue is fixed events, purple is Claude's work running for you.</p>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Planning models">
+    <button class="tab" role="tab" id="tab-a" aria-selected="true" aria-controls="panel-a">A. Time-blocking</button>
+    <button class="tab" role="tab" id="tab-b" aria-selected="false" aria-controls="panel-b">B. Side by side</button>
+    <button class="tab" role="tab" id="tab-c" aria-selected="false" aria-controls="panel-c">C. Hybrid</button>
+  </div>
+  <p class="tabdesc" id="tabdesc">The calendar is the plan. Tasks live in a backlog until you drag them onto the day as blocks. Claude's runs occupy their own lane beside yours.</p>
+
+  <!-- ============ MODEL A: TIME-BLOCKING ============ -->
+  <section class="panel active" id="panel-a" role="tabpanel" aria-labelledby="tab-a">
+    <div class="board">
+      <div class="card">
+        <div class="cardhead"><h2>Backlog</h2><span class="meta">6 unplanned</span></div>
+        <div class="hint">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+          <span>Drag a task onto the day to give it a block. Unblocked tasks stay here.</span>
+        </div>
+        <ul class="tasks">
+          <li class="task-row">
+            <svg class="icon grab" viewBox="0 0 24 24"><path d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"/></svg>
+            <div class="t-main"><div class="t-title">Book dentist appointment</div>
+              <div class="t-sub"><span class="chip proj">Life</span><span class="chip due">due Fri</span></div></div>
+          </li>
+          <li class="task-row">
+            <svg class="icon grab" viewBox="0 0 24 24"><path d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"/></svg>
+            <div class="t-main"><div class="t-title">Renew passport</div>
+              <div class="t-sub"><span class="chip proj">Life</span><span class="chip due ok">due Sep 15</span></div></div>
+          </li>
+          <li class="task-row">
+            <svg class="icon grab" viewBox="0 0 24 24"><path d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"/></svg>
+            <div class="t-main"><div class="t-title">Compare hosting options</div>
+              <div class="t-sub"><span class="chip proj">Calendar app</span><span class="chip due ok">due Sat</span></div></div>
+          </li>
+          <li class="task-row">
+            <svg class="icon grab" viewBox="0 0 24 24"><path d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"/></svg>
+            <div class="t-main"><div class="t-title">Reply to Alex about the trip</div>
+              <div class="t-sub"><span class="chip proj">Life</span></div></div>
+          </li>
+          <li class="task-row">
+            <svg class="icon grab" viewBox="0 0 24 24"><path d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"/></svg>
+            <div class="t-main"><div class="t-title">Outline goals for Q4</div>
+              <div class="t-sub"><span class="chip proj">Goals</span></div></div>
+          </li>
+          <li class="task-row">
+            <svg class="icon grab" viewBox="0 0 24 24"><path d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"/></svg>
+            <div class="t-main"><div class="t-title">Summarize this week's commits</div>
+              <div class="t-sub"><span class="chip ai"><svg class="icon sm" viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="12" rx="2"/><path d="M12 7V4M8 12h.01M16 12h.01"/></svg>delegate to Claude</span></div></div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="card cal">
+        <div class="cardhead"><h2>Thursday 27 August</h2><span class="meta">3 blocks planned, 2 events</span></div>
+        <div class="a-lanehead-row">
+          <span></span>
+          <span class="lane-head">You</span>
+          <span class="lane-head"><svg class="icon sm" viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="12" rx="2"/><path d="M12 7V4M8 12h.01M16 12h.01"/></svg>Claude</span>
+        </div>
+        <div class="cal-scroll">
+          <div class="cal-grid" id="grid-a" style="height: 784px;">
+            <!-- hour lines injected by script -->
+            <div class="a-lanes" style="position:absolute; inset:0;">
+              <span></span>
+              <div class="lane" style="position:relative;">
+                <div class="block event" style="top: 56px; height: 52px;"><span class="b-time">08:00 to 09:00</span><div class="b-title">Gym</div></div>
+                <div class="block taskblock" style="top: 140px; height: 80px;"><span class="b-time">09:30 to 11:00</span><div class="b-title"><svg class="icon sm" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Deep work: spec review</div></div>
+                <div class="block event" style="top: 308px; height: 52px;"><span class="b-time">12:30 to 13:30</span><div class="b-title">Lunch with Marta</div></div>
+                <div class="block taskblock" style="top: 392px; height: 80px;"><span class="b-time">14:00 to 15:30</span><div class="b-title">Write v1 phasing notes</div></div>
+                <div class="block taskblock" style="top: 504px; height: 25px;"><span class="b-time">16:00 to 16:30 · Review Claude's research</span></div>
+                <div class="block ghost" style="top: 560px; height: 40px;">
+                  <svg class="icon sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Drop a task here: 17:00 to 18:00 is free
+                </div>
+                <div class="block event" style="top: 672px; height: 80px;"><span class="b-time">19:00 to 20:30</span><div class="b-title">Dinner at parents'</div></div>
+              </div>
+              <div class="lane" style="position:relative;">
+                <div class="block aiblock done-run" style="top: 140px; height: 44px;"><span class="b-time">09:30</span><div class="b-title">Google sync research</div></div>
+                <div class="block aiblock" style="top: 392px; height: 56px;"><span class="b-time">14:00</span><div class="b-title">Domain model draft<br><span class="chip running" style="margin-top:4px; display:inline-block;"><span class="dot"></span>running</span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MODEL B: SIDE BY SIDE ============ -->
+  <section class="panel" id="panel-b" role="tabpanel" aria-labelledby="tab-b">
+    <div class="board">
+      <div class="card">
+        <div class="cardhead"><h2>Calendar</h2><span class="meta">events and appointments only</span></div>
+        <div class="weekstrip">
+          <div class="day-cell"><div class="dow">Mon</div><div class="dom">24</div><div class="pips"><span class="pip"></span></div></div>
+          <div class="day-cell"><div class="dow">Tue</div><div class="dom">25</div><div class="pips"></div></div>
+          <div class="day-cell"><div class="dow">Wed</div><div class="dom">26</div><div class="pips"><span class="pip"></span><span class="pip"></span></div></div>
+          <div class="day-cell today"><div class="dow">Thu</div><div class="dom">27</div><div class="pips"><span class="pip" style="background:#fff"></span><span class="pip" style="background:#fff"></span><span class="pip" style="background:#fff"></span></div></div>
+          <div class="day-cell"><div class="dow">Fri</div><div class="dom">28</div><div class="pips"><span class="pip"></span></div></div>
+          <div class="day-cell"><div class="dow">Sat</div><div class="dom">29</div><div class="pips"></div></div>
+          <div class="day-cell"><div class="dow">Sun</div><div class="dom">30</div><div class="pips"><span class="pip"></span></div></div>
+        </div>
+        <ul class="agenda">
+          <li><span class="when">08:00 to 09:00</span><div><div class="what">Gym</div></div></li>
+          <li class="freeslot"><span class="when">09:00 to 12:30</span><div><div class="what">Free</div></div></li>
+          <li><span class="when">12:30 to 13:30</span><div><div class="what">Lunch with Marta</div><div class="where">Casa Lupe</div></div></li>
+          <li class="freeslot"><span class="when">13:30 to 19:00</span><div><div class="what">Free</div></div></li>
+          <li><span class="when">19:00 to 20:30</span><div><div class="what">Dinner at parents'</div></div></li>
+        </ul>
+      </div>
+
+      <div class="card groups">
+        <div class="cardhead"><h2>To-dos</h2><span class="meta">work from the list, in any order</span></div>
+        <h3>Today</h3>
+        <ul class="tasks">
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Deep work: spec review</div>
+              <div class="t-sub"><span class="chip proj">Calendar app</span><span class="chip due">due today</span></div></div></li>
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Write v1 phasing notes</div>
+              <div class="t-sub"><span class="chip proj">Calendar app</span><span class="chip due">due today</span></div></div></li>
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Review Claude's research</div>
+              <div class="t-sub"><span class="chip proj">Calendar app</span><span class="chip review">needs your review</span></div></div></li>
+          <li class="task-row"><span class="check done" role="checkbox" aria-checked="true" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title done">Morning pages</div>
+              <div class="t-sub"><span class="chip proj">Life</span></div></div></li>
+        </ul>
+        <h3>This week</h3>
+        <ul class="tasks">
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Book dentist appointment</div>
+              <div class="t-sub"><span class="chip proj">Life</span><span class="chip due">due Fri</span></div></div></li>
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Compare hosting options</div>
+              <div class="t-sub"><span class="chip proj">Calendar app</span><span class="chip due ok">due Sat</span></div></div></li>
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Reply to Alex about the trip</div>
+              <div class="t-sub"><span class="chip proj">Life</span></div></div></li>
+        </ul>
+        <h3>Delegated to Claude</h3>
+        <ul class="tasks">
+          <li class="task-row"><span class="check done" role="checkbox" aria-checked="true" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title done">Google sync research</div>
+              <div class="t-sub"><span class="chip ai"><svg class="icon sm" viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="12" rx="2"/><path d="M12 7V4M8 12h.01M16 12h.01"/></svg>Claude</span><span class="chip review">needs your review</span></div></div></li>
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Domain model draft</div>
+              <div class="t-sub"><span class="chip ai"><svg class="icon sm" viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="12" rx="2"/><path d="M12 7V4M8 12h.01M16 12h.01"/></svg>Claude</span><span class="chip running"><span class="dot"></span>running</span></div></div></li>
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Summarize this week's commits</div>
+              <div class="t-sub"><span class="chip ai"><svg class="icon sm" viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="12" rx="2"/><path d="M12 7V4M8 12h.01M16 12h.01"/></svg>Claude</span><span class="chip due ok">queued</span></div></div></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MODEL C: HYBRID ============ -->
+  <section class="panel" id="panel-c" role="tabpanel" aria-labelledby="tab-c">
+    <div class="board">
+      <div class="card cal">
+        <div class="cardhead"><h2>Thursday 27 August</h2><span class="meta">events, plus tasks you chose to schedule</span></div>
+        <div class="cal-scroll">
+          <div class="cal-grid" id="grid-c" style="height: 784px;">
+            <div class="lane" style="position:absolute; left: 66px; right: 16px; top: 0; bottom: 0;">
+              <div class="block event" style="top: 56px; height: 52px;"><span class="b-time">08:00 to 09:00</span><div class="b-title">Gym</div></div>
+              <div class="block taskblock" style="top: 140px; height: 80px;"><span class="b-time">09:30 to 11:00</span><div class="b-title"><svg class="icon sm" viewBox="0 0 24 24"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg>Deep work: spec review</div></div>
+              <div class="block event" style="top: 308px; height: 52px;"><span class="b-time">12:30 to 13:30</span><div class="b-title">Lunch with Marta</div></div>
+              <div class="block taskblock" style="top: 392px; height: 80px;"><span class="b-time">14:00 to 15:30</span><div class="b-title"><svg class="icon sm" viewBox="0 0 24 24"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg>Write v1 phasing notes</div></div>
+              <div class="block event" style="top: 672px; height: 80px;"><span class="b-time">19:00 to 20:30</span><div class="b-title">Dinner at parents'</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card groups">
+        <div class="cardhead"><h2>To-dos</h2><span class="meta">schedule only what needs a slot</span></div>
+        <h3>Today</h3>
+        <ul class="tasks">
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Deep work: spec review</div>
+              <div class="t-sub"><span class="chip proj">Calendar app</span><span class="chip time">09:30 to 11:00</span></div></div></li>
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Write v1 phasing notes</div>
+              <div class="t-sub"><span class="chip proj">Calendar app</span><span class="chip time">14:00 to 15:30</span></div></div></li>
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Review Claude's research</div>
+              <div class="t-sub"><span class="chip proj">Calendar app</span><span class="chip review">needs your review</span></div></div>
+            <button class="plan-btn" type="button">Give it a slot</button></li>
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Reply to Alex about the trip</div>
+              <div class="t-sub"><span class="chip proj">Life</span></div></div>
+            <button class="plan-btn" type="button">Give it a slot</button></li>
+        </ul>
+        <h3>This week</h3>
+        <ul class="tasks">
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Book dentist appointment</div>
+              <div class="t-sub"><span class="chip proj">Life</span><span class="chip due">due Fri</span></div></div></li>
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Compare hosting options</div>
+              <div class="t-sub"><span class="chip proj">Calendar app</span><span class="chip due ok">due Sat</span></div></div></li>
+        </ul>
+        <h3>Delegated to Claude</h3>
+        <ul class="tasks">
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Domain model draft</div>
+              <div class="t-sub"><span class="chip ai"><svg class="icon sm" viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="12" rx="2"/><path d="M12 7V4M8 12h.01M16 12h.01"/></svg>Claude</span><span class="chip running"><span class="dot"></span>running</span></div></div></li>
+          <li class="task-row"><span class="check" role="checkbox" aria-checked="false" tabindex="0"><svg class="icon sm" viewBox="0 0 24 24" style="stroke:#fff"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div class="t-main"><div class="t-title">Summarize this week's commits</div>
+              <div class="t-sub"><span class="chip ai"><svg class="icon sm" viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="12" rx="2"/><path d="M12 7V4M8 12h.01M16 12h.01"/></svg>Claude</span><span class="chip due ok">queued</span></div></div></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="legend">
+    <span><span class="swatch ev"></span>Fixed event</span>
+    <span><span class="swatch tk"></span>Your planned task</span>
+    <span><span class="swatch aiw"></span>Claude working for you</span>
+  </div>
+</div>
+
+<script>
+  // Hour lines for both calendar grids: 07:00 to 21:00, 56px per hour
+  function paintHours(gridId, labelLeft) {
+    var grid = document.getElementById(gridId);
+    if (!grid) return;
+    for (var h = 7; h <= 21; h++) {
+      var top = (h - 7) * 56;
+      var line = document.createElement('div');
+      line.className = 'hour';
+      line.style.top = top + 'px';
+      var label = document.createElement('span');
+      label.textContent = (h < 10 ? '0' + h : h) + ':00';
+      if (labelLeft) label.style.left = labelLeft;
+      line.appendChild(label);
+      grid.insertBefore(line, grid.firstChild);
+    }
+    var now = document.createElement('div');
+    now.className = 'nowline';
+    now.style.top = ((15.25 - 7) * 56) + 'px'; // 15:15
+    grid.appendChild(now);
+  }
+  paintHours('grid-a');
+  paintHours('grid-c');
+
+  var descs = {
+    'tab-a': 'The calendar is the plan. Tasks live in a backlog until you drag them onto the day as blocks. Claude’s runs occupy their own lane beside yours.',
+    'tab-b': 'The calendar holds only real events. To-dos are lists with due dates; you work from the list in whatever order fits the gaps.',
+    'tab-c': 'Lists by default, blocks by choice. Most tasks stay in the list; the ones that need protected time get a slot on the calendar.'
+  };
+  var tabs = document.querySelectorAll('.tab');
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      tabs.forEach(function (t) {
+        t.setAttribute('aria-selected', String(t === tab));
+        document.getElementById(t.getAttribute('aria-controls')).classList.toggle('active', t === tab);
+      });
+      document.getElementById('tabdesc').textContent = descs[tab.id];
+    });
+  });
+</script>
+</body>
+</html>
