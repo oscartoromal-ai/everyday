@@ -30,13 +30,13 @@ The spec covers the domain model, the planning interaction model, AI integration
 - [v1 phasing: what ships first vs later](tickets/002-v1-phasing.md): v1 = hybrid planner with recurrence (events and tasks) plus the MCP planner interface; v2 auto session capture; then goals, habits, reviews in that order.
 - [Decision: sync with Google Calendar or self-contained](tickets/006-google-sync-decision.md): no Google integration at all; the real target is Oscar's corporate Microsoft 365 work calendar, read-only, now its own research + decision tickets.
 - [Research: Outlook/Microsoft 365 work calendar read integration](tickets/011-research-outlook-calendar.md): Graph delegated read likely hits an admin-approval wall (personal-tenant registration does not bypass it); the OWA publish-calendar ICS route is a self-service probe with hours-scale freshness lag; EWS is retiring; an hour of probing settles which routes the tenant allows.
+- [Decision: AI integration architecture](tickets/007-ai-integration-decision.md): FastMCP mounted in the FastAPI app (Claude Code only in v1); auto capture is project-plan MCP tools as the semantic channel plus machine-wide lifecycle hooks with disk spool as the deterministic trace; the app DB is canonical for cross-project plan state.
 
 ## Not yet specified
 
 - Habit and routine mechanics (streaks, scheduling, checkoff UX, relation to v1 recurring tasks). Now placed in v4; sharpens as that phase nears and the domain model lands.
 - Weekly/monthly review and reflection flow. Now placed in v5; sharpens as that phase nears.
-- AI nudging and notifications (how the planner reaches Oscar proactively). Sharpens after the AI integration decision.
-- Security and auth model for a local app that AI agents can write to. Sharpens after the AI integration and architecture decisions.
+- Security and auth model for a local app that AI agents can write to. Sharpens after the architecture decision (the AI integration side is now decided).
 - Reachability from the phone (remote access to the local web app). Sharpens after architecture.
 
 ## Out of scope
