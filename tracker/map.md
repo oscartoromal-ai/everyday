@@ -31,6 +31,7 @@ The spec covers the domain model, the planning interaction model, AI integration
 - [Decision: sync with Google Calendar or self-contained](tickets/006-google-sync-decision.md): no Google integration at all; the real target is Oscar's corporate Microsoft 365 work calendar, read-only, now its own research + decision tickets.
 - [Research: Outlook/Microsoft 365 work calendar read integration](tickets/011-research-outlook-calendar.md): Graph delegated read likely hits an admin-approval wall (personal-tenant registration does not bypass it); the OWA publish-calendar ICS route is a self-service probe with hours-scale freshness lag; EWS is retiring; an hour of probing settles which routes the tenant allows.
 - [Decision: AI integration architecture](tickets/007-ai-integration-decision.md): FastMCP mounted in the FastAPI app (Claude Code only in v1); auto capture is project-plan MCP tools as the semantic channel plus machine-wide lifecycle hooks with disk spool as the deterministic trace; the app DB is canonical for cross-project plan state.
+- [Domain model: entities, relationships, and states](tickets/008-domain-model.md): Project, Milestone (v1, Oscar's call), Task (do-date + due-date, one shared lifecycle with owner field), Block as its own entity, one Event entity with source for external events, recurrence as templates materializing real instances; goals/habits/reviews bolt on without core migration.
 
 ## Not yet specified
 
