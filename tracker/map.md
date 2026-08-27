@@ -29,6 +29,7 @@ The spec covers the domain model, the planning interaction model, AI integration
 - [Planning model: how todos and the calendar interact](tickets/001-planning-model.md): hybrid - lists by default, calendar blocks by choice; Claude's work is a status list section, not a calendar lane; missed blocks fall back to the list with a "missed" marker plus a ghost outline on today's calendar.
 - [v1 phasing: what ships first vs later](tickets/002-v1-phasing.md): v1 = hybrid planner with recurrence (events and tasks) plus the MCP planner interface; v2 auto session capture; then goals, habits, reviews in that order.
 - [Decision: sync with Google Calendar or self-contained](tickets/006-google-sync-decision.md): no Google integration at all; the real target is Oscar's corporate Microsoft 365 work calendar, read-only, now its own research + decision tickets.
+- [Research: Outlook/Microsoft 365 work calendar read integration](tickets/011-research-outlook-calendar.md): Graph delegated read likely hits an admin-approval wall (personal-tenant registration does not bypass it); the OWA publish-calendar ICS route is a self-service probe with hours-scale freshness lag; EWS is retiring; an hour of probing settles which routes the tenant allows.
 
 ## Not yet specified
 
