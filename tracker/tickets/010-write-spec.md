@@ -4,7 +4,7 @@ title: "Assemble the build-ready spec"
 labels: [wayfinder:task]
 status: open
 assignee:
-blocked-by: [6, 7, 8, 9]
+blocked-by: [6, 7, 8, 9, 14]
 parent: map
 ---
 

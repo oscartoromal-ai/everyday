@@ -32,6 +32,7 @@ The spec covers the domain model, the planning interaction model, AI integration
 - [Research: Outlook/Microsoft 365 work calendar read integration](tickets/011-research-outlook-calendar.md): Graph delegated read likely hits an admin-approval wall (personal-tenant registration does not bypass it); the OWA publish-calendar ICS route is a self-service probe with hours-scale freshness lag; EWS is retiring; an hour of probing settles which routes the tenant allows.
 - [Decision: AI integration architecture](tickets/007-ai-integration-decision.md): FastMCP mounted in the FastAPI app (Claude Code only in v1); auto capture is project-plan MCP tools as the semantic channel plus machine-wide lifecycle hooks with disk spool as the deterministic trace; the app DB is canonical for cross-project plan state.
 - [Domain model: entities, relationships, and states](tickets/008-domain-model.md): Project, Milestone (v1, Oscar's call), Task (do-date + due-date, one shared lifecycle with owner field), Block as its own entity, one Event entity with source for external events, recurrence as templates materializing real instances; goals/habits/reviews bolt on without core migration.
+- [Decision: work calendar integration mechanism](tickets/012-work-calendar-decision.md): ICS-first behind a source interface (morning-snapshot freshness makes the lag moot), Graph PKCE as fallback; titles+times+location stored only; branch picked by the probe task, no IT ask pre-committed.
 
 ## Not yet specified
 
