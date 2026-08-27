@@ -35,6 +35,7 @@ The spec covers the domain model, the planning interaction model, AI integration
 - [Decision: work calendar integration mechanism](tickets/012-work-calendar-decision.md): ICS-first behind a source interface (morning-snapshot freshness makes the lag moot), Graph PKCE as fallback; titles+times+location stored only; branch picked by the probe task, no IT ask pre-committed.
 - [Architecture: framework, storage, frontend, deployment](tickets/009-architecture.md): FastAPI + SQLite/WAL (SQLAlchemy, Alembic); Jinja+HTMX with a JS-island calendar; in-process APScheduler jobs; auto-start Windows service with daily cloud-synced SQLite snapshots.
 - [Decision: AI nudging and notifications](tickets/013-ai-nudging.md): four rule-based triggers (missed blocks, activity-without-plan-update, upcoming dues/milestones, review backlog), no Claude in the nudge loop; in-app nudge center plus phone push via relay; morning digest with urgent breakthrough and quiet hours.
+- [Decision: security and remote access](tickets/015-security-remote-access.md): Tailscale for phone access; network boundary is the auth (no login, MCP/REST authless); Origin/Host checks + CSRF tokens against localhost attacks; managed ntfy.sh relay; OS permissions for data at rest.
 
 ## Not yet specified
 
