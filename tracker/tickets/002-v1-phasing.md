@@ -24,6 +24,7 @@ Phasing decided with Oscar:
   Recurrence ships in v1 for **both events and tasks** (weekly gym, bins every Tuesday); habits proper still come later.
 - **v2**: automatic capture of Claude Code session work (hooks, report_work tool - per the [session capture research](../research/session-capture.md)).
 - **v3**: goals and milestones that projects roll up into.
+  Amendment (2026-08-27): milestones moved into v1 as dated checkpoints inside projects, per Oscar's call in [Domain model](008-domain-model.md); v3 keeps goals.
 - **v4**: habits and routines (may absorb or extend recurring tasks).
 - **v5**: reviews and reflection flows.
 
