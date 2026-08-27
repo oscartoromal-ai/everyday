@@ -3,7 +3,7 @@ id: 14
 title: "Probe the work tenant's calendar routes"
 labels: [wayfinder:task]
 status: open
-assignee:
+assignee: oscar (probe session)
 blocked-by: []
 parent: map
 ---
