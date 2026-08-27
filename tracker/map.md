@@ -27,11 +27,12 @@ The spec covers the domain model, the planning interaction model, AI integration
 - [Research: how Claude Code sessions can auto-report work](tickets/004-research-session-capture.md): hooks POSTing to localhost are the deterministic backbone, an app-exposed MCP `report_work` tool adds task-level semantics; telemetry and transcript-tailing are weaker options.
 - [Research: how Claude acts as planner over the app](tickets/005-research-mcp-integration.md): FastMCP 3.x mounted inside a FastAPI app sharing one database serves all three intake paths; local MCP needs no auth, claude.ai reach can be deferred behind HTTPS+OAuth later.
 - [Planning model: how todos and the calendar interact](tickets/001-planning-model.md): hybrid - lists by default, calendar blocks by choice; Claude's work is a status list section, not a calendar lane; missed blocks fall back to the list with a "missed" marker plus a ghost outline on today's calendar.
+- [v1 phasing: what ships first vs later](tickets/002-v1-phasing.md): v1 = hybrid planner with recurrence (events and tasks) plus the MCP planner interface; v2 auto session capture; then goals, habits, reviews in that order.
 
 ## Not yet specified
 
-- Habit and routine mechanics (streaks, scheduling, checkoff UX). Sharpens once v1 phasing decides where habits land.
-- Weekly/monthly review and reflection flow. Sharpens once v1 phasing decides where reviews land.
+- Habit and routine mechanics (streaks, scheduling, checkoff UX, relation to v1 recurring tasks). Now placed in v4; sharpens as that phase nears and the domain model lands.
+- Weekly/monthly review and reflection flow. Now placed in v5; sharpens as that phase nears.
 - AI nudging and notifications (how the planner reaches Oscar proactively). Sharpens after the AI integration decision.
 - Security and auth model for a local app that AI agents can write to. Sharpens after the AI integration and architecture decisions.
 - Reachability from the phone (remote access to the local web app). Sharpens after architecture.
