@@ -21,7 +21,11 @@ The spec covers the domain model, the planning interaction model, AI integration
 
 ## Decisions so far
 
-<!-- one line per closed ticket: [title](../tickets/file.md): gist -->
+<!-- one line per closed ticket: [title](tickets/file.md): gist -->
+
+- [Research: Google Calendar integration options](tickets/003-research-google-calendar.md): integration is workable via syncToken polling (push channels are off the table locally); auth needs a one-time publish-unverified Google Cloud project; read-only paths are cheap, two-way sync is a real sync-engine project.
+- [Research: how Claude Code sessions can auto-report work](tickets/004-research-session-capture.md): hooks POSTing to localhost are the deterministic backbone, an app-exposed MCP `report_work` tool adds task-level semantics; telemetry and transcript-tailing are weaker options.
+- [Research: how Claude acts as planner over the app](tickets/005-research-mcp-integration.md): FastMCP 3.x mounted inside a FastAPI app sharing one database serves all three intake paths; local MCP needs no auth, claude.ai reach can be deferred behind HTTPS+OAuth later.
 
 ## Not yet specified
 
