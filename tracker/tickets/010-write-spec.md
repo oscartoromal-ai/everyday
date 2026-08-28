@@ -3,7 +3,7 @@ id: 10
 title: "Assemble the build-ready spec"
 labels: [wayfinder:task]
 status: open
-assignee:
+assignee: oscar (spec session)
 blocked-by: [6, 7, 8, 9, 13, 14, 15]
 parent: map
 ---
