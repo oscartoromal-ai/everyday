@@ -1,7 +1,7 @@
 ---
 title: "Personal Calendar: way to a build-ready spec"
 labels: [wayfinder:map]
-status: open
+status: closed
 ---
 
 # Personal Calendar: way to a build-ready spec
@@ -37,6 +37,7 @@ The spec covers the domain model, the planning interaction model, AI integration
 - [Decision: AI nudging and notifications](tickets/013-ai-nudging.md): four rule-based triggers (missed blocks, activity-without-plan-update, upcoming dues/milestones, review backlog), no Claude in the nudge loop; in-app nudge center plus phone push via relay; morning digest with urgent breakthrough and quiet hours.
 - [Decision: security and remote access](tickets/015-security-remote-access.md): Tailscale for phone access; network boundary is the auth (no login, MCP/REST authless); Origin/Host checks + CSRF tokens against localhost attacks; managed ntfy.sh relay; OS permissions for data at rest.
 - [Probe the work tenant's calendar routes](tickets/014-probe-work-tenant.md): ICS branch is live; "Publish a calendar" present, published at "titles and locations", feed verified by anonymous GET (555 events, titles+locations, no bodies/attendees); URL stored git-ignored in `local/`; lag unmeasured (moot per the work-calendar decision).
+- [Assemble the build-ready spec](tickets/010-write-spec.md): the destination, reached; [SPEC.md](../SPEC.md) at the repo root, reviewed by Oscar. **This map is complete**; implementation starts from the spec as a fresh effort.
 
 ## Not yet specified
 
