@@ -1,0 +1,23 @@
+<li class="task-row{% if row.done %} done{% endif %}" id="task-{{ row.task.id }}">
+  <input type="checkbox" class="task-check" {% if row.done %}checked{% endif %}
+         hx-post="/ui/tasks/{{ row.task.id }}/toggle"
+         hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML"
+         aria-label="Mark “{{ row.task.title }}” {% if row.done %}not done{% else %}done{% endif %}">
+  <div class="task-body">
+    <button type="button" class="task-title-btn"
+            hx-get="/ui/tasks/{{ row.task.id }}/edit"
+            hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML">
+      <span class="task-title">{{ row.task.title }}</span>
+    </button>
+    {% if row.chip or row.project_name or row.due_label or row.missed %}
+    <div class="task-meta">
+      {% if row.chip %}
+      <span class="chip {{ row.chip_class }}">{% if row.chip_class == "running" %}<span class="dot"></span>{% endif %}{{ row.chip }}</span>
+      {% endif %}
+      {% if row.project_name %}<span class="project">{{ row.project_name }}</span>{% endif %}
+      {% if row.due_label %}<span class="due{% if row.due_soon %} soon{% endif %}">{{ row.due_label }}</span>{% endif %}
+      {% if row.missed %}<span class="missed">{{ row.missed_label }}</span>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</li>

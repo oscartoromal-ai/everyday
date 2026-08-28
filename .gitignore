@@ -1,2 +1,18 @@
 # Local secrets and machine-specific config; never committed.
 local/
+
+# Runtime data: SQLite database, WAL files, hook spool.
+data/
+
+# Daily backup snapshots.
+backups/
+
+# Design-review artifacts (screenshots include work-calendar content).
+.impeccable/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/

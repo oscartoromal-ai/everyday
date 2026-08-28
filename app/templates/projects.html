@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Projects · Personal Calendar{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Projects</h1>
+</header>
+
+<div id="project-cards">
+  {% for card in cards %}{% include "partials/project_card.html" %}{% endfor %}
+</div>
+{% if not cards %}
+<p class="empty">No projects yet. Start one below; milestones and tasks hang off it.</p>
+{% endif %}
+
+<form class="inline-form"
+      hx-post="/ui/projects"
+      hx-target="#project-cards" hx-swap="beforeend"
+      hx-on::after-request="if (event.detail.successful) this.reset()">
+  <div class="field" style="flex: 2;">
+    <input name="name" placeholder="Start a project…" aria-label="Project name" required>
+  </div>
+  <button type="submit" class="btn primary">Create</button>
+</form>
+{% endblock %}

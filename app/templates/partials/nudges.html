@@ -1,0 +1,33 @@
+{% if nudges %}
+<section class="nudge-center" id="nudge-center" aria-label="Nudges">
+  <ul class="nudge-list">
+    {% for n in nudges %}
+    <li class="nudge {{ n.type.value }}" id="nudge-{{ n.id }}">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        {% if n.type.value == "missed_block" %}
+        <circle cx="10" cy="10" r="7"/><path d="M10 6.5V10l2.5 2"/>
+        {% elif n.type.value == "needs_review" %}
+        <path d="M3 10s2.5-4.5 7-4.5S17 10 17 10s-2.5 4.5-7 4.5S3 10 3 10z"/><circle cx="10" cy="10" r="2"/>
+        {% else %}
+        <path d="M10 3v9"/><circle cx="10" cy="15.5" r="0.9" fill="currentColor" stroke="none"/>
+        {% endif %}
+      </svg>
+      <span class="nudge-text">{{ n.message }}</span>
+      {% if n.type.value == "missed_block" %}
+      <a class="nudge-action" href="/calendar">Replan</a>
+      {% elif n.task_id %}
+      <button type="button" class="nudge-action"
+              hx-get="/ui/tasks/{{ n.task_id }}/edit"
+              hx-target="#nudge-editor-slot" hx-swap="innerHTML">Open</button>
+      {% endif %}
+      <button type="button" class="nudge-dismiss" aria-label="Dismiss"
+              hx-post="/ui/nudges/{{ n.id }}/dismiss"
+              hx-target="#nudge-{{ n.id }}" hx-swap="outerHTML swap:120ms">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>
+      </button>
+    </li>
+    {% endfor %}
+  </ul>
+  <ul class="task-list" id="nudge-editor-slot"></ul>
+</section>
+{% endif %}

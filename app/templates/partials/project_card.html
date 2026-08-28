@@ -1,0 +1,27 @@
+<article class="project-card" id="project-{{ card.project.id }}">
+  <header>
+    <h2>{{ card.project.name }}</h2>
+    <span class="status {{ card.project.status.value }}">
+      {% if card.project.status.value == "active" %}{{ card.open_count }} open{% else %}{{ card.project.status.value }}{% endif %}
+    </span>
+  </header>
+  {% if card.project.notes %}<p class="notes">{{ card.project.notes }}</p>{% endif %}
+  <ul class="milestones" id="milestones-{{ card.project.id }}">
+    {% for m in card.milestones %}{% include "partials/milestone_row.html" %}{% endfor %}
+  </ul>
+  <details class="expander">
+    <summary class="add-inline">Add a milestone</summary>
+    <form class="inline-form"
+          hx-post="/ui/projects/{{ card.project.id }}/milestones"
+          hx-target="#milestones-{{ card.project.id }}" hx-swap="beforeend"
+          hx-on::after-request="if (event.detail.successful) { this.reset(); this.closest('details').open = false; }">
+      <div class="field" style="flex: 2;">
+        <input name="name" placeholder="Milestone name" aria-label="Milestone name" required>
+      </div>
+      <div class="field">
+        <input type="date" name="target_date" aria-label="Target date">
+      </div>
+      <button type="submit" class="btn quiet">Add</button>
+    </form>
+  </details>
+</article>

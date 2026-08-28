@@ -1,0 +1,74 @@
+<div class="calendar-grid" id="calendar-grid"
+     data-week="{{ grid.week_start.isoformat() }}"
+     data-day-start="{{ grid.day_start_hour }}"
+     data-hour-px="{{ grid.hour_px }}"
+     hx-get="/calendar/grid?week={{ grid.week_start.isoformat() }}"
+     hx-trigger="calendar:refresh from:body"
+     hx-swap="outerHTML">
+  <div class="grid-head">
+    <div class="gutter-head"></div>
+    {% for day in grid.days %}
+    <div class="day-head{% if day.is_today %} today{% endif %}">
+      <span class="dow">{{ day.date.strftime("%a") }}</span>
+      <span class="dom">{{ day.date.day }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% set has_all_day = grid.days | selectattr("all_day") | list | length > 0 %}
+  {% if has_all_day %}
+  <div class="grid-allday">
+    <div class="gutter-allday"></div>
+    {% for day in grid.days %}
+    <div class="day-allday">
+      {% for e in day.all_day %}
+      <span class="allday-pill {{ e.source }}">{{ e.title }}</span>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="grid-body" style="height: {{ grid.grid_px }}px;">
+    <div class="gutter">
+      {% for hour in grid.hours %}
+      <div class="hour-label" style="top: {{ loop.index0 * grid.hour_px }}px;">{{ "%02d:00" | format(hour) }}</div>
+      {% endfor %}
+    </div>
+    {% for day in grid.days %}
+    <div class="day-col{% if day.is_today %} today{% endif %}" data-date="{{ day.date.isoformat() }}">
+      {% for hour in grid.hours %}{% if not loop.first %}
+      <div class="hour-line" style="top: {{ loop.index0 * grid.hour_px }}px;"></div>
+      {% endif %}{% endfor %}
+      {% if day.is_today and grid.now_px is not none %}
+      <div class="now-line" style="top: {{ grid.now_px }}px;"></div>
+      {% endif %}
+      {% for item in day.entries %}
+      {% set lane_w = 100 / item.lanes %}
+      {% if item.kind == "event" %}
+      <div class="cal-item event {{ item.source }}"
+           style="top: {{ item.top }}px; height: {{ item.height }}px; left: calc({{ item.lane * lane_w }}% + 2px); width: calc({{ lane_w }}% - 5px);"
+           title="{{ item.title }}{% if item.location %} · {{ item.location }}{% endif %}">
+        <span class="item-title">{{ item.title }}</span>
+        <span class="item-time">{{ item.time_label }}{% if item.location_label %} · {{ item.location_label }}{% endif %}</span>
+      </div>
+      {% elif item.kind == "ghost" %}
+      <div class="cal-item ghost"
+           style="top: {{ item.top }}px; height: {{ item.height }}px; left: calc({{ item.lane * lane_w }}% + 2px); width: calc({{ lane_w }}% - 5px);"
+           title="Missed: {{ item.title }}">
+        <span class="item-title">{{ item.title }}</span>
+      </div>
+      {% else %}
+      <div class="cal-item block"
+           data-block-id="{{ item.id }}" data-state="{{ item.state }}"
+           data-start="{{ item.start_iso }}" data-end="{{ item.end_iso }}"
+           style="top: {{ item.top }}px; height: {{ item.height }}px; left: calc({{ item.lane * lane_w }}% + 2px); width: calc({{ lane_w }}% - 5px);"
+           title="{{ item.title }}">
+        <span class="item-title">{{ item.title }}</span>
+        <span class="item-time">{{ item.time_label }}</span>
+        {% if item.state == "planned" %}<div class="resize-handle" aria-hidden="true"></div>{% endif %}
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</div>

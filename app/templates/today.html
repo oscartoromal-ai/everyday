@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Today · Personal Calendar{% endblock %}
+{% block content %}
+<header class="day-header">
+  <div class="weekday">{{ today.strftime("%A") }}</div>
+  <div class="rest">
+    {{ today.day }} {{ today.strftime("%B %Y") }}
+    {% set open_count = rows | rejectattr("done") | list | length %}
+    · {% if open_count == 0 %}nothing open{% elif open_count == 1 %}1 task open{% else %}{{ open_count }} tasks open{% endif %}
+  </div>
+</header>
+
+{% with nudges = nudges %}{% include "partials/nudges.html" %}{% endwith %}
+
+<section class="list-section">
+  <h2>Today</h2>
+  <ul class="task-list" id="today-list">
+    {% for row in rows %}{% include "partials/task_row.html" %}{% endfor %}
+  </ul>
+  {% if not rows %}
+  <p class="empty">Nothing planned for today. Pull something in from the backlog, or add it below.</p>
+  {% endif %}
+  {% with target = "today-list", planned_for = today, placeholder = "Add a task for today…" %}
+    {% include "partials/quick_add.html" %}
+  {% endwith %}
+</section>
+
+{% if delegated %}
+<section class="list-section">
+  <h2>Delegated to Claude <span class="count">{{ delegated | length }}</span></h2>
+  <ul class="task-list" id="delegated-list">
+    {% for row in delegated %}{% include "partials/task_row.html" %}{% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

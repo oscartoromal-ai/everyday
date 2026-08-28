@@ -1,0 +1,28 @@
+# Non-secret app configuration. Machine-specific secrets live in local/ (git-ignored).
+
+[server]
+host = "127.0.0.1"
+port = 8377
+
+[storage]
+db_path = "data/personal-calendar.db"
+
+[work_calendar]
+# Path to the git-ignored file holding the published ICS feed URL.
+ics_url_file = "local/work-calendar-ics-url.txt"
+# Poll times, local wall clock, morning-weighted.
+poll_times = ["06:30", "12:30", "16:30"]
+
+[push]
+# Managed ntfy.sh; the unguessable topic and access token live in local/.
+ntfy_server = "https://ntfy.sh"
+ntfy_topic_file = "local/ntfy-topic.txt"
+ntfy_token_file = "local/ntfy-token.txt"
+# No break-through pushes between these local times.
+quiet_hours = ["22:30", "07:30"]
+digest_time = "07:45"
+
+[backup]
+# Point this at a cloud-synced folder; actual path TBD by Oscar.
+dir = "backups"
+retain = 30

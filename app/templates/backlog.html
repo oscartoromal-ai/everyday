@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Backlog · Personal Calendar{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Backlog</h1>
+</header>
+
+<section class="list-section">
+  <h2>Someday <span class="count">{{ rows | length }}</span></h2>
+  <ul class="task-list" id="backlog-list">
+    {% for row in rows %}{% include "partials/task_row.html" %}{% endfor %}
+  </ul>
+  {% if not rows %}
+  <p class="empty">The backlog is empty. Capture anything without a date below.</p>
+  {% endif %}
+  {% with target = "backlog-list", planned_for = None, placeholder = "Capture a task…" %}
+    {% include "partials/quick_add.html" %}
+  {% endwith %}
+</section>
+{% endblock %}
