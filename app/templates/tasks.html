@@ -10,6 +10,9 @@
         {% if open_count == 0 %}nothing open{% elif open_count == 1 %}1 task open{% else %}{{ open_count }} tasks open{% endif %}
         {% if undated_count %}· {{ undated_count }} without a day{% endif %}
       </div>
+      <p class="keys-hint">
+        <kbd>↑</kbd><kbd>↓</kbd> move · <kbd>T</kbd> today · <kbd>M</kbd> tomorrow · <kbd>D</kbd> pick a day · <kbd>X</kbd> done · <kbd>E</kbd> edit
+      </p>
     </div>
     <div class="segmented" role="group" aria-label="Group tasks">
       <a href="/?view=date" {% if view == "date" %}aria-current="true"{% endif %}>By date</a>
@@ -34,7 +37,7 @@
       {% for card in project_cards %}{% include "partials/project_card.html" %}{% endfor %}
     </div>
     {# Styled as a project card, so it reads as a sibling of the ones above. #}
-    <section class="project-card" id="group-loose">
+    <section class="project-card" id="group-loose" data-file-project="">
       <header>
         <h2>No project</h2>
         <span class="open-count">{% if loose_rows | length == 1 %}1 open{% elif loose_rows %}{{ loose_rows | length }} open{% endif %}</span>

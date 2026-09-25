@@ -1,30 +1,11 @@
 from datetime import date, timedelta
 
-import pytest
-from fastapi.testclient import TestClient
-
-from app.db import get_db
-from app.main import create_app
 from app.models import TaskOwner, TaskStatus
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 from app.ui.views import design_system
 
 TODAY = date.today()
-
-
-@pytest.fixture
-def client(db) -> TestClient:
-    app = create_app()
-
-    def override() -> object:
-        yield db
-
-    app.dependency_overrides[get_db] = override
-    client = TestClient(app)
-    client.get("/")  # obtain the CSRF cookie
-    client.headers["X-CSRF"] = client.cookies.get("csrf", "")
-    return client
 
 
 def test_today_page_shows_planned_and_delegated(client, db) -> None:

@@ -64,7 +64,7 @@
       </div>
       {% else %}
       <div class="cal-item block{{ wrap }}" style="{{ geometry }}"
-           data-block-id="{{ item.id }}" data-state="{{ item.state }}"
+           data-block-id="{{ item.id }}" data-task-id="{{ item.task_id }}" data-state="{{ item.state }}"
            data-start="{{ item.start_iso }}" data-end="{{ item.end_iso }}"
            title="{{ item.title }}">
         <span class="item-title">{{ item.title }}</span>
@@ -79,6 +79,7 @@
   <template id="block-menu-template">
     <div class="block-menu" role="menu">
       <div class="block-menu-title"></div>
+      <div class="block-menu-checklist" hx-trigger="load" hx-headers='{"X-Row-Context": "block"}'></div>
       <button type="button" class="btn primary" data-action="complete">Completed</button>
       <button type="button" class="btn danger-quiet" data-action="delete">Remove block</button>
     </div>

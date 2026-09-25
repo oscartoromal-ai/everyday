@@ -12,11 +12,13 @@ Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 ```
 uv sync
 uv run alembic upgrade head
-uv run uvicorn app.main:app --reload --port 8377
+uv run watchfiles --filter python "uvicorn app.main:app --port 8378" app
 ```
 
-The app serves at `http://127.0.0.1:8377`.
-Plain `uvicorn --reload` is the quickest loop for local development (auto-reload, single interface, no scheduler).
+The dev server serves at `http://127.0.0.1:8378`, beside the always-on app on 8377, and restarts when a Python file under `app/` changes (templates and static files are picked up without a restart).
+It runs a single interface and no scheduler.
+It opens the same database as the always-on app unless `PC_STORAGE__DB_PATH` points it at a copy.
+Restarts go through `watchfiles`, not `uvicorn --reload`: on Windows, uvicorn restarts its worker with a console Ctrl+C event, and in a terminal without a real console (Git Bash, a background job, an agent's shell) that event reaches nobody, so the reload waits forever while the old code keeps serving.
 Avoid `fastapi dev` on Windows: its banner prints emoji that crash a cp1252 console.
 To run it the way it runs in production, with the scheduler and every configured bind host, use the installed script instead:
 

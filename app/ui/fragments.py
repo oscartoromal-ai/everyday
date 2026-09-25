@@ -19,10 +19,22 @@ from app.ui.views import milestone_ctx, project_card_ctx, projects_list_ctx, row
 router = APIRouter(prefix="/ui", include_in_schema=False)
 
 
+def _row_context(request: Request) -> str:
+    """Where a task is being shown, as its page marks its requests: "plan"
+    (the Tasks page), "block" (a calendar block's menu), or "" (a list)."""
+    return request.headers.get("X-Row-Context", "")
+
+
 def _planning(request: Request) -> bool:
-    """The Tasks page marks its requests, so what it re-renders stays in
-    planning form (do-date buttons, dates always shown)."""
-    return request.headers.get("X-Row-Context") == "plan"
+    """On the Tasks page, re-rendered rows stay in planning form (do-date
+    buttons, dates always shown)."""
+    return _row_context(request) == "plan"
+
+
+def _checklist_response(request: Request, db, task_id: int) -> HTMLResponse:  # noqa: ANN001
+    task = tasks_svc.get_task(db, task_id)
+    context = {"request": request, "row": row_ctx(task, datetime.now())}
+    return templates.TemplateResponse(request, "partials/block_checklist.html", context)
 
 
 def _row_response(
@@ -82,10 +94,21 @@ def toggle_subtask(
     index: int,
     text: Annotated[str, Form()],
 ):
-    # A stale toggle changes nothing; either way the fresh row shows the truth.
+    # A stale toggle changes nothing; either way the fresh render shows the truth.
     tasks_svc.toggle_subtask(db, task_id, index, text)
     db.commit()
+    if _row_context(request) == "block":
+        response = _checklist_response(request, db, task_id)
+        # The task's row elsewhere on the page (Today's list) shows the new count.
+        response.headers["HX-Trigger"] = "tasks:changed"
+        return response
     return _row_response(request, db, task_id, expanded=True)
+
+
+@router.get("/tasks/{task_id}/checklist")
+def task_checklist(request: Request, db: DbSession, task_id: int):
+    """The sub-tasks alone, for a calendar block's menu."""
+    return _checklist_response(request, db, task_id)
 
 
 @router.post("/tasks/{task_id}/toggle")

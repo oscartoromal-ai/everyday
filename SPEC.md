@@ -37,7 +37,9 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   No date is the backlog, always shown and sorted deadlines first; a repeating series shows only its next occurrence (on Projects too); Claude's tasks stay in Delegated to Claude.
   A By date / By project switch (remembered) regroups the same tasks as Projects' cards (milestones, then other tasks, each card with its quick add and Add a milestone), followed by a No project card.
 - **Done folds away**: finished tasks leave their lists for a collapsed Done fold, under Today's list and at the foot of Tasks (the last 14 days), where unticking one sends it back.
-- **Sub-tasks and the calendar**: sub-tasks have no blocks of their own; a task's block is the time its checklist is worked. Milestones likewise attach to tasks, never sub-tasks.
+- **Sub-tasks and the calendar**: sub-tasks have no blocks of their own; a task's block is the time its checklist is worked, and the block's menu on the calendar lists the sub-tasks so they tick off there. Milestones likewise attach to tasks, never sub-tasks.
+- **Triage by keyboard**: on Tasks, arrow keys move a row cursor and single keys act on it (T today, M tomorrow, D pick a day, X done, E edit), the cursor moving on to the next row as each one is dated or finished.
+- **Filing by drag**: in By project (and on Projects) a task is dragged onto a milestone, another project, or No project to file it there.
 - **Today** puts the day's list beside a one-day timeline (events, blocks, ghosts), so the day is planned on one screen; dragging a task from the list onto the timeline gives it a block.
 - **Weeks** is the planning-ahead surface: six weeks at a glance, as a month-style grid or as one ruled row per day, Oscar's choice and remembered.
   Each day shows its planned tasks, deadlines, milestones, and personal events; the work calendar is condensed to a load figure (meetings and busy hours) rather than listed.

@@ -98,6 +98,175 @@
     }
   });
 
+  /* ---- Tasks: keyboard triage ---- */
+
+  // Up/Down (or J/K) move between rows; T today, M tomorrow, D pick a day,
+  // X done, E edit, Space opens the description. Dating or finishing a row
+  // regroups the page, and the cursor lands on the row that followed it, so
+  // a pass down No date never leaves the keyboard.
+  const TYPING = "input, textarea, select, [contenteditable]";
+  const rows = () => [...document.querySelectorAll("#task-groups .task-row[tabindex]")];
+  let landOn = null; // task id to focus once the page has regrouped
+
+  const neighbour = (row) => {
+    const all = rows();
+    const at = all.indexOf(row);
+    return all[at + 1] || all[at - 1] || null;
+  };
+  const move = (row, step) => {
+    const all = rows();
+    const at = all.indexOf(row);
+    const next = at === -1 ? all[0] : all[Math.max(0, Math.min(all.length - 1, at + step))];
+    next?.focus();
+    next?.scrollIntoView({ block: "nearest" });
+  };
+
+  document.addEventListener("keydown", (e) => {
+    if (!document.querySelector(".tasks-page")) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+    if (e.target.closest?.(TYPING)) return;
+    const row = e.target.closest?.("#task-groups .task-row[tabindex]");
+    const key = e.key.toLowerCase();
+
+    if (key === "arrowdown" || key === "j" || key === "arrowup" || key === "k") {
+      e.preventDefault();
+      move(row, key === "arrowdown" || key === "j" ? 1 : -1);
+      return;
+    }
+    if (!row) return;
+    const click = (selector) => {
+      const target = row.querySelector(selector);
+      if (!target) return false;
+      target.click();
+      return true;
+    };
+    const leaving = () => { landOn = neighbour(row)?.dataset.taskId ?? null; };
+
+    if (key === "t" || key === "m") {
+      e.preventDefault();
+      leaving();
+      if (!click(`[data-plan="${key === "t" ? "today" : "tomorrow"}"]`)) landOn = null;
+    } else if (key === "d") {
+      e.preventDefault();
+      leaving();
+      click("[data-pick-date]");
+    } else if (key === "x") {
+      e.preventDefault();
+      leaving();
+      click(".task-check");
+    } else if (key === "e" || key === "enter") {
+      e.preventDefault();
+      click(".task-title-btn");
+    } else if (key === " ") {
+      e.preventDefault();
+      click(".notes-toggle");
+    } else if (key === "escape") {
+      row.blur();
+    }
+  });
+
+  // Reaching for the mouse means the keyboard pass is over (and a cancelled
+  // date picker must not leave a landing spot for some later refresh).
+  document.addEventListener("pointerdown", () => { landOn = null; }, true);
+
+  // htmx:load fires for the regrouped list; put the cursor where it belongs.
+  document.addEventListener("htmx:load", (e) => {
+    if (!landOn || !e.detail.elt.matches?.("#task-groups")) return;
+    const row = document.getElementById(`task-${landOn}`);
+    landOn = null;
+    row?.focus();
+    row?.scrollIntoView({ block: "nearest" });
+  });
+
+  /* ---- project cards: drag a task onto a milestone, another project, or No project ---- */
+
+  // A card files into its project with no milestone; a milestone group into
+  // that milestone; the No project card clears both. The server validates
+  // (a milestone must belong to the task's project) and the lists re-render.
+  const fileTarget = (el) => el?.closest?.("[data-file-milestone], [data-file-project]");
+  const filing = (target) => {
+    const card = target.closest("[data-file-project]");
+    const project = card?.dataset.fileProject ? Number(card.dataset.fileProject) : null;
+    const milestone = target.dataset.fileMilestone ? Number(target.dataset.fileMilestone) : null;
+    return { project_id: project, milestone_id: milestone };
+  };
+
+  const toast = (message) => {
+    let el = document.querySelector(".cal-toast");
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "cal-toast";
+      el.setAttribute("role", "status");
+      document.body.appendChild(el);
+    }
+    el.textContent = message;
+    el.classList.add("show");
+    setTimeout(() => el.classList.remove("show"), 2600);
+  };
+
+  const armFiling = (root) => {
+    root.querySelectorAll?.("[data-file-project] .task-row[data-task-id]").forEach((row) => {
+      row.draggable = !row.classList.contains("done");
+    });
+  };
+  document.addEventListener("htmx:load", (e) => armFiling(e.detail.elt));
+
+  let filed = null; // {taskId, from: {project_id, milestone_id}}
+  let over = null;
+  const hover = (el) => {
+    if (over === el) return;
+    over?.classList.remove("drop-over");
+    over = el;
+    over?.classList.add("drop-over");
+  };
+
+  document.addEventListener("dragstart", (e) => {
+    const row = e.target.closest?.("[data-file-project] .task-row[draggable='true']");
+    if (!row) return;
+    filed = { taskId: row.dataset.taskId, from: filing(fileTarget(row)) };
+    e.dataTransfer.setData("text/plain", row.dataset.taskTitle);
+    e.dataTransfer.effectAllowed = "move";
+    row.classList.add("dragging");
+  });
+
+  document.addEventListener("dragover", (e) => {
+    if (!filed) return;
+    const target = fileTarget(e.target);
+    hover(target);
+    if (!target) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  });
+
+  document.addEventListener("drop", async (e) => {
+    if (!filed) return;
+    const target = fileTarget(e.target);
+    const { taskId, from } = filed;
+    filed = null;
+    hover(null);
+    if (!target) return;
+    e.preventDefault();
+    const to = filing(target);
+    if (to.project_id === from.project_id && to.milestone_id === from.milestone_id) return;
+    const res = await fetch(`/api/tasks/${taskId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "X-CSRF": window.csrfToken() },
+      body: JSON.stringify(to),
+    });
+    if (!res.ok) {
+      let detail = "Could not move that task.";
+      try { detail = (await res.json()).detail || detail; } catch { /* keep default */ }
+      toast(detail);
+    }
+    htmx.trigger(document.body, "tasks:changed");
+  });
+
+  document.addEventListener("dragend", () => {
+    filed = null;
+    hover(null);
+    document.querySelector(".task-row.dragging")?.classList.remove("dragging");
+  });
+
   /* ---- drafts survive live refreshes ---- */
 
   // Today's list and the Tasks page re-render from the server whenever the

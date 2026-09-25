@@ -230,12 +230,20 @@
     menu = template.content.firstElementChild.cloneNode(true);
     menu.querySelector(".block-menu-title").textContent =
       block.querySelector(".item-title").textContent;
+    // The task's sub-tasks load into the menu, tickable while in the block.
+    menu.querySelector(".block-menu-checklist")
+      .setAttribute("hx-get", `/ui/tasks/${block.dataset.taskId}/checklist`);
     document.body.appendChild(menu);
-    const rect = block.getBoundingClientRect();
-    const menuWidth = 200;
-    const left = Math.min(rect.right + 8, window.innerWidth - menuWidth - 12);
-    menu.style.left = `${Math.max(12, left)}px`;
-    menu.style.top = `${Math.min(rect.top + window.scrollY, window.scrollY + window.innerHeight - 160)}px`;
+    const place = () => {
+      const rect = block.getBoundingClientRect();
+      const left = Math.min(rect.right + 8, window.innerWidth - menu.offsetWidth - 12);
+      menu.style.left = `${Math.max(12, left)}px`;
+      const bottom = window.scrollY + window.innerHeight - menu.offsetHeight - 12;
+      menu.style.top = `${Math.max(window.scrollY + 12, Math.min(rect.top + window.scrollY, bottom))}px`;
+    };
+    place();
+    menu.addEventListener("htmx:afterSettle", place); // re-fit once the checklist is in
+    htmx.process(menu);
     const blockId = block.dataset.blockId;
     menu.addEventListener("click", async (ev) => {
       const action = ev.target.dataset?.action;

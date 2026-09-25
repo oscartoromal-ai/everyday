@@ -71,7 +71,11 @@ def get_db() -> Generator[Session, None, None]:
         session.close()
 
 
-DbSession = Annotated[Session, Depends(get_db)]
+# scope="function": commit before the response goes out. FastAPI's default
+# ("request") runs this teardown after sending, so a client that re-renders
+# the moment a save returns (a drag, then a list refresh) could read the
+# state from before the save.
+DbSession = Annotated[Session, Depends(get_db, scope="function")]
 
 
 @contextmanager

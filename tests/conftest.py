@@ -39,3 +39,23 @@ def app_db(tmp_path, monkeypatch) -> Generator[sessionmaker[Session], None, None
     monkeypatch.setattr(db_mod, "_session_factory", factory)
     yield factory
     engine.dispose()
+
+
+@pytest.fixture
+def client(db):  # noqa: ANN201
+    """The app over the `db` session, holding a CSRF token like a browser."""
+    from fastapi.testclient import TestClient
+
+    from app.db import get_db
+    from app.main import create_app
+
+    app = create_app()
+
+    def override() -> Generator[Session, None, None]:
+        yield db
+
+    app.dependency_overrides[get_db] = override
+    client = TestClient(app)
+    client.get("/")  # obtain the CSRF cookie
+    client.headers["X-CSRF"] = client.cookies.get("csrf", "")
+    return client

@@ -394,6 +394,16 @@
       step(root, redo ? "redo" : "undo", redo ? "undo" : "redo");
       return;
     }
+    if (e.key === "Enter" && e.shiftKey && !mod && !e.altKey) {
+      // Shift+Enter is read here, not from beforeinput: WebKit reports it as
+      // "insertParagraph" like a plain Enter, where Chromium says "insertLineBreak".
+      const sel = selectionIn(root);
+      if (!sel) return;
+      e.preventDefault();
+      remember(root, true);
+      enter(root, sel, true);
+      return;
+    }
     if (e.key === "Tab" && !mod && !e.altKey) {
       const sel = selectionIn(root);
       if (!sel) return;

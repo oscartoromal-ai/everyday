@@ -1,4 +1,7 @@
-<div id="projects">
+{# Re-renders when a task is filed elsewhere (dragged, or saved in its editor). #}
+<div id="projects"
+     hx-get="/projects" hx-select="#projects" hx-swap="outerHTML" hx-trigger="tasks:changed from:body"
+     hx-disinherit="hx-get hx-select hx-swap hx-trigger">
   {% for card in active %}{% include "partials/project_card.html" %}{% endfor %}
   {% if not active %}
   <p class="empty">No active projects. Start one below; milestones and tasks hang off it.</p>

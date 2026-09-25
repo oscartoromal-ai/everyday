@@ -85,6 +85,7 @@ Content is 800px wide for list pages (Tasks, Projects) and 1200px for Today, Cal
 A title row sits on a stronger hairline, and rows below are full-bleed, dividing with hairlines and lighting on hover with `--glass-row-hover`.
 
 **Task rows.** An 18px checkbox with a 6px radius fills with ink when checked; there is no draw-in animation.
+Every empty box (rows, sub-tasks, the description editor, Weeks' mini boxes) is drawn in `--steel`, not `--mist`: mist falls under the 3:1 a control needs against the cards, in both modes.
 The box the user has just ticked plays the system's `--check-pulse` once (in Neon Signage, a ring of spark light that fades in 640ms); `tasks.js` marks the fresh row `.just-done` for it.
 The title is 14px/500 ink, and the meta line is 12px pewter.
 Today's block time is ink 500, and a do-date off Today is graphite.
@@ -119,6 +120,8 @@ Each row ends in quiet do-date buttons, always shown since dating is the page's 
 They darken to graphite on row hover and ink on their own hover; a button for the day the task already has leaves its slot empty, so the columns line up down the page.
 On phones they take their own line under the title's text, without empty slots.
 Dating a task regroups the page from the server.
+The keyboard triages: a 12px steel line under the header names the keys (hidden on touch and phones), and the focused row is the cursor, drawn as the nav's own marker, a 3px spark bar inset on its left edge with the spark glow, over the row hover fill.
+The bar shows for keyboard focus only (`:focus-visible`), never after a click.
 
 **Done fold.** Finished tasks fold away under a list: a pewter "Done" summary with its count and a steel chevron that turns when open, then the rows, checked and struck through, ready to untick.
 On Today it is the last row of the Today card; on Tasks it is its own card at the foot, noting "last 14 days".
@@ -163,6 +166,8 @@ The add-a-task plus shows on hover, or always on touch, and opens an opaque popo
 Milestone rows are 14px/600 with steel circles that turn ink when reached, and a warn badge when the target is close.
 Each milestone's open tasks are indented beneath it; the other tasks follow under a steel caption, then the project's quick-add row.
 Paused and done projects sit on collapsible shelves.
+A task files by drag: onto a milestone group, into that milestone; onto another card, into that project with no milestone; onto No project, out of any.
+The row in hand fades to 40%, and the target under it lights like a Weeks drop target, `--spark-tint` with an inset 1.5px spark ring.
 
 **Nudges.** A glass card of rows with graphite icons, a secondary "Replan" or "Open" action and a steel dismiss control.
 
@@ -176,7 +181,8 @@ Beyond that, only these move: the toast, the confirm dialog (an 8px rise with fa
 **Calendar drag** (`app/static/calendar.js`, vanilla, listeners on `document` so they survive htmx swaps).
 A tray card, or an open Today row inside a `[data-drag-to-grid]` list, can be dropped on a day column to create a block, with a live preview.
 Planned blocks move and resize, snapping to 15-minute increments.
-A click opens the opaque block menu.
+A click opens the opaque block menu; it loads the task's sub-tasks under its title (a caption with the done count, then the checklist, scrolling past 40% of the viewport), so they tick off while in the block, and it re-fits to the viewport once they arrive.
+Context lines stay in the task's description; only the sub-tasks come along.
 Every mutation re-asks the server by firing `calendar:refresh`; on Today that re-renders the list too.
 A height-capped timeline opens an hour and a half before now and keeps its scroll position across refreshes.
 
@@ -186,7 +192,9 @@ Past days refuse drops.
 After the PATCH, `weeks:refresh` re-renders the board.
 
 **Writing tasks** (`app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`).
-`tasks.js` runs the composer, the row disclosures and the Done folds.
+`tasks.js` runs the composer, the row disclosures, the Done folds, the Tasks keys and filing by drag.
+The keys: Up/Down or J/K move, T today, M tomorrow, D pick a day, X done, E edit, Space opens the description; dating or finishing a row regroups the page and the cursor lands on the row that followed it.
+Keys never fire while typing in a field, and reaching for the mouse ends the pass.
 Lists that re-render from the server take any half-written composer with them: `tasks.js` carries its title, description and focus across the swap to the fresh composer with the same `data-composer-key`.
 `notes-editor.js` is the description editor: a contenteditable whose structure is always its own, since every edit that could split, merge or restyle a line is cancelled in `beforeinput` and redone on a line model.
 It writes the same plain text the server stores into a hidden `notes` textarea, so forms and the server never see the editor.

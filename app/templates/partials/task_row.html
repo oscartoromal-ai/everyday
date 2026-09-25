@@ -1,5 +1,6 @@
 <li class="task-row{% if row.done %} done{% endif %}" id="task-{{ row.task.id }}"
-    data-task-id="{{ row.task.id }}" data-task-title="{{ row.task.title }}">
+    data-task-id="{{ row.task.id }}" data-task-title="{{ row.task.title }}"
+    {%- if row.plan_controls %} tabindex="-1"{% endif %}>
   <input type="checkbox" class="task-check" {% if row.done %}checked{% endif %}
          hx-post="/ui/tasks/{{ row.task.id }}/toggle"
          hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML"
@@ -59,12 +60,12 @@
   </div>
   {% if row.plan_controls and not row.done %}
   <div class="task-plan" role="group" aria-label="Do-date for “{{ row.task.title }}”">
-    {% for day, label in [(row.plan_today, "Today"), (row.plan_tomorrow, "Tomorrow")] %}
+    {% for day, label, key in [(row.plan_today, "Today", "today"), (row.plan_tomorrow, "Tomorrow", "tomorrow")] %}
     {% if row.task.planned_for == day %}
     {# Already that day: the slot stays, empty, so every row's buttons line up. #}
     <span class="plan-btn slot" aria-hidden="true">{{ label }}</span>
     {% else %}
-    <button type="button" class="plan-btn"
+    <button type="button" class="plan-btn" data-plan="{{ key }}"
             hx-post="/ui/tasks/{{ row.task.id }}/plan" hx-vals='{"planned_for": "{{ day.isoformat() }}"}'
             hx-swap="none">{{ label }}</button>
     {% endif %}

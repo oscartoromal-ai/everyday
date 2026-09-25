@@ -1,0 +1,25 @@
+{# A task's sub-tasks inside its calendar block's menu: the block is the time
+   the checklist is worked, so it can be ticked off right there. Context
+   lines stay in the task's description; only the sub-tasks come along. #}
+{% if row.subtasks_total %}
+<div class="block-checklist">
+  <div class="block-checklist-head">
+    Sub-tasks <span class="progress">{{ row.subtasks_done }}/{{ row.subtasks_total }}</span>
+  </div>
+  <ul class="subtasks">
+    {% for block in row.description if block.kind == "list" %}
+    {% for entry in block.entries %}{% set item = entry.item %}
+    <li class="subtask{% if item.checked %} done{% endif %}"{% if item.depth %} style="--depth: {{ item.depth }}"{% endif %}>
+      <label>
+        <input type="checkbox" class="subtask-check" {% if item.checked %}checked{% endif %}
+               hx-post="/ui/tasks/{{ row.task.id }}/subtasks/{{ item.index }}/toggle"
+               hx-vals='{{ {"text": item.text} | tojson }}'
+               hx-target="closest .block-menu-checklist" hx-swap="innerHTML">
+        <span>{{ item.text }}</span>
+      </label>
+    </li>
+    {% endfor %}
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
