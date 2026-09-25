@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
+from fastapi.responses import RedirectResponse
 
 from app.db import DbSession
 from app.models import TaskOwner
-from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 from app.ui.calendar_view import grid_ctx, tray_tasks, week_monday
-from app.ui.views import human_date, row_ctx, short_date, templates, today_page_tasks
+from app.ui.views import projects_list_ctx, row_ctx, templates, today_page_tasks
+from app.ui.weeks_view import LAYOUTS, weeks_ctx
 
 router = APIRouter(include_in_schema=False)
 
@@ -34,36 +36,56 @@ def today_page(request: Request, db: DbSession):
             "rows": [row_ctx(t, now) for t in oscar_rows],
             "delegated": [row_ctx(t, now) for t in delegated_rows],
             "nudges": nudges_svc.active_nudges(db),
+            "grid": grid_ctx(db, now.date(), now, day_count=1),
         },
     )
 
 
 @router.get("/next")
-def next_days_page(request: Request, db: DbSession):
-    now = datetime.now()
-    start = date.today() + timedelta(days=1)
-    view = tasks_svc.next_days(db, start, days=7)
-    day_groups = []
-    for day, entries in view.items():
-        seen: set[int] = set()
-        rows = []
-        for task in entries["planned"] + entries["due"]:
-            if task.id not in seen:
-                seen.add(task.id)
-                rows.append(row_ctx(task, now))
-        day_groups.append(
-            {
-                "day": day,
-                "title": human_date(day),
-                "relative": short_date(day),
-                "rows": rows,
-                "milestones": [
-                    {"milestone": m, "project": m.project.name} for m in entries["milestones"]
-                ],
-            }
-        )
+def next_days_page():
+    # The multi-week planner's rows layout supersedes the old seven-day list.
+    return RedirectResponse("/weeks?layout=rows", status_code=301)
+
+
+LAYOUT_COOKIE = "weeks_layout"
+
+
+def _weeks_layout(request: Request, layout: str | None) -> str:
+    chosen = layout or request.cookies.get(LAYOUT_COOKIE)
+    return chosen if chosen in LAYOUTS else LAYOUTS[0]
+
+
+@router.get("/weeks")
+def weeks_page(
+    request: Request, db: DbSession, start: date | None = None, layout: str | None = None
+):
+    layout = _weeks_layout(request, layout)
+    response = templates.TemplateResponse(
+        request,
+        "weeks.html",
+        {
+            **_base(request, "weeks"),
+            "plan": weeks_ctx(db, start or date.today(), date.today()),
+            "layout": layout,
+        },
+    )
+    response.set_cookie(LAYOUT_COOKIE, layout, max_age=60 * 60 * 24 * 365, samesite="strict")
+    return response
+
+
+@router.get("/weeks/board")
+def weeks_board(
+    request: Request, db: DbSession, start: date | None = None, layout: str | None = None
+):
     return templates.TemplateResponse(
-        request, "next.html", {**_base(request, "next"), "day_groups": day_groups}
+        request,
+        "partials/weeks_board.html",
+        {
+            "request": request,
+            "today": date.today(),
+            "plan": weeks_ctx(db, start or date.today(), date.today()),
+            "layout": _weeks_layout(request, layout),
+        },
     )
 
 
@@ -92,39 +114,27 @@ def calendar_page(request: Request, db: DbSession, week: date | None = None):
 
 
 @router.get("/calendar/grid")
-def calendar_grid(request: Request, db: DbSession, week: date | None = None):
+def calendar_grid(
+    request: Request,
+    db: DbSession,
+    start: date | None = None,
+    days: Annotated[int, Query(ge=1, le=7)] = 7,
+):
     now = datetime.now()
-    week_start = week_monday(week or date.today())
+    start = start or date.today()
+    if days == 7:
+        start = week_monday(start)
     return templates.TemplateResponse(
         request,
         "partials/calendar_grid.html",
-        {"request": request, "grid": grid_ctx(db, week_start, now)},
+        {"request": request, "grid": grid_ctx(db, start, now, day_count=days)},
     )
 
 
 @router.get("/projects")
 def projects_page(request: Request, db: DbSession):
-    projects = projects_svc.list_projects(db)
-    cards = []
-    for project in projects:
-        milestones = [
-            {
-                "milestone": m,
-                "progress": projects_svc.milestone_progress(db, m.id),
-                "target_label": short_date(m.target_date) if m.target_date else None,
-                "target_soon": bool(
-                    m.target_date and m.target_date <= date.today() + timedelta(days=3)
-                ),
-            }
-            for m in project.milestones
-        ]
-        open_tasks = [
-            t for t in tasks_svc.list_tasks(db, project_id=project.id)
-            if t.status in tasks_svc.OPEN_STATUSES
-        ]
-        cards.append(
-            {"project": project, "milestones": milestones, "open_count": len(open_tasks)}
-        )
     return templates.TemplateResponse(
-        request, "projects.html", {**_base(request, "projects"), "cards": cards}
+        request,
+        "projects.html",
+        {**_base(request, "projects"), **projects_list_ctx(db, datetime.now())},
     )

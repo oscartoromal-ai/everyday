@@ -33,6 +33,11 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Missed blocks**: when a scheduled block passes uncompleted, the task falls back to the list wearing a visible "missed" marker until replanned or completed.
   The empty slot stays on today's calendar as a faded ghost outline, gone tomorrow.
   The calendar's future is a plan; its past stays honest.
+- **Today** puts the day's list beside a one-day timeline (events, blocks, ghosts), so the day is planned on one screen; dragging a task from the list onto the timeline gives it a block.
+- **Weeks** is the planning-ahead surface: six weeks at a glance, as a month-style grid or as one ruled row per day, Oscar's choice and remembered.
+  Each day shows its planned tasks, deadlines, milestones, and personal events; the work calendar is condensed to a load figure (meetings and busy hours) rather than listed.
+  Dragging a task between days replans it (sets planned_for); an Unplanned tray holds tasks with no do-date, and dragging back to it unplans.
+  It supersedes the earlier seven-day next-days list.
 
 ## 4. Domain model
 
@@ -50,7 +55,7 @@ Progress toward a milestone is computable from its attached tasks.
 **Task**: title, notes, status, owner (oscar / claude), optional project, optional milestone (only of its own project), optional planned_for (do-date), optional due (deadline).
 planned_for is the day Oscar intends to work it and drives the daily list; due is the obligation and drives urgency.
 Backlog tasks have neither.
-The next-days view is driven by planned_for, due, and milestone target dates.
+The Weeks view is driven by planned_for, due, and milestone target dates.
 
 **Block**: belongs to one task; start, end, state (planned / completed / missed).
 A task accumulates blocks over time (missed Tuesday, re-slotted Thursday).
@@ -157,7 +162,7 @@ Per [Architecture](tracker/tickets/009-architecture.md) and [Decision: security 
 ### Frontend
 
 - Server-rendered: Jinja templates plus HTMX for pages, lists, and forms; no build step, state server-side.
-- The drag-to-slot day/week calendar is a focused JS island (vanilla or Alpine), the one piece of real client JS, built well once.
+- Real client JS is limited to two focused vanilla islands, each built well once: the drag-to-slot calendar (week grid and Today's timeline) and drag-to-replan on the Weeks view.
 
 ### Background jobs
 

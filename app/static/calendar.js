@@ -12,6 +12,30 @@
 
   const refresh = () => document.body.dispatchEvent(new Event("calendar:refresh"));
 
+  /* ---- scroll position of a height-capped grid (Today's timeline) ---- */
+
+  // First paint lands an hour before now; a refresh keeps wherever Oscar was.
+  let keptScroll = null;
+  const placeScroll = () => {
+    const g = grid();
+    if (!g || g.scrollHeight <= g.clientHeight) return;
+    if (keptScroll !== null) {
+      g.scrollTop = keptScroll;
+      keptScroll = null;
+      return;
+    }
+    const now = g.querySelector(".now-line");
+    const bodyTop = g.querySelector(".grid-body").offsetTop;
+    g.scrollTop = now ? bodyTop + now.offsetTop - hourPx() * 1.5 : bodyTop + hourPx() * 2;
+  };
+  document.addEventListener("htmx:beforeSwap", (e) => {
+    if (e.detail.target?.id === "calendar-grid") keptScroll = e.detail.target.scrollTop;
+  });
+  document.addEventListener("htmx:load", (e) => {
+    if (e.detail.elt?.id === "calendar-grid") placeScroll();
+  });
+  placeScroll();
+
   const toast = (message) => {
     let el = document.querySelector(".cal-toast");
     if (!el) {
@@ -81,14 +105,23 @@
   };
   const clearPreview = () => { preview?.remove(); preview = null; };
 
-  /* ---- 1. drag from tray ---- */
+  /* ---- 1. drag a task (tray, or Today's list) onto the grid ---- */
+
+  // Task rows inside a [data-drag-to-grid] list become drag sources; re-armed
+  // whenever htmx swaps a row in (toggle, edit, quick-add).
+  const armRows = () =>
+    document
+      .querySelectorAll("[data-drag-to-grid] .task-row[data-task-id]")
+      .forEach((row) => { row.draggable = !row.classList.contains("done"); });
+  armRows();
+  document.addEventListener("htmx:load", armRows);
 
   document.addEventListener("dragstart", (e) => {
-    const tray = e.target.closest?.(".tray-task");
-    if (!tray) return;
-    e.dataTransfer.setData("text/task-id", tray.dataset.taskId);
-    e.dataTransfer.setData("text/task-title", tray.querySelector(".tray-title").textContent);
-    e.dataTransfer.effectAllowed = "copy";
+    const source = e.target.closest?.("[draggable='true'][data-task-id]");
+    if (!source) return;
+    e.dataTransfer.setData("text/task-id", source.dataset.taskId);
+    e.dataTransfer.setData("text/task-title", source.dataset.taskTitle);
+    e.dataTransfer.effectAllowed = "copyMove";
   });
 
   document.addEventListener("dragover", (e) => {

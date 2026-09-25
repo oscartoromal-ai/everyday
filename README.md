@@ -12,11 +12,12 @@ Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 ```
 uv sync
 uv run alembic upgrade head
-uv run fastapi dev app/main.py
+uv run uvicorn app.main:app --reload --port 8377
 ```
 
 The app serves at `http://127.0.0.1:8377`.
-`fastapi dev` is the quickest loop for local development (auto-reload, single interface).
+Plain `uvicorn --reload` is the quickest loop for local development (auto-reload, single interface, no scheduler).
+Avoid `fastapi dev` on Windows: its banner prints emoji that crash a cp1252 console.
 To run it the way it runs in production, with the scheduler and every configured bind host, use the installed script instead:
 
 ```

@@ -57,7 +57,7 @@
       <p class="tray-hint">Drag a task onto the week to give it protected time.</p>
       <ul class="tray-list">
         {% for t in tray %}
-        <li class="tray-task" draggable="true" data-task-id="{{ t.task.id }}">
+        <li class="tray-task" draggable="true" data-task-id="{{ t.task.id }}" data-task-title="{{ t.task.title }}">
           <span class="tray-title">{{ t.task.title }}</span>
           <span class="tray-meta">
             {% if t.reason == "missed" %}<span class="missed">missed</span>{% endif %}
@@ -74,13 +74,5 @@
   </div>
 </div>
 
-<template id="block-menu-template">
-  <div class="block-menu" role="menu">
-    <div class="block-menu-title"></div>
-    <button type="button" class="btn primary" data-action="complete">Completed</button>
-    <button type="button" class="btn danger-quiet" data-action="delete">Remove block</button>
-  </div>
-</template>
-
-<script src="{{ url_for('static', path='calendar.js') }}" defer></script>
+<script src="{{ asset('calendar.js') }}" defer></script>
 {% endblock %}

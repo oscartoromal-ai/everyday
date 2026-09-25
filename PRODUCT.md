@@ -17,7 +17,7 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 
 ## Core objects (v1)
 
-- Tasks in lists (today via planned_for, next days, backlog), with lifecycle todo / in_progress / blocked / needs_review / done / cancelled.
+- Tasks in lists (today via planned_for, backlog) and planned across days on the Weeks view, with lifecycle todo / in_progress / blocked / needs_review / done / cancelled.
 - "Delegated to Claude" list section with status chips: queued, running, needs review.
 - Missed marker on tasks whose scheduled calendar block passed uncompleted (derived, red-ink moment).
 - Projects with milestones (target dates, computed progress).
@@ -31,6 +31,6 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 
 ## Constraints
 
-- Server-rendered Jinja + HTMX; no build step; the only real client JS is the calendar island (M4).
+- Server-rendered Jinja + HTMX; no build step; the only real client JS is two small islands: the calendar drag (week grid and Today's timeline) and the Weeks drag-to-replan.
 - Works on desktop and phone widths; phone gets the full UI, not a cut-down version.
 - No login screens, no marketing surfaces; the app opens straight into Today.

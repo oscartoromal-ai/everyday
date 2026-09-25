@@ -1,0 +1,10 @@
+<div class="milestone-group">
+  <ul class="milestones">
+    {% with m = group.m %}{% include "partials/milestone_row.html" %}{% endwith %}
+  </ul>
+  {% if group.rows %}
+  <ul class="task-list milestone-tasks">
+    {% for row in group.rows %}{% include "partials/task_row.html" %}{% endfor %}
+  </ul>
+  {% endif %}
+</div>

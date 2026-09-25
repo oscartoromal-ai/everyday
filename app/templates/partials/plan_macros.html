@@ -1,0 +1,41 @@
+{# One day's entries in the multi-week planner, shared by the grid and rows layouts. #}
+
+{% macro entry(e) %}
+{% if e.kind == "milestone" %}
+<li class="plan-entry flag" title="Milestone: {{ e.name }} · {{ e.project }}">
+  <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
+  <span class="label">{{ e.name }}</span>
+</li>
+{% elif e.kind == "all_day" %}
+<li class="plan-entry all-day {{ e.source }}" title="{{ e.title }}"><span class="label">{{ e.title }}</span></li>
+{% elif e.kind == "due" %}
+<li class="plan-entry due" draggable="true" data-plan-task="{{ e.id }}"
+    title="Due: {{ e.title }}{% if e.planned_for %} · planned {{ e.planned_for | short_date }}{% endif %}">
+  <span class="tag">due</span><span class="label">{{ e.title }}</span>
+</li>
+{% elif e.kind == "event" %}
+<li class="plan-entry event" title="{{ e.time ~ ' ' if e.time }}{{ e.title }}">
+  <span class="label">{% if e.time %}<span class="time">{{ e.time }}</span> {% endif %}{{ e.title }}</span>
+</li>
+{% else %}
+<li class="plan-entry task{% if e.done %} done{% endif %}"{% if not e.done %} draggable="true" data-plan-task="{{ e.id }}"{% endif %}
+    title="{{ e.title }}{% if e.project %} · {{ e.project }}{% endif %}{% if e.due_today %} · due{% endif %}">
+  <span class="box" aria-hidden="true"></span>
+  <span class="label">{% if e.time %}<span class="time">{{ e.time }}</span> {% endif %}{{ e.title }}</span>
+  {% if e.due_today %}<span class="tag">due</span>{% endif %}
+</li>
+{% endif %}
+{% endmacro %}
+
+{% macro add_form(day) %}
+<details class="plan-add">
+  <summary aria-label="Add a task on {{ day | human_date }}" title="Add a task">
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 4v12"/><path d="M4 10h12"/></svg>
+  </summary>
+  <form hx-post="/ui/tasks/quick-add" hx-swap="none"
+        hx-on::after-request="if (event.detail.successful) htmx.trigger(document.body, 'weeks:refresh')">
+    <input type="hidden" name="planned_for" value="{{ day.isoformat() }}">
+    <input name="title" placeholder="Add a task…" autocomplete="off" aria-label="Task title" required autofocus>
+  </form>
+</details>
+{% endmacro %}

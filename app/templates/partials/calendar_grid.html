@@ -1,10 +1,12 @@
 <div class="calendar-grid" id="calendar-grid"
-     data-week="{{ grid.week_start.isoformat() }}"
+     style="--days: {{ grid.day_count }};"
+     data-days="{{ grid.day_count }}"
      data-day-start="{{ grid.day_start_hour }}"
      data-hour-px="{{ grid.hour_px }}"
-     hx-get="/calendar/grid?week={{ grid.week_start.isoformat() }}"
+     hx-get="/calendar/grid?start={{ grid.start.isoformat() }}&days={{ grid.day_count }}"
      hx-trigger="calendar:refresh from:body"
      hx-swap="outerHTML">
+  {% if grid.day_count > 1 %}
   <div class="grid-head">
     <div class="gutter-head"></div>
     {% for day in grid.days %}
@@ -14,10 +16,11 @@
     </div>
     {% endfor %}
   </div>
+  {% endif %}
   {% set has_all_day = grid.days | selectattr("all_day") | list | length > 0 %}
   {% if has_all_day %}
   <div class="grid-allday">
-    <div class="gutter-allday"></div>
+    <div class="gutter-allday">{% if grid.day_count == 1 %}all day{% endif %}</div>
     {% for day in grid.days %}
     <div class="day-allday">
       {% for e in day.all_day %}
@@ -43,27 +46,25 @@
       {% endif %}
       {% for item in day.entries %}
       {% set lane_w = 100 / item.lanes %}
+      {% set geometry = "top: %spx; height: %spx; left: calc(%s%% + 2px); width: calc(%s%% - 5px); --title-lines: %s;" | format(item.top, item.height, item.lane * lane_w, lane_w, item.title_lines) %}
+      {% set wrap = " wrap" if item.title_lines > 1 else "" %}
       {% if item.kind == "event" %}
-      <div class="cal-item event {{ item.source }}"
-           style="top: {{ item.top }}px; height: {{ item.height }}px; left: calc({{ item.lane * lane_w }}% + 2px); width: calc({{ lane_w }}% - 5px);"
+      <div class="cal-item event {{ item.source }}{{ wrap }}" style="{{ geometry }}"
            title="{{ item.title }}{% if item.location %} · {{ item.location }}{% endif %}">
         <span class="item-title">{{ item.title }}</span>
-        <span class="item-time">{{ item.time_label }}{% if item.location_label %} · {{ item.location_label }}{% endif %}</span>
+        {% if item.show_time %}<span class="item-time">{{ item.time_label }}{% if item.location_label %} · {{ item.location_label }}{% endif %}</span>{% endif %}
       </div>
       {% elif item.kind == "ghost" %}
-      <div class="cal-item ghost"
-           style="top: {{ item.top }}px; height: {{ item.height }}px; left: calc({{ item.lane * lane_w }}% + 2px); width: calc({{ lane_w }}% - 5px);"
-           title="Missed: {{ item.title }}">
+      <div class="cal-item ghost{{ wrap }}" style="{{ geometry }}" title="Missed: {{ item.title }}">
         <span class="item-title">{{ item.title }}</span>
       </div>
       {% else %}
-      <div class="cal-item block"
+      <div class="cal-item block{{ wrap }}" style="{{ geometry }}"
            data-block-id="{{ item.id }}" data-state="{{ item.state }}"
            data-start="{{ item.start_iso }}" data-end="{{ item.end_iso }}"
-           style="top: {{ item.top }}px; height: {{ item.height }}px; left: calc({{ item.lane * lane_w }}% + 2px); width: calc({{ lane_w }}% - 5px);"
            title="{{ item.title }}">
         <span class="item-title">{{ item.title }}</span>
-        <span class="item-time">{{ item.time_label }}</span>
+        {% if item.show_time %}<span class="item-time">{{ item.time_label }}</span>{% endif %}
         {% if item.state == "planned" %}<div class="resize-handle" aria-hidden="true"></div>{% endif %}
       </div>
       {% endif %}
@@ -71,4 +72,11 @@
     </div>
     {% endfor %}
   </div>
+  <template id="block-menu-template">
+    <div class="block-menu" role="menu">
+      <div class="block-menu-title"></div>
+      <button type="button" class="btn primary" data-action="complete">Completed</button>
+      <button type="button" class="btn danger-quiet" data-action="delete">Remove block</button>
+    </div>
+  </template>
 </div>

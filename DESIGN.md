@@ -49,7 +49,7 @@ Numbers that need to line up (dates, times, counts, progress) get `font-variant-
 
 ## Component language
 
-**Ruled rows, not boxes.** `.task-row`, `.milestone`, `.nudge`, `.list-section > h2` all use a `border-bottom` (or `border-top`) hairline against `--rule` or `--rule-strong` rather than a card wrapper. This is the dominant pattern for lists: today's tasks, next-days groups, project milestones, and the nudge inbox all read as a ruled page, not stacked cards.
+**Ruled rows, not boxes.** `.task-row`, `.milestone`, `.nudge`, `.list-section > h2` all use a `border-bottom` (or `border-top`) hairline against `--rule` or `--rule-strong` rather than a card wrapper. This is the dominant pattern for lists: today's tasks, the Weeks rows layout, project milestones and their tasks, and the nudge inbox all read as a ruled page, not stacked cards.
 
 **Sheet cards for objects.** A small set of things are genuinely boxed, on `--sheet`/`--sheet-raised` with a `1px solid var(--rule)` border, `border-radius` in the 10-12px range, and `--shadow`: the project card, the task editor, the tray, the calendar grid, the nudge center, and the block-menu popover. These are used for things with their own identity (a project, an editable form, the calendar surface), never for a single list item.
 
@@ -61,7 +61,7 @@ Numbers that need to line up (dates, times, counts, progress) get `font-variant-
 
 **Missed / red-ink convention.** Anything signaling lateness or urgency uses `--red-ink` text directly rather than a background fill: `.task-meta .missed` (bold red-ink label), `.task-meta .due.soon`, `.milestone .target.soon`, `.tray-task .tray-meta .due`. The one filled exception is the `needs_review` chip, which gets `--red-soft` as a background because it is a status stamp, not an inline warning.
 
-**Icons.** Every icon in the app is an inline SVG, 20x20 viewBox, `stroke-width="1.6"`, `stroke-linecap/linejoin="round"`, `fill="none"` and colored via `stroke="currentColor"` (so they inherit ink/act/copper/red-ink from context) -- see the five nav icons in `base.html` (today, next days, backlog, calendar, projects), the milestone flag and pin icons, and the nudge/dismiss icons in `partials/nudges.html`. They read as drawn, single-weight line marks, matching the pen-and-paper metaphor, never as filled glyphs.
+**Icons.** Every icon in the app is an inline SVG, 20x20 viewBox, `stroke-width="1.6"`, `stroke-linecap/linejoin="round"`, `fill="none"` and colored via `stroke="currentColor"` (so they inherit ink/act/copper/red-ink from context) -- see the five nav icons in `base.html` (today, calendar, weeks, backlog, projects), the milestone flag and pin icons, and the nudge/dismiss icons in `partials/nudges.html`. They read as drawn, single-weight line marks, matching the pen-and-paper metaphor, never as filled glyphs.
 
 ## Spacing and radius
 
@@ -83,11 +83,53 @@ Radius scales with a component's weight, not a single fixed value:
 
 **htmx row swaps.** The app is server-rendered with htmx doing the client wiring: checking a task posts to `/ui/tasks/{id}/toggle` and swaps the `<li>` via `hx-target`/`hx-swap="outerHTML"`; clicking a task title fetches its inline editor the same way. Newly swapped-in rows fade in (`.task-list li.htmx-added { opacity: 0 }` transitioning to `1` over `240ms`), so list changes settle rather than snap. A CSRF token is threaded through every htmx request via an `htmx:configRequest` listener in `base.html` that reads the double-submit cookie and sets the `X-CSRF` header (`app/security.py` enforces it server-side).
 
-**Calendar drag (the one JS island).** `app/static/calendar.js` is vanilla JS with all listeners bound to `document` (so they survive htmx swaps of the grid). Four gestures, all snapping to 15-minute increments against the grid's per-day columns:
+**Calendar drag (JS island one).** `app/static/calendar.js` is vanilla JS with all listeners bound to `document` (so they survive htmx swaps of the grid). Four gestures, all snapping to 15-minute increments against the grid's per-day columns:
 
-1. **Drag from the tray**: dragging a `.tray-task` onto a `.day-col` shows a live `.cal-item.preview` (dashed act-colored outline) and creates a block on drop.
+1. **Drag a task onto the grid**: dragging a `.tray-task`, or an open `.task-row` inside a `[data-drag-to-grid]` list (Today), onto a `.day-col` shows a live `.cal-item.preview` (dashed act-colored outline) and creates a block on drop.
 2. **Move a block**: pointer-down on a planned `.cal-item.block` and drag; the block dims to `opacity: 0.45` while a preview tracks the pointer, snapped to 15-minute slots.
 3. **Resize a block**: dragging its `.resize-handle` (bottom edge) adjusts only the end time, floored at one snap increment.
 4. **Click opens a menu**: a pointer-down/up with no movement (or a click on a completed block) opens `.block-menu`, a small positioned popover with complete/remove actions.
 
 Every mutation posts through `fetch` with the same CSRF header helper as htmx, then dispatches a `calendar:refresh` custom event that triggers an htmx-driven re-render of the grid -- the JS island never hand-maintains DOM state past the gesture itself, it just re-asks the server for the truth.
+On Today the same event also re-renders the list section, so a dropped task picks up its block time.
+A height-capped grid (Today's timeline) opens scrolled to an hour and a half before now, and keeps its scroll position across refreshes.
+
+**Weeks drag (JS island two).** `app/static/weeks.js` moves tasks between days with native HTML5 drag and drop.
+Any `[data-plan-task]` (a planned task, a deadline, an Unplanned tray card) can be dropped on a future `.plan-day` to set its do-date, or on `.plan-tray` to clear it.
+Past days refuse drops.
+The hovered target gets `.drop-over`: an act-soft fill with a 1.5px inset act ring.
+After the PATCH it triggers `weeks:refresh`, and htmx re-renders the whole board, tray included.
+
+## Surfaces added for planning (2026-09-25)
+
+**Today's timeline.** Today is two columns above 1100px: the lists at `minmax(0, 1fr)` and a 22rem sticky timeline.
+The timeline is the calendar grid partial at `day_count=1` (`--days: 1`), with no day header and an "all day" gutter label.
+Its height is capped to the viewport and scrolls internally.
+Below 1100px it stacks under the lists.
+Task rows show today's block time in act ink (`.task-meta .when`, "20:00–21:00").
+Rows off Today show their do-date (`.task-meta .planned`).
+
+**Calendar items wrap.** A calendar item's title wraps over as many lines as its height allows (`.cal-item.wrap` with `--title-lines`, computed server-side from the item's pixel height).
+The time line shows only when there is room for it under the title.
+One-line items keep the character-level ellipsis.
+
+**Weeks.** A page header with a `.segmented` Grid/Rows switch (a sheet-toned track, the active option raised with `--shadow`).
+The choice is remembered in a `weeks_layout` cookie.
+Both layouts share one entry language (`partials/plan_macros.html`), one line each, in fixed order: milestone flags (copper), all-day pills (act- or copper-tinted), deadlines (red ink with a small-caps `DUE` stamp), personal events (green dot plus time), then tasks (a 9-11px outlined box that fills act green when done).
+Work meetings are never listed; each day carries a load figure (`.busy`) instead, as busy hours from the union of meeting spans.
+It is muted ink-3 by default and copper from 4 hours up (`.busy.heavy`).
+*Grid* is a sheet card of six week rows by seven day cells, each at least 7.5rem tall.
+A cell folds anything past five entries into "+N more", which links to that week's calendar.
+A serif date shows its month on the 1st and on the first cell, and today's date sits in the act-green dot.
+*Rows* is one ruled section per week, headed "This week" / "Next week" / "Week of ...", with the week's meeting load on the right, aligned with the day figures.
+Each day is a ruled line, and titles wrap rather than truncate.
+Adding a task to a day is a quiet plus that appears on hover (always visible on touch), opening a small raised field.
+
+**Project cards.** The header carries the open count, a quiet `.status-select` (Active / Paused / Done), and a pencil button that swaps the card for an inline editor (name and notes).
+Milestones each head a group of their open tasks, indented 1.75rem.
+Tasks with no milestone follow under a small-caps "Other tasks" rule, then a quick-add pen line scoped to the project.
+The project name on each row is hidden inside its own card.
+Paused and done projects move to collapsible shelves below the active list.
+
+**Favicon.** `app/static/favicon.svg` is the Today nav icon drawn in act green on a paper tile.
+All static URLs go through `asset()`, which appends the file's mtime (`?v=`), so a browser never pairs new templates with a stale cached stylesheet.

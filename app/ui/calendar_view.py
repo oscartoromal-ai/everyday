@@ -15,6 +15,9 @@ DAY_START_HOUR = 6
 DAY_END_HOUR = 22
 HOUR_PX = 48
 GRID_PX = (DAY_END_HOUR - DAY_START_HOUR) * HOUR_PX
+# .cal-item metrics (app.css): 0.75rem type at 1.3 line-height, 0.25rem padding.
+ITEM_LINE_PX = 15.6
+ITEM_PAD_PX = 8
 
 
 def week_monday(anchor: date) -> date:
@@ -27,10 +30,19 @@ def _clamp_px(moment: datetime, day: date) -> float:
     return max(0.0, min(GRID_PX, minutes / 60 * HOUR_PX))
 
 
-def _position(start: datetime, end: datetime, day: date) -> dict[str, float]:
+def _position(start: datetime, end: datetime, day: date) -> dict[str, Any]:
     top = _clamp_px(start, day)
     bottom = _clamp_px(end, day)
-    return {"top": round(top, 1), "height": round(max(bottom - top, 20.0), 1)}
+    height = max(bottom - top, 20.0)
+    # Long titles wrap into the item's height instead of truncating to "Priv…";
+    # the time line only shows when there is room for it under the title.
+    lines = max(1, int((height - ITEM_PAD_PX) // ITEM_LINE_PX))
+    return {
+        "top": round(top, 1),
+        "height": round(height, 1),
+        "title_lines": lines - 1 if lines >= 2 else 1,
+        "show_time": lines >= 2,
+    }
 
 
 def _assign_lanes(items: list[dict[str, Any]]) -> None:
@@ -68,10 +80,12 @@ def _assign_lanes(items: list[dict[str, Any]]) -> None:
     close_cluster()
 
 
-def grid_ctx(db: Session, week_start: date, now: datetime) -> dict[str, Any]:
-    week_days = [week_start + timedelta(days=i) for i in range(7)]
-    range_start = datetime.combine(week_start, time.min)
-    range_end = range_start + timedelta(days=7)
+def grid_ctx(db: Session, first_day: date, now: datetime, day_count: int = 7) -> dict[str, Any]:
+    """The time grid over `day_count` consecutive days from `first_day`: the
+    week calendar (7 days from a Monday) and Today's timeline (1 day)."""
+    week_days = [first_day + timedelta(days=i) for i in range(day_count)]
+    range_start = datetime.combine(first_day, time.min)
+    range_end = range_start + timedelta(days=day_count)
     events, blocks = events_svc.calendar_range(db, range_start, range_end)
     today = now.date()
 
@@ -138,7 +152,7 @@ def grid_ctx(db: Session, week_start: date, now: datetime) -> dict[str, Any]:
         )
 
     now_px = None
-    if week_start <= today < week_start + timedelta(days=7):
+    if first_day <= today < first_day + timedelta(days=day_count):
         px = _clamp_px(now, today)
         if 0 < px < GRID_PX:
             now_px = round(px, 1)
@@ -151,10 +165,11 @@ def grid_ctx(db: Session, week_start: date, now: datetime) -> dict[str, Any]:
         "day_start_hour": DAY_START_HOUR,
         "now_px": now_px,
         "today": today,
-        "week_start": week_start,
-        "prev_week": (week_start - timedelta(days=7)).isoformat(),
-        "next_week": (week_start + timedelta(days=7)).isoformat(),
-        "week_label": _week_label(week_start),
+        "start": first_day,
+        "day_count": day_count,
+        "prev_week": (first_day - timedelta(days=7)).isoformat(),
+        "next_week": (first_day + timedelta(days=7)).isoformat(),
+        "week_label": _week_label(first_day),
     }
 
 

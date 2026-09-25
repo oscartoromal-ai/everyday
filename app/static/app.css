@@ -206,6 +206,8 @@ button.task-title-btn:hover .task-title { color: var(--act); }
 
 .task-meta { display: flex; flex-wrap: wrap; gap: 0.25rem 0.875rem; margin-top: 0.125rem; font-size: 0.8125rem; color: var(--ink-2); }
 .task-meta .project { color: var(--ink-2); }
+.task-meta .when { color: var(--act); font-weight: 500; font-variant-numeric: tabular-nums; }
+.task-meta .planned { color: var(--ink); font-variant-numeric: tabular-nums; }
 .task-meta .due { font-variant-numeric: tabular-nums; }
 .task-meta .due.soon { color: var(--red-ink); }
 .task-meta .missed { color: var(--red-ink); font-weight: 600; }
@@ -321,11 +323,63 @@ button.task-title-btn:hover .task-title { color: var(--act); }
   margin-bottom: 1.25rem;
   box-shadow: var(--shadow);
 }
-.project-card > header { display: flex; align-items: baseline; gap: 0.75rem; }
-.project-card > header h2 { font-size: 1.1875rem; letter-spacing: -0.01em; flex: 1; }
-.project-card > header .status { font-size: 0.8125rem; color: var(--ink-3); }
-.project-card > header .status.paused { color: var(--copper); }
-.project-card .notes { color: var(--ink-2); margin: 0.375rem 0 0; }
+.project-card > header { display: flex; align-items: center; gap: 0.625rem; }
+.project-card > header h2 { font-size: 1.1875rem; letter-spacing: -0.01em; flex: 1; min-width: 0; }
+.project-card .open-count { font-size: 0.8125rem; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.status-select {
+  appearance: none;
+  font: inherit; font-size: 0.8125rem; font-weight: 500; color: var(--ink-2);
+  background: var(--sheet-raised)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.5l3 3 3-3' fill='none' stroke='%239a9180' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat right 0.5rem center;
+  border: 1px solid var(--rule); border-radius: 7px;
+  padding: 0.1875rem 1.625rem 0.1875rem 0.625rem;
+  cursor: pointer;
+}
+.status-select:hover { border-color: var(--rule-strong); color: var(--ink); }
+.status-select:focus-visible { outline: none; border-color: var(--act); box-shadow: 0 0 0 3px var(--act-soft); }
+.project-card.paused .status-select { color: var(--copper); }
+.card-edit-btn { display: grid; place-content: center; width: 1.75rem; height: 1.75rem; border-radius: 7px; color: var(--ink-3); }
+.card-edit-btn:hover { color: var(--ink); background: var(--act-soft); }
+.card-edit-btn svg { stroke: currentColor; }
+.project-card .notes { color: var(--ink-2); margin: 0.25rem 0 0; white-space: pre-line; }
+
+/* inside a card the project name on each row is redundant */
+.project-card .task-meta .project { display: none; }
+.project-card .task-list { margin: 0; }
+.project-card .task-row { padding: 0.5rem 0.25rem; }
+.project-card .task-row:last-child { border-bottom: none; }
+.milestone-group + .milestone-group, .milestone-groups:not(:empty) { margin-top: 0.875rem; }
+.milestone-group .milestones { margin: 0; }
+.milestone-tasks { padding-left: 1.75rem; }
+.milestone-tasks .task-row { border-top: 1px solid var(--rule); border-bottom: none; }
+.loose-head {
+  margin: 1rem 0 0; padding: 0.5rem 0 0.25rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--sans); font-size: 0.6875rem; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3);
+}
+.project-card .quick-add { padding-top: 0.375rem; }
+
+.project-card.editing { padding-bottom: 1rem; }
+.project-editor .editor-title input { font-size: 1.1875rem; }
+.project-editor .field { margin-top: 0.75rem; }
+.project-editor textarea { resize: vertical; line-height: 1.5; }
+
+.project-shelf { margin-top: 2rem; }
+.project-shelf > summary {
+  cursor: pointer; list-style: none; user-select: none;
+  font-family: var(--serif); font-weight: 600; font-size: 1.0625rem;
+  padding-bottom: 0.5rem; margin-bottom: 1rem;
+  border-bottom: 1px solid var(--rule-strong);
+  display: flex; align-items: baseline; gap: 0.5rem;
+}
+.project-shelf > summary::-webkit-details-marker { display: none; }
+.project-shelf > summary::before { content: "+"; font-family: var(--sans); font-weight: 400; color: var(--ink-3); width: 0.75rem; }
+.project-shelf[open] > summary::before { content: "−"; }
+.project-shelf > summary .count { font-family: var(--sans); font-size: 0.8125rem; font-weight: 400; color: var(--ink-3); }
+.project-shelf .project-card { opacity: 0.85; }
+.new-project { margin-top: 1.5rem; }
 
 .milestones { list-style: none; margin: 0.875rem 0 0; padding: 0; }
 .milestone {
@@ -412,8 +466,9 @@ button.task-title-btn:hover .task-title { color: var(--act); }
   box-shadow: var(--shadow);
   overflow: hidden;
   user-select: none;
+  position: relative;
 }
-.grid-head, .grid-allday { display: grid; grid-template-columns: 52px repeat(7, 1fr); }
+.grid-head, .grid-allday { display: grid; grid-template-columns: 52px repeat(var(--days, 7), 1fr); }
 .grid-head { border-bottom: 1px solid var(--rule-strong); }
 .day-head { padding: 0.625rem 0.5rem; text-align: center; }
 .day-head .dow { display: block; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
@@ -433,7 +488,11 @@ button.task-title-btn:hover .task-title { color: var(--act); }
 }
 .allday-pill.work { background: var(--copper-soft); }
 
-.grid-body { display: grid; grid-template-columns: 52px repeat(7, 1fr); position: relative; }
+.gutter-allday {
+  font-size: 0.6875rem; color: var(--ink-3);
+  text-align: right; padding: 0.3125rem 8px 0 0;
+}
+.grid-body { display: grid; grid-template-columns: 52px repeat(var(--days, 7), 1fr); position: relative; }
 .gutter { position: relative; }
 .hour-label {
   position: absolute; right: 8px; transform: translateY(-50%);
@@ -461,6 +520,12 @@ button.task-title-btn:hover .task-title { color: var(--act); }
   display: flex; flex-direction: column;
 }
 .cal-item .item-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; }
+/* Taller items wrap their title over the lines they have room for. */
+.cal-item.wrap .item-title {
+  white-space: normal; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--title-lines); line-clamp: var(--title-lines);
+}
 .cal-item .item-time { color: inherit; opacity: 0.75; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .cal-item.event.local {
@@ -577,7 +642,224 @@ button.task-title-btn:hover .task-title { color: var(--act); }
 /* calendar on phone: the week scrolls horizontally, tray stacks below */
 @media (max-width: 900px) {
   .calendar-layout { grid-template-columns: 1fr; }
-  .calendar-grid { overflow-x: auto; }
-  .grid-head, .grid-allday, .grid-body { min-width: 640px; }
+  .calendar-grid[data-days="7"] { overflow-x: auto; }
+  .calendar-grid[data-days="7"] :is(.grid-head, .grid-allday, .grid-body) { min-width: 640px; }
   .tray { position: static; }
+}
+
+/* ---------- today: the lists beside the day's timeline ---------- */
+
+.main:has(.today-page) { max-width: 78rem; }
+.today-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  gap: 3rem;
+  align-items: start;
+}
+.today-timeline { position: sticky; top: 1.5rem; }
+.timeline-header {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
+  /* the timeline's header sits on the same baseline as the weekday's rest line */
+  margin: 0.5rem 0 0.75rem;
+}
+.timeline-header h2 { font-size: 1.0625rem; }
+.timeline-header .hint { font-size: 0.8125rem; color: var(--ink-3); }
+.today-timeline .calendar-grid {
+  max-height: calc(100vh - 6.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.today-timeline .grid-allday { position: sticky; top: 0; z-index: 7; background: var(--sheet); }
+.today-timeline .day-col.today { background: none; }
+.task-row[draggable="true"] { cursor: grab; }
+.task-row[draggable="true"] :is(button, input) { cursor: pointer; }
+
+@media (max-width: 1100px) {
+  .today-page { grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }
+  .today-timeline { position: static; }
+  .today-timeline .calendar-grid { max-height: none; }
+  .timeline-header .hint { display: none; }
+}
+
+/* ---------- weeks: several weeks at a glance, as a grid or as rows ---------- */
+
+.main:has(.weeks-page) { max-width: 82rem; }
+.weeks-header { flex-wrap: wrap; row-gap: 0.75rem; }
+.weeks-header h1 { font-size: 1.375rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.segmented {
+  display: inline-flex; margin-right: 0.5rem; padding: 2px;
+  border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet);
+}
+.segmented a {
+  padding: 0.1875rem 0.75rem; border-radius: 6px;
+  color: var(--ink-2); text-decoration: none; font-size: 0.875rem; font-weight: 500;
+}
+.segmented a:hover { color: var(--ink); }
+.segmented a[aria-current] { background: var(--sheet-raised); color: var(--ink); box-shadow: var(--shadow); }
+
+.weeks-layout { display: grid; grid-template-columns: minmax(0, 1fr) 236px; gap: 1.5rem; align-items: start; }
+
+/* entries: one line each, shared by both layouts */
+.plan-entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.plan-entry {
+  display: flex; align-items: center; gap: 0.3125rem;
+  min-width: 0; max-width: 100%;
+  padding: 1px 0.3125rem; border-radius: 5px;
+  font-size: 0.75rem; line-height: 1.4; white-space: nowrap;
+}
+.plan-entry .label { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.plan-entry .time { color: var(--ink-2); font-variant-numeric: tabular-nums; flex: none; }
+.plan-entry .tag {
+  flex: none; font-size: 0.5625rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.plan-entry[draggable="true"] { cursor: grab; }
+.plan-entry[draggable="true"]:hover { background: var(--act-soft); }
+.plan-entry.dragging, .tray-task.dragging { opacity: 0.4; }
+
+.plan-entry.task { font-weight: 500; }
+.plan-entry.task .box {
+  flex: none; width: 9px; height: 9px;
+  border: 1.5px solid var(--rule-strong); border-radius: 2.5px;
+}
+.plan-entry.task.done { color: var(--ink-3); }
+.plan-entry.task.done .box { background: var(--act); border-color: var(--act); }
+.plan-entry.task.done .label { text-decoration: line-through; }
+.plan-entry.task .tag { color: var(--red-ink); }
+.plan-entry.due { color: var(--red-ink); }
+.plan-entry.flag { color: var(--copper); font-weight: 600; }
+.plan-entry.flag svg { flex: none; stroke: currentColor; }
+.plan-entry.event::before {
+  content: ""; flex: none; width: 6px; height: 6px; margin: 0 1.5px;
+  border-radius: 50%; background: var(--act);
+}
+.plan-entry.all-day { background: var(--act-soft); font-weight: 500; }
+.plan-entry.all-day.work { background: var(--copper-soft); }
+
+.plan-day { position: relative; }
+.plan-day.today { background: color-mix(in srgb, var(--act) 4%, transparent); }
+.plan-day.past .plan-entries, .plan-day.past .busy { opacity: 0.55; }
+.plan-day.drop-over, .plan-tray.drop-over {
+  background: var(--act-soft);
+  box-shadow: inset 0 0 0 1.5px var(--act);
+}
+.busy { color: var(--ink-3); font-size: 0.6875rem; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.busy.heavy { color: var(--copper); }
+.plan-add-spacer { width: 1.375rem; flex: none; }
+
+/* add a task on a day: a quiet plus that shows on hover, opening a small field */
+.plan-add summary {
+  list-style: none; cursor: pointer;
+  display: grid; place-content: center;
+  width: 1.375rem; height: 1.375rem; border-radius: 5px;
+  color: var(--ink-3); opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+.plan-add summary::-webkit-details-marker { display: none; }
+.plan-add summary svg { stroke: currentColor; }
+.plan-add summary:hover { color: var(--act); background: var(--act-soft); }
+.plan-day:hover .plan-add summary, .plan-add summary:focus-visible, .plan-add[open] summary { opacity: 1; }
+.plan-add form {
+  position: absolute; z-index: 20; top: 2rem; left: 0.25rem;
+  width: 15rem; padding: 0.375rem;
+  background: var(--sheet-raised); border: 1px solid var(--rule); border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.plan-add input {
+  width: 100%; font: inherit; font-size: 0.875rem; color: var(--ink);
+  background: var(--sheet); border: 1px solid var(--rule); border-radius: 7px;
+  padding: 0.3125rem 0.5rem;
+}
+.plan-add input::placeholder { color: var(--ink-3); font-style: italic; font-family: var(--serif); }
+.plan-add input:focus { outline: none; border-color: var(--act); box-shadow: 0 0 0 3px var(--act-soft); }
+@media (hover: none) { .plan-add summary { opacity: 1; } }
+
+/* grid layout: a month-style calendar of weeks */
+.month-grid {
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.mg-head, .mg-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.mg-head { border-bottom: 1px solid var(--rule-strong); }
+.mg-head span {
+  padding: 0.5rem 0.625rem;
+  font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.mg-week + .mg-week { border-top: 1px solid var(--rule); }
+.month-grid .plan-day { min-height: 7.5rem; padding: 0.375rem 0.3125rem 0.5rem; }
+.month-grid .plan-day + .plan-day { border-left: 1px solid var(--rule); }
+.mg-week:last-child .plan-day:first-child { border-bottom-left-radius: 11px; }
+.mg-week:last-child .plan-day:last-child { border-bottom-right-radius: 11px; }
+.month-grid .plan-date { display: flex; align-items: center; gap: 0.375rem; height: 1.5rem; padding: 0 0.125rem 0 0.25rem; margin-bottom: 0.1875rem; }
+.month-grid .plan-date .busy { margin-left: auto; padding-right: 0.125rem; }
+/* the add button sits in the cell's free bottom-right corner, out of the date line */
+.month-grid .plan-add summary { position: absolute; right: 0.3125rem; bottom: 0.3125rem; }
+.month-grid .plan-add form { top: auto; bottom: 2rem; }
+.month-grid .dom {
+  font-family: var(--serif); font-weight: 600; font-size: 0.9375rem;
+  color: var(--ink); text-decoration: none; font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: baseline; gap: 0.25rem;
+}
+.month-grid .dom:hover { color: var(--act); }
+.month-grid .dom .mon { font-family: var(--sans); font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.month-grid .plan-day.past .dom { color: var(--ink-3); }
+.today-dot {
+  display: inline-grid; place-content: center;
+  width: 1.5rem; height: 1.5rem; margin-left: -0.25rem; border-radius: 50%;
+  background: var(--act); color: var(--paper);
+}
+.month-grid .plan-day:nth-child(n+5) .plan-add form { left: auto; right: 0.25rem; }
+.month-grid .more { display: block; padding: 1px 0.3125rem; font-size: 0.6875rem; color: var(--ink-3); text-decoration: none; }
+.month-grid .more:hover { color: var(--act); }
+
+/* rows layout: each week a ruled page, one line per day */
+.week-section { margin-bottom: 2.25rem; }
+.week-section > h2 {
+  font-size: 1.0625rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--rule-strong);
+  display: flex; align-items: baseline; gap: 0.625rem; flex-wrap: wrap;
+}
+.week-section > h2 .sub { font-family: var(--sans); font-size: 0.8125rem; font-weight: 400; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+/* right edge lines up with the days' busy figures, clear of their add buttons */
+.week-section > h2 .load { margin-left: auto; margin-right: 2.125rem; font-family: var(--sans); font-size: 0.8125rem; font-weight: 400; color: var(--copper); font-variant-numeric: tabular-nums; }
+.week-days { list-style: none; margin: 0; padding: 0; }
+.week-rows .plan-day {
+  display: grid; grid-template-columns: 4rem minmax(0, 1fr) auto; gap: 0.75rem;
+  align-items: start;
+  min-height: 2.5rem; padding: 0.4375rem 0.25rem;
+  border-bottom: 1px solid var(--rule);
+}
+.wd-date { display: flex; align-items: baseline; gap: 0.375rem; text-decoration: none; padding-top: 0.0625rem; }
+.wd-date .dow { width: 1.875rem; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.wd-date .dom { font-family: var(--serif); font-size: 1rem; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.wd-date:hover .dom { color: var(--act); }
+.week-rows .plan-day.today .dow, .week-rows .plan-day.today .dom { color: var(--act); }
+.week-rows .plan-day.past .dom { color: var(--ink-3); }
+.week-rows .plan-entries { padding-top: 0.125rem; }
+/* rows have the height to spare, so long titles wrap instead of truncating */
+.week-rows .plan-entry { font-size: 0.875rem; width: fit-content; white-space: normal; align-items: flex-start; }
+.week-rows .plan-entry .label { overflow-wrap: anywhere; }
+.week-rows .plan-entry :is(.box, svg) { margin-top: calc((1.4em - 11px) / 2); }
+.week-rows .plan-entry.event::before { margin-top: calc((1.4em - 6px) / 2); }
+.week-rows .plan-entry .tag { margin-top: 0.1875rem; }
+.week-rows .plan-entry .tag { font-size: 0.625rem; }
+.week-rows .plan-entry.task .box { width: 11px; height: 11px; }
+.wd-side { display: flex; align-items: center; gap: 0.5rem; min-height: 1.5rem; }
+.week-rows .busy { font-size: 0.75rem; }
+.week-rows .plan-add form { left: auto; right: 0.25rem; top: 2.25rem; width: 17rem; }
+
+/* the Unplanned tray reuses the calendar tray; drop target for unplanning */
+.tray-task .tray-meta .due.later { color: var(--ink-3); }
+.plan-tray { max-height: calc(100vh - 3rem); overflow-y: auto; }
+
+@media (max-width: 900px) {
+  .weeks-layout { grid-template-columns: minmax(0, 1fr); }
+  .month-grid { overflow-x: auto; }
+  .mg-head, .mg-week { min-width: 640px; }
+  .plan-tray { position: static; max-height: none; }
 }

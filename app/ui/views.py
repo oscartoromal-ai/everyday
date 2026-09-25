@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -10,7 +10,18 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.dates import human_date, short_date
-from app.models import Block, BlockState, Task, TaskOwner, TaskStatus
+from app.models import (
+    Block,
+    BlockState,
+    Milestone,
+    MilestoneStatus,
+    Project,
+    ProjectStatus,
+    Task,
+    TaskOwner,
+    TaskStatus,
+)
+from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
@@ -25,9 +36,19 @@ CHIPS = {
 DUE_SOON_DAYS = 3
 
 
+STATIC_DIR = TEMPLATES_DIR.parent / "static"
+
+
+def asset(path: str) -> str:
+    """Static URL carrying the file's mtime, so a browser never pairs fresh
+    templates with a stale cached stylesheet or script."""
+    return f"/static/{path}?v={int((STATIC_DIR / path).stat().st_mtime)}"
+
+
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.filters["human_date"] = human_date
 templates.env.filters["short_date"] = short_date
+templates.env.globals["asset"] = asset
 
 
 def last_missed_block(task: Task) -> Block | None:
@@ -35,12 +56,28 @@ def last_missed_block(task: Task) -> Block | None:
     return max(missed, key=lambda b: b.start) if missed else None
 
 
+def todays_block(task: Task, today: date) -> Block | None:
+    """The first of today's non-missed blocks, if the task has time today."""
+    todays = [
+        b for b in task.blocks if b.start.date() == today and b.state != BlockState.missed
+    ]
+    return min(todays, key=lambda b: b.start) if todays else None
+
+
 def row_ctx(task: Task, now: datetime) -> dict[str, Any]:
     """Everything the task-row partial needs, precomputed."""
     missed = tasks_svc.has_missed_marker(task, now)
     missed_block = last_missed_block(task) if missed else None
     today = now.date()
+    block = todays_block(task, today)
     return {
+        "block_label": f"{block.start:%H:%M}–{block.end:%H:%M}" if block else None,
+        # Today's list is today by definition; everywhere else the do-date matters.
+        "planned_label": (
+            short_date(task.planned_for, today)
+            if task.planned_for and task.planned_for != today
+            else None
+        ),
         "task": task,
         "done": task.status == TaskStatus.done,
         "missed": missed,
@@ -57,6 +94,59 @@ def row_ctx(task: Task, now: datetime) -> dict[str, Any]:
         "due_soon": bool(task.due and task.due <= today + timedelta(days=DUE_SOON_DAYS)),
         "project_name": task.project.name if task.project else None,
     }
+
+
+def milestone_ctx(db: Session, milestone: Milestone, today: date) -> dict[str, Any]:
+    return {
+        "milestone": milestone,
+        "progress": projects_svc.milestone_progress(db, milestone.id),
+        "target_label": short_date(milestone.target_date, today) if milestone.target_date else None,
+        "target_soon": bool(
+            milestone.target_date
+            and milestone.status == MilestoneStatus.open
+            and milestone.target_date <= today + timedelta(days=DUE_SOON_DAYS)
+        ),
+    }
+
+
+def _plan_order(task: Task) -> tuple:
+    """Soonest first: do-date, then deadline, then oldest undated."""
+    return (task.planned_for or date.max, task.due or date.max, task.created_at)
+
+
+def project_card_ctx(db: Session, project: Project, now: datetime) -> dict[str, Any]:
+    """A project card: its milestones, each with its open tasks, then the rest."""
+    today = now.date()
+    open_tasks = sorted(
+        (
+            t
+            for t in tasks_svc.list_tasks(db, project_id=project.id)
+            if t.status in tasks_svc.OPEN_STATUSES
+        ),
+        key=_plan_order,
+    )
+    groups = [
+        {
+            "m": milestone_ctx(db, m, today),
+            "rows": [row_ctx(t, now) for t in open_tasks if t.milestone_id == m.id],
+        }
+        for m in project.milestones
+        if m.status != MilestoneStatus.dropped
+    ]
+    return {
+        "project": project,
+        "groups": groups,
+        "loose_rows": [row_ctx(t, now) for t in open_tasks if t.milestone_id is None],
+        "open_count": len(open_tasks),
+    }
+
+
+def projects_list_ctx(db: Session, now: datetime) -> dict[str, Any]:
+    """Project cards split by status: active up front, paused and done shelved."""
+    cards: dict[str, list[dict[str, Any]]] = {s.value: [] for s in ProjectStatus}
+    for project in projects_svc.list_projects(db):
+        cards[project.status.value].append(project_card_ctx(db, project, now))
+    return cards
 
 
 def today_page_tasks(db: Session, now: datetime) -> tuple[list[Task], list[Task]]:

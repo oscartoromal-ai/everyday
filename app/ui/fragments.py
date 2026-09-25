@@ -14,7 +14,7 @@ from app.services import events as events_svc
 from app.services import projects as projects_svc
 from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
-from app.ui.views import row_ctx, short_date, templates
+from app.ui.views import milestone_ctx, project_card_ctx, projects_list_ctx, row_ctx, templates
 
 router = APIRouter(prefix="/ui", include_in_schema=False)
 
@@ -31,11 +31,14 @@ def quick_add(
     db: DbSession,
     title: Annotated[str, Form()],
     planned_for: Annotated[date | None, Form()] = None,
+    project_id: Annotated[int | None, Form()] = None,
 ):
     title = title.strip()
     if not title:
         return HTMLResponse("")
-    task = tasks_svc.create_task(db, title=title, planned_for=planned_for)
+    task = tasks_svc.create_task(
+        db, title=title, planned_for=planned_for, project_id=project_id
+    )
     db.commit()
     return _row_response(request, db, task.id)
 
@@ -215,18 +218,22 @@ def work_sync(db: DbSession):
     return response
 
 
+def _projects_list(request: Request, db) -> HTMLResponse:  # noqa: ANN001
+    context = {"request": request, **projects_list_ctx(db, datetime.now())}
+    return templates.TemplateResponse(request, "partials/projects_list.html", context)
+
+
+def _project_partial(request: Request, db, project_id: int, template: str) -> HTMLResponse:  # noqa: ANN001
+    project = projects_svc.get_project(db, project_id)
+    card = project_card_ctx(db, project, datetime.now())
+    return templates.TemplateResponse(request, template, {"request": request, "card": card})
+
+
 @router.post("/projects")
 def create_project(request: Request, db: DbSession, name: str = Form(...)):
-    project = projects_svc.create_project(db, name=name)
+    projects_svc.create_project(db, name=name)
     db.commit()
-    return templates.TemplateResponse(
-        request,
-        "partials/project_card.html",
-        {
-            "request": request,
-            "card": {"project": project, "milestones": [], "open_count": 0},
-        },
-    )
+    return _projects_list(request, db)
 
 
 @router.post("/projects/{project_id}/status")
@@ -235,7 +242,31 @@ def set_project_status(
 ):
     projects_svc.update_project(db, project_id, status=status)
     db.commit()
-    return HTMLResponse("")
+    # Status moves the card between the active list and the shelves.
+    return _projects_list(request, db)
+
+
+@router.get("/projects/{project_id}/edit")
+def edit_project(request: Request, db: DbSession, project_id: int):
+    return _project_partial(request, db, project_id, "partials/project_editor.html")
+
+
+@router.get("/projects/{project_id}/card")
+def project_card(request: Request, db: DbSession, project_id: int):
+    return _project_partial(request, db, project_id, "partials/project_card.html")
+
+
+@router.post("/projects/{project_id}")
+def save_project(
+    request: Request,
+    db: DbSession,
+    project_id: int,
+    name: Annotated[str, Form()],
+    notes: Annotated[str, Form()] = "",
+):
+    projects_svc.update_project(db, project_id, name=name, notes=notes.strip())
+    db.commit()
+    return _project_partial(request, db, project_id, "partials/project_card.html")
 
 
 @router.post("/projects/{project_id}/milestones")
@@ -253,20 +284,9 @@ def add_milestone(
         target_date=date.fromisoformat(target_date) if target_date else None,
     )
     db.commit()
+    group = {"m": milestone_ctx(db, milestone, date.today()), "rows": []}
     return templates.TemplateResponse(
-        request,
-        "partials/milestone_row.html",
-        {
-            "request": request,
-            "m": {
-                "milestone": milestone,
-                "progress": (0, 0),
-                "target_label": short_date(milestone.target_date)
-                if milestone.target_date
-                else None,
-                "target_soon": False,
-            },
-        },
+        request, "partials/milestone_group.html", {"request": request, "group": group}
     )
 
 
@@ -282,19 +302,8 @@ def toggle_milestone(request: Request, db: DbSession, milestone_id: int):
     )
     projects_svc.update_milestone(db, milestone_id, status=new_status)
     db.commit()
-    done, total = projects_svc.milestone_progress(db, milestone_id)
     return templates.TemplateResponse(
         request,
         "partials/milestone_row.html",
-        {
-            "request": request,
-            "m": {
-                "milestone": milestone,
-                "progress": (done, total),
-                "target_label": short_date(milestone.target_date)
-                if milestone.target_date
-                else None,
-                "target_soon": False,
-            },
-        },
+        {"request": request, "m": milestone_ctx(db, milestone, date.today())},
     )

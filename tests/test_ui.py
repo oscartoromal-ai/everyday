@@ -37,16 +37,113 @@ def test_today_page_shows_planned_and_delegated(client, db) -> None:
     assert "Needs review" in page
 
 
-def test_next_days_page_groups_by_day(client, db) -> None:
-    p = projects_svc.create_project(db, name="App")
-    projects_svc.create_milestone(
-        db, project_id=p.id, name="v1 ships", target_date=TODAY + timedelta(days=3)
-    )
-    tasks_svc.create_task(db, title="tomorrow thing", planned_for=TODAY + timedelta(days=1))
+def test_next_days_redirects_to_weeks_rows(client) -> None:
+    response = client.get("/next", follow_redirects=False)
+    assert response.status_code == 301
+    assert response.headers["location"] == "/weeks?layout=rows"
 
-    page = client.get("/next").text
-    assert "tomorrow thing" in page
-    assert "v1 ships" in page
+
+def test_today_page_has_timeline_with_events_and_blocks(client, db) -> None:
+    from datetime import datetime, time
+
+    from app.services import blocks as blocks_svc
+    from app.services import events as events_svc
+
+    morning = datetime.combine(TODAY, time(9))
+    events_svc.create_event(db, title="standup", start=morning, end=morning + timedelta(minutes=30))
+    task = tasks_svc.create_task(db, title="focus", planned_for=TODAY)
+    blocks_svc.schedule_block(
+        db, task_id=task.id, start=morning + timedelta(hours=2), end=morning + timedelta(hours=3)
+    )
+
+    page = client.get("/").text
+    timeline = page.split('class="today-timeline"')[1]
+    assert 'data-days="1"' in timeline
+    assert "standup" in timeline and "focus" in timeline
+    # The list row carries the block's time and is marked as a drag source.
+    assert "11:00–12:00" in page.split('id="today-list"')[1]
+    assert "data-drag-to-grid" in page
+
+
+def test_grid_fragment_refreshes_one_day_and_a_week(client) -> None:
+    day = client.get(f"/calendar/grid?start={TODAY.isoformat()}&days=1")
+    assert day.status_code == 200
+    assert day.text.count('class="day-col') == 1
+    assert "grid-head" not in day.text  # Today's page already names the day
+
+    week = client.get(f"/calendar/grid?start={TODAY.isoformat()}&days=7")
+    assert week.status_code == 200
+    assert week.text.count('class="day-col') == 7
+    monday = TODAY - timedelta(days=TODAY.weekday())
+    assert f'data-date="{monday.isoformat()}"' in week.text
+
+    assert client.get("/calendar/grid?days=8").status_code == 422
+
+
+def test_weeks_page_shows_plans_deadlines_and_work_load(client, db) -> None:
+    from datetime import datetime, time
+
+    from app.models import Event, EventSource
+
+    p = projects_svc.create_project(db, name="Reno")
+    later = TODAY + timedelta(days=9)
+    projects_svc.create_milestone(db, project_id=p.id, name="quotes in", target_date=later)
+    tasks_svc.create_task(db, title="call sparky", planned_for=later, project_id=p.id)
+    tasks_svc.create_task(db, title="pay invoice", due=later)
+    tasks_svc.create_task(db, title="someday thing")
+    start = datetime.combine(later, time(10))
+    for offset in (0, 30):  # overlapping meetings count once toward busy hours
+        db.add(
+            Event(
+                title="work sync", start=start + timedelta(minutes=offset),
+                end=start + timedelta(minutes=offset + 60), source=EventSource.work,
+                read_only=True, external_id=f"w{offset}",
+            )
+        )
+    db.flush()
+
+    for layout in ("grid", "rows"):
+        page = client.get(f"/weeks?layout={layout}").text
+        day = page.split(f'data-date="{later.isoformat()}"')[1].split("plan-day")[0]
+        assert "call sparky" in day
+        assert "pay invoice" in day and "due" in day
+        assert "quotes in" in day
+        assert "1.5h" in day  # union of 10:00-11:00 and 10:30-11:30
+        assert "work sync" not in page  # meetings are condensed to load, not listed
+        tray = page.split('class="tray plan-tray"')[1]
+        assert "someday thing" in tray and "call sparky" not in tray
+
+
+def test_weeks_layout_is_remembered(client) -> None:
+    assert "week-rows" in client.get("/weeks?layout=rows").text
+    assert "week-rows" in client.get("/weeks").text
+    assert "month-grid" in client.get("/weeks?layout=grid").text
+    assert "month-grid" in client.get("/weeks").text
+    assert "month-grid" in client.get("/weeks?layout=bogus").text
+
+
+def test_busy_hours_and_labels() -> None:
+    from datetime import datetime
+
+    from app.ui.weeks_view import _busy_hours, hours_label
+
+    t = datetime(2026, 1, 5, 9)
+    spans = [
+        (t, t + timedelta(hours=1)),
+        (t + timedelta(minutes=30), t + timedelta(hours=2)),
+        (t + timedelta(hours=3), t + timedelta(hours=3, minutes=15)),
+    ]
+    assert _busy_hours(spans) == 2.25
+    assert _busy_hours([]) == 0
+    assert hours_label(0.75) == "45m"
+    assert hours_label(2.25) == "2.5h"
+    assert hours_label(4) == "4h"
+
+
+def test_static_assets_are_versioned(client) -> None:
+    page = client.get("/").text
+    assert "/static/app.css?v=" in page
+    assert "/static/favicon.svg?v=" in page
 
 
 def test_quick_add_creates_row(client) -> None:
@@ -192,6 +289,49 @@ def test_add_event_form_creates_event_and_series(client, db) -> None:
     yoga = list(db.scalars(select(Event).where(Event.title == "Yoga")))
     assert len(yoga) == 9
     assert all(e.recurrence_template_id for e in yoga)
+
+
+def test_project_card_lists_open_tasks_under_milestones(client, db) -> None:
+    p = projects_svc.create_project(db, name="Reno")
+    m = projects_svc.create_milestone(db, project_id=p.id, name="quotes in")
+    tasks_svc.create_task(db, title="call sparky", project_id=p.id, milestone_id=m.id)
+    tasks_svc.create_task(
+        db, title="pick tiles", project_id=p.id, planned_for=TODAY + timedelta(days=2)
+    )
+    finished = tasks_svc.create_task(db, title="measure wall", project_id=p.id)
+    tasks_svc.set_status(db, finished.id, TaskStatus.done)
+
+    page = client.get("/projects").text
+    card = page.split(f'id="project-{p.id}"')[1]
+    group = card.split('class="milestone-group"')[1].split("</div>")[0]
+    assert "call sparky" in group
+    loose = card.split('class="loose-head"')[1]
+    assert "pick tiles" in loose
+    assert (TODAY + timedelta(days=2)).strftime("%a") in loose  # planned day shown
+    assert "measure wall" not in card
+    assert "2 open" in card
+
+
+def test_project_quick_add_edit_and_status(client, db) -> None:
+    p = projects_svc.create_project(db, name="Reno")
+
+    row = client.post("/ui/tasks/quick-add", data={"title": "get quotes", "project_id": p.id})
+    assert "get quotes" in row.text
+    [task] = tasks_svc.list_tasks(db, project_id=p.id)
+    assert task.title == "get quotes"
+
+    assert 'name="notes"' in client.get(f"/ui/projects/{p.id}/edit").text
+    card = client.post(
+        f"/ui/projects/{p.id}", data={"name": "Kitchen reno", "notes": "  before summer  "}
+    ).text
+    assert "Kitchen reno" in card and "before summer" in card
+    assert projects_svc.get_project(db, p.id).notes == "before summer"
+
+    shelved = client.post(f"/ui/projects/{p.id}/status", data={"status": "paused"}).text
+    assert 'class="project-shelf"' in shelved
+    assert shelved.index("Paused") < shelved.index("Kitchen reno")
+    active = client.post(f"/ui/projects/{p.id}/status", data={"status": "active"}).text
+    assert "project-shelf" not in active
 
 
 def test_projects_page_and_milestone_toggle(client, db) -> None:

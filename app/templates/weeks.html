@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Weeks · Personal Calendar{% endblock %}
+{% block content %}
+<div class="weeks-page">
+  <header class="page-header weeks-header">
+    <h1>{{ plan.range_label }}</h1>
+    <nav class="week-nav" aria-label="Weeks">
+      <div class="segmented" role="group" aria-label="Layout">
+        <a href="/weeks?start={{ plan.start.isoformat() }}&layout=grid" {% if layout == "grid" %}aria-current="true"{% endif %}>Grid</a>
+        <a href="/weeks?start={{ plan.start.isoformat() }}&layout=rows" {% if layout == "rows" %}aria-current="true"{% endif %}>Rows</a>
+      </div>
+      <a class="week-arrow" href="/weeks?start={{ plan.prev }}" aria-label="Earlier weeks">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg>
+      </a>
+      <a class="week-today" href="/weeks"{% if plan.is_current %} aria-current="true"{% endif %}>Today</a>
+      <a class="week-arrow" href="/weeks?start={{ plan.next }}" aria-label="Later weeks">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5"/></svg>
+      </a>
+    </nav>
+  </header>
+
+  {% include "partials/weeks_board.html" %}
+</div>
+<script src="{{ asset('weeks.js') }}" defer></script>
+{% endblock %}

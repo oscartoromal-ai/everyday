@@ -5,16 +5,11 @@
   <h1>Projects</h1>
 </header>
 
-<div id="project-cards">
-  {% for card in cards %}{% include "partials/project_card.html" %}{% endfor %}
-</div>
-{% if not cards %}
-<p class="empty">No projects yet. Start one below; milestones and tasks hang off it.</p>
-{% endif %}
+{% include "partials/projects_list.html" %}
 
-<form class="inline-form"
+<form class="inline-form new-project"
       hx-post="/ui/projects"
-      hx-target="#project-cards" hx-swap="beforeend"
+      hx-target="#projects" hx-swap="outerHTML"
       hx-on::after-request="if (event.detail.successful) this.reset()">
   <div class="field" style="flex: 2;">
     <input name="name" placeholder="Start a project…" aria-label="Project name" required>

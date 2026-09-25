@@ -1,0 +1,12 @@
+<div id="projects">
+  {% for card in active %}{% include "partials/project_card.html" %}{% endfor %}
+  {% if not active %}
+  <p class="empty">No active projects. Start one below; milestones and tasks hang off it.</p>
+  {% endif %}
+  {% for label, cards in [("Paused", paused), ("Done", done)] if cards %}
+  <details class="project-shelf">
+    <summary>{{ label }} <span class="count">{{ cards | length }}</span></summary>
+    {% for card in cards %}{% include "partials/project_card.html" %}{% endfor %}
+  </details>
+  {% endfor %}
+</div>

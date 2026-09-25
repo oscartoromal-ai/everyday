@@ -1,0 +1,18 @@
+{% set p = card.project %}
+<article class="project-card editing" id="project-{{ p.id }}">
+  <form class="project-editor"
+        hx-post="/ui/projects/{{ p.id }}" hx-target="#project-{{ p.id }}" hx-swap="outerHTML">
+    <div class="editor-title">
+      <input name="name" value="{{ p.name }}" required aria-label="Project name" autofocus>
+    </div>
+    <div class="field">
+      <label for="notes-{{ p.id }}">Notes</label>
+      <textarea id="notes-{{ p.id }}" name="notes" rows="3">{{ p.notes }}</textarea>
+    </div>
+    <div class="editor-actions">
+      <button type="submit" class="btn primary">Save</button>
+      <button type="button" class="btn quiet"
+              hx-get="/ui/projects/{{ p.id }}/card" hx-target="#project-{{ p.id }}" hx-swap="outerHTML">Cancel</button>
+    </div>
+  </form>
+</article>

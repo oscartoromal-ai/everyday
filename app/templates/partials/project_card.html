@@ -1,19 +1,39 @@
-<article class="project-card" id="project-{{ card.project.id }}">
+{% set p = card.project %}
+<article class="project-card {{ p.status.value }}" id="project-{{ p.id }}">
   <header>
-    <h2>{{ card.project.name }}</h2>
-    <span class="status {{ card.project.status.value }}">
-      {% if card.project.status.value == "active" %}{{ card.open_count }} open{% else %}{{ card.project.status.value }}{% endif %}
-    </span>
+    <h2>{{ p.name }}</h2>
+    <span class="open-count">{% if card.open_count == 1 %}1 open{% elif card.open_count %}{{ card.open_count }} open{% endif %}</span>
+    <select class="status-select" name="status" aria-label="Status of {{ p.name }}"
+            hx-post="/ui/projects/{{ p.id }}/status" hx-trigger="change"
+            hx-target="#projects" hx-swap="outerHTML">
+      {% for value, label in [("active", "Active"), ("paused", "Paused"), ("done", "Done")] %}
+      <option value="{{ value }}" {% if p.status.value == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="button" class="card-edit-btn" aria-label="Edit {{ p.name }}" title="Rename or edit notes"
+            hx-get="/ui/projects/{{ p.id }}/edit" hx-target="#project-{{ p.id }}" hx-swap="outerHTML">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 3.5l3 3L7 16H4v-3z"/><path d="M11.5 5.5l3 3"/></svg>
+    </button>
   </header>
-  {% if card.project.notes %}<p class="notes">{{ card.project.notes }}</p>{% endif %}
-  <ul class="milestones" id="milestones-{{ card.project.id }}">
-    {% for m in card.milestones %}{% include "partials/milestone_row.html" %}{% endfor %}
+  {% if p.notes %}<p class="notes">{{ p.notes }}</p>{% endif %}
+
+  <div class="milestone-groups" id="milestone-groups-{{ p.id }}">
+    {% for group in card.groups %}{% include "partials/milestone_group.html" %}{% endfor %}
+  </div>
+
+  {% if card.groups %}<h3 class="loose-head">Other tasks</h3>{% endif %}
+  <ul class="task-list" id="project-tasks-{{ p.id }}">
+    {% for row in card.loose_rows %}{% include "partials/task_row.html" %}{% endfor %}
   </ul>
+  {% with target = "project-tasks-" ~ p.id, planned_for = none, project_id = p.id, placeholder = "Add a task to " ~ p.name ~ "…" %}
+    {% include "partials/quick_add.html" %}
+  {% endwith %}
+
   <details class="expander">
     <summary class="add-inline">Add a milestone</summary>
     <form class="inline-form"
-          hx-post="/ui/projects/{{ card.project.id }}/milestones"
-          hx-target="#milestones-{{ card.project.id }}" hx-swap="beforeend"
+          hx-post="/ui/projects/{{ p.id }}/milestones"
+          hx-target="#milestone-groups-{{ p.id }}" hx-swap="beforeend"
           hx-on::after-request="if (event.detail.successful) { this.reset(); this.closest('details').open = false; }">
       <div class="field" style="flex: 2;">
         <input name="name" placeholder="Milestone name" aria-label="Milestone name" required>
