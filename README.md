@@ -98,6 +98,15 @@ To install it:
 ```
 
 This makes the app effectively always-up while Oscar is logged in, which the work-calendar poll and nudge jobs assume.
+
+To restart it, for example after pulling changes:
+
+```
+Stop-ScheduledTask -TaskName "Personal Calendar"; Start-ScheduledTask -TaskName "Personal Calendar"
+```
+
+Stopping the task stops the whole app.
+Task Scheduler only terminates the PowerShell process it launched, so `run-app.ps1` first joins a kill-on-close job object; the app's process chain (uv, the entry-point shim, the interpreter) inherits it and exits with that PowerShell process instead of living on as an orphan.
 To remove the task later:
 
 ```
