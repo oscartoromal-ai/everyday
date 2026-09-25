@@ -16,3 +16,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
+
+# Agent skills: .agents/skills/ and skills-lock.json are the committed source;
+# .claude/skills/ holds the installer's machine-local junctions into it.
+.claude/skills/
