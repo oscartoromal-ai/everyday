@@ -19,6 +19,12 @@ from app.ui.views import milestone_ctx, project_card_ctx, projects_list_ctx, row
 router = APIRouter(prefix="/ui", include_in_schema=False)
 
 
+def _planning(request: Request) -> bool:
+    """The Tasks page marks its requests, so what it re-renders stays in
+    planning form (do-date buttons, dates always shown)."""
+    return request.headers.get("X-Row-Context") == "plan"
+
+
 def _row_response(
     request: Request,
     db,  # noqa: ANN001
@@ -27,14 +33,8 @@ def _row_response(
     expanded: bool = False,
 ) -> HTMLResponse:
     task = tasks_svc.get_task(db, task_id)
-    context = {
-        "request": request,
-        "row": row_ctx(task, datetime.now()),
-        "expanded": expanded,
-        # The Tasks page marks its requests, so a row re-rendered there keeps
-        # its do-date buttons.
-        "plan_controls": request.headers.get("X-Row-Context") == "plan",
-    }
+    row = row_ctx(task, datetime.now(), planning=_planning(request))
+    context = {"request": request, "row": row, "expanded": expanded}
     return templates.TemplateResponse(request, "partials/task_row.html", context)
 
 
@@ -279,7 +279,7 @@ def _projects_list(request: Request, db) -> HTMLResponse:  # noqa: ANN001
 
 def _project_partial(request: Request, db, project_id: int, template: str) -> HTMLResponse:  # noqa: ANN001
     project = projects_svc.get_project(db, project_id)
-    card = project_card_ctx(db, project, datetime.now())
+    card = project_card_ctx(db, project, datetime.now(), planning=_planning(request))
     return templates.TemplateResponse(request, template, {"request": request, "card": card})
 
 

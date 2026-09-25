@@ -327,7 +327,8 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 .page-header h1, .day-header .weekday {
   font-size: var(--t-h-sm); line-height: 1.33; font-weight: 600; letter-spacing: -0.015em;
 }
-.day-header .rest { margin-top: var(--s-1); font-size: var(--t-body-sm); color: var(--graphite); }
+.day-header .rest, .page-header .rest { margin-top: var(--s-1); font-size: var(--t-body-sm); color: var(--graphite); }
+.page-header .segmented { margin: var(--s-1) 0 0; }
 
 /* ---------- glass cards (resting surfaces: no shadow) ---------- */
 
@@ -511,6 +512,26 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 
 .tasks-page .capture { margin-bottom: var(--s-6); }
 
+/* ---------- Done: finished work folded under a list ---------- */
+
+.done-fold > summary {
+  display: flex; align-items: center; gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  font-size: var(--t-body-sm); font-weight: 500; color: var(--pewter);
+  list-style: none; cursor: pointer;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.done-fold > summary::-webkit-details-marker { display: none; }
+.done-fold > summary:hover { color: var(--ink); background: var(--glass-row-hover); }
+.done-fold > summary svg { flex: none; stroke: currentColor; }
+.done-fold[open] > summary svg { transform: rotate(90deg); }
+.done-fold .fold-note { margin-left: auto; font-size: var(--t-caption); font-weight: 400; color: var(--steel); }
+.done-fold .task-list { border-top: 1px solid var(--hairline-on-glass); }
+.done-fold .task-list .task-row:last-child { border-bottom: none; }
+/* inside a list card, the fold is its last row */
+.list-section > .done-fold { border-top: 1px solid var(--hairline-on-glass); }
+.done-section > .done-fold { border-top: none; }
+
 /* ---------- quick add: the last row of a list card ---------- */
 
 .quick-add { padding: 10px var(--s-4); }
@@ -658,6 +679,7 @@ dialog.confirm::backdrop { background: var(--scrim); }
 }
 .card-edit-btn:hover { color: var(--ink); background: var(--fog); }
 .card-edit-btn svg { stroke: currentColor; }
+.card-edit-btn.slot { visibility: hidden; }
 .project-card .notes { margin: var(--s-1) var(--s-4) 0; font-size: var(--t-body-sm); color: var(--graphite); white-space: pre-line; }
 
 .milestone-groups:not(:empty) { margin-top: var(--s-3); }

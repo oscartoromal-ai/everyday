@@ -71,8 +71,60 @@ def test_today_group_offers_tomorrow_but_not_today(client, db) -> None:
     row = client.get("/").text.split(f'id="task-{task.id}"')[1].split("</li>")[0]
     assert ">Tomorrow</button>" in row and ">Today</button>" not in row
     assert "plan-btn slot" in row  # its slot stays, so the columns line up
-    # The group heading says when; the row does not repeat it.
-    assert 'class="planned"' not in row
+    # While planning, a row always names its day, however it is grouped.
+    assert '<span class="planned">today</span>' in row
+
+
+def test_tasks_by_project_shows_cards_then_no_project(client, db) -> None:
+    p = projects_svc.create_project(db, name="Calendar sync")
+    m = projects_svc.create_milestone(db, project_id=p.id, name="ICS import")
+    in_m = tasks_svc.create_task(db, title="parse VEVENTs", project_id=p.id, milestone_id=m.id)
+    tasks_svc.create_task(db, title="renew token", project_id=p.id)
+    tasks_svc.create_task(db, title="call the bank")
+
+    page = client.get("/?view=project")
+    assert page.cookies.get("tasks_view") == "project"
+    html = page.text
+    card = html.split(f'id="project-{p.id}"')[1].split("</article>")[0]
+    assert "ICS import" in card and "parse VEVENTs" in card and "renew token" in card
+    # Rows keep their date buttons; the Projects-only status control stays there.
+    assert f'hx-post="/ui/tasks/{in_m.id}/plan"' in card
+    assert "status-select" not in card
+    loose = html.split('id="loose-list"')[1].split("</ul>")[0]
+    assert "call the bank" in loose and "renew token" not in loose
+    # The choice sticks for the next visit.
+    assert 'aria-current="true">By project' in client.get("/").text
+
+
+def test_done_work_folds_away_on_tasks_and_today(client, db) -> None:
+    finished = tasks_svc.create_task(db, title="finished it", planned_for=TODAY)
+    tasks_svc.create_task(db, title="still going", planned_for=TODAY)
+    tasks_svc.set_status(db, finished.id, TaskStatus.done)
+
+    tasks_page = client.get("/").text
+    groups, fold = tasks_page.split('class="done-fold"')
+    assert "finished it" not in groups and "finished it" in fold
+    assert "last 14 days" in fold
+
+    today = client.get("/today").text
+    today_list = today.split('id="today-list"')[1].split("</ul>")[0]
+    assert "still going" in today_list and "finished it" not in today_list
+    assert "finished it" in today.split('id="today-done"')[1]
+    assert "1 task open" in today
+
+
+def test_projects_show_one_occurrence_of_a_repeating_task(client, db) -> None:
+    from app.models import RecurrenceKind
+    from app.services import recurrence as rec_svc
+
+    p = projects_svc.create_project(db, name="Home")
+    series = rec_svc.create_template(
+        db, kind=RecurrenceKind.task, repeat="daily", start_date=TODAY,
+        title="water the plants", project_id=p.id,
+    )
+    rec_svc.materialize_template(db, series, TODAY)
+    card = client.get("/projects").text.split(f'id="project-{p.id}"')[1].split("</article>")[0]
+    assert card.count("water the plants</span>") == 1
 
 
 def test_plan_sets_and_clears_the_do_date(client, db) -> None:

@@ -452,6 +452,11 @@
   }, true);
 
   window.NotesEditor = {
+    // Re-read the field after something else set it (a carried-over draft).
+    reload(root) {
+      render(root, parse(field(root).value));
+      histories.delete(root);
+    },
     focusEnd(root) {
       root.focus();
       const last = lines(root).length - 1;

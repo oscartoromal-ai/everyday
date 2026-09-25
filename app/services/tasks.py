@@ -155,16 +155,10 @@ def backlog(db: Session) -> list[Task]:
     return list(db.scalars(stmt))
 
 
-def planning_list(db: Session, today: date) -> list[Task]:
-    """Oscar's open tasks, for the Tasks page where he gives them days.
-
-    A repeating series shows one occurrence: its next from today on, or, if
-    none is open, its latest overdue one. The rest are already dated and
-    would only bury the tasks that still need a day.
-    """
-    stmt = _with_blocks(
-        select(Task).where(Task.owner == TaskOwner.oscar, Task.status.in_(OPEN_STATUSES))
-    )
+def one_per_series(tasks: list[Task], today: date) -> list[Task]:
+    """A repeating series shows one occurrence: its next from today on, or,
+    if none is open, its latest overdue one. The rest are already dated and
+    would only bury the tasks that still need attention."""
     out: list[Task] = []
     series: dict[int, Task] = {}
 
@@ -172,7 +166,7 @@ def planning_list(db: Session, today: date) -> list[Task]:
         day = task.planned_for
         return (0, day.toordinal()) if day >= today else (1, -day.toordinal())
 
-    for task in db.scalars(stmt):
+    for task in tasks:
         # An occurrence moved off its date stands on its own.
         if task.recurrence_template_id is None or task.planned_for is None:
             out.append(task)
@@ -181,6 +175,28 @@ def planning_list(db: Session, today: date) -> list[Task]:
         if current is None or rank(task) < rank(current):
             series[task.recurrence_template_id] = task
     return out + list(series.values())
+
+
+def planning_list(db: Session, today: date) -> list[Task]:
+    """Oscar's open tasks, for the Tasks page where he gives them days."""
+    stmt = _with_blocks(
+        select(Task).where(Task.owner == TaskOwner.oscar, Task.status.in_(OPEN_STATUSES))
+    )
+    return one_per_series(list(db.scalars(stmt)), today)
+
+
+def recently_done(db: Session, since: datetime) -> list[Task]:
+    """Oscar's tasks finished since `since`, latest first: the Done fold."""
+    stmt = _with_blocks(
+        select(Task)
+        .where(
+            Task.owner == TaskOwner.oscar,
+            Task.status == TaskStatus.done,
+            Task.status_changed_at >= since,
+        )
+        .order_by(Task.status_changed_at.desc())
+    )
+    return list(db.scalars(stmt))
 
 
 def delegated(db: Session) -> list[Task]:

@@ -1,4 +1,4 @@
-<form class="quick-add" data-composer
+<form class="quick-add" data-composer data-composer-key="{{ target }}"
       hx-post="/ui/tasks/quick-add"
       hx-target="#{{ target }}" hx-swap="beforeend settle:240ms">
   {% if planned_for %}<input type="hidden" name="planned_for" value="{{ planned_for.isoformat() }}">{% endif %}

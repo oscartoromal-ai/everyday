@@ -23,10 +23,13 @@
         {% for row in rows %}{% include "partials/task_row.html" %}{% endfor %}
       </ul>
       {% if not rows %}
-      <p class="empty">Nothing planned for today. Give something today's date on Tasks, or add it below.</p>
+      <p class="empty">{% if done_rows %}Everything planned for today is done.{% else %}Nothing planned for today. Give something today's date on Tasks, or add it below.{% endif %}</p>
       {% endif %}
       {% with target = "today-list", planned_for = today, placeholder = "Add a task for today…" %}
         {% include "partials/quick_add.html" %}
+      {% endwith %}
+      {% with fold_id = "today-done", fold_note = None %}
+        {% include "partials/done_fold.html" %}
       {% endwith %}
     </section>
 

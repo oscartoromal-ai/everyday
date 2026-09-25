@@ -98,17 +98,52 @@
     }
   });
 
-  /* ---- rows: the description folds under the meta line ---- */
+  /* ---- drafts survive live refreshes ---- */
 
-  const KEY = "pc-open-notes";
-  const remembered = () => {
-    try { return new Set(JSON.parse(sessionStorage.getItem(KEY)) || []); } catch { return new Set(); }
+  // Today's list and the Tasks page re-render from the server whenever the
+  // plan changes, composers included. Carry a half-written task, and focus,
+  // over to the fresh composer with the same key.
+  const carried = new WeakMap(); // request -> drafts
+  document.addEventListener("htmx:beforeSwap", (e) => {
+    const drafts = [...e.detail.target.querySelectorAll("[data-composer]")]
+      .map((form) => ({
+        key: form.dataset.composerKey,
+        title: form.elements.title.value,
+        notes: form.elements.notes.value,
+        focus: !form.contains(document.activeElement) ? null
+          : document.activeElement === form.elements.title ? "title" : "notes",
+      }))
+      .filter((d) => d.title || d.notes || d.focus);
+    if (drafts.length) carried.set(e.detail.xhr, drafts);
+  });
+  document.addEventListener("htmx:afterSettle", (e) => {
+    const drafts = carried.get(e.detail.xhr);
+    if (!drafts) return;
+    carried.delete(e.detail.xhr);
+    for (const d of drafts) {
+      const form = document.querySelector(`[data-composer][data-composer-key="${CSS.escape(d.key)}"]`);
+      if (!form) continue;
+      form.elements.title.value = d.title;
+      form.elements.notes.value = d.notes;
+      window.NotesEditor.reload(editorOf(form));
+      if (d.title || d.notes) open(form);
+      if (d.focus === "title") form.elements.title.focus();
+      else if (d.focus === "notes") window.NotesEditor.focusEnd(editorOf(form));
+    }
+  });
+
+  /* ---- what stays open: descriptions and Done folds, per tab ---- */
+
+  const remembered = (key) => {
+    try { return new Set(JSON.parse(sessionStorage.getItem(key)) || []); } catch { return new Set(); }
   };
-  const remember = (id, isOpen) => {
-    const ids = remembered();
+  const remember = (key, id, isOpen) => {
+    const ids = remembered(key);
     if (isOpen) ids.add(id); else ids.delete(id);
-    try { sessionStorage.setItem(KEY, JSON.stringify([...ids])); } catch { /* storage blocked */ }
+    try { sessionStorage.setItem(key, JSON.stringify([...ids])); } catch { /* storage blocked */ }
   };
+  const NOTES = "pc-open-notes";
+  const FOLDS = "pc-open-folds";
 
   const setOpen = (toggle, isOpen) => {
     toggle.setAttribute("aria-expanded", String(isOpen));
@@ -120,16 +155,25 @@
     if (!toggle) return;
     const isOpen = toggle.getAttribute("aria-expanded") !== "true";
     setOpen(toggle, isOpen);
-    remember(toggle.getAttribute("aria-controls"), isOpen);
+    remember(NOTES, toggle.getAttribute("aria-controls"), isOpen);
   });
 
-  // Today re-renders its list on every calendar change; reopen what was open.
+  // "toggle" does not bubble; capture it on the way down.
+  document.addEventListener("toggle", (e) => {
+    if (e.target.matches?.("details[data-remember]")) remember(FOLDS, e.target.id, e.target.open);
+  }, true);
+
+  // Lists re-render on every plan change; reopen what was open.
   const restore = (root) => {
-    const ids = remembered();
+    const notes = remembered(NOTES);
     root.querySelectorAll?.(".notes-toggle").forEach((toggle) => {
       const id = toggle.getAttribute("aria-controls");
-      if (toggle.getAttribute("aria-expanded") === "true") remember(id, true);
-      else if (ids.has(id)) setOpen(toggle, true);
+      if (toggle.getAttribute("aria-expanded") === "true") remember(NOTES, id, true);
+      else if (notes.has(id)) setOpen(toggle, true);
+    });
+    const folds = remembered(FOLDS);
+    root.querySelectorAll?.("details[data-remember]").forEach((fold) => {
+      if (folds.has(fold.id)) fold.open = true;
     });
   };
   document.addEventListener("htmx:load", (e) => restore(e.detail.elt));

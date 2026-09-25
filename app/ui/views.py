@@ -95,8 +95,11 @@ def description_blocks(notes: str) -> list[dict[str, Any]]:
     ]
 
 
-def row_ctx(task: Task, now: datetime) -> dict[str, Any]:
-    """Everything the task-row partial needs, precomputed."""
+def row_ctx(task: Task, now: datetime, *, planning: bool = False) -> dict[str, Any]:
+    """Everything the task-row partial needs, precomputed.
+
+    `planning` rows (the Tasks page) always name their do-date, today
+    included, and carry the quick do-date buttons."""
     missed = tasks_svc.has_missed_marker(task, now)
     missed_block = last_missed_block(task) if missed else None
     today = now.date()
@@ -107,12 +110,13 @@ def row_ctx(task: Task, now: datetime) -> dict[str, Any]:
         "subtasks_done": subtasks_done,
         "subtasks_total": subtasks_total,
         "block_label": f"{block.start:%H:%M}–{block.end:%H:%M}" if block else None,
-        # Today's list is today by definition; everywhere else the do-date matters.
+        # Today's list is today by definition; while planning, the day always matters.
         "planned_label": (
             short_date(task.planned_for, today)
-            if task.planned_for and task.planned_for != today
+            if task.planned_for and (planning or task.planned_for != today)
             else None
         ),
+        "plan_controls": planning,
         "task": task,
         "done": task.status == TaskStatus.done,
         # The Tasks page's quick do-date buttons.
@@ -162,35 +166,66 @@ def plan_group(planned_for: date | None, today: date) -> str:
     return "later"
 
 
-def tasks_page_ctx(db: Session, now: datetime) -> dict[str, Any]:
-    """The Tasks page: Oscar's open tasks grouped by do-date, for giving
-    them days. No date is always shown, since that is where triage happens;
-    the other groups only when they hold something."""
+DONE_DAYS = 14
+TASKS_VIEWS = ("date", "project")
+
+
+def tasks_page_ctx(db: Session, now: datetime, view: str) -> dict[str, Any]:
+    """The Tasks page: Oscar's open tasks, for giving them days, either by
+    do-date or by project, with the last two weeks' finished work folded
+    away underneath."""
+    today = now.date()
+    planning = tasks_svc.planning_list(db, today)
+    ctx: dict[str, Any] = {
+        "view": view,
+        "open_count": len(planning),
+        "undated_count": sum(1 for t in planning if t.planned_for is None),
+        "done_rows": [
+            row_ctx(t, now, planning=True)
+            for t in tasks_svc.recently_done(db, now - timedelta(days=DONE_DAYS))
+        ],
+        "done_days": DONE_DAYS,
+    }
+    if view == "project":
+        ctx.update(_tasks_by_project(db, planning, now))
+    else:
+        ctx["groups"] = _tasks_by_date(planning, now)
+    return ctx
+
+
+def _tasks_by_date(planning: list[Task], now: datetime) -> list[dict[str, Any]]:
+    """No date is always shown, since that is where triage happens; the
+    other groups only when they hold something."""
     today = now.date()
     grouped: dict[str, list[Task]] = {key: [] for key, _ in PLAN_GROUPS}
-    for task in tasks_svc.planning_list(db, today):
+    for task in planning:
         grouped[plan_group(task.planned_for, today)].append(task)
     # Undated: deadlines first, soonest first, then the newest captures.
-    grouped["nodate"].sort(
-        key=lambda t: (t.due or date.max, -t.created_at.timestamp())
-    )
+    grouped["nodate"].sort(key=lambda t: (t.due or date.max, -t.created_at.timestamp()))
     for key, tasks in grouped.items():
         if key != "nodate":
             tasks.sort(key=lambda t: (t.planned_for, t.created_at))
+    return [
+        {"key": key, "label": label, "rows": [row_ctx(t, now, planning=True) for t in grouped[key]]}
+        for key, label in PLAN_GROUPS
+        if grouped[key] or key == "nodate"
+    ]
 
-    groups = []
-    for key, label in PLAN_GROUPS:
-        if not grouped[key] and key != "nodate":
-            continue
-        rows = [row_ctx(t, now) for t in grouped[key]]
-        if key in ("today", "tomorrow"):
-            for row in rows:
-                row["planned_label"] = None  # the group already says so
-        groups.append({"key": key, "label": label, "rows": rows})
+
+def _tasks_by_project(db: Session, planning: list[Task], now: datetime) -> dict[str, Any]:
+    """The project cards, as on Projects, for every active project and any
+    parked one that still holds open work; then the tasks with no project."""
+    with_open = {t.project_id for t in planning}
+    projects = [
+        p
+        for p in projects_svc.list_projects(db)
+        if p.status == ProjectStatus.active or p.id in with_open
+    ]
+    projects.sort(key=lambda p: p.status != ProjectStatus.active)  # stable: keeps creation order
+    loose = sorted((t for t in planning if t.project_id is None), key=_plan_order)
     return {
-        "groups": groups,
-        "open_count": sum(len(tasks) for tasks in grouped.values()),
-        "undated_count": len(grouped["nodate"]),
+        "project_cards": [project_card_ctx(db, p, now, planning=True) for p in projects],
+        "loose_rows": [row_ctx(t, now, planning=True) for t in loose],
     }
 
 
@@ -212,21 +247,28 @@ def _plan_order(task: Task) -> tuple:
     return (task.planned_for or date.max, task.due or date.max, task.created_at)
 
 
-def project_card_ctx(db: Session, project: Project, now: datetime) -> dict[str, Any]:
+def project_card_ctx(
+    db: Session, project: Project, now: datetime, *, planning: bool = False
+) -> dict[str, Any]:
     """A project card: its milestones, each with its open tasks, then the rest."""
     today = now.date()
     open_tasks = sorted(
-        (
-            t
-            for t in tasks_svc.list_tasks(db, project_id=project.id)
-            if t.status in tasks_svc.OPEN_STATUSES
+        tasks_svc.one_per_series(
+            [
+                t
+                for t in tasks_svc.list_tasks(db, project_id=project.id)
+                if t.status in tasks_svc.OPEN_STATUSES
+            ],
+            today,
         ),
         key=_plan_order,
     )
     groups = [
         {
             "m": milestone_ctx(db, m, today),
-            "rows": [row_ctx(t, now) for t in open_tasks if t.milestone_id == m.id],
+            "rows": [
+                row_ctx(t, now, planning=planning) for t in open_tasks if t.milestone_id == m.id
+            ],
         }
         for m in project.milestones
         if m.status != MilestoneStatus.dropped
@@ -234,8 +276,11 @@ def project_card_ctx(db: Session, project: Project, now: datetime) -> dict[str, 
     return {
         "project": project,
         "groups": groups,
-        "loose_rows": [row_ctx(t, now) for t in open_tasks if t.milestone_id is None],
+        "loose_rows": [
+            row_ctx(t, now, planning=planning) for t in open_tasks if t.milestone_id is None
+        ],
         "open_count": len(open_tasks),
+        "planning": planning,
     }
 
 

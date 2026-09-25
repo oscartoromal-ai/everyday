@@ -90,11 +90,17 @@ Esc steps away but keeps a written draft open; Cancel clears it.
 The task editor puts the same editor directly under the title, above the other fields, styled as a field.
 The empty-list note hides once the list has a row.
 
-**Tasks.** A page header like Today's ("Tasks", then the open and undated counts), the composer alone in its own card, then one list card per do-date group.
+**Tasks.** A page header ("Tasks", the open and undated counts, and a By date / By project segmented control on the right), the composer alone in its own card, then the tasks.
+By date is one list card per do-date group; By project is Projects' cards (without their status control, which moves cards between Projects' shelves, and with a neutral badge on a parked project that still holds open work), then a No project card in the same form, its empty edit slot keeping the counts in line.
+While planning, every row names its do-date, "today" included, whichever way it is grouped.
 Each row ends in quiet do-date buttons, always shown since dating is the page's job: "Today" and "Tomorrow" in 12px pewter, and a calendar icon that opens the native date picker.
 They darken to graphite on row hover and ink on their own hover; a button for the day the task already has leaves its slot empty, so the columns line up down the page.
 On phones they take their own line under the title's text, without empty slots.
 Dating a task regroups the page from the server.
+
+**Done fold.** Finished tasks fold away under a list: a pewter "Done" summary with its count and a steel chevron that turns when open, then the rows, checked and struck through, ready to untick.
+On Today it is the last row of the Today card; on Tasks it is its own card at the foot, noting "last 14 days".
+Which folds are open is remembered per tab (`sessionStorage` key `pc-open-folds`).
 
 **Buttons.** `.btn.primary` is the ember primary, `.btn.quiet` the glass secondary, `.btn.danger-quiet` the destructive secondary with an err border.
 Week navigation and nudge actions are secondary-style controls.
@@ -158,7 +164,8 @@ Past days refuse drops.
 After the PATCH, `weeks:refresh` re-renders the board.
 
 **Writing tasks** (`app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`).
-`tasks.js` runs the composer and the row disclosures.
+`tasks.js` runs the composer, the row disclosures and the Done folds.
+Lists that re-render from the server take any half-written composer with them: `tasks.js` carries its title, description and focus across the swap to the fresh composer with the same `data-composer-key`.
 `notes-editor.js` is the description editor: a contenteditable whose structure is always its own, since every edit that could split, merge or restyle a line is cancelled in `beforeinput` and redone on a line model.
 It writes the same plain text the server stores into a hidden `notes` textarea, so forms and the server never see the editor.
 

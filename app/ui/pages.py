@@ -11,6 +11,7 @@ from fastapi.responses import RedirectResponse
 from app.db import DbSession
 from app.ui.calendar_view import grid_ctx, tray_tasks, week_monday
 from app.ui.views import (
+    TASKS_VIEWS,
     projects_list_ctx,
     row_ctx,
     tasks_page_ctx,
@@ -26,14 +27,21 @@ def _base(request: Request, active: str) -> dict:
     return {"request": request, "active": active, "today": date.today()}
 
 
+TASKS_VIEW_COOKIE = "tasks_view"
+
+
 @router.get("/")
-def tasks_page(request: Request, db: DbSession):
+def tasks_page(request: Request, db: DbSession, view: str | None = None):
     # The app opens here: planning (giving tasks days) comes before doing.
-    return templates.TemplateResponse(
+    chosen = view or request.cookies.get(TASKS_VIEW_COOKIE)
+    view = chosen if chosen in TASKS_VIEWS else TASKS_VIEWS[0]
+    response = templates.TemplateResponse(
         request,
         "tasks.html",
-        {**_base(request, "tasks"), **tasks_page_ctx(db, datetime.now())},
+        {**_base(request, "tasks"), **tasks_page_ctx(db, datetime.now(), view)},
     )
+    response.set_cookie(TASKS_VIEW_COOKIE, view, max_age=60 * 60 * 24 * 365, samesite="strict")
+    return response
 
 
 @router.get("/today")
@@ -42,12 +50,15 @@ def today_page(request: Request, db: DbSession):
 
     now = datetime.now()
     oscar_rows, delegated_rows = today_page_tasks(db, now)
+    rows = [row_ctx(t, now) for t in oscar_rows]
     return templates.TemplateResponse(
         request,
         "today.html",
         {
             **_base(request, "today"),
-            "rows": [row_ctx(t, now) for t in oscar_rows],
+            # Finished work folds away under the list instead of lingering in it.
+            "rows": [r for r in rows if not r["done"]],
+            "done_rows": [r for r in rows if r["done"]],
             "delegated": [row_ctx(t, now) for t in delegated_rows],
             "nudges": nudges_svc.active_nudges(db),
             "grid": grid_ctx(db, now.date(), now, day_count=1),

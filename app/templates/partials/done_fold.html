@@ -1,0 +1,14 @@
+{# Finished work, folded away: out of the list, one click from an untick.
+   Its open state survives the page's live refreshes (tasks.js). #}
+{% if done_rows %}
+<details class="done-fold" id="{{ fold_id }}" data-remember>
+  <summary>
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>
+    Done <span class="count">{{ done_rows | length }}</span>
+    {% if fold_note %}<span class="fold-note">{{ fold_note }}</span>{% endif %}
+  </summary>
+  <ul class="task-list">
+    {% for row in done_rows %}{% include "partials/task_row.html" %}{% endfor %}
+  </ul>
+</details>
+{% endif %}
