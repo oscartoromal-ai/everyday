@@ -428,7 +428,7 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .task-notes p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .task-notes .gap { height: var(--s-2); }
 .subtasks { list-style: none; margin: 0; padding: 0; }
-.subtask { padding-left: calc(var(--depth, 0) * 20px); }
+.subtask { padding-left: calc(var(--depth, 0) * 22px); }
 .subtask label { display: flex; align-items: flex-start; gap: var(--s-2); padding: 2px 0; cursor: pointer; }
 .subtask span { color: var(--ink); overflow-wrap: anywhere; }
 .subtask.done span { color: var(--steel); text-decoration: line-through; text-decoration-thickness: 1px; }
@@ -489,24 +489,19 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .quick-add { padding: 10px var(--s-4); }
 .quick-add-line { display: flex; align-items: center; gap: var(--s-3); }
 .quick-add svg { flex: none; width: 18px; height: 18px; stroke: var(--steel); }
-.quick-add input, .quick-add textarea {
+.quick-add input {
   flex: 1; min-width: 0; border: none; background: none; color: var(--ink);
   font-size: var(--t-body-sm); padding: 2px 0;
 }
-.quick-add :is(input, textarea)::placeholder { color: var(--steel); }
-.quick-add :is(input, textarea):focus { outline: none; box-shadow: none; }
+.quick-add input::placeholder { color: var(--steel); }
+.quick-add :is(input, .notes-editor):focus { outline: none; box-shadow: none; }
 .quick-add:focus-within svg { stroke: var(--ink); }
 .quick-add.composing input[name="title"] { font-weight: 500; }
 
 /* composing: the description opens under the title, aligned with its text */
 .quick-add-more { display: none; padding-left: 30px; }
 .quick-add.composing .quick-add-more { display: block; }
-.quick-add textarea {
-  display: block; width: 100%; margin-top: var(--s-1);
-  line-height: 1.5; resize: none;
-  field-sizing: content; min-height: calc(2lh + 4px); max-height: 50vh;
-  color: var(--graphite);
-}
+.quick-add .notes-editor { margin-top: var(--s-1); padding: 2px 0; min-height: calc(2lh + 4px); max-height: 50vh; }
 .quick-add-actions { display: flex; align-items: center; gap: var(--s-2); margin-top: var(--s-2); }
 .quick-add-actions .spacer { flex: 1; }
 .quick-add-actions .btn { padding: 6px 14px; }
@@ -514,20 +509,48 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .hint kbd { font: inherit; }
 @media (hover: none) { .quick-add-actions .hint { display: none; } }
 
+/* ---------- the description editor: one line per block (notes-editor.js) ---------- */
+
+.notes-editor {
+  position: relative; overflow-y: auto;
+  font-size: var(--t-body-sm); line-height: 1.5; color: var(--graphite);
+  white-space: pre-wrap; overflow-wrap: anywhere; cursor: text;
+}
+.field .notes-editor { font-size: var(--t-body); }
+.notes-editor.is-empty::before {
+  content: attr(data-placeholder);
+  position: absolute; pointer-events: none; color: var(--steel);
+}
+.notes-editor .ln { position: relative; padding-left: calc(var(--depth, 0) * 22px); }
+.notes-editor .ln[data-kind="item"] { padding-left: calc(var(--depth, 0) * 22px + 22px); color: var(--ink); }
+/* the box: the line's own ::before, ticked by notes-editor.js on click */
+.notes-editor .ln[data-kind="item"]::before {
+  content: ""; position: absolute; left: calc(var(--depth, 0) * 22px); top: calc(0.5lh - 7px);
+  width: 14px; height: 14px; box-sizing: border-box;
+  border: 1.5px solid var(--mist); border-radius: 4px; background: var(--glass-input);
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.notes-editor .ln[data-checked]::before { background: var(--ink); border-color: var(--ink); }
+.notes-editor .ln[data-checked]::after {
+  content: ""; position: absolute; left: calc(var(--depth, 0) * 22px + 3px); top: calc(0.5lh - 4px);
+  width: 8px; height: 8px; background: var(--paper);
+  clip-path: polygon(14% 52%, 5% 65%, 38% 95%, 97% 18%, 85% 8%, 37% 71%);
+  pointer-events: none;
+}
+.notes-editor .ln[data-checked] { color: var(--steel); text-decoration: line-through; text-decoration-thickness: 1px; }
+
 /* ---------- forms ---------- */
 
 .task-editor { margin: var(--s-2) var(--s-3); padding: var(--s-4); }
 .task-list > li:has(> .task-editor) { border-bottom: 1px solid var(--hairline-on-glass); padding: var(--s-1) 0; }
 .editor-description { margin-top: var(--s-3); }
-.editor-description textarea {
-  resize: vertical; line-height: 1.5;
-  field-sizing: content; min-height: calc(3lh + 18px); max-height: 60vh;
-}
+.field .notes-editor { min-height: calc(3lh + 22px); max-height: 60vh; }
 .task-editor .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3) var(--s-4); margin-top: var(--s-3); }
 @media (max-width: 540px) { .task-editor .grid { grid-template-columns: 1fr; } }
 
 .field label { display: block; margin-bottom: 6px; font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); }
-.field input, .field select, .field textarea, .status-select {
+.field input, .field select, .field textarea, .field .notes-editor, .status-select {
   width: 100%;
   font-size: var(--t-body); color: var(--ink);
   background: var(--glass-input);
@@ -535,8 +558,8 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   padding: 10px 14px;
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-.field input:hover, .field select:hover, .field textarea:hover { border-color: var(--mist); }
-.field input:focus, .field select:focus, .field textarea:focus, .status-select:focus-visible {
+.field input:hover, .field select:hover, .field textarea:hover, .field .notes-editor:hover { border-color: var(--mist); }
+.field input:focus, .field select:focus, .field textarea:focus, .field .notes-editor:focus, .status-select:focus-visible {
   outline: none; border-color: transparent; box-shadow: 0 0 0 2px var(--brasa);
 }
 .field input::placeholder, .field textarea::placeholder { color: var(--steel); }

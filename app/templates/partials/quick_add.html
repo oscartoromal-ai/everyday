@@ -9,9 +9,12 @@
            required enterkeyhint="next">
   </div>
   <div class="quick-add-more">
-    <textarea name="notes" rows="2" data-checklist-input
-              placeholder="Add context. Start a line with - to make it a sub-task."
-              aria-label="Description"></textarea>
+    <div class="notes-field" data-notes-field>
+      <textarea name="notes" hidden></textarea>
+      <div class="notes-editor" contenteditable="true" role="textbox" aria-multiline="true"
+           aria-label="Description" data-notes-editor
+           data-placeholder="Add context. Start a line with - to make it a sub-task."></div>
+    </div>
     <div class="quick-add-actions">
       <span class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to add</span>
       <span class="spacer"></span>

@@ -79,9 +79,15 @@ It is the one handler behind every `hx-confirm` that carries `data-confirm-*` at
 
 **Composer.** Each list card ends in a quick-add row: a steel plus and a borderless title.
 Focusing it opens the description underneath, aligned with the title's text, with a steel "Ctrl+Enter to add" hint (hidden on touch), a secondary Cancel and the ember "Add task".
-Enter in the title moves to the description, Enter on a "- " line continues the list, Enter on an empty one ends it, and Ctrl+Enter adds the task and returns to an empty title for the next one.
+Enter in the title moves to the description, and Ctrl+Enter adds the task and returns to an empty title for the next one.
+
+**Description editor.** One line per block, in 14px graphite (16px ink inside the task editor's field).
+A line typed as "- words" turns into a sub-task when Enter is pressed: a 14px box, drawn as the line's own `::before`, that fills ink when clicked, with the words in ink, or steel and struck through once ticked.
+Enter on a sub-task starts the next one, Enter on an empty one steps out of the list, and Backspace at a sub-task's start turns it back into plain text.
+Shift+Enter under a sub-task writes a note hung 22px in, under its words; Enter on a note starts the next sub-task.
+Tab and Shift+Tab nest and un-nest by 22px; pasted "- " lines arrive as sub-tasks; the editor keeps its own undo.
 Esc steps away but keeps a written draft open; Cancel clears it.
-The task editor puts the same description field directly under the title, above the other fields.
+The task editor puts the same editor directly under the title, above the other fields, styled as a field.
 The empty-list note hides once the list has a row.
 
 **Buttons.** `.btn.primary` is the ember primary, `.btn.quiet` the glass secondary, `.btn.danger-quiet` the destructive secondary with an err border.
@@ -145,9 +151,10 @@ Any `[data-plan-task]` can be dropped on a future day to set its do-date, or on 
 Past days refuse drops.
 After the PATCH, `weeks:refresh` re-renders the board.
 
-**Writing tasks** (`app/static/tasks.js`, vanilla, listeners on `document`).
-It runs the composer, the description textareas' list continuation, and the row disclosures.
-Textareas grow with their content through `field-sizing: content`, with a script fallback where that is unsupported.
+**Writing tasks** (`app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`).
+`tasks.js` runs the composer and the row disclosures.
+`notes-editor.js` is the description editor: a contenteditable whose structure is always its own, since every edit that could split, merge or restyle a line is cancelled in `beforeinput` and redone on a line model.
+It writes the same plain text the server stores into a hidden `notes` textarea, so forms and the server never see the editor.
 
 **Assets.** Static URLs go through `asset()`, which appends the file's mtime (`?v=`), so a browser never pairs new templates with a stale stylesheet.
 The favicon is the Today icon in ink on a white tile, its dot the ember spark.

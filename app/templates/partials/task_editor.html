@@ -5,10 +5,12 @@
     <div class="editor-title">
       <input name="title" value="{{ task.title }}" required aria-label="Task title" autofocus>
     </div>
-    <div class="field editor-description">
-      <label for="description-{{ task.id }}">Description</label>
-      <textarea id="description-{{ task.id }}" name="notes" rows="3" data-checklist-input
-                placeholder="Add context. Start a line with - to make it a sub-task.">{{ task.notes }}</textarea>
+    <div class="field editor-description" data-notes-field>
+      <label id="description-{{ task.id }}">Description</label>
+      <textarea name="notes" hidden>{{ task.notes }}</textarea>
+      <div class="notes-editor" contenteditable="true" role="textbox" aria-multiline="true"
+           aria-labelledby="description-{{ task.id }}" data-notes-editor
+           data-placeholder="Add context. Start a line with - to make it a sub-task."></div>
     </div>
     <div class="grid">
       <div class="field">
