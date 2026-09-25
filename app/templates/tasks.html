@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Tasks · Personal Calendar{% endblock %}
+{% block content %}
+{# Every request from this page says so, so re-rendered rows keep their do-date buttons. #}
+<div class="tasks-page" hx-headers='{"X-Row-Context": "plan"}'>
+  <header class="day-header">
+    <div class="weekday">Tasks</div>
+    <div class="rest" id="tasks-rest">
+      {% if open_count == 0 %}nothing open{% elif open_count == 1 %}1 task open{% else %}{{ open_count }} tasks open{% endif %}
+      {% if undated_count %}· {{ undated_count }} without a day{% endif %}
+    </div>
+  </header>
+
+  <section class="list-section capture" aria-label="Add a task">
+    {% with target = "nodate-list", planned_for = None, placeholder = "Add a task…" %}
+      {% include "partials/quick_add.html" %}
+    {% endwith %}
+  </section>
+
+  {# Regroups whenever a task is added, dated, saved, ticked or deleted. The
+     composer sits outside it, so a refresh never pulls focus out of it. #}
+  <div id="task-groups"
+       hx-get="/" hx-select="#task-groups" hx-select-oob="#tasks-rest" hx-swap="outerHTML"
+       hx-trigger="task:added from:body, tasks:changed from:body, calendar:refresh from:body"
+       hx-disinherit="hx-get hx-select hx-select-oob hx-swap hx-trigger">
+    {% for group in groups %}
+    <section class="list-section" id="group-{{ group.key }}">
+      <h2>{{ group.label }} <span class="count">{{ group.rows | length }}</span></h2>
+      <ul class="task-list" id="{{ group.key }}-list">
+        {% with plan_controls = true %}
+        {% for row in group.rows %}{% include "partials/task_row.html" %}{% endfor %}
+        {% endwith %}
+      </ul>
+      {% if not group.rows %}
+      <p class="empty">Everything open has a day.</p>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

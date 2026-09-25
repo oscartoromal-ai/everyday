@@ -102,6 +102,40 @@ def test_daily_backlog_delegated_lists(db) -> None:
     assert [t.id for t in tasks_svc.delegated(db)] == [delegated_task.id]
 
 
+def test_planning_list_is_oscars_open_tasks(db) -> None:
+    mine = tasks_svc.create_task(db, title="mine")
+    dated = tasks_svc.create_task(db, title="dated", planned_for=TODAY + timedelta(days=9))
+    tasks_svc.create_task(db, title="claude job", owner=TaskOwner.claude)
+    done = tasks_svc.create_task(db, title="finished")
+    tasks_svc.set_status(db, done.id, TaskStatus.done)
+
+    assert {t.id for t in tasks_svc.planning_list(db, TODAY)} == {mine.id, dated.id}
+
+
+def test_planning_list_shows_one_occurrence_per_series(db) -> None:
+    from app.models import RecurrenceKind
+    from app.services import recurrence as rec_svc
+
+    series = rec_svc.create_template(
+        db,
+        kind=RecurrenceKind.task,
+        repeat="daily",
+        start_date=TODAY - timedelta(days=2),
+        title="water the plants",
+    )
+    rec_svc.materialize_template(db, series, TODAY - timedelta(days=2))
+    shown = [t for t in tasks_svc.planning_list(db, TODAY) if t.recurrence_template_id]
+    # The next one due, not the missed ones behind it or the weeks ahead.
+    assert [t.planned_for for t in shown] == [TODAY]
+
+    # Once every upcoming one is closed, the latest overdue one stands in.
+    for t in tasks_svc.list_tasks(db):
+        if t.planned_for >= TODAY:
+            tasks_svc.set_status(db, t.id, TaskStatus.done)
+    shown = [t for t in tasks_svc.planning_list(db, TODAY) if t.recurrence_template_id]
+    assert [t.planned_for for t in shown] == [TODAY - timedelta(days=1)]
+
+
 def test_next_days_view(db) -> None:
     p = projects_svc.create_project(db, name="App")
     m = projects_svc.create_milestone(

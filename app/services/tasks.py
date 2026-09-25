@@ -155,6 +155,34 @@ def backlog(db: Session) -> list[Task]:
     return list(db.scalars(stmt))
 
 
+def planning_list(db: Session, today: date) -> list[Task]:
+    """Oscar's open tasks, for the Tasks page where he gives them days.
+
+    A repeating series shows one occurrence: its next from today on, or, if
+    none is open, its latest overdue one. The rest are already dated and
+    would only bury the tasks that still need a day.
+    """
+    stmt = _with_blocks(
+        select(Task).where(Task.owner == TaskOwner.oscar, Task.status.in_(OPEN_STATUSES))
+    )
+    out: list[Task] = []
+    series: dict[int, Task] = {}
+
+    def rank(task: Task) -> tuple[int, int]:
+        day = task.planned_for
+        return (0, day.toordinal()) if day >= today else (1, -day.toordinal())
+
+    for task in db.scalars(stmt):
+        # An occurrence moved off its date stands on its own.
+        if task.recurrence_template_id is None or task.planned_for is None:
+            out.append(task)
+            continue
+        current = series.get(task.recurrence_template_id)
+        if current is None or rank(task) < rank(current):
+            series[task.recurrence_template_id] = task
+    return out + list(series.values())
+
+
 def delegated(db: Session) -> list[Task]:
     """The Delegated-to-Claude section: open Claude-owned tasks."""
     stmt = _with_blocks(

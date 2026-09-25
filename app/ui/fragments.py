@@ -27,7 +27,14 @@ def _row_response(
     expanded: bool = False,
 ) -> HTMLResponse:
     task = tasks_svc.get_task(db, task_id)
-    context = {"request": request, "row": row_ctx(task, datetime.now()), "expanded": expanded}
+    context = {
+        "request": request,
+        "row": row_ctx(task, datetime.now()),
+        "expanded": expanded,
+        # The Tasks page marks its requests, so a row re-rendered there keeps
+        # its do-date buttons.
+        "plan_controls": request.headers.get("X-Row-Context") == "plan",
+    }
     return templates.TemplateResponse(request, "partials/task_row.html", context)
 
 
@@ -51,6 +58,19 @@ def quick_add(
     # Only Today's open count follows; a full list refresh would re-render
     # the composer and pull focus out of it mid-entry.
     response.headers["HX-Trigger"] = "task:added"
+    return response
+
+
+@router.post("/tasks/{task_id}/plan")
+def plan_task(db: DbSession, task_id: int, planned_for: Annotated[str, Form()] = ""):
+    """Give a task its do-date, or clear it with an empty value."""
+    tasks_svc.update_task(
+        db, task_id, planned_for=date.fromisoformat(planned_for) if planned_for else None
+    )
+    db.commit()
+    response = HTMLResponse("")
+    # The Tasks page regroups; the task moves to its new day's group.
+    response.headers["HX-Trigger"] = "tasks:changed"
     return response
 
 
@@ -128,7 +148,10 @@ def save_task(
     )
     _apply_task_repeat(db, task, repeat)
     db.commit()
-    return _row_response(request, db, task_id)
+    response = _row_response(request, db, task_id)
+    # Its day may have changed: lists grouped or filtered by day re-render.
+    response.headers["HX-Trigger"] = "tasks:changed"
+    return response
 
 
 def _apply_task_repeat(db, task, repeat: str) -> None:  # noqa: ANN001

@@ -115,6 +115,9 @@ def row_ctx(task: Task, now: datetime) -> dict[str, Any]:
         ),
         "task": task,
         "done": task.status == TaskStatus.done,
+        # The Tasks page's quick do-date buttons.
+        "plan_today": today,
+        "plan_tomorrow": today + timedelta(days=1),
         "missed": missed,
         "missed_label": (
             f"missed {short_date(missed_block.start.date(), today)}" if missed_block else None
@@ -128,6 +131,66 @@ def row_ctx(task: Task, now: datetime) -> dict[str, Any]:
         "due_label": f"due {short_date(task.due, today)}" if task.due else None,
         "due_soon": bool(task.due and task.due <= today + timedelta(days=DUE_SOON_DAYS)),
         "project_name": task.project.name if task.project else None,
+    }
+
+
+PLAN_GROUPS = (
+    ("overdue", "Overdue"),
+    ("nodate", "No date"),
+    ("today", "Today"),
+    ("tomorrow", "Tomorrow"),
+    ("week", "Later this week"),
+    ("nextweek", "Next week"),
+    ("later", "Later"),
+)
+
+
+def plan_group(planned_for: date | None, today: date) -> str:
+    if planned_for is None:
+        return "nodate"
+    if planned_for < today:
+        return "overdue"
+    if planned_for == today:
+        return "today"
+    if planned_for == today + timedelta(days=1):
+        return "tomorrow"
+    sunday = today + timedelta(days=6 - today.weekday())
+    if planned_for <= sunday:
+        return "week"
+    if planned_for <= sunday + timedelta(days=7):
+        return "nextweek"
+    return "later"
+
+
+def tasks_page_ctx(db: Session, now: datetime) -> dict[str, Any]:
+    """The Tasks page: Oscar's open tasks grouped by do-date, for giving
+    them days. No date is always shown, since that is where triage happens;
+    the other groups only when they hold something."""
+    today = now.date()
+    grouped: dict[str, list[Task]] = {key: [] for key, _ in PLAN_GROUPS}
+    for task in tasks_svc.planning_list(db, today):
+        grouped[plan_group(task.planned_for, today)].append(task)
+    # Undated: deadlines first, soonest first, then the newest captures.
+    grouped["nodate"].sort(
+        key=lambda t: (t.due or date.max, -t.created_at.timestamp())
+    )
+    for key, tasks in grouped.items():
+        if key != "nodate":
+            tasks.sort(key=lambda t: (t.planned_for, t.created_at))
+
+    groups = []
+    for key, label in PLAN_GROUPS:
+        if not grouped[key] and key != "nodate":
+            continue
+        rows = [row_ctx(t, now) for t in grouped[key]]
+        if key in ("today", "tomorrow"):
+            for row in rows:
+                row["planned_label"] = None  # the group already says so
+        groups.append({"key": key, "label": label, "rows": rows})
+    return {
+        "groups": groups,
+        "open_count": sum(len(tasks) for tasks in grouped.values()),
+        "undated_count": len(grouped["nodate"]),
     }
 
 

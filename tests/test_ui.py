@@ -31,10 +31,76 @@ def test_today_page_shows_planned_and_delegated(client, db) -> None:
     claude_task = tasks_svc.create_task(db, title="review PR", owner=TaskOwner.claude)
     tasks_svc.set_status(db, claude_task.id, TaskStatus.needs_review)
 
-    page = client.get("/").text
+    page = client.get("/today").text
     assert "write the plan" in page
     assert "Delegated to Claude" in page
     assert "Needs review" in page
+
+
+def test_app_opens_on_tasks_grouped_by_do_date(client, db) -> None:
+    from app.ui.views import plan_group
+
+    sunday = TODAY + timedelta(days=6 - TODAY.weekday())
+    undated = tasks_svc.create_task(db, title="undated one")
+    deadline = tasks_svc.create_task(db, title="has a deadline", due=TODAY + timedelta(days=3))
+    tasks_svc.create_task(db, title="slipped", planned_for=TODAY - timedelta(days=2))
+    tasks_svc.create_task(db, title="for today", planned_for=TODAY)
+    tasks_svc.create_task(db, title="next month", planned_for=sunday + timedelta(days=20))
+    tasks_svc.create_task(db, title="claude job", owner=TaskOwner.claude)
+
+    page = client.get("/").text
+    assert 'aria-current="page"' in page.split('title="Tasks"')[1].split(">")[0]
+    headings = [h.split("<")[0].strip() for h in page.split("<h2>")[1:]]
+    # Overdue leads, then the triage list, then forward in time; empty groups hide.
+    assert headings[:3] == ["Overdue", "No date", "Today"]
+    assert headings[-1] == "Later"
+    assert "Tomorrow" not in headings
+    assert plan_group(sunday + timedelta(days=1), TODAY) == "nextweek"
+
+    nodate = page.split('id="nodate-list"')[1].split("</ul>")[0]
+    # A deadline outranks a bare capture; Claude's work stays off this page.
+    assert nodate.index("has a deadline") < nodate.index("undated one")
+    assert "claude job" not in page
+    assert f'hx-post="/ui/tasks/{undated.id}/plan"' in nodate
+    assert f'hx-post="/ui/tasks/{deadline.id}/plan"' in nodate
+    assert "5 tasks open" in page and "2 without a day" in page
+
+
+def test_today_group_offers_tomorrow_but_not_today(client, db) -> None:
+    task = tasks_svc.create_task(db, title="for today", planned_for=TODAY)
+    row = client.get("/").text.split(f'id="task-{task.id}"')[1].split("</li>")[0]
+    assert ">Tomorrow</button>" in row and ">Today</button>" not in row
+    assert "plan-btn slot" in row  # its slot stays, so the columns line up
+    # The group heading says when; the row does not repeat it.
+    assert 'class="planned"' not in row
+
+
+def test_plan_sets_and_clears_the_do_date(client, db) -> None:
+    task = tasks_svc.create_task(db, title="date me")
+    response = client.post(f"/ui/tasks/{task.id}/plan", data={"planned_for": TODAY.isoformat()})
+    assert response.status_code == 200
+    assert response.headers["HX-Trigger"] == "tasks:changed"
+    assert task.planned_for == TODAY
+    client.post(f"/ui/tasks/{task.id}/plan", data={"planned_for": ""})
+    assert task.planned_for is None
+
+
+def test_rows_rerendered_on_tasks_keep_their_date_buttons(client, db) -> None:
+    task = tasks_svc.create_task(db, title="keep buttons", notes="- one")
+    plain = client.get(f"/ui/tasks/{task.id}/row").text
+    assert "task-plan" not in plain
+    on_tasks = client.post(
+        f"/ui/tasks/{task.id}/subtasks/0/toggle",
+        data={"text": "one"},
+        headers={"X-Row-Context": "plan"},
+    ).text
+    assert "task-plan" in on_tasks
+
+
+def test_backlog_folds_into_tasks(client) -> None:
+    response = client.get("/backlog", follow_redirects=False)
+    assert response.status_code == 301
+    assert response.headers["location"] == "/"
 
 
 def test_next_days_redirects_to_weeks_rows(client) -> None:
@@ -56,7 +122,7 @@ def test_today_page_has_timeline_with_events_and_blocks(client, db) -> None:
         db, task_id=task.id, start=morning + timedelta(hours=2), end=morning + timedelta(hours=3)
     )
 
-    page = client.get("/").text
+    page = client.get("/today").text
     timeline = page.split('class="today-timeline"')[1]
     assert 'data-days="1"' in timeline
     assert "standup" in timeline and "focus" in timeline
@@ -141,7 +207,7 @@ def test_busy_hours_and_labels() -> None:
 
 
 def test_static_assets_are_versioned(client) -> None:
-    page = client.get("/").text
+    page = client.get("/today").text
     assert "/static/app.css?v=" in page
     assert "/static/favicon.svg?v=" in page
 
@@ -282,13 +348,13 @@ def test_nudge_banner_and_dismiss(client, db) -> None:
     blocks_svc.mark_missed_blocks(db, now)
     [nudge] = nudges_svc.evaluate(db, now)
 
-    page = client.get("/").text
+    page = client.get("/today").text
     assert "nudge-center" in page
     assert "missed its block" in page
     assert "Replan" in page
 
     assert client.post(f"/ui/nudges/{nudge.id}/dismiss").status_code == 200
-    assert "nudge-center" not in client.get("/").text
+    assert "nudge-center" not in client.get("/today").text
 
 
 def test_repeat_from_editor_materializes_series(client, db) -> None:
@@ -415,7 +481,7 @@ def test_projects_page_and_milestone_toggle(client, db) -> None:
 
 def test_task_rows_carry_a_delete_bin(client, db) -> None:
     task = tasks_svc.create_task(db, title="bin me", planned_for=TODAY)
-    row = client.get("/").text.split(f'id="task-{task.id}"')[1].split("</li>")[0]
+    row = client.get("/today").text.split(f'id="task-{task.id}"')[1].split("</li>")[0]
     assert f'hx-post="/ui/tasks/{task.id}/delete"' in row
     assert 'data-confirm-name="bin me"' in row
 
@@ -437,7 +503,7 @@ def test_delete_removes_task_and_refreshes_the_grid(client, db) -> None:
     response = client.post(f"/ui/tasks/{task.id}/delete")
     assert response.status_code == 200
     assert response.headers["hx-trigger"] == "calendar:refresh"
-    page = client.get("/").text
+    page = client.get("/today").text
     assert "slipped" not in page
     assert "nudge-center" not in page
 
@@ -445,14 +511,16 @@ def test_delete_removes_task_and_refreshes_the_grid(client, db) -> None:
 def test_shell_groups_calendar_pages_under_planner(client) -> None:
     page = client.get("/weeks").text
     planner = page.split('id="nav-planner"')[1].split("</div>\n      <div")[0]
-    for href in ('href="/"', 'href="/calendar"', 'href="/weeks"'):
+    for href in ('href="/"', 'href="/today"', 'href="/calendar"', 'href="/weeks"'):
         assert href in planner
-    assert 'href="/backlog"' not in planner
+    # Tasks leads the group; Backlog folded into it.
+    assert planner.index('href="/"') < planner.index('href="/today"')
+    assert 'href="/backlog"' not in page
     assert 'aria-current="page"' in planner  # Weeks, inside its group
 
 
 def test_shell_has_theme_toggle_and_collapse_control(client) -> None:
-    page = client.get("/").text
+    page = client.get("/today").text
     assert 'class="theme-toggle"' in page and "Light mode" in page and "Dark mode" in page
     assert 'class="rail-collapse"' in page and 'aria-controls="main-nav"' in page
     assert "/static/shell.js?v=" in page

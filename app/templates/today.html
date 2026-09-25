@@ -6,7 +6,7 @@
     <header class="day-header">
       <div class="weekday">{{ today.strftime("%A") }}</div>
       <div class="rest" id="day-rest"
-           hx-get="/" hx-select="#day-rest" hx-swap="outerHTML" hx-trigger="task:added from:body">
+           hx-get="/today" hx-select="#day-rest" hx-swap="outerHTML" hx-trigger="task:added from:body">
         {{ today.day }} {{ today.strftime("%B %Y") }}
         {% set open_count = rows | rejectattr("done") | list | length %}
         · {% if open_count == 0 %}nothing open{% elif open_count == 1 %}1 task open{% else %}{{ open_count }} tasks open{% endif %}
@@ -16,14 +16,14 @@
     <div id="nudges-slot">{% with nudges = nudges %}{% include "partials/nudges.html" %}{% endwith %}</div>
 
     <section class="list-section" id="today-section"
-             hx-get="/" hx-select="#today-section" hx-select-oob="#day-rest,#nudges-slot" hx-swap="outerHTML"
-             hx-trigger="calendar:refresh from:body" hx-disinherit="*">
+             hx-get="/today" hx-select="#today-section" hx-select-oob="#day-rest,#nudges-slot" hx-swap="outerHTML"
+             hx-trigger="calendar:refresh from:body, tasks:changed from:body" hx-disinherit="*">
       <h2>Today</h2>
       <ul class="task-list" id="today-list" data-drag-to-grid>
         {% for row in rows %}{% include "partials/task_row.html" %}{% endfor %}
       </ul>
       {% if not rows %}
-      <p class="empty">Nothing planned for today. Pull something in from the backlog, or add it below.</p>
+      <p class="empty">Nothing planned for today. Give something today's date on Tasks, or add it below.</p>
       {% endif %}
       {% with target = "today-list", planned_for = today, placeholder = "Add a task for today…" %}
         {% include "partials/quick_add.html" %}

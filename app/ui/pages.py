@@ -9,10 +9,14 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse
 
 from app.db import DbSession
-from app.models import TaskOwner
-from app.services import tasks as tasks_svc
 from app.ui.calendar_view import grid_ctx, tray_tasks, week_monday
-from app.ui.views import projects_list_ctx, row_ctx, templates, today_page_tasks
+from app.ui.views import (
+    projects_list_ctx,
+    row_ctx,
+    tasks_page_ctx,
+    templates,
+    today_page_tasks,
+)
 from app.ui.weeks_view import LAYOUTS, weeks_ctx
 
 router = APIRouter(include_in_schema=False)
@@ -23,6 +27,16 @@ def _base(request: Request, active: str) -> dict:
 
 
 @router.get("/")
+def tasks_page(request: Request, db: DbSession):
+    # The app opens here: planning (giving tasks days) comes before doing.
+    return templates.TemplateResponse(
+        request,
+        "tasks.html",
+        {**_base(request, "tasks"), **tasks_page_ctx(db, datetime.now())},
+    )
+
+
+@router.get("/today")
 def today_page(request: Request, db: DbSession):
     from app.services import nudges as nudges_svc
 
@@ -90,12 +104,9 @@ def weeks_board(
 
 
 @router.get("/backlog")
-def backlog_page(request: Request, db: DbSession):
-    now = datetime.now()
-    rows = [row_ctx(t, now) for t in tasks_svc.backlog(db) if t.owner == TaskOwner.oscar]
-    return templates.TemplateResponse(
-        request, "backlog.html", {**_base(request, "backlog"), "rows": rows}
-    )
+def backlog_page():
+    # Tasks' No date group is the backlog, beside everything already dated.
+    return RedirectResponse("/", status_code=301)
 
 
 @router.get("/calendar")

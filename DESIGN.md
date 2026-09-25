@@ -50,13 +50,13 @@ Dates, times, counts and busy hours are `tabular-nums`.
 The shell is a 240px matte sidebar plus a content column on the aurora.
 The wordmark is Brasa's pattern: the name in Inter 600 followed by an ember period, "Personal Calendar.".
 Nav items are 14px/500 graphite; the active one is ink 600 with Brasa's 3px ember bar, inset 8px from the viewport edge.
-Nav is grouped in the Brasa manner: the calendar pages (Today, Calendar, Weeks) sit under a 12px steel "Planner" group label; Backlog and Projects follow as a second group.
+Nav is grouped in the Brasa manner: the planning pages (Tasks, Today, Calendar, Weeks) sit under a 12px steel "Planner" group label, Tasks first since the app opens on it; Projects follows as a second group.
 The foot carries Brasa's shipped light/dark toggle: the current mode's sun or moon, which rotates and fades into the other, beside its name ("Light mode" or "Dark mode") in 12px pewter.
 A panel icon beside the wordmark collapses the sidebar to a 64px icon rail (`data-rail="collapsed"` on `<html>`, saved as `pc-rail`, applied before paint).
 The shell animates its column width on `--ease` over 220ms, the way Brasa animates expanding panels.
 When collapsed, the wordmark and labels hide, each link keeps its name as a tooltip, group labels become hairlines, and the ember bar stays.
 Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the ember bar moves above the active tab's icon, and the collapse and theme controls stay desktop-only (a saved theme still applies).
-Content is 800px wide for list pages (Backlog, Projects) and 1200px for Today, Calendar and Weeks.
+Content is 800px wide for list pages (Tasks, Projects) and 1200px for Today, Calendar and Weeks.
 
 ## Components
 
@@ -78,7 +78,7 @@ The dialog restates the task's name in ink 600 and offers a Ghost Cancel (focuse
 It is the one handler behind every `hx-confirm` that carries `data-confirm-*` attributes (`shell.js`), so the browser's native confirm box never appears.
 
 **Composer.** Each list card ends in a quick-add row: a steel plus and a borderless title.
-Focusing it opens the description underneath, aligned with the title's text, with a steel "Ctrl+Enter to add" hint (hidden on touch), a secondary Cancel and the ember "Add task".
+Typing a title opens the description underneath (focus alone does not, so a composer that folds away never shifts the page under a click), aligned with the title's text, with a steel "Ctrl+Enter to add" hint (hidden on touch), a secondary Cancel and the ember "Add task".
 Enter in the title moves to the description, and Ctrl+Enter adds the task and returns to an empty title for the next one.
 
 **Description editor.** One line per block, in 14px graphite (16px ink inside the task editor's field).
@@ -89,6 +89,12 @@ Tab and Shift+Tab nest and un-nest by 22px; pasted "- " lines arrive as sub-task
 Esc steps away but keeps a written draft open; Cancel clears it.
 The task editor puts the same editor directly under the title, above the other fields, styled as a field.
 The empty-list note hides once the list has a row.
+
+**Tasks.** A page header like Today's ("Tasks", then the open and undated counts), the composer alone in its own card, then one list card per do-date group.
+Each row ends in quiet do-date buttons, always shown since dating is the page's job: "Today" and "Tomorrow" in 12px pewter, and a calendar icon that opens the native date picker.
+They darken to graphite on row hover and ink on their own hover; a button for the day the task already has leaves its slot empty, so the columns line up down the page.
+On phones they take their own line under the title's text, without empty slots.
+Dating a task regroups the page from the server.
 
 **Buttons.** `.btn.primary` is the ember primary, `.btn.quiet` the glass secondary, `.btn.danger-quiet` the destructive secondary with an err border.
 Week navigation and nudge actions are secondary-style controls.

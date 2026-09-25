@@ -33,6 +33,8 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Missed blocks**: when a scheduled block passes uncompleted, the task falls back to the list wearing a visible "missed" marker until replanned or completed.
   The empty slot stays on today's calendar as a faded ghost outline, gone tomorrow.
   The calendar's future is a plan; its past stays honest.
+- **Tasks** is where the app opens, because planning comes before doing: every open task of Oscar's, grouped by do-date (Overdue, No date, Today, Tomorrow, Later this week, Next week, Later), each with one-click Today and Tomorrow buttons and a date picker.
+  No date is the backlog, always shown and sorted deadlines first; a repeating series shows only its next occurrence; Claude's tasks stay in Delegated to Claude.
 - **Today** puts the day's list beside a one-day timeline (events, blocks, ghosts), so the day is planned on one screen; dragging a task from the list onto the timeline gives it a block.
 - **Weeks** is the planning-ahead surface: six weeks at a glance, as a month-style grid or as one ruled row per day, Oscar's choice and remembered.
   Each day shows its planned tasks, deadlines, milestones, and personal events; the work calendar is condensed to a load figure (meetings and busy hours) rather than listed.
@@ -165,7 +167,7 @@ Per [Architecture](tracker/tickets/009-architecture.md) and [Decision: security 
 ### Frontend
 
 - Server-rendered: Jinja templates plus HTMX for pages, lists, and forms; no build step, state server-side.
-- Real client JS is limited to two focused vanilla islands, each built well once: the drag-to-slot calendar (week grid and Today's timeline) and drag-to-replan on the Weeks view.
+- Real client JS is limited to a few focused vanilla islands, each built well once: the drag-to-slot calendar (week grid and Today's timeline), drag-to-replan on the Weeks view, and the task composer with its line-based description editor.
 
 ### Background jobs
 

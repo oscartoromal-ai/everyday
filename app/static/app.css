@@ -484,6 +484,33 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   }
 }
 
+/* ---------- Tasks: do-date buttons on each row ---------- */
+
+/* quiet but always there: this page exists to give tasks days */
+.task-plan { flex: none; display: flex; align-items: center; gap: 2px; margin: -4px 0 -4px auto; }
+.plan-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 28px; padding: 0 var(--s-2); border-radius: var(--r-tag);
+  font-size: var(--t-caption); font-weight: 500; color: var(--pewter);
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.plan-btn.icon { width: 28px; padding: 0; }
+.plan-btn.slot { visibility: hidden; }
+.plan-btn svg { stroke: currentColor; }
+.task-row:hover .plan-btn { color: var(--graphite); }
+.plan-btn:hover, .task-row:hover .plan-btn:hover { color: var(--ink); background: var(--glass-hover); }
+/* the native picker anchors to its input, which sits unseen under the button */
+.plan-pick { position: relative; display: inline-flex; }
+.plan-pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+/* phone: the buttons take their own line, under the title's text */
+@media (max-width: 540px) {
+  .task-row:has(.task-plan) { flex-wrap: wrap; }
+  .task-row .task-plan { order: 3; flex-basis: 100%; margin: var(--s-1) 0 -4px 22px; }
+  .plan-btn.slot { display: none; }
+}
+
+.tasks-page .capture { margin-bottom: var(--s-6); }
+
 /* ---------- quick add: the last row of a list card ---------- */
 
 .quick-add { padding: 10px var(--s-4); }

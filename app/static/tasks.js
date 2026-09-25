@@ -14,16 +14,25 @@
   const open = (form) => form.classList.add("composing");
   const close = (form) => form.classList.remove("composing");
 
+  // The description opens once a title is being written, not on mere focus:
+  // after an add, focus returns to the empty title, and a composer that
+  // folded away on the next click elsewhere would shift the page under the
+  // pointer between mousedown and mouseup, losing that click.
+  document.addEventListener("input", (e) => {
+    const form = composerOf(e.target);
+    if (form && e.target === form.elements.title && e.target.value.trim()) open(form);
+  });
+
   document.addEventListener("focusin", (e) => {
     const form = composerOf(e.target);
-    if (form) open(form);
+    if (form && (form.elements.title.value.trim() || hasNotes(form))) open(form);
   });
 
   document.addEventListener("focusout", (e) => {
     const form = composerOf(e.target);
     if (!form || form.contains(e.relatedTarget)) return;
-    // Written context stays on screen; an untouched description folds away.
-    if (!hasNotes(form)) close(form);
+    // A started task stays open; only an untouched composer folds away.
+    if (!form.elements.title.value.trim() && !hasNotes(form)) close(form);
   });
 
   // Touch Safari never focuses a tapped button, so the blur would fold the
@@ -74,6 +83,19 @@
     close(form);
     // Ready for the next one.
     form.elements.title.focus();
+  });
+
+  /* ---- rows on Tasks: the calendar button opens its hidden date input ---- */
+
+  document.addEventListener("click", (e) => {
+    const button = e.target.closest?.("[data-pick-date]");
+    if (!button) return;
+    const input = button.nextElementSibling;
+    try {
+      input.showPicker();
+    } catch {
+      input.focus(); // no showPicker: the input itself takes the date
+    }
   });
 
   /* ---- rows: the description folds under the meta line ---- */

@@ -57,6 +57,29 @@
     </div>
     {% endif %}
   </div>
+  {% if plan_controls and not row.done %}
+  <div class="task-plan" role="group" aria-label="Do-date for “{{ row.task.title }}”">
+    {% for day, label in [(row.plan_today, "Today"), (row.plan_tomorrow, "Tomorrow")] %}
+    {% if row.task.planned_for == day %}
+    {# Already that day: the slot stays, empty, so every row's buttons line up. #}
+    <span class="plan-btn slot" aria-hidden="true">{{ label }}</span>
+    {% else %}
+    <button type="button" class="plan-btn"
+            hx-post="/ui/tasks/{{ row.task.id }}/plan" hx-vals='{"planned_for": "{{ day.isoformat() }}"}'
+            hx-swap="none">{{ label }}</button>
+    {% endif %}
+    {% endfor %}
+    <span class="plan-pick">
+      <button type="button" class="plan-btn icon" data-pick-date
+              title="Pick a day" aria-label="Pick a day for “{{ row.task.title }}”">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/></svg>
+      </button>
+      <input type="date" name="planned_for" tabindex="-1" aria-hidden="true"
+             value="{{ row.task.planned_for.isoformat() if row.task.planned_for else '' }}"
+             hx-post="/ui/tasks/{{ row.task.id }}/plan" hx-trigger="change" hx-swap="none">
+    </span>
+  </div>
+  {% endif %}
   <button type="button" class="task-delete" title="Delete task"
           aria-label="Delete “{{ row.task.title }}”"
           hx-post="/ui/tasks/{{ row.task.id }}/delete"
