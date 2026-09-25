@@ -137,6 +137,8 @@ class Task(Base):
     project: Mapped[Project | None] = relationship(back_populates="tasks")
     milestone: Mapped[Milestone | None] = relationship(back_populates="tasks")
     blocks: Mapped[list[Block]] = relationship(back_populates="task", cascade="all, delete-orphan")
+    # A nudge is about its task; deleting the task retires its nudges with it.
+    nudges: Mapped[list[Nudge]] = relationship(back_populates="task", cascade="all, delete-orphan")
     recurrence_template: Mapped[RecurrenceTemplate | None] = relationship()
 
 
@@ -202,7 +204,7 @@ class Nudge(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     dismissed_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
-    task: Mapped[Task | None] = relationship()
+    task: Mapped[Task | None] = relationship(back_populates="nudges")
 
 
 class RecurrenceTemplate(Base):

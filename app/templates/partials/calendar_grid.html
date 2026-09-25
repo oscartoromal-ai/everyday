@@ -35,6 +35,10 @@
       {% for hour in grid.hours %}
       <div class="hour-label" style="top: {{ loop.index0 * grid.hour_px }}px;">{{ "%02d:00" | format(hour) }}</div>
       {% endfor %}
+      {% if grid.now_px is not none %}
+      {# The now-line never carries its meaning alone: the gutter names the time. #}
+      <div class="now-label" style="top: {{ grid.now_px }}px;">{{ grid.now_label }}</div>
+      {% endif %}
     </div>
     {% for day in grid.days %}
     <div class="day-col{% if day.is_today %} today{% endif %}" data-date="{{ day.date.isoformat() }}">

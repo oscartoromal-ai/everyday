@@ -136,3 +136,22 @@ def test_block_requires_open_task(db) -> None:
         blocks_svc.schedule_block(
             db, task_id=task.id, start=NOW, end=NOW + timedelta(hours=1)
         )
+
+
+def test_deleting_a_task_takes_its_blocks_and_nudges(db) -> None:
+    from sqlalchemy import select
+
+    from app.models import Block, Nudge
+    from app.services import nudges as nudges_svc
+
+    task = tasks_svc.create_task(db, title="slipped", planned_for=TODAY)
+    blocks_svc.schedule_block(
+        db, task_id=task.id, start=NOW - timedelta(hours=3), end=NOW - timedelta(hours=2)
+    )
+    blocks_svc.mark_missed_blocks(db, NOW)
+    assert nudges_svc.evaluate(db, NOW)  # a missed-block nudge now points at the task
+
+    tasks_svc.delete_task(db, task.id)
+
+    assert db.scalars(select(Block)).all() == []
+    assert db.scalars(select(Nudge)).all() == []

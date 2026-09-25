@@ -5,17 +5,17 @@
   <div class="today-lists">
     <header class="day-header">
       <div class="weekday">{{ today.strftime("%A") }}</div>
-      <div class="rest">
+      <div class="rest" id="day-rest">
         {{ today.day }} {{ today.strftime("%B %Y") }}
         {% set open_count = rows | rejectattr("done") | list | length %}
         · {% if open_count == 0 %}nothing open{% elif open_count == 1 %}1 task open{% else %}{{ open_count }} tasks open{% endif %}
       </div>
     </header>
 
-    {% with nudges = nudges %}{% include "partials/nudges.html" %}{% endwith %}
+    <div id="nudges-slot">{% with nudges = nudges %}{% include "partials/nudges.html" %}{% endwith %}</div>
 
     <section class="list-section" id="today-section"
-             hx-get="/" hx-select="#today-section" hx-swap="outerHTML"
+             hx-get="/" hx-select="#today-section" hx-select-oob="#day-rest,#nudges-slot" hx-swap="outerHTML"
              hx-trigger="calendar:refresh from:body" hx-disinherit="*">
       <h2>Today</h2>
       <ul class="task-list" id="today-list" data-drag-to-grid>

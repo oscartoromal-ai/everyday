@@ -70,7 +70,11 @@
       <span class="spacer"></span>
       <button type="button" class="btn danger-quiet"
               hx-post="/ui/tasks/{{ task.id }}/delete"
-              hx-confirm="Delete “{{ task.title }}”?"
+              hx-confirm="Delete task?"
+              data-confirm-title="Delete task?"
+              data-confirm-name="{{ task.title }}"
+              data-confirm-detail="will be deleted, along with any time blocked for it on the calendar. This can't be undone."
+              data-confirm-action="Delete"
               hx-target="#task-{{ task.id }}" hx-swap="outerHTML">Delete</button>
     </div>
   </form>

@@ -23,4 +23,15 @@
     </div>
     {% endif %}
   </div>
+  <button type="button" class="task-delete" title="Delete task"
+          aria-label="Delete “{{ row.task.title }}”"
+          hx-post="/ui/tasks/{{ row.task.id }}/delete"
+          hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML"
+          hx-confirm="Delete task?"
+          data-confirm-title="Delete task?"
+          data-confirm-name="{{ row.task.title }}"
+          data-confirm-detail="will be deleted, along with any time blocked for it on the calendar. This can't be undone."
+          data-confirm-action="Delete">
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>
+  </button>
 </li>

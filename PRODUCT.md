@@ -19,13 +19,14 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 
 - Tasks in lists (today via planned_for, backlog) and planned across days on the Weeks view, with lifecycle todo / in_progress / blocked / needs_review / done / cancelled.
 - "Delegated to Claude" list section with status chips: queued, running, needs review.
-- Missed marker on tasks whose scheduled calendar block passed uncompleted (derived, red-ink moment).
+- Missed marker on tasks whose scheduled calendar block passed uncompleted (derived, shown as an error badge).
 - Projects with milestones (target dates, computed progress).
 - Calendar: local events, read-only work events, deliberately scheduled task blocks, faded ghost outlines for today's missed blocks.
 
-## Brand commitments (user-pinned 2026-08-28)
+## Brand commitments (user-pinned 2026-09-25, replacing the 2026-08-28 "calm paper planner")
 
-- Visual direction: **calm paper planner**. Warm off-white paper surfaces, ink-dark text, a serif for headings, generous whitespace; an analog planner made digital.
+- Visual direction: **Oscar's "Brasa" v2 design system** (`design-language/systems/brasa/SYSTEM.md`), Oscar's own system, reused here.
+  Ink on an ember aurora, glass surfaces, one ember spark per region, Inter only.
 - Theme: light and dark tokens, following the system theme.
 - Pixel-perfection matters; quality over development cost (SPEC.md section 10).
 

@@ -49,7 +49,9 @@ def toggle_task(request: Request, db: DbSession, task_id: int):
     new_status = TaskStatus.todo if task.status == TaskStatus.done else TaskStatus.done
     tasks_svc.set_status(db, task_id, new_status)
     db.commit()
-    return _row_response(request, db, task_id)
+    response = _row_response(request, db, task_id)
+    response.headers["HX-Trigger"] = "calendar:refresh"  # keeps Today's open count honest
+    return response
 
 
 @router.get("/tasks/{task_id}/edit")
@@ -141,7 +143,11 @@ def _apply_task_repeat(db, task, repeat: str) -> None:  # noqa: ANN001
 def delete_task(db: DbSession, task_id: int):
     tasks_svc.delete_task(db, task_id)
     db.commit()
-    return HTMLResponse("")
+    response = HTMLResponse("")
+    # Its blocks went with it: the time grid (and on Today, the list and its
+    # open count) re-render from the server.
+    response.headers["HX-Trigger"] = "calendar:refresh"
+    return response
 
 
 @router.post("/events")

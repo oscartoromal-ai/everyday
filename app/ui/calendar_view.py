@@ -15,9 +15,10 @@ DAY_START_HOUR = 6
 DAY_END_HOUR = 22
 HOUR_PX = 48
 GRID_PX = (DAY_END_HOUR - DAY_START_HOUR) * HOUR_PX
-# .cal-item metrics (app.css): 0.75rem type at 1.3 line-height, 0.25rem padding.
+# .cal-item metrics (app.css): 12px type at 1.3 line-height, 3px vertical padding.
 ITEM_LINE_PX = 15.6
-ITEM_PAD_PX = 8
+ITEM_PAD_PX = 6
+ITEM_GAP_PX = 2
 
 
 def week_monday(anchor: date) -> date:
@@ -33,7 +34,8 @@ def _clamp_px(moment: datetime, day: date) -> float:
 def _position(start: datetime, end: datetime, day: date) -> dict[str, Any]:
     top = _clamp_px(start, day)
     bottom = _clamp_px(end, day)
-    height = max(bottom - top, 20.0)
+    # A 2px gap at the foot keeps back-to-back items from merging into one slab.
+    height = max(bottom - top - ITEM_GAP_PX, 20.0)
     # Long titles wrap into the item's height instead of truncating to "Priv…";
     # the time line only shows when there is room for it under the title.
     lines = max(1, int((height - ITEM_PAD_PX) // ITEM_LINE_PX))
@@ -164,6 +166,7 @@ def grid_ctx(db: Session, first_day: date, now: datetime, day_count: int = 7) ->
         "grid_px": GRID_PX,
         "day_start_hour": DAY_START_HOUR,
         "now_px": now_px,
+        "now_label": f"{now:%H:%M}",
         "today": today,
         "start": first_day,
         "day_count": day_count,

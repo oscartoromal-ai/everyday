@@ -351,3 +351,51 @@ def test_projects_page_and_milestone_toggle(client, db) -> None:
     m = db.scalars(select(Milestone).where(Milestone.project_id == p.id)).one()
     toggled = client.post(f"/ui/milestones/{m.id}/toggle").text
     assert "reached" in toggled
+
+
+def test_task_rows_carry_a_delete_bin(client, db) -> None:
+    task = tasks_svc.create_task(db, title="bin me", planned_for=TODAY)
+    row = client.get("/").text.split(f'id="task-{task.id}"')[1].split("</li>")[0]
+    assert f'hx-post="/ui/tasks/{task.id}/delete"' in row
+    assert 'data-confirm-name="bin me"' in row
+
+
+def test_delete_removes_task_and_refreshes_the_grid(client, db) -> None:
+    from datetime import datetime
+
+    from app.services import blocks as blocks_svc
+    from app.services import nudges as nudges_svc
+
+    now = datetime.now()
+    task = tasks_svc.create_task(db, title="slipped", planned_for=TODAY)
+    blocks_svc.schedule_block(
+        db, task_id=task.id, start=now - timedelta(hours=3), end=now - timedelta(hours=2)
+    )
+    blocks_svc.mark_missed_blocks(db, now)
+    assert nudges_svc.evaluate(db, now)
+
+    response = client.post(f"/ui/tasks/{task.id}/delete")
+    assert response.status_code == 200
+    assert response.headers["hx-trigger"] == "calendar:refresh"
+    page = client.get("/").text
+    assert "slipped" not in page
+    assert "nudge-center" not in page
+
+
+def test_shell_groups_calendar_pages_under_planner(client) -> None:
+    page = client.get("/weeks").text
+    planner = page.split('id="nav-planner"')[1].split("</div>\n      <div")[0]
+    for href in ('href="/"', 'href="/calendar"', 'href="/weeks"'):
+        assert href in planner
+    assert 'href="/backlog"' not in planner
+    assert 'aria-current="page"' in planner  # Weeks, inside its group
+
+
+def test_shell_has_theme_toggle_and_collapse_control(client) -> None:
+    page = client.get("/").text
+    assert 'class="theme-toggle"' in page and "Light mode" in page and "Dark mode" in page
+    assert 'class="rail-collapse"' in page and 'aria-controls="main-nav"' in page
+    assert "/static/shell.js?v=" in page
+    # the saved theme and rail state apply in <head>, before the stylesheet paints
+    head = page.split("</head>")[0]
+    assert head.index("pc-theme") < head.index("app.css")
