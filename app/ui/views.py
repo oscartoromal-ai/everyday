@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -50,6 +51,16 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.filters["human_date"] = human_date
 templates.env.filters["short_date"] = short_date
 templates.env.globals["asset"] = asset
+
+
+def design_system() -> dict[str, Any]:
+    """The design system installed in static/design by the design-language
+    tool: its name, mode names and fonts to preload (design-language.json).
+    Read per render, so switching systems needs no restart."""
+    return json.loads((STATIC_DIR / "design" / "design-language.json").read_text(encoding="utf-8"))
+
+
+templates.env.globals["design"] = design_system
 
 
 def last_missed_block(task: Task) -> Block | None:

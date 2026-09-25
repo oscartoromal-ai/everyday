@@ -1,0 +1,18 @@
+{
+  "system": "neon-signage",
+  "name": "Neon Signage",
+  "version": "1.0.0+1c0a5ec",
+  "modes": {
+    "light": "Day",
+    "dark": "Night"
+  },
+  "fonts": [
+    "fonts/inter-latin-wght-normal.woff2"
+  ],
+  "files": [
+    "design.css",
+    "fonts/inter-latin-wght-normal.woff2",
+    "fonts/Inter-OFL.txt"
+  ],
+  "sha256": "e0f7161363ac8eb67bbae6ad611575886b003099c75f9aadfb5d875fe5025988"
+}

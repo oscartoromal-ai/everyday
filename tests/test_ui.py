@@ -8,6 +8,7 @@ from app.main import create_app
 from app.models import TaskOwner, TaskStatus
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
+from app.ui.views import design_system
 
 TODAY = date.today()
 
@@ -573,9 +574,15 @@ def test_shell_groups_calendar_pages_under_planner(client) -> None:
 
 def test_shell_has_theme_toggle_and_collapse_control(client) -> None:
     page = client.get("/today").text
-    assert 'class="theme-toggle"' in page and "Light mode" in page and "Dark mode" in page
+    # the toggle names the modes the installed design system names
+    modes = design_system()["modes"]
+    assert 'class="theme-toggle"' in page and modes["light"] in page and modes["dark"] in page
     assert 'class="rail-collapse"' in page and 'aria-controls="main-nav"' in page
     assert "/static/shell.js?v=" in page
     # the saved theme and rail state apply in <head>, before the stylesheet paints
     head = page.split("</head>")[0]
     assert head.index("pc-theme") < head.index("app.css")
+    # the design system's stylesheet comes first, and its fonts are preloaded
+    assert head.index("/static/design/design.css?v=") < head.index("/static/app.css?v=")
+    for font in design_system()["fonts"]:
+        assert f'href="/static/design/{font}" as="font"' in head

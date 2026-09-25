@@ -1,165 +1,12 @@
-/* Personal Calendar in Oscar's "Brasa" v2 design system.
-   Source of truth: design-language/systems/brasa/SYSTEM.md, with
-   another-app/src/assets/main.css as its executable form; the token
-   values below are copied from there. Ink draws the interface, the ember
-   aurora brings the warmth, resting surfaces are glass, one ember spark per
-   region, Inter only. Light and dark ("Carbon") follow the system theme:
-   this app has no public surfaces, so the media query is safe here. */
-
-:root {
-  /* neutrals */
-  --paper: #ffffff;
-  --fog: #f3f3f7;
-  --hairline: #e7e7ec;
-  --mist: #b9bbc6;
-  --steel: #8b8d98;
-  --pewter: #6a6e76;
-  --graphite: #60646c;
-  --ink: #000000;
-  --carbon: #15191e;
-
-  /* the spark */
-  --brasa: #ff5900;
-  --brasa-deep: #d64b00;
-  --brasa-tint: #fff3ec;
-  --brasa-edge: #ffc9a8;
-  --on-brasa: #ffffff;
-
-  /* status: badges and inline validation only */
-  --ok-fg: #0f7b33;
-  --ok-bg: #e9f6ee;
-  --warn-fg: #95610b;
-  --warn-bg: #fdf3d8;
-  --err-fg: #b42318;
-  --err-bg: #feeceb;
-  --err-border: #f1b8b3;
-  --neutral-fg: #60646c;
-  --neutral-bg: #f3f3f7;
-
-  /* type scale: every font-size is one of these */
-  --t-caption: 12px;
-  --t-body-sm: 14px;
-  --t-body: 16px;
-  --t-sub: 20px;
-  --t-h-sm: 24px;
-
-  /* spacing, named by 4px multiples */
-  --s-1: 4px;
-  --s-2: 8px;
-  --s-3: 12px;
-  --s-4: 16px;
-  --s-6: 24px;
-  --s-8: 32px;
-  --s-12: 48px;
-
-  /* shape: no other radius exists */
-  --r-tag: 6px;
-  --r-ctl: 12px;
-  --r-pill: 9999px;
-
-  /* floating UI only */
-  --shadow-dropdown: 0 6px 20px rgba(0, 0, 0, 0.12);
-  --shadow-modal: 0 12px 32px rgba(0, 0, 0, 0.18);
-  --scrim: rgba(0, 7, 16, 0.4);
-
-  /* task time on the grid: the plan's own solid ink, inverted per theme */
-  --block-bg: #15191e;
-  --block-fg: #ffffff;
-  --block-handle: rgba(255, 255, 255, 0.45);
-
-  /* the aurora canvas (Basico recipe, warmed 2026-09-03) */
-  --shell-bg:
-    radial-gradient(1265px 598px at 60% -8%, rgba(255, 89, 0, 0.18), transparent 62%),
-    radial-gradient(900px 480px at 22% 88%, rgba(176, 74, 16, 0.13), transparent 58%),
-    linear-gradient(168deg, #fbfaf9 0%, #f3f2f4 100%);
-  --chrome-flank: rgba(23, 21, 17, 0.035);
-  --chrome-flank-border: rgba(23, 21, 17, 0.08);
-
-  /* glass */
-  --glass-card: rgba(255, 255, 255, 0.66);
-  --glass-border: rgba(23, 21, 17, 0.07);
-  --glass-row-hover: rgba(255, 255, 255, 0.5);
-  --glass-input: rgba(255, 255, 255, 0.75);
-  --glass-btn: rgba(255, 255, 255, 0.7);
-  --glass-hover: rgba(255, 255, 255, 0.65);
-  --glass-tab-bar: rgba(247, 247, 247, 0.85);
-  --hairline-on-glass: rgba(23, 21, 17, 0.06);
-  --hairline-on-glass-strong: rgba(23, 21, 17, 0.08);
-  --ink-tint-tag: rgba(23, 21, 17, 0.05);
-  --ink-tint-weekend-cell: rgba(23, 21, 17, 0.025);
-  --badge-ok-glass: rgba(233, 246, 238, 0.85);
-  --badge-warn-glass: rgba(253, 243, 216, 0.85);
-  --badge-err-glass: rgba(254, 236, 235, 0.88);
-  --badge-neutral-glass: rgba(243, 243, 247, 0.8);
-
-  /* motion: colour state only */
-  --dur-fast: 120ms;
-  --dur: 150ms;
-  --ease: cubic-bezier(0.2, 0, 0.2, 1);
-
-  --font-sans: "Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-
-  color-scheme: light;
-}
-
-/* Dark ("Carbon"): keyed to data-theme on <html>, which an inline script in
-   base.html sets before first paint from the saved choice, else the system. */
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --paper: #131316;
-  --fog: #1b1b1f;
-  --hairline: #27272c;
-  --mist: #3a3a41;
-  --steel: #6f717a;
-  --pewter: #a3a5ad;
-  --graphite: #b4b6bd;
-  --ink: #f5f5f6;
-  --carbon: #2c2d33;
-
-  --brasa-deep: #ff8a4d;
-  --brasa-tint: rgba(255, 89, 0, 0.14);
-  --brasa-edge: rgba(255, 138, 77, 0.35);
-
-  --ok-fg: #4ade80;
-  --ok-bg: #0f2a1c;
-  --warn-fg: #f5b544;
-  --warn-bg: #2b210a;
-  --err-fg: #f87171;
-  --err-bg: #2c1212;
-  --err-border: #7a3a30;
-  --neutral-fg: #b4b6bd;
-  --neutral-bg: #202124;
-
-  --shadow-dropdown: 0 6px 24px rgba(0, 0, 0, 0.45);
-  --shadow-modal: 0 16px 40px rgba(0, 0, 0, 0.55);
-  --scrim: rgba(0, 0, 0, 0.6);
-  --block-bg: #e4e4e7;
-  --block-fg: #131316;
-  --block-handle: rgba(0, 0, 0, 0.35);
-
-  --shell-bg:
-    radial-gradient(1100px 520px at 85% -8%, rgba(255, 89, 0, 0.12), transparent 62%),
-    radial-gradient(900px 480px at -6% 88%, rgba(214, 74, 16, 0.08), transparent 58%),
-    linear-gradient(168deg, #17171b 0%, #0f0f12 100%);
-  --chrome-flank: rgba(255, 255, 255, 0.05);
-  --chrome-flank-border: rgba(255, 255, 255, 0.09);
-
-  --glass-card: rgba(255, 255, 255, 0.07);
-  --glass-border: rgba(255, 255, 255, 0.11);
-  --glass-row-hover: rgba(255, 255, 255, 0.055);
-  --glass-input: rgba(255, 255, 255, 0.1);
-  --glass-btn: rgba(255, 255, 255, 0.08);
-  --glass-hover: rgba(255, 255, 255, 0.09);
-  --glass-tab-bar: rgba(30, 30, 34, 0.92);
-  --hairline-on-glass: rgba(255, 255, 255, 0.08);
-  --hairline-on-glass-strong: rgba(255, 255, 255, 0.12);
-  --ink-tint-tag: rgba(255, 255, 255, 0.06);
-  --ink-tint-weekend-cell: rgba(255, 255, 255, 0.035);
-  --badge-ok-glass: rgba(15, 42, 28, 0.85);
-  --badge-warn-glass: rgba(43, 33, 10, 0.85);
-  --badge-err-glass: rgba(44, 18, 18, 0.88);
-  --badge-neutral-glass: rgba(32, 33, 36, 0.8);
-}
+/* Personal Calendar's components. Every colour, face, size, space, radius
+   and duration here is a token from the design-language contract
+   (C:/Users/me/design-language/CONTRACT.md), defined by the system
+   installed in static/design/ (see design-language.json there): link
+   design.css first, then this file. Nothing below names a hex value that
+   belongs to a system, so switching systems never touches this file. The
+   light tokens (--spark-glow, --signal-glow, --solid-glow, --spark-entrance,
+   --check-pulse) are wired where they belong, so a neon system glows and a
+   flat one stays flat. */
 
 /* ---------- base ---------- */
 
@@ -184,14 +31,23 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-::selection { background: var(--brasa-tint); color: var(--brasa-deep); }
-:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--brasa); border-radius: var(--r-tag); }
-input, textarea { caret-color: var(--brasa); }
+::selection { background: var(--spark-tint); color: var(--spark-deep); }
+:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--spark), var(--spark-glow); border-radius: var(--r-tag); }
+input, textarea { caret-color: var(--spark); }
 
-/* inline links are Ink + underline; ember never colours a text run */
+/* inline links are ink + underline; the spark never colours a text run */
 a { color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
 
 h1, h2, h3 { font-weight: 600; margin: 0; }
+
+/* faces by role: titles and figures follow the system (one face in most) */
+.page-header h1, .day-header .weekday, .list-section > h2, .project-card > header h2, .week-section > h2, .confirm-title {
+  font-family: var(--font-display);
+}
+:is(.task-meta .when, .task-meta .planned, .notes-toggle .progress, .count, .open-count, .milestone .target,
+    .milestone .progress, .hour-label, .now-label, .cal-item .item-time, .plan-entry .time, .busy) {
+  font-family: var(--font-num);
+}
 
 button { font: inherit; letter-spacing: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
 input, select, textarea { font: inherit; letter-spacing: inherit; }
@@ -200,13 +56,13 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 ::-webkit-scrollbar-thumb { background: var(--mist); border-radius: var(--r-pill); border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* ---------- app shell: aurora canvas, matte flank sidebar ---------- */
+/* ---------- app shell: the system's canvas, matte flank sidebar ---------- */
 
 .shell {
   --rail-w: 240px;
   display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr);
   min-height: 100vh;
-  background: var(--shell-bg);
+  background: var(--canvas);
   background-attachment: fixed;
   transition: grid-template-columns 220ms var(--ease);
 }
@@ -224,8 +80,9 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 
 .rail-head { display: flex; align-items: flex-start; gap: var(--s-2); margin-bottom: var(--s-8); }
 .wordmark { flex: 1; min-width: 0; padding: 0 var(--s-3); white-space: nowrap; }
-.wordmark a { font-size: var(--t-body); font-weight: 600; letter-spacing: -0.01em; color: var(--ink); text-decoration: none; }
-.wordmark .spark { color: var(--brasa); }
+.wordmark a { font-family: var(--font-display); font-size: var(--t-body); font-weight: 600; letter-spacing: -0.01em; color: var(--ink); text-decoration: none; text-shadow: var(--ink-glow-text); }
+/* the spark can light up once on load (a neon system's tube striking) */
+.wordmark .spark { display: inline-block; color: var(--spark); text-shadow: var(--spark-glow-text); animation: var(--spark-entrance); }
 .wordmark .date { display: block; margin-top: var(--s-1); font-size: var(--t-caption); color: var(--pewter); letter-spacing: 0; }
 .rail-collapse {
   flex: none; display: grid; place-content: center;
@@ -258,7 +115,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 .nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
 .nav a[aria-current="page"]::before {
   content: ""; position: absolute; left: -8px; top: 8px; bottom: 8px;
-  width: 3px; border-radius: 2px; background: var(--brasa);
+  width: 3px; border-radius: 2px; background: var(--spark); box-shadow: var(--spark-glow);
 }
 
 /* foot: Brasa's shipped light/dark toggle, bottom left */
@@ -385,6 +242,8 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 }
 .task-check:checked { background: var(--ink); border-color: var(--ink); }
 .task-check:checked::before { visibility: visible; }
+/* the box just ticked (tasks.js marks it): one beat, if the system has one */
+.task-row.just-done .task-check { animation: var(--check-pulse); }
 
 .task-body { flex: 1; min-width: 0; }
 .task-title { font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); overflow-wrap: anywhere; }
@@ -608,7 +467,7 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 }
 .field input:hover, .field select:hover, .field textarea:hover, .field .notes-editor:hover { border-color: var(--mist); }
 .field input:focus, .field select:focus, .field textarea:focus, .field .notes-editor:focus, .status-select:focus-visible {
-  outline: none; border-color: transparent; box-shadow: 0 0 0 2px var(--brasa);
+  outline: none; border-color: transparent; box-shadow: 0 0 0 2px var(--spark), var(--spark-glow);
 }
 .field input::placeholder, .field textarea::placeholder { color: var(--steel); }
 .field input[type="date"], .field input[type="time"] { font-variant-numeric: tabular-nums; }
@@ -631,8 +490,8 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   font-size: var(--t-body-sm); font-weight: 500; white-space: nowrap;
   transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.btn.primary { background: var(--brasa); color: var(--on-brasa); font-weight: 600; }
-.btn.primary:hover { background: var(--brasa-deep); }
+.btn.primary { background: var(--spark); color: var(--on-spark); font-weight: 600; box-shadow: var(--spark-glow); }
+.btn.primary:hover { background: var(--spark-deep); }
 .btn.quiet { background: var(--glass-btn); border-color: var(--hairline); color: var(--ink); }
 .btn.quiet:hover { background: var(--fog); border-color: var(--mist); }
 .btn.danger-quiet { background: var(--glass-btn); border-color: var(--err-border); color: var(--err-fg); }
@@ -793,7 +652,7 @@ dialog.confirm::backdrop { background: var(--scrim); }
 .day-head { padding: var(--s-2) 6px; text-align: center; }
 .day-head .dow { display: block; font-size: var(--t-caption); font-weight: 500; color: var(--steel); }
 .day-head .dom { font-size: var(--t-body-sm); font-weight: 600; font-variant-numeric: tabular-nums; }
-.day-head.today .dow, .day-head.today .dom { color: var(--brasa-deep); }
+.day-head.today .dow, .day-head.today .dom { color: var(--spark-deep); text-shadow: var(--spark-glow-text); }
 .grid-allday { border-bottom: 1px solid var(--hairline-on-glass); }
 .gutter-allday { padding: 6px var(--s-2) 0 0; text-align: right; font-size: var(--t-caption); color: var(--steel); }
 .day-allday { display: flex; flex-direction: column; gap: 2px; min-height: 26px; padding: 3px; }
@@ -816,15 +675,16 @@ dialog.confirm::backdrop { background: var(--scrim); }
   position: absolute; right: 6px; z-index: 6; transform: translateY(-50%);
   padding: 0 2px; border-radius: var(--r-tag);
   background: var(--paper);
-  font-size: var(--t-caption); font-weight: 600; color: var(--brasa-deep); font-variant-numeric: tabular-nums;
+  font-size: var(--t-caption); font-weight: 600; color: var(--signal-deep); font-variant-numeric: tabular-nums;
+  text-shadow: var(--signal-glow);
 }
 .day-col { position: relative; border-left: 1px solid var(--hairline-on-glass); }
-.day-col:nth-child(n+7):nth-child(-n+8) { background: var(--ink-tint-weekend-cell); }
+.day-col:nth-child(n+7):nth-child(-n+8) { background: var(--ink-tint-faint); }
 .calendar-grid[data-days="1"] .day-col { background: none; }
 .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: var(--hairline-on-glass); pointer-events: none; }
-/* the grid's one spark: now */
-.now-line { position: absolute; left: 0; right: 0; z-index: 5; height: 2px; background: var(--brasa); pointer-events: none; }
-.now-line::before { content: ""; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--brasa); }
+/* the grid's one light: now, in the signal (the spark itself in a one-light system) */
+.now-line { position: absolute; left: 0; right: 0; z-index: 5; height: 2px; background: var(--signal); box-shadow: var(--signal-glow); pointer-events: none; }
+.now-line::before { content: ""; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--signal); box-shadow: var(--signal-glow); }
 
 .cal-item {
   position: absolute; z-index: 2; overflow: hidden;
@@ -843,19 +703,19 @@ dialog.confirm::backdrop { background: var(--scrim); }
 /* work meetings are quiet ink tint; personal events sit on glass; task time is carbon, the plan's own ink */
 .cal-item.event.work { background: var(--ink-tint-tag); color: var(--graphite); }
 .cal-item.event.local { background: var(--glass-card); border: 1px solid var(--hairline-on-glass-strong); color: var(--ink); }
-.cal-item.block { background: var(--block-bg); color: var(--block-fg); cursor: grab; }
+.cal-item.block { background: var(--solid); color: var(--on-solid); box-shadow: var(--solid-glow); cursor: grab; }
 .cal-item.block:active { cursor: grabbing; }
 .cal-item.block[data-state="completed"] { background: var(--fog); color: var(--steel); cursor: pointer; }
 .cal-item.block[data-state="completed"] .item-title { text-decoration: line-through; }
 .cal-item.ghost { background: transparent; border: 1.5px dashed var(--mist); color: var(--steel); pointer-events: none; }
 .cal-item.preview {
   left: 2px; right: 3px; z-index: 6; pointer-events: none;
-  background: var(--brasa-tint); border: 1.5px dashed var(--brasa); color: var(--brasa-deep); font-weight: 600;
+  background: var(--spark-tint); border: 1.5px dashed var(--spark); color: var(--spark-deep); font-weight: 600;
 }
 .resize-handle { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; cursor: ns-resize; }
 .resize-handle::after {
   content: ""; position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%);
-  width: 20px; height: 2px; border-radius: 1px; background: var(--block-handle);
+  width: 20px; height: 2px; border-radius: 1px; background: var(--solid-handle);
 }
 
 /* tray: tasks waiting for a slot or a day */
@@ -890,7 +750,7 @@ dialog.confirm::backdrop { background: var(--scrim); }
   position: fixed; left: 50%; bottom: var(--s-6); z-index: 100;
   transform: translate(-50%, 8px); opacity: 0; pointer-events: none;
   padding: var(--s-2) var(--s-4); border-radius: var(--r-ctl);
-  background: var(--carbon); color: #ffffff; font-size: var(--t-body-sm);
+  background: var(--carbon); color: var(--on-carbon); font-size: var(--t-body-sm);
   transition: opacity 220ms var(--ease), transform 220ms var(--ease);
 }
 .cal-toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -934,7 +794,7 @@ dialog.confirm::backdrop { background: var(--scrim); }
   transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 .segmented a:hover { color: var(--ink); }
-.segmented a[aria-current] { background: var(--carbon); color: #ffffff; }
+.segmented a[aria-current] { background: var(--carbon); color: var(--on-carbon); }
 
 .weeks-layout { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: var(--s-6); align-items: start; }
 
@@ -969,7 +829,7 @@ dialog.confirm::backdrop { background: var(--scrim); }
 
 .plan-day { position: relative; transition: background-color var(--dur) var(--ease); }
 .plan-day.past .plan-entries, .plan-day.past .busy { opacity: 0.55; }
-.plan-day.drop-over, .plan-tray.drop-over { background: var(--brasa-tint); box-shadow: inset 0 0 0 1.5px var(--brasa); }
+.plan-day.drop-over, .plan-tray.drop-over { background: var(--spark-tint); box-shadow: inset 0 0 0 1.5px var(--spark); }
 .busy { font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .busy.heavy { color: var(--ink); font-weight: 600; }
 .plan-add-spacer { flex: none; width: 24px; }
@@ -997,7 +857,7 @@ dialog.confirm::backdrop { background: var(--scrim); }
   background: var(--fog); border: 1px solid transparent; border-radius: var(--r-ctl);
 }
 .plan-add input::placeholder { color: var(--steel); }
-.plan-add input:focus { outline: none; box-shadow: 0 0 0 2px var(--brasa); }
+.plan-add input:focus { outline: none; box-shadow: 0 0 0 2px var(--spark), var(--spark-glow); }
 @media (hover: none) { .plan-add summary { opacity: 1; } }
 
 /* grid layout: Brasa's month calendar */
@@ -1008,8 +868,8 @@ dialog.confirm::backdrop { background: var(--scrim); }
 .mg-week + .mg-week { border-top: 1px solid var(--hairline-on-glass); }
 .month-grid .plan-day { min-height: 112px; padding: 6px 6px var(--s-2); }
 .month-grid .plan-day + .plan-day { border-left: 1px solid var(--hairline-on-glass); }
-.month-grid .plan-day:nth-child(n+6) { background: var(--ink-tint-weekend-cell); }
-.month-grid .plan-day.drop-over { background: var(--brasa-tint); }
+.month-grid .plan-day:nth-child(n+6) { background: var(--ink-tint-faint); }
+.month-grid .plan-day.drop-over { background: var(--spark-tint); }
 .month-grid .plan-date { display: flex; align-items: center; gap: 6px; height: 24px; margin-bottom: 2px; padding-right: 2px; }
 .month-grid .plan-date .busy { margin-left: auto; }
 .month-grid .plan-add summary { position: absolute; right: 6px; bottom: 6px; }
@@ -1028,7 +888,8 @@ dialog.confirm::backdrop { background: var(--scrim); }
 .today-dot {
   display: inline-grid; place-content: center;
   width: 24px; height: 24px; margin-left: -2px;
-  border: 2px solid var(--brasa); border-radius: 50%;
+  border: 2px solid var(--spark); border-radius: 50%;
+  box-shadow: var(--spark-glow);
   font-weight: 600;
 }
 .month-grid .more { display: block; padding: 1px var(--s-1); font-size: var(--t-caption); color: var(--pewter); text-decoration: none; }
@@ -1052,13 +913,13 @@ dialog.confirm::backdrop { background: var(--scrim); }
   border-bottom: 1px solid var(--hairline-on-glass);
 }
 .week-rows .plan-day:last-child { border-bottom: none; }
-.week-rows .plan-day:nth-child(n+6) { background: var(--ink-tint-weekend-cell); }
-.week-rows .plan-day.drop-over { background: var(--brasa-tint); }
+.week-rows .plan-day:nth-child(n+6) { background: var(--ink-tint-faint); }
+.week-rows .plan-day.drop-over { background: var(--spark-tint); }
 .wd-date { display: flex; align-items: baseline; gap: 6px; padding-top: 1px; text-decoration: none; }
 .wd-date .dow { width: 30px; font-size: var(--t-caption); font-weight: 500; color: var(--steel); }
 .wd-date .dom { font-size: var(--t-body-sm); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .wd-date:hover .dom { text-decoration: underline; text-underline-offset: 2px; }
-.week-rows .plan-day.today .dow, .week-rows .plan-day.today .dom { color: var(--brasa-deep); }
+.week-rows .plan-day.today .dow, .week-rows .plan-day.today .dom { color: var(--spark-deep); }
 .week-rows .plan-day.past .dom { color: var(--steel); }
 /* rows have the height to spare, so long titles wrap instead of truncating */
 .week-rows .plan-entry { width: fit-content; align-items: flex-start; white-space: normal; font-size: var(--t-body-sm); line-height: 1.43; }

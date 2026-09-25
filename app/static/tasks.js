@@ -132,6 +132,20 @@
     }
   });
 
+  /* ---- a tick lands: the fresh row's box plays the system's --check-pulse once ---- */
+
+  let ticked = null; // id of the row whose box was just checked
+  document.addEventListener("change", (e) => {
+    if (e.target.matches?.(".task-check") && e.target.checked) ticked = e.target.closest(".task-row")?.id;
+  });
+  document.addEventListener("htmx:afterSettle", () => {
+    const row = ticked && document.getElementById(ticked);
+    if (!row?.classList.contains("done")) return;
+    ticked = null;
+    row.classList.add("just-done");
+    setTimeout(() => row.classList.remove("just-done"), 700);
+  });
+
   /* ---- what stays open: descriptions and Done folds, per tab ---- */
 
   const remembered = (key) => {

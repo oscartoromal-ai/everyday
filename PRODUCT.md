@@ -23,11 +23,12 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 - Projects with milestones (target dates, computed progress).
 - Calendar: local events, read-only work events, deliberately scheduled task blocks, faded ghost outlines for today's missed blocks.
 
-## Brand commitments (user-pinned 2026-09-25, replacing the 2026-08-28 "calm paper planner")
+## Brand commitments (user-pinned 2026-09-26, replacing Brasa v2 from 2026-09-25 and the 2026-08-28 "calm paper planner")
 
-- Visual direction: **Oscar's "Brasa" v2 design system** (`design-language/systems/brasa/SYSTEM.md`), Oscar's own system, reused here.
-  Ink on an ember aurora, glass surfaces, one ember spark per region, Inter only.
-- Theme: light and dark tokens, following the system theme.
+- Visual direction: **Neon Signage**, from Oscar's central design-language repo (`C:/Users/me/design-language/systems/neon-signage/SYSTEM.md`).
+  Pink and cyan neon over black glass by night, the same signs unlit and printed on a pale sky by day; ink draws the interface; pink is you, cyan is time; Inter only.
+- The app consumes the system only through the repo's token contract, so switching to another of Oscar's systems (Brasa v2, Tokyo Night, Sumi & Neon) is one command.
+- Theme: Day and Night, following the system theme until the user picks one.
 - Pixel-perfection matters; quality over development cost (SPEC.md section 10).
 
 ## Constraints

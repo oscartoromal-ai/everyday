@@ -3,39 +3,58 @@
 This describes the visual system actually built for Personal Calendar, grounded in `app/static/app.css` and `app/templates/`.
 It is descriptive, not aspirational: every claim below traces to a rule or a template in the repo.
 
-## The system: "Brasa" v2
+## The system: Neon Signage, from design-language
 
-Since 2026-09-25 the planner wears Oscar's own design system, "Brasa" v2, at his request.
-Its source of truth lives in the design-workspace workspace: `design-language/systems/brasa/SYSTEM.md` for the rules, and `another-app/src/assets/main.css` for the executable tokens.
-`app/static/app.css` copies those token values rather than inventing near-misses, and the top comment in `base.html` names the source.
-It replaced the earlier "calm paper planner" look (warm paper, serif headings, leather green and copper).
+Since 2026-09-26 the planner wears "Neon Signage", at Oscar's request, picked from three Tokyo Night prototypes (kept on the branch `prototype/tokyo-night`).
+It replaced Brasa v2, which the planner wore from 2026-09-25; before that it had its own "calm paper planner" look.
+
+The system is not defined here.
+It lives in Oscar's central repo `C:/Users/me/design-language`, beside Brasa, Tokyo Night and Sumi & Neon, all filling one token contract (`CONTRACT.md` there).
+Its rules are in that repo's `systems/neon-signage/SYSTEM.md`.
+`app/static/design/` holds the installed copy: `design.css` (fonts, shared scales and the system's tokens), the fonts, and `design-language.json` (which system, which version, its mode names, the fonts to preload).
+That folder is generated: never edit it; switch or update it with the repo's tool:
+
+```sh
+node ../design-language/bin/design-language.mjs use <system> app/static/design
+node ../design-language/bin/design-language.mjs update app/static/design
+```
+
+`app/static/app.css` holds only components and reads only contract tokens, so a switch changes nothing in it.
+`base.html` links `design.css` before `app.css`, preloads the fonts the lock file lists, and names the installed system in its top comment; `design_system()` in `app/ui/views.py` reads the lock file on each render.
 
 The system's rules, as they apply here:
 
 - **Ink draws the interface.** Text, icons, checkboxes and the plan's own blocks are ink; there is no decorative colour in the chrome.
-- **One spark per region.** The ember accent `--brasa` marks exactly one thing per region: the active nav item in the sidebar, the primary button in a form, "now" on a time grid, today on the Weeks board.
-- **Aurora and glass.** The canvas is Brasa's warm Basico aurora; resting surfaces are translucent glass with no shadow; only floating UI is opaque and casts a shadow.
+- **Two lights with two jobs.** Pink, `--spark`, is you: the active nav item in the sidebar, the primary button in a form, focus, today on a time grid and on the Weeks board.
+  Cyan, `--signal`, is time: the now-line and its label.
+  Each still marks one thing per region.
+- **Night emits, Day prints.** At night the spark elements glow (`--spark-glow`), the now-line glows (`--signal-glow`), and the plan's own blocks are white tubes with a soft bloom (`--solid-glow`).
+  By day every glow is flat, and the same roles are printed colour on a pale sky.
+- **Glass.** The canvas (`--canvas`) is the system's: sign glow over black by night, a pale pink-and-sky wash by day; resting surfaces are translucent glass with no shadow; only floating UI is opaque and casts a shadow.
 - **Quiet status, loud action.** Status colour (ok, warn, err, neutral pairs) appears only inside badges, never as coloured text runs or large fills.
 - **The graphic never carries the meaning alone.** The now-line's time is written in the gutter, and deadlines carry the word "due".
 
 ## Colour
 
-All colour is custom properties on `:root`, redefined for dark mode ("Carbon") under `:root[data-theme="dark"]`, the same mechanism Brasa uses.
+All colour is contract tokens from `design.css`: light mode ("Day") on `:root`, dark mode ("Night") under `:root[data-theme="dark"]`.
 An inline script at the top of `<head>` sets that attribute before first paint: the choice saved by the sidebar's theme toggle (`localStorage` key `pc-theme`), or else the system theme.
 With no saved choice, `shell.js` keeps following the system live.
 
-- **Neutrals:** `--paper`, `--fog`, `--hairline`, `--mist`, `--steel`, `--pewter`, `--graphite`, `--ink`, `--carbon`, with Brasa's exact light and dark values.
+- **Neutrals:** `--paper`, `--fog`, `--hairline`, `--mist`, `--steel`, `--pewter`, `--graphite`, `--ink`, and `--carbon` for dark chrome with `--on-carbon` text.
   Headings and primary data are ink, secondary text graphite or pewter, placeholders and muted labels steel.
-- **Accent:** `--brasa` (#ff5900) with `--brasa-deep` for hover and for ember text, and `--brasa-tint` for selection and drop-target state only.
-- **Status pairs:** `--ok-*`, `--warn-*`, `--err-*`, `--neutral-*`, rendered on glass through the `--badge-*-glass` fills.
-- **Aurora and glass:** `--shell-bg` (the canvas, fixed to the viewport), `--chrome-flank` (the matte sidebar), `--glass-card`, `--glass-border`, `--glass-input`, `--glass-btn`, `--glass-hover`, `--glass-row-hover`, and ink-alpha hairlines `--hairline-on-glass(-strong)`.
-- **Planner additions:** `--block-bg`, `--block-fg` and `--block-handle` make task blocks solid ink in both themes: near-black in light, near-white in dark.
+- **Spark:** `--spark` with `--spark-deep` for hover and for spark-coloured text, `--spark-tint` for selection and drop-target state only, and `--on-spark` for text on it (near-black at night, since white on neon pink fails contrast).
+- **Signal:** `--signal` draws the now-line, `--signal-deep` writes its time.
+- **Solid:** `--solid`, `--on-solid` and `--solid-handle` make task blocks solid ink in both modes: deep indigo by day, white tubes at night.
   Without the inversion, dark-mode blocks sat at almost the same grey as work meetings.
+- **Status pairs:** `--ok-*`, `--warn-*`, `--err-*`, `--neutral-*`, rendered on glass through the `--badge-*-glass` fills.
+- **Canvas and glass:** `--canvas` (fixed to the viewport), `--chrome-flank` (the matte sidebar), `--glass-card`, `--glass-border`, `--glass-input`, `--glass-btn`, `--glass-hover`, `--glass-row-hover`, and ink-alpha hairlines `--hairline-on-glass(-strong)`; `--ink-tint-faint` tints weekends.
+- **Hues:** the contract's `--hue-1` to `--hue-8` are installed but not used yet.
 
 ## Type
 
-One face, Inter variable, self-hosted from `app/static/fonts/` (OFL, licence alongside) and declared inline in `base.html`, so its URL carries the same cache-busting version as the preload.
+Neon Signage uses one face, Inter variable, installed in `app/static/design/fonts/` (OFL, licence alongside) and declared in `design.css`; `base.html` preloads it at the same URL, so it is fetched once.
 `calt` and `liga` are off, tracking is -0.01em, and weights are 400, 500 and 600 only.
+Titles (page, card, week and dialog titles, and the wordmark) use `--font-display` and figures (times, counts, targets, busy hours) use `--font-num`; in Neon Signage both are Inter, so these hooks matter only when another system is installed.
 Every font size is a scale token: `--t-caption` 12px, `--t-body-sm` 14px (the default UI size), `--t-body` 16px (inputs, card titles), `--t-sub` 20px (project titles), `--t-h-sm` 24px (page titles).
 Dates, times, counts and busy hours are `tabular-nums`.
 
@@ -47,15 +66,17 @@ Dates, times, counts and busy hours are `tabular-nums`.
 
 ## Shell
 
-The shell is a 240px matte sidebar plus a content column on the aurora.
-The wordmark is Brasa's pattern: the name in Inter 600 followed by an ember period, "Personal Calendar.".
-Nav items are 14px/500 graphite; the active one is ink 600 with Brasa's 3px ember bar, inset 8px from the viewport edge.
+The shell is a 240px matte sidebar plus a content column on the canvas.
+The wordmark is Brasa's pattern: the name in 600 followed by a spark period, "Personal Calendar.".
+At night the name carries a faint halo (`--ink-glow-text`) and the period glows and strikes once on load, three stutters and then steady, like a tube coming on (`--spark-entrance`).
+Nav items are 14px/500 graphite; the active one is ink 600 with Brasa's 3px spark bar, glowing at night, inset 8px from the viewport edge.
 Nav is grouped in the Brasa manner: the planning pages (Tasks, Today, Calendar, Weeks) sit under a 12px steel "Planner" group label, Tasks first since the app opens on it; Projects follows as a second group.
-The foot carries Brasa's shipped light/dark toggle: the current mode's sun or moon, which rotates and fades into the other, beside its name ("Light mode" or "Dark mode") in 12px pewter.
+The foot carries Brasa's shipped light/dark toggle: the current mode's sun or moon, which rotates and fades into the other, beside the mode's name in 12px pewter.
+The names are the installed system's own, read from `design-language.json`: "Day" and "Night" for Neon Signage.
 A panel icon beside the wordmark collapses the sidebar to a 64px icon rail (`data-rail="collapsed"` on `<html>`, saved as `pc-rail`, applied before paint).
-The shell animates its column width on `--ease` over 220ms, the way Brasa animates expanding panels.
-When collapsed, the wordmark and labels hide, each link keeps its name as a tooltip, group labels become hairlines, and the ember bar stays.
-Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the ember bar moves above the active tab's icon, and the collapse and theme controls stay desktop-only (a saved theme still applies).
+The shell animates its column width on `--ease` over 220ms.
+When collapsed, the wordmark and labels hide, each link keeps its name as a tooltip, group labels become hairlines, and the spark bar stays.
+Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the spark bar moves above the active tab's icon, and the collapse and theme controls stay desktop-only (a saved theme still applies).
 Content is 800px wide for list pages (Tasks, Projects) and 1200px for Today, Calendar and Weeks.
 
 ## Components
@@ -63,7 +84,8 @@ Content is 800px wide for list pages (Tasks, Projects) and 1200px for Today, Cal
 **List cards.** Today, Delegated to Claude, each project, each week in Rows and the trays are glass cards.
 A title row sits on a stronger hairline, and rows below are full-bleed, dividing with hairlines and lighting on hover with `--glass-row-hover`.
 
-**Task rows.** An 18px checkbox with a 6px radius fills with ink when checked; there is no draw-in animation, since Brasa animates colour only.
+**Task rows.** An 18px checkbox with a 6px radius fills with ink when checked; there is no draw-in animation.
+The box the user has just ticked plays the system's `--check-pulse` once (in Neon Signage, a ring of spark light that fades in 640ms); `tasks.js` marks the fresh row `.just-done` for it.
 The title is 14px/500 ink, and the meta line is 12px pewter.
 Today's block time is ink 500, and a do-date off Today is graphite.
 "Due soon" and "missed" are warn and err badges.
@@ -78,7 +100,7 @@ The dialog restates the task's name in ink 600 and offers a Ghost Cancel (focuse
 It is the one handler behind every `hx-confirm` that carries `data-confirm-*` attributes (`shell.js`), so the browser's native confirm box never appears.
 
 **Composer.** Each list card ends in a quick-add row: a steel plus and a borderless title.
-Typing a title opens the description underneath (focus alone does not, so a composer that folds away never shifts the page under a click), aligned with the title's text, with a steel "Ctrl+Enter to add" hint (hidden on touch), a secondary Cancel and the ember "Add task".
+Typing a title opens the description underneath (focus alone does not, so a composer that folds away never shifts the page under a click), aligned with the title's text, with a steel "Ctrl+Enter to add" hint (hidden on touch), a secondary Cancel and the spark "Add task".
 Enter in the title moves to the description, and Ctrl+Enter adds the task and returns to an empty title for the next one.
 
 **Description editor.** One line per block, in 14px graphite (16px ink inside the task editor's field).
@@ -102,28 +124,28 @@ Dating a task regroups the page from the server.
 On Today it is the last row of the Today card; on Tasks it is its own card at the foot, noting "last 14 days".
 Which folds are open is remembered per tab (`sessionStorage` key `pc-open-folds`).
 
-**Buttons.** `.btn.primary` is the ember primary, `.btn.quiet` the glass secondary, `.btn.danger-quiet` the destructive secondary with an err border.
+**Buttons.** `.btn.primary` is the spark primary, glowing at night, `.btn.quiet` the glass secondary, `.btn.danger-quiet` the destructive secondary with an err border.
 Week navigation and nudge actions are secondary-style controls.
 
-**Inputs.** 16px text, a 12px radius and a hairline border on glass; focus clears the border and draws Brasa's 2px ember ring.
+**Inputs.** 16px text, a 12px radius and a hairline border on glass; focus clears the border and draws Brasa's 2px spark ring, glowing at night.
 
 **Time grid** (Calendar's week and Today's one-day timeline, one partial).
-Day heads are 12px steel over a 14px/600 number, with today in `--brasa-deep`.
-Weekend columns carry `--ink-tint-weekend-cell`.
+Day heads are 12px steel over a 14px/600 number, with today in `--spark-deep`, glowing at night.
+Weekend columns carry `--ink-tint-faint`.
 Items are 6px-radius tags with a 2px gap below, so back-to-back items never merge:
 
 - work meetings are a quiet ink tint in graphite;
 - personal events are glass with a hairline;
-- task blocks are solid `--block-bg`;
+- task blocks are solid `--solid`, with `--solid-glow`;
 - completed blocks are fog with a strikethrough;
 - today's missed blocks are a dashed mist ghost;
-- a drag preview is `--brasa-tint` with a dashed ember edge.
+- a drag preview is `--spark-tint` with a dashed spark edge.
 
 Titles wrap over the lines an item's height allows.
-The grid's one spark is the ember now-line, whose time is written in ember in the gutter.
+The grid's one light is the now-line in `--signal` (cyan in Neon Signage, glowing at night), whose time is written in `--signal-deep` in the gutter.
 
-**Weeks.** The Grid/Rows switch is Brasa's segmented control: a pill track, the active option carbon with white text.
-*Grid* is a card of six weeks by seven days, in the manner of Brasa's month calendar: 12px steel weekday heads, cells at least 112px tall, tinted weekends, past day numbers in steel, and today's number in the 2px ember ring, the board's one spark.
+**Weeks.** The Grid/Rows switch is Brasa's segmented control: a pill track, the active option `--carbon` with `--on-carbon` text (deep violet at night, never the spark's pink).
+*Grid* is a card of six weeks by seven days, in the manner of Brasa's month calendar: 12px steel weekday heads, cells at least 112px tall, tinted weekends, past day numbers in steel, and today's number in the 2px spark ring, glowing at night, the board's one spark.
 *Rows* is one card per week, a 14px/600 date column and wrapped entries, with the week's meeting load right-aligned over the days' figures.
 Entries are one line each:
 
@@ -134,7 +156,7 @@ Entries are one line each:
 - tasks are ink 500 behind a 10-12px box that fills ink when done.
 
 The work calendar shows only as each day's load (meetings and busy hours): pewter, or ink 600 from 4 hours up.
-A drop target lights with `--brasa-tint` and an inset ember ring.
+A drop target lights with `--spark-tint` and an inset spark ring.
 The add-a-task plus shows on hover, or always on touch, and opens an opaque popover.
 
 **Project cards.** The title is 20px/600, followed by the open count, a secondary-style status select, and a ghost pencil that swaps in the inline editor.
@@ -146,9 +168,9 @@ Paused and done projects sit on collapsible shelves.
 
 ## Interaction grammar
 
-Motion follows Brasa's table: colour, border and background transitions at `--dur` 150ms on `--ease`, and nothing else in the signed-in UI.
+Motion is colour, border and background transitions at `--dur` 150ms on `--ease`, and nothing else in the signed-in UI.
 The earlier checkbox draw-in, the breathing running dot and the row fade-in were removed.
-Beyond that, only the entrances Brasa itself uses move: the toast, the confirm dialog (an 8px rise with fade), the theme icon's morph, and the sidebar's width when it collapses.
+Beyond that, only these move: the toast, the confirm dialog (an 8px rise with fade), the theme icon's morph, the sidebar's width when it collapses, and the system's two one-shot animations, the wordmark's `--spark-entrance` and a ticked box's `--check-pulse`.
 `prefers-reduced-motion` collapses every transition.
 
 **Calendar drag** (`app/static/calendar.js`, vanilla, listeners on `document` so they survive htmx swaps).
@@ -170,4 +192,5 @@ Lists that re-render from the server take any half-written composer with them: `
 It writes the same plain text the server stores into a hidden `notes` textarea, so forms and the server never see the editor.
 
 **Assets.** Static URLs go through `asset()`, which appends the file's mtime (`?v=`), so a browser never pairs new templates with a stale stylesheet.
-The favicon is the Today icon in ink on a white tile, its dot the ember spark.
+The favicon is the Today icon in ink on a white tile, its dot the spark (Neon Signage's day pink, `#e5006e`).
+It is the one system colour outside `design/`: change it by hand when switching systems.

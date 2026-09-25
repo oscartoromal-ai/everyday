@@ -1,5 +1,5 @@
 /* Shell chrome shared by every page: the light/dark toggle, the collapsible
-   sidebar, and the Brasa confirm dialog behind hx-confirm. The saved theme
+   sidebar, and the confirm dialog behind hx-confirm. The saved theme
    and sidebar state are first applied by the inline script in base.html's
    <head>, before paint; this file keeps them in step with the controls. */
 
@@ -21,7 +21,8 @@
     const button = document.querySelector(".theme-toggle");
     if (!button) return;
     button.setAttribute("aria-pressed", String(dark));
-    button.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+    // The mode names are the design system's own ("Day"/"Night" or "Light mode"/"Dark mode").
+    button.setAttribute("aria-label", `Switch to ${dark ? button.dataset.labelLight : button.dataset.labelDark}`);
   };
 
   document.addEventListener("click", (e) => {
@@ -58,7 +59,7 @@
   applyRail(root.dataset.rail === "collapsed");
 
   /* ---- confirm: hx-confirm on an element with data-confirm-* opens the
-     Brasa dialog (#confirm-dialog) instead of the browser's native box ---- */
+     app's dialog (#confirm-dialog) instead of the browser's native box ---- */
 
   document.addEventListener("htmx:confirm", (e) => {
     const source = e.detail.elt;
