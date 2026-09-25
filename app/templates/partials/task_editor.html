@@ -5,6 +5,11 @@
     <div class="editor-title">
       <input name="title" value="{{ task.title }}" required aria-label="Task title" autofocus>
     </div>
+    <div class="field editor-description">
+      <label for="description-{{ task.id }}">Description</label>
+      <textarea id="description-{{ task.id }}" name="notes" rows="3" data-checklist-input
+                placeholder="Add context. Start a line with - to make it a sub-task.">{{ task.notes }}</textarea>
+    </div>
     <div class="grid">
       <div class="field">
         <label for="status-{{ task.id }}">Status</label>
@@ -56,10 +61,6 @@
           <option value="{{ value }}" {% if repeat == value %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
-      </div>
-      <div class="field" style="grid-column: 1 / -1;">
-        <label for="notes-{{ task.id }}">Notes</label>
-        <textarea id="notes-{{ task.id }}" name="notes" rows="2">{{ task.notes }}</textarea>
       </div>
     </div>
     <div class="editor-actions">

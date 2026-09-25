@@ -68,10 +68,21 @@ The title is 14px/500 ink, and the meta line is 12px pewter.
 Today's block time is ink 500, and a do-date off Today is graphite.
 "Due soon" and "missed" are warn and err badges.
 Claude's statuses are badges too: Queued neutral, Running ok (with a static dot), Needs review warn, Blocked err.
+A task with a description adds a steel disclosure to the start of its meta line: a chevron and the sub-task count ("1/3"), or "Notes" when it has none.
+Opened, the description sits under the meta line in 14px graphite: context lines as written, sub-tasks as 14px ink checkboxes that fill like the row's own, and a done sub-task steel with a strikethrough.
+An indented line under a sub-task is its note, hung 22px in so it aligns with the sub-task's words.
+Which descriptions are open is remembered per tab (`sessionStorage` key `pc-open-notes`), so Today's live refreshes never fold them shut.
 A small trash bin ends each row, steel and hidden until the row is hovered or focused (always shown on touch), and err-tinted on hover.
 It, and the editor's Delete button, open the confirm dialog: opaque paper over the scrim with the modal shadow, titled "Delete task?".
 The dialog restates the task's name in ink 600 and offers a Ghost Cancel (focused first) beside a destructive-secondary Delete, never a red primary.
 It is the one handler behind every `hx-confirm` that carries `data-confirm-*` attributes (`shell.js`), so the browser's native confirm box never appears.
+
+**Composer.** Each list card ends in a quick-add row: a steel plus and a borderless title.
+Focusing it opens the description underneath, aligned with the title's text, with a steel "Ctrl+Enter to add" hint (hidden on touch), a secondary Cancel and the ember "Add task".
+Enter in the title moves to the description, Enter on a "- " line continues the list, Enter on an empty one ends it, and Ctrl+Enter adds the task and returns to an empty title for the next one.
+Esc steps away but keeps a written draft open; Cancel clears it.
+The task editor puts the same description field directly under the title, above the other fields.
+The empty-list note hides once the list has a row.
 
 **Buttons.** `.btn.primary` is the ember primary, `.btn.quiet` the glass secondary, `.btn.danger-quiet` the destructive secondary with an err border.
 Week navigation and nudge actions are secondary-style controls.
@@ -133,6 +144,10 @@ A height-capped timeline opens an hour and a half before now and keeps its scrol
 Any `[data-plan-task]` can be dropped on a future day to set its do-date, or on the Unplanned tray to clear it.
 Past days refuse drops.
 After the PATCH, `weeks:refresh` re-renders the board.
+
+**Writing tasks** (`app/static/tasks.js`, vanilla, listeners on `document`).
+It runs the composer, the description textareas' list continuation, and the row disclosures.
+Textareas grow with their content through `field-sizing: content`, with a script fallback where that is unsupported.
 
 **Assets.** Static URLs go through `asset()`, which appends the file's mtime (`?v=`), so a browser never pairs new templates with a stale stylesheet.
 The favicon is the Today icon in ink on a white tile, its dot the ember spark.

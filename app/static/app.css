@@ -351,6 +351,8 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 }
 
 .empty { margin: 0; padding: var(--s-4); font-size: var(--t-body-sm); color: var(--pewter); }
+/* the first quick-added row retires the empty note beneath it */
+.task-list:has(> li) + .empty { display: none; }
 
 /* ---------- task rows ---------- */
 
@@ -411,6 +413,46 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .task-meta .when { color: var(--ink); font-weight: 500; }
 .task-meta .planned { color: var(--graphite); }
 
+/* the description: folded under the meta line, opened by its count */
+.notes-toggle {
+  display: inline-flex; align-items: center; gap: 3px;
+  margin-left: -2px; padding: 0 4px 0 2px; border-radius: var(--r-tag);
+  color: var(--pewter); font-variant-numeric: tabular-nums;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.notes-toggle svg { stroke: currentColor; }
+.notes-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+.notes-toggle:hover { color: var(--ink); background: var(--glass-hover); }
+
+.task-notes { margin-top: var(--s-2); font-size: var(--t-body-sm); line-height: 1.5; color: var(--graphite); }
+.task-notes p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.task-notes .gap { height: var(--s-2); }
+.subtasks { list-style: none; margin: 0; padding: 0; }
+.subtask { padding-left: calc(var(--depth, 0) * 20px); }
+.subtask label { display: flex; align-items: flex-start; gap: var(--s-2); padding: 2px 0; cursor: pointer; }
+.subtask span { color: var(--ink); overflow-wrap: anywhere; }
+.subtask.done span { color: var(--steel); text-decoration: line-through; text-decoration-thickness: 1px; }
+/* a sub-task's note hangs under its words: 14px box + 8px gap */
+.task-notes .subtask-note { margin: 0 0 2px 22px; }
+.subtask-check {
+  appearance: none;
+  flex: none; width: 14px; height: 14px; margin: 3px 0 0;
+  border: 1.5px solid var(--mist); border-radius: 4px;
+  background: var(--glass-input);
+  display: grid; place-content: center;
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.subtask-check:hover { border-color: var(--graphite); }
+.subtask-check::before {
+  content: ""; width: 8px; height: 8px;
+  background: var(--paper);
+  clip-path: polygon(14% 52%, 5% 65%, 38% 95%, 97% 18%, 85% 8%, 37% 71%);
+  visibility: hidden;
+}
+.subtask-check:checked { background: var(--ink); border-color: var(--ink); }
+.subtask-check:checked::before { visibility: visible; }
+
 /* quiet status: urgency is a tinted badge, never a coloured text run */
 .task-meta .due.soon, .task-meta .missed, .tray-meta .missed, .tray-meta .due:not(.later) {
   display: inline-flex; align-items: center;
@@ -444,20 +486,43 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 
 /* ---------- quick add: the last row of a list card ---------- */
 
-.quick-add { display: flex; align-items: center; gap: var(--s-3); padding: 10px var(--s-4); }
+.quick-add { padding: 10px var(--s-4); }
+.quick-add-line { display: flex; align-items: center; gap: var(--s-3); }
 .quick-add svg { flex: none; width: 18px; height: 18px; stroke: var(--steel); }
-.quick-add input {
+.quick-add input, .quick-add textarea {
   flex: 1; min-width: 0; border: none; background: none; color: var(--ink);
   font-size: var(--t-body-sm); padding: 2px 0;
 }
-.quick-add input::placeholder { color: var(--steel); }
-.quick-add input:focus { outline: none; box-shadow: none; }
+.quick-add :is(input, textarea)::placeholder { color: var(--steel); }
+.quick-add :is(input, textarea):focus { outline: none; box-shadow: none; }
 .quick-add:focus-within svg { stroke: var(--ink); }
+.quick-add.composing input[name="title"] { font-weight: 500; }
+
+/* composing: the description opens under the title, aligned with its text */
+.quick-add-more { display: none; padding-left: 30px; }
+.quick-add.composing .quick-add-more { display: block; }
+.quick-add textarea {
+  display: block; width: 100%; margin-top: var(--s-1);
+  line-height: 1.5; resize: none;
+  field-sizing: content; min-height: calc(2lh + 4px); max-height: 50vh;
+  color: var(--graphite);
+}
+.quick-add-actions { display: flex; align-items: center; gap: var(--s-2); margin-top: var(--s-2); }
+.quick-add-actions .spacer { flex: 1; }
+.quick-add-actions .btn { padding: 6px 14px; }
+.quick-add-actions .hint { font-size: var(--t-caption); color: var(--steel); }
+.hint kbd { font: inherit; }
+@media (hover: none) { .quick-add-actions .hint { display: none; } }
 
 /* ---------- forms ---------- */
 
 .task-editor { margin: var(--s-2) var(--s-3); padding: var(--s-4); }
 .task-list > li:has(> .task-editor) { border-bottom: 1px solid var(--hairline-on-glass); padding: var(--s-1) 0; }
+.editor-description { margin-top: var(--s-3); }
+.editor-description textarea {
+  resize: vertical; line-height: 1.5;
+  field-sizing: content; min-height: calc(3lh + 18px); max-height: 60vh;
+}
 .task-editor .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3) var(--s-4); margin-top: var(--s-3); }
 @media (max-width: 540px) { .task-editor .grid { grid-template-columns: 1fr; } }
 

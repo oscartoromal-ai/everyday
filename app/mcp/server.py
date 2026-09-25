@@ -28,7 +28,9 @@ mcp = FastMCP(
     instructions=(
         "Oscar's personal planner: projects, tasks, calendar events, and scheduled "
         "task blocks. The app database is canonical for cross-project plan state. "
-        "Dates are calendar dates (YYYY-MM-DD); datetimes are naive local wall time."
+        "Dates are calendar dates (YYYY-MM-DD); datetimes are naive local wall time. "
+        "A task's notes are its free-form description: lines starting with '- ' are "
+        "its sub-tasks ('- [x] ' once done), and other lines are context around them."
     ),
 )
 
@@ -116,7 +118,9 @@ class TaskUpsert(BaseModel):
 def upsert_tasks(tasks: list[TaskUpsert]) -> list[dict[str, Any]]:
     """Create or update tasks in bulk. Items with task_id update that task; items
     without create a new one (title required). planned_for is the intended do-date;
-    due is the deadline. owner is oscar or claude."""
+    due is the deadline. owner is oscar or claude. notes is the description: write
+    sub-tasks as '- ' lines (tick one by rewriting it as '- [x] '), keeping context
+    lines next to the sub-tasks they explain."""
     out: list[dict[str, Any]] = []
     with session_scope() as db:
         for item in tasks:

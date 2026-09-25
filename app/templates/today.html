@@ -5,7 +5,8 @@
   <div class="today-lists">
     <header class="day-header">
       <div class="weekday">{{ today.strftime("%A") }}</div>
-      <div class="rest" id="day-rest">
+      <div class="rest" id="day-rest"
+           hx-get="/" hx-select="#day-rest" hx-swap="outerHTML" hx-trigger="task:added from:body">
         {{ today.day }} {{ today.strftime("%B %Y") }}
         {% set open_count = rows | rejectattr("done") | list | length %}
         · {% if open_count == 0 %}nothing open{% elif open_count == 1 %}1 task open{% else %}{{ open_count }} tasks open{% endif %}

@@ -19,9 +19,15 @@ from app.ui.views import milestone_ctx, project_card_ctx, projects_list_ctx, row
 router = APIRouter(prefix="/ui", include_in_schema=False)
 
 
-def _row_response(request: Request, db, task_id: int) -> HTMLResponse:  # noqa: ANN001
+def _row_response(
+    request: Request,
+    db,  # noqa: ANN001
+    task_id: int,
+    *,
+    expanded: bool = False,
+) -> HTMLResponse:
     task = tasks_svc.get_task(db, task_id)
-    context = {"request": request, "row": row_ctx(task, datetime.now())}
+    context = {"request": request, "row": row_ctx(task, datetime.now()), "expanded": expanded}
     return templates.TemplateResponse(request, "partials/task_row.html", context)
 
 
@@ -30,6 +36,7 @@ def quick_add(
     request: Request,
     db: DbSession,
     title: Annotated[str, Form()],
+    notes: Annotated[str, Form()] = "",
     planned_for: Annotated[date | None, Form()] = None,
     project_id: Annotated[int | None, Form()] = None,
 ):
@@ -37,10 +44,28 @@ def quick_add(
     if not title:
         return HTMLResponse("")
     task = tasks_svc.create_task(
-        db, title=title, planned_for=planned_for, project_id=project_id
+        db, title=title, notes=notes, planned_for=planned_for, project_id=project_id
     )
     db.commit()
-    return _row_response(request, db, task.id)
+    response = _row_response(request, db, task.id)
+    # Only Today's open count follows; a full list refresh would re-render
+    # the composer and pull focus out of it mid-entry.
+    response.headers["HX-Trigger"] = "task:added"
+    return response
+
+
+@router.post("/tasks/{task_id}/subtasks/{index}/toggle")
+def toggle_subtask(
+    request: Request,
+    db: DbSession,
+    task_id: int,
+    index: int,
+    text: Annotated[str, Form()],
+):
+    # A stale toggle changes nothing; either way the fresh row shows the truth.
+    tasks_svc.toggle_subtask(db, task_id, index, text)
+    db.commit()
+    return _row_response(request, db, task_id, expanded=True)
 
 
 @router.post("/tasks/{task_id}/toggle")

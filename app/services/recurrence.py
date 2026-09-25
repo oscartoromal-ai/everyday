@@ -13,6 +13,7 @@ from datetime import date, datetime, time, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import checklist
 from app.models import (
     Block,
     Event,
@@ -140,7 +141,8 @@ def _spawn_occurrence(db: Session, template: RecurrenceTemplate, day: date) -> N
         db.add(
             Task(
                 title=template.title,
-                notes=template.notes,
+                # Each occurrence starts with its sub-tasks open.
+                notes=checklist.reset(template.notes),
                 project_id=template.project_id,
                 planned_for=day,
                 recurrence_template_id=template.id,

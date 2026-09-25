@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, time
 
 import pytest
 from fastmcp import Client
@@ -6,8 +6,9 @@ from fastmcp.exceptions import ToolError
 
 from app.mcp.server import mcp
 
-NOW = datetime.now().replace(microsecond=0)
-TODAY = NOW.date()
+TODAY = date.today()
+# Midday, so the block stays on today's agenda whatever the time the suite runs.
+NOON = datetime.combine(TODAY, time(12, 0))
 
 EXPECTED_TOOLS = {
     "list_projects",
@@ -73,8 +74,8 @@ async def test_task_flow_through_tools(app_db) -> None:
                 "schedule_block",
                 {
                     "task_id": task["id"],
-                    "start": (NOW + timedelta(hours=1)).isoformat(),
-                    "end": (NOW + timedelta(hours=2)).isoformat(),
+                    "start": NOON.isoformat(),
+                    "end": NOON.replace(hour=13).isoformat(),
                 },
             )
         ).data

@@ -53,6 +53,9 @@ v3 adds a Goal entity plus a nullable goal reference on Project.
 Progress toward a milestone is computable from its attached tasks.
 
 **Task**: title, notes, status, owner (oscar / claude), optional project, optional milestone (only of its own project), optional planned_for (do-date), optional due (deadline).
+Notes are the task's free-form description, and sub-tasks live inside it: a line starting with "- " (or "* ") is a sub-task, "- [x] " once done, and every other line is context kept where it was written.
+Sub-tasks are text, not rows: they carry no status, owner, or dates of their own, and ticking one rewrites only its own line.
+A repeating task's occurrences start with every sub-task open.
 planned_for is the day Oscar intends to work it and drives the daily list; due is the obligation and drives urgency.
 Backlog tasks have neither.
 The Weeks view is driven by planned_for, due, and milestone target dates.

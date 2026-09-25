@@ -10,8 +10,16 @@
             hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML">
       <span class="task-title">{{ row.task.title }}</span>
     </button>
-    {% if row.chip or row.project_name or row.due_label or row.missed or row.block_label or row.planned_label %}
+    {% if row.description or row.chip or row.project_name or row.due_label or row.missed or row.block_label or row.planned_label %}
     <div class="task-meta">
+      {% if row.description %}
+      <button type="button" class="notes-toggle"
+              aria-expanded="{{ 'true' if expanded else 'false' }}" aria-controls="notes-{{ row.task.id }}"
+              {% if row.subtasks_total %}aria-label="{{ row.subtasks_done }} of {{ row.subtasks_total }} sub-tasks done"{% endif %}>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>
+        {% if row.subtasks_total %}<span class="progress">{{ row.subtasks_done }}/{{ row.subtasks_total }}</span>{% else %}Notes{% endif %}
+      </button>
+      {% endif %}
       {% if row.chip %}
       <span class="chip {{ row.chip_class }}">{% if row.chip_class == "running" %}<span class="dot"></span>{% endif %}{{ row.chip }}</span>
       {% endif %}
@@ -20,6 +28,32 @@
       {% if row.project_name %}<span class="project">{{ row.project_name }}</span>{% endif %}
       {% if row.due_label %}<span class="due{% if row.due_soon %} soon{% endif %}">{{ row.due_label }}</span>{% endif %}
       {% if row.missed %}<span class="missed">{{ row.missed_label }}</span>{% endif %}
+    </div>
+    {% endif %}
+    {% if row.description %}
+    <div class="task-notes" id="notes-{{ row.task.id }}"{% if not expanded %} hidden{% endif %}>
+      {% for block in row.description %}
+      {% if block.kind == "text" %}
+      <p>{{ block.lines | join("\n") }}</p>
+      {% elif block.kind == "list" %}
+      <ul class="subtasks">
+        {% for entry in block.entries %}{% set item = entry.item %}
+        <li class="subtask{% if item.checked %} done{% endif %}"{% if item.depth %} style="--depth: {{ item.depth }}"{% endif %}>
+          <label>
+            <input type="checkbox" class="subtask-check" {% if item.checked %}checked{% endif %}
+                   hx-post="/ui/tasks/{{ row.task.id }}/subtasks/{{ item.index }}/toggle"
+                   hx-vals='{{ {"text": item.text} | tojson }}'
+                   hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML">
+            <span>{{ item.text }}</span>
+          </label>
+          {% if entry.notes %}<p class="subtask-note">{{ entry.notes | join("\n") }}</p>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="gap"></div>
+      {% endif %}
+      {% endfor %}
     </div>
     {% endif %}
   </div>

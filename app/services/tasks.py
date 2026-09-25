@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app import checklist
 from app.models import (
     BlockState,
     Milestone,
@@ -53,7 +54,7 @@ def create_task(
     _validate_milestone(db, project_id, milestone_id)
     task = Task(
         title=title.strip(),
-        notes=notes,
+        notes=checklist.normalize(notes),
         owner=owner,
         status=status,
         project_id=project_id,
@@ -79,6 +80,8 @@ def update_task(db: Session, task_id: int, **fields: Any) -> Task:
     _validate_milestone(db, project_id, milestone_id)
     if "status" in fields:
         set_status(db, task_id, fields.pop("status"))
+    if fields.get("notes") is not None:
+        fields["notes"] = checklist.normalize(fields["notes"])
     for key, value in fields.items():
         if not hasattr(task, key):
             raise DomainError(f"Unknown task field: {key}")
@@ -98,6 +101,18 @@ def set_status(db: Session, task_id: int, status: TaskStatus) -> Task:
         task.status_changed_at = datetime.now()
     db.flush()
     return task
+
+
+def toggle_subtask(db: Session, task_id: int, index: int, expected_text: str) -> bool:
+    """Tick or untick one sub-task in the description; False when the
+    description changed under the caller and that sub-task is no longer there."""
+    task = get_task(db, task_id)
+    updated = checklist.toggle(task.notes, index, expected_text)
+    if updated is None:
+        return False
+    task.notes = updated
+    db.flush()
+    return True
 
 
 def has_missed_marker(task: Task, now: datetime) -> bool:

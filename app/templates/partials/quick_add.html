@@ -1,9 +1,22 @@
-<form class="quick-add"
+<form class="quick-add" data-composer
       hx-post="/ui/tasks/quick-add"
-      hx-target="#{{ target }}" hx-swap="beforeend settle:240ms"
-      hx-on::after-request="if (event.detail.successful) this.reset()">
-  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M10 4v12"/><path d="M4 10h12"/></svg>
+      hx-target="#{{ target }}" hx-swap="beforeend settle:240ms">
   {% if planned_for %}<input type="hidden" name="planned_for" value="{{ planned_for.isoformat() }}">{% endif %}
   {% if project_id %}<input type="hidden" name="project_id" value="{{ project_id }}">{% endif %}
-  <input name="title" placeholder="{{ placeholder }}" autocomplete="off" aria-label="{{ placeholder }}">
+  <div class="quick-add-line">
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M10 4v12"/><path d="M4 10h12"/></svg>
+    <input name="title" placeholder="{{ placeholder }}" autocomplete="off" aria-label="{{ placeholder }}"
+           required enterkeyhint="next">
+  </div>
+  <div class="quick-add-more">
+    <textarea name="notes" rows="2" data-checklist-input
+              placeholder="Add context. Start a line with - to make it a sub-task."
+              aria-label="Description"></textarea>
+    <div class="quick-add-actions">
+      <span class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to add</span>
+      <span class="spacer"></span>
+      <button type="button" class="btn quiet" data-composer-cancel>Cancel</button>
+      <button type="submit" class="btn primary">Add task</button>
+    </div>
+  </div>
 </form>

@@ -9,6 +9,7 @@ from typing import Any
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app import checklist
 from app.dates import human_date, short_date
 from app.models import (
     Block,
@@ -64,13 +65,47 @@ def todays_block(task: Task, today: date) -> Block | None:
     return min(todays, key=lambda b: b.start) if todays else None
 
 
+def description_blocks(notes: str) -> list[dict[str, Any]]:
+    """The description as the row renders it: runs of context lines become
+    paragraphs, runs of sub-tasks become checklists, blank lines separate.
+    An indented line right under a sub-task is that sub-task's note, hung
+    under its words rather than starting a paragraph of its own."""
+    blocks: list[dict[str, Any]] = []
+    for line in checklist.parse(notes):
+        last = blocks[-1] if blocks else None
+        if line.kind == "blank":
+            blocks.append({"kind": "gap"})
+        elif line.kind == "item":
+            if last is None or last["kind"] != "list":
+                last = {"kind": "list", "entries": []}
+                blocks.append(last)
+            last["entries"].append({"item": line, "notes": []})
+        elif last is not None and last["kind"] == "list" and line.text[:1] in (" ", "\t"):
+            last["entries"][-1]["notes"].append(line.text.strip())
+        else:
+            if last is None or last["kind"] != "text":
+                last = {"kind": "text", "lines": []}
+                blocks.append(last)
+            last["lines"].append(line.text)
+    # A gap only separates: never lead, trail, or double up.
+    return [
+        b
+        for i, b in enumerate(blocks)
+        if b["kind"] != "gap" or (0 < i < len(blocks) - 1 and blocks[i + 1]["kind"] != "gap")
+    ]
+
+
 def row_ctx(task: Task, now: datetime) -> dict[str, Any]:
     """Everything the task-row partial needs, precomputed."""
     missed = tasks_svc.has_missed_marker(task, now)
     missed_block = last_missed_block(task) if missed else None
     today = now.date()
     block = todays_block(task, today)
+    subtasks_done, subtasks_total = checklist.progress(task.notes)
     return {
+        "description": description_blocks(task.notes),
+        "subtasks_done": subtasks_done,
+        "subtasks_total": subtasks_total,
         "block_label": f"{block.start:%H:%M}–{block.end:%H:%M}" if block else None,
         # Today's list is today by definition; everywhere else the do-date matters.
         "planned_label": (

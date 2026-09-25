@@ -153,6 +153,66 @@ def test_quick_add_creates_row(client) -> None:
     assert response.status_code == 200
     assert "captured" in response.text
     assert "task-row" in response.text
+    assert response.headers["HX-Trigger"] == "task:added"
+
+
+def test_quick_add_takes_a_description_with_subtasks(client, db) -> None:
+    row = client.post(
+        "/ui/tasks/quick-add",
+        data={
+            "title": "ship sync",
+            "notes": "ICS only for now.\r\n- fetch the feed\r\n- dedupe <instances>\r\n",
+            "planned_for": TODAY.isoformat(),
+        },
+    ).text
+    task = tasks_svc.list_tasks(db)[0]
+    # The browser's CRLFs are stored as plain newlines, edges trimmed.
+    assert task.notes == "ICS only for now.\n- fetch the feed\n- dedupe <instances>"
+    assert '<span class="progress">0/2</span>' in row
+    assert "ICS only for now." in row
+    assert "dedupe &lt;instances&gt;" in row
+    assert f'id="notes-{task.id}" hidden' in row
+
+
+def test_ticking_a_subtask_rewrites_its_line_and_keeps_the_row_open(client, db) -> None:
+    task = tasks_svc.create_task(db, title="ship sync", notes="- fetch\nwhy: TZ\n- dedupe")
+    row = client.post(f"/ui/tasks/{task.id}/subtasks/1/toggle", data={"text": "dedupe"}).text
+    assert task.notes == "- fetch\nwhy: TZ\n- [x] dedupe"
+    assert '<span class="progress">1/2</span>' in row
+    assert 'aria-expanded="true"' in row
+    assert f'id="notes-{task.id}" hidden' not in row
+    # The task itself is untouched.
+    assert task.status == TaskStatus.todo
+
+
+def test_a_stale_subtask_toggle_changes_nothing(client, db) -> None:
+    task = tasks_svc.create_task(db, title="ship sync", notes="- fetch\n- dedupe")
+    row = client.post(f"/ui/tasks/{task.id}/subtasks/0/toggle", data={"text": "gone"})
+    assert row.status_code == 200
+    assert task.notes == "- fetch\n- dedupe"
+    assert '<span class="progress">0/2</span>' in row.text
+
+
+def test_description_groups_context_subtasks_and_their_notes() -> None:
+    from app.ui.views import description_blocks
+
+    blocks = description_blocks(
+        "\nWhy: ICS only.\nOAuth is blocked.\n\n\n"
+        "- fetch\n    mind TZID\n- dedupe\nAfter that, ship.\n"
+    )
+    assert [b["kind"] for b in blocks] == ["text", "gap", "list", "text"]
+    assert blocks[0]["lines"] == ["Why: ICS only.", "OAuth is blocked."]
+    entries = blocks[2]["entries"]
+    assert [(e["item"].text, e["notes"]) for e in entries] == [
+        ("fetch", ["mind TZID"]),
+        ("dedupe", []),
+    ]
+
+
+def test_a_task_without_description_has_no_toggle(client, db) -> None:
+    task = tasks_svc.create_task(db, title="bare", planned_for=TODAY)
+    row = client.get(f"/ui/tasks/{task.id}/row").text
+    assert "notes-toggle" not in row and "task-notes" not in row
 
 
 def test_toggle_marks_done_and_back(client, db) -> None:
