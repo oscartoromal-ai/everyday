@@ -1,90 +1,8 @@
-/* Writing tasks: the quick-add composer and the rows' collapsible
-   descriptions. The description editor itself is notes-editor.js. Listeners
-   sit on document, so they survive htmx swaps. */
+/* Task rows: dating from Tasks, keyboard triage, filing by drag, and the
+   rows' collapsible descriptions. Writing a task (adding or editing) is
+   task-sheet.js. Listeners sit on document, so they survive htmx swaps. */
 
 (() => {
-  const SUBMIT = (e) => e.key === "Enter" && (e.ctrlKey || e.metaKey);
-
-  /* ---- the composer: title, then a description revealed on focus ---- */
-
-  const composerOf = (el) => el.closest?.("[data-composer]");
-  const editorOf = (form) => form.querySelector("[data-notes-editor]");
-  const hasNotes = (form) => form.elements.notes.value.trim() !== "";
-
-  const open = (form) => form.classList.add("composing");
-  const close = (form) => form.classList.remove("composing");
-
-  // The description opens once a title is being written, not on mere focus:
-  // after an add, focus returns to the empty title, and a composer that
-  // folded away on the next click elsewhere would shift the page under the
-  // pointer between mousedown and mouseup, losing that click.
-  document.addEventListener("input", (e) => {
-    const form = composerOf(e.target);
-    if (form && e.target === form.elements.title && e.target.value.trim()) open(form);
-  });
-
-  document.addEventListener("focusin", (e) => {
-    const form = composerOf(e.target);
-    if (form && (form.elements.title.value.trim() || hasNotes(form))) open(form);
-  });
-
-  document.addEventListener("focusout", (e) => {
-    const form = composerOf(e.target);
-    if (!form || form.contains(e.relatedTarget)) return;
-    // A started task stays open; only an untouched composer folds away.
-    if (!form.elements.title.value.trim() && !hasNotes(form)) close(form);
-  });
-
-  // Touch Safari never focuses a tapped button, so the blur would fold the
-  // composer away under the finger; keep focus where it is instead.
-  document.addEventListener("pointerdown", (e) => {
-    if (e.target.closest?.(".quick-add-actions button")) e.preventDefault();
-  });
-
-  document.addEventListener("click", (e) => {
-    const cancel = e.target.closest?.("[data-composer-cancel]");
-    if (!cancel) return;
-    const form = composerOf(cancel);
-    form.reset();
-    close(form);
-    document.activeElement?.blur();
-  });
-
-  document.addEventListener("keydown", (e) => {
-    const target = e.target;
-    const form = composerOf(target);
-
-    if (SUBMIT(e) && (form || target.closest?.("[data-notes-editor]"))) {
-      e.preventDefault();
-      if (form && !form.elements.title.value.trim()) form.elements.title.focus();
-      else target.closest("form").requestSubmit();
-      return;
-    }
-
-    if (form && e.key === "Escape") {
-      e.preventDefault();
-      // Esc steps away; a draft stays put until Cancel or Add.
-      if (!hasNotes(form)) close(form);
-      target.blur();
-      return;
-    }
-
-    if (form && target === form.elements.title && e.key === "Enter" && !e.isComposing) {
-      // Enter moves on to the description; Ctrl+Enter (or Add task) saves.
-      e.preventDefault();
-      if (target.value.trim()) window.NotesEditor.focusEnd(editorOf(form));
-    }
-  });
-
-  document.addEventListener("htmx:afterRequest", (e) => {
-    const form = e.detail.elt;
-    if (!form.matches?.("[data-composer]") || !e.detail.successful) return;
-    form.reset();
-    close(form);
-    // Ready for the next one.
-    form.elements.title.focus();
-  });
-
   /* ---- rows on Tasks: the calendar button opens its hidden date input ---- */
 
   document.addEventListener("click", (e) => {
@@ -265,40 +183,6 @@
     filed = null;
     hover(null);
     document.querySelector(".task-row.dragging")?.classList.remove("dragging");
-  });
-
-  /* ---- drafts survive live refreshes ---- */
-
-  // Today's list and the Tasks page re-render from the server whenever the
-  // plan changes, composers included. Carry a half-written task, and focus,
-  // over to the fresh composer with the same key.
-  const carried = new WeakMap(); // request -> drafts
-  document.addEventListener("htmx:beforeSwap", (e) => {
-    const drafts = [...e.detail.target.querySelectorAll("[data-composer]")]
-      .map((form) => ({
-        key: form.dataset.composerKey,
-        title: form.elements.title.value,
-        notes: form.elements.notes.value,
-        focus: !form.contains(document.activeElement) ? null
-          : document.activeElement === form.elements.title ? "title" : "notes",
-      }))
-      .filter((d) => d.title || d.notes || d.focus);
-    if (drafts.length) carried.set(e.detail.xhr, drafts);
-  });
-  document.addEventListener("htmx:afterSettle", (e) => {
-    const drafts = carried.get(e.detail.xhr);
-    if (!drafts) return;
-    carried.delete(e.detail.xhr);
-    for (const d of drafts) {
-      const form = document.querySelector(`[data-composer][data-composer-key="${CSS.escape(d.key)}"]`);
-      if (!form) continue;
-      form.elements.title.value = d.title;
-      form.elements.notes.value = d.notes;
-      window.NotesEditor.reload(editorOf(form));
-      if (d.title || d.notes) open(form);
-      if (d.focus === "title") form.elements.title.focus();
-      else if (d.focus === "notes") window.NotesEditor.focusEnd(editorOf(form));
-    }
   });
 
   /* ---- a tick lands: the fresh row's box plays the system's --check-pulse once ---- */

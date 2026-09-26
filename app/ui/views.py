@@ -25,6 +25,7 @@ from app.models import (
 )
 from app.services import blocks as blocks_svc
 from app.services import projects as projects_svc
+from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
 from app.ui.calendar_view import DAY_END_HOUR, DAY_START_HOUR
 
@@ -123,6 +124,48 @@ def replan_slot(task: Task, now: datetime) -> datetime | None:
         after=max(now, datetime.combine(today, time(DAY_START_HOUR))),
         until=datetime.combine(today, time(DAY_END_HOUR)),
     )
+
+
+def sheet_ctx(db: Session, task: Task, today: date) -> dict[str, Any]:
+    """The task sheet in edit mode (partials/task_sheet.html): the task's
+    fields as form values, their labels, and the projects it could file into
+    (open ones, plus its own if that has closed)."""
+    template = task.recurrence_template
+    repeat = recurrence_svc.preset_of(template) if template and template.active else "none"
+    projects = [
+        {
+            "id": p.id,
+            "name": p.name,
+            "milestones": [
+                {"id": m.id, "name": m.name}
+                for m in p.milestones
+                if m.status == MilestoneStatus.open or m.id == task.milestone_id
+            ],
+        }
+        for p in projects_svc.list_projects(db)
+        if p.status != ProjectStatus.done or p.id == task.project_id
+    ]
+    project_label = ""
+    if task.project:
+        project_label = task.project.name
+        if task.milestone:
+            project_label += f" › {task.milestone.name}"
+    return {
+        "id": task.id,
+        "title": task.title,
+        "notes": task.notes,
+        "status": task.status.value,
+        "owner": task.owner.value,
+        "repeat": repeat,
+        "planned_for": task.planned_for.isoformat() if task.planned_for else "",
+        "due": task.due.isoformat() if task.due else "",
+        "project_id": task.project_id or "",
+        "milestone_id": task.milestone_id or "",
+        "planned_label": short_date(task.planned_for, today) if task.planned_for else "",
+        "due_label": short_date(task.due, today) if task.due else "",
+        "project_label": project_label,
+        "projects": projects,
+    }
 
 
 def row_ctx(task: Task, now: datetime, *, planning: bool = False) -> dict[str, Any]:

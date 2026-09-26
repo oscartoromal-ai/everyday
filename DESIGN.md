@@ -99,21 +99,36 @@ Opened, the description sits under the meta line in 14px graphite: context lines
 An indented line under a sub-task is its note, hung 22px in so it aligns with the sub-task's words.
 Which descriptions are open is remembered per tab (`sessionStorage` key `pc-open-notes`), so Today's live refreshes never fold them shut.
 A small trash bin ends each row, steel and hidden until the row is hovered or focused (always shown on touch), and err-tinted on hover.
-It, and the editor's Delete button, open the confirm dialog: opaque paper over the scrim with the modal shadow, titled "Delete task?".
+It, and the task sheet's own bin, open the confirm dialog: opaque paper over the scrim with the modal shadow, titled "Delete task?".
 The dialog restates the task's name in ink 600 and offers a Ghost Cancel (focused first) beside a destructive-secondary Delete, never a red primary.
 It is the one handler behind every `hx-confirm` that carries `data-confirm-*` attributes (`shell.js`), so the browser's native confirm box never appears.
 
-**Composer.** Each list card ends in a quick-add row: a steel plus and a borderless title.
-Typing a title opens the description underneath (focus alone does not, so a composer that folds away never shifts the page under a click), aligned with the title's text, with a pewter "Ctrl+Enter to add" hint (hidden on touch), a secondary Cancel and the spark "Add task".
-Enter in the title moves to the description, and Ctrl+Enter adds the task and returns to an empty title for the next one.
+**Task sheet.** Adding a task and editing one are the same sheet, written like a document rather than filled in like a form.
+It is shaped like the row it becomes: the row's box (or, to add, a steel plus), then the title in 14px/500 ink, which wraps as a line of text.
+The do-date, due and repeat fields trail the title's last word as small icons in `--steel`, 14px, with the value beside the icon in 12px graphite once set ("tomorrow", "Fri 2 Oct"); repeat stays an icon, its rule in the tooltip.
+The gaps before and between them are the line's own spaces, widened, so when they wrap they start flush with the title's text.
+Each is a 24px target that opens a small menu on paper with the dropdown shadow: Today, Tomorrow, Next week, Pick a date (the native picker) and No date, or the repeat presets; the current choice is 600 with a tick, and choosing hands the caret back to where it was.
+Writing sets them too: "today", "tomorrow", a weekday's name or "next week" followed by a space becomes the do-date, "due friday" the due date, and "every day", "every weekday", "every week" or "every month" the repeat.
+The words leave the title as they convert, and Backspace straight after puts them back as words, which then stay words.
+The description follows under the title, aligned with its text.
+Editing adds an end line under the description: Project › Milestone (a flag, "Project" when there is none, one menu of open projects with their open milestones indented), a person icon that names Claude when the task is Claude's, its status once it is Claude's or beyond the box, and the bin.
+Project and milestone live only there, since the list a task is written in already says which project it belongs to.
 
-**Description editor.** One line per block, in 14px graphite (16px ink inside the task editor's field).
+To add, each list card ends in the sheet's plus and a pewter placeholder, dated or filed by the card it sits in (Today's is dated today; a project card's is in that project).
+Typing a title opens the icons and the description (focus alone does not, so a composer that folds away never shifts the page under a click), with a pewter "Ctrl+Enter to add" hint (hidden on touch), a secondary Cancel and the spark "Add task".
+Enter in the title moves to the description, and Ctrl+Enter adds the task and returns to an empty title for the next one.
+A task dated away from the list it was written in (off Today's day) does not join it; the page regroups instead.
+
+To edit, the row's title swaps the sheet in place, on the row hover fill, with the caret at the end of the title.
+There is no Save: the sheet saves when focus leaves it (a click elsewhere, Tab past its last control, Esc or Ctrl+Enter), and if nothing changed it goes back to its row without a save.
+
+**Description editor.** One line per block, in 14px graphite.
 A line typed as "- words" turns into a sub-task when Enter is pressed: a 14px box, drawn as the line's own `::before`, that fills ink when clicked, with the words in ink, or pewter and struck through once ticked.
 Enter on a sub-task starts the next one, Enter on an empty one steps out of the list, and Backspace at a sub-task's start turns it back into plain text.
 Shift+Enter under a sub-task writes a note hung 22px in, under its words; Enter on a note starts the next sub-task.
-Tab and Shift+Tab nest and un-nest by 22px; pasted "- " lines arrive as sub-tasks; the editor keeps its own undo.
+Tab and Shift+Tab nest and un-nest by 22px, at most one level under the line above; where Tab cannot nest it moves focus on, so the keyboard never gets stuck in a description.
+Pasted "- " lines arrive as sub-tasks; the editor keeps its own undo.
 Esc steps away but keeps a written draft open; Cancel clears it.
-The task editor puts the same editor directly under the title, above the other fields, styled as a field.
 The empty-list note hides once the list has a row.
 
 **Tasks.** A page header ("Tasks", the open and undated counts, and a By date / By project segmented control on the right), the composer alone in its own card, then the tasks.
@@ -169,7 +184,7 @@ The add-a-task plus shows on hover, or always on touch, and opens an opaque popo
 
 **Project cards.** The title is 20px/600, followed by the open count, a secondary-style status select, and a ghost pencil that swaps in the inline editor.
 Milestone rows are 14px/600 with steel circles that turn ink when reached, and a warn badge when the target is close.
-Each milestone's open tasks are indented beneath it; the other tasks follow under a pewter caption, then the project's quick-add row.
+Each milestone's open tasks are indented beneath it; the other tasks follow under a pewter caption, then the project's task sheet for adding.
 Paused and done projects sit on collapsible shelves.
 A task files by drag: onto a milestone group, into that milestone; onto another card, into that project with no milestone; onto No project, out of any.
 The row in hand fades to 40%, and the target under it lights like a Weeks drop target, `--spark-tint` with an inset 1.5px spark ring.
@@ -196,11 +211,13 @@ Any `[data-plan-task]` can be dropped on a future day to set its do-date, or on 
 Past days refuse drops.
 After the PATCH, `weeks:refresh` re-renders the board.
 
-**Writing tasks** (`app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`).
-`tasks.js` runs the composer, the row disclosures, the Done folds, the Tasks keys and filing by drag.
+**Writing tasks** (`app/static/task-sheet.js`, `app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`).
+`task-sheet.js` runs the task sheet: the title line, its field icons and their menus, typed words becoming fields, adding, and saving an edit when focus leaves it.
+Every field is a hidden input the form posts, so the icons and menus only read and write those inputs; the menus live in the body, since list cards clip what overflows them.
+`tasks.js` runs the row disclosures, the Done folds, the Tasks keys and filing by drag.
 The keys: Up/Down or J/K move, T today, M tomorrow, D pick a day, X done, E edit, Space opens the description; dating or finishing a row regroups the page and the cursor lands on the row that followed it.
 Keys never fire while typing in a field, and reaching for the mouse ends the pass.
-Lists that re-render from the server take any half-written composer with them: `tasks.js` carries its title, description and focus across the swap to the fresh composer with the same `data-composer-key`.
+Lists that re-render from the server take any half-written task with them: `task-sheet.js` carries its title, description, fields and focus across the swap to the fresh sheet with the same `data-composer-key`.
 `notes-editor.js` is the description editor: a contenteditable whose structure is always its own, since every edit that could split, merge or restyle a line is cancelled in `beforeinput` and redone on a line model.
 It writes the same plain text the server stores into a hidden `notes` textarea, so forms and the server never see the editor.
 

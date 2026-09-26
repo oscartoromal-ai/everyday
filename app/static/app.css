@@ -198,7 +198,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 
 /* ---------- glass cards (resting surfaces: no shadow) ---------- */
 
-.list-section, .project-card, .calendar-grid, .month-grid, .week-section, .tray, .nudge-center, .task-editor {
+.list-section, .project-card, .calendar-grid, .month-grid, .week-section, .tray, .nudge-center {
   background: var(--glass-card);
   backdrop-filter: blur(20px) saturate(1.1);
   border: 1px solid var(--glass-border);
@@ -433,30 +433,96 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .list-section > .done-fold { border-top: 1px solid var(--hairline-on-glass); }
 .done-section > .done-fold { border-top: none; }
 
-/* ---------- quick add: the last row of a list card ---------- */
+/* ---------- the task sheet: writing a task, added or edited (task-sheet.js) ---------- */
 
-.quick-add { padding: 10px var(--s-4); }
-.quick-add-line { display: flex; align-items: center; gap: var(--s-3); }
-.quick-add svg { flex: none; width: 18px; height: 18px; stroke: var(--steel); }
-.quick-add input {
-  flex: 1; min-width: 0; border: none; background: none; color: var(--ink);
-  font-size: var(--t-body-sm); padding: 2px 0;
+/* shaped like a row: a box (or the composer's plus), then the words */
+.task-sheet { display: flex; align-items: flex-start; gap: var(--s-3); padding: 10px var(--s-4); }
+.task-sheet[data-sheet="edit"] { padding: var(--s-3) var(--s-4); background: var(--glass-row-hover); }
+.sheet-item { border-bottom: 1px solid var(--hairline-on-glass); }
+.sheet-plus { flex: none; width: 18px; height: 18px; margin-top: 1px; stroke: var(--steel); }
+.task-sheet:focus-within .sheet-plus { stroke: var(--ink); }
+.sheet-body { flex: 1; min-width: 0; }
+
+/* the title is a line of a document: it wraps, and the icons trail its last word */
+.sheet-line { position: relative; margin: 0; font-size: var(--t-body-sm); cursor: text; }
+.sheet-title { color: var(--ink); font-weight: 500; overflow-wrap: anywhere; outline: none; }
+.sheet-title:focus-visible { box-shadow: none; }
+.sheet-title.is-empty { display: inline-block; min-width: 2px; }
+.task-sheet:not(.composing) .sheet-title.is-empty { width: 100%; }
+.sheet-title.is-empty::before {
+  content: attr(data-placeholder); position: absolute; left: 0; top: 0;
+  color: var(--pewter); font-weight: 400; pointer-events: none; white-space: nowrap;
 }
-.quick-add input::placeholder { color: var(--pewter); }
-.quick-add :is(input, .notes-editor):focus { outline: none; box-shadow: none; }
-.quick-add:focus-within svg { stroke: var(--ink); }
-.quick-add.composing input[name="title"] { font-weight: 500; }
+.task-sheet[data-sheet="compose"]:not(.composing) .sheet-props { display: none; }
 
-/* composing: the description opens under the title, aligned with its text */
-.quick-add-more { display: none; padding-left: 30px; }
-.quick-add.composing .quick-add-more { display: block; }
-.quick-add .notes-editor { margin-top: var(--s-1); padding: 2px 0; min-height: calc(2lh + 4px); max-height: 50vh; }
-.quick-add-actions { display: flex; align-items: center; gap: var(--s-2); margin-top: var(--s-2); }
-.quick-add-actions .spacer { flex: 1; }
-.quick-add-actions .btn { padding: 6px 14px; }
-.quick-add-actions .hint { font-size: var(--t-caption); color: var(--pewter); }
+/* a field: a quiet icon, then its value once it has one */
+/* The gaps before and between the icons are spaces, widened, so a wrapped
+   line starts flush with the title's text; each icon's padding is pulled back
+   by its margins, keeping a 24px target on the 20px line. */
+.sheet-props { word-spacing: 10px; }
+.prop {
+  display: inline-flex; align-items: center; gap: 3px; vertical-align: top; word-spacing: normal;
+  min-height: 24px; margin: -2px -4px; padding: 2px 4px; border-radius: var(--r-tag);
+  font-size: var(--t-caption); font-weight: 500; color: var(--pewter); font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.prop svg {
+  flex: none; width: 14px; height: 14px;
+  fill: none; stroke: var(--steel); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+  transition: stroke var(--dur) var(--ease);
+}
+.prop.is-set { color: var(--graphite); }
+.prop.is-set svg { stroke: var(--graphite); }
+.prop:hover, .prop[aria-expanded="true"] { color: var(--ink); background: var(--glass-hover); }
+.prop:hover svg, .prop[aria-expanded="true"] svg { stroke: var(--ink); }
+.prop-value:empty, .prop[hidden] { display: none; }
+
+/* the description, and what closes the sheet */
+.sheet-more { margin-top: var(--s-1); }
+.task-sheet[data-sheet="compose"]:not(.composing) .sheet-more { display: none; }
+.task-sheet .notes-editor { padding: 2px 0; max-height: 50vh; }
+.task-sheet .notes-editor:focus { outline: none; box-shadow: none; }
+.task-sheet[data-sheet="compose"] .notes-editor { min-height: calc(2lh + 4px); }
+.task-sheet[data-sheet="edit"] .notes-editor { min-height: calc(1lh + 4px); }
+.sheet-actions, .sheet-end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); margin-top: var(--s-2); }
+.sheet-end { gap: var(--s-1); margin-left: -4px; }
+.sheet-end .prop { margin: 0; }
+.sheet-actions .spacer, .sheet-end .spacer { flex: 1; }
+.sheet-actions .btn { padding: 6px 14px; }
+.sheet-actions .hint { font-size: var(--t-caption); color: var(--pewter); }
 .hint kbd { font: inherit; }
-@media (hover: none) { .quick-add-actions .hint { display: none; } }
+@media (hover: none) { .sheet-actions .hint { display: none; } }
+.sheet-end .task-delete { margin: 0 -6px 0 0; opacity: 1; }
+
+/* the small menus the icons open: in the body, so no card clips them */
+.sheet-menu {
+  position: fixed; z-index: 50; min-width: 200px; max-width: 280px; max-height: min(360px, 60vh);
+  overflow-y: auto; padding: var(--s-1);
+  background: var(--paper); border: 1px solid var(--hairline); border-radius: var(--r-ctl);
+  box-shadow: var(--shadow-dropdown);
+  font-size: var(--t-body-sm);
+}
+.sheet-menu [role="menuitemradio"] {
+  position: relative; display: flex; align-items: center; gap: var(--s-2);
+  width: 100%; min-height: 32px; padding: 6px 10px; border-radius: var(--r-tag);
+  color: var(--ink); text-align: left; cursor: pointer;
+}
+.sheet-menu [role="menuitemradio"].indent { padding-left: 26px; color: var(--graphite); }
+.sheet-menu [role="menuitemradio"]:hover, .sheet-menu [role="menuitemradio"]:focus-visible {
+  outline: none; box-shadow: none; background: var(--glass-hover);
+}
+.sheet-menu [role="menuitemradio"]:focus { outline: none; }
+.sheet-menu [aria-checked="true"] { font-weight: 600; }
+.sheet-menu .label { min-width: 0; overflow-wrap: anywhere; }
+.sheet-menu .aside { margin-left: auto; font-size: var(--t-caption); font-weight: 500; color: var(--pewter); font-variant-numeric: tabular-nums; }
+.sheet-menu .tick {
+  flex: none; width: 14px; height: 14px; margin-left: auto;
+  fill: none; stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.sheet-menu .aside + .tick { margin-left: 0; }
+/* the native picker anchors to its input, which sits unseen under the item */
+.sheet-menu .pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
 
 /* ---------- the description editor: one line per block (notes-editor.js) ---------- */
 
@@ -465,7 +531,6 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   font-size: var(--t-body-sm); line-height: 1.5; color: var(--graphite);
   white-space: pre-wrap; overflow-wrap: anywhere; cursor: text;
 }
-.field .notes-editor { font-size: var(--t-body); }
 .notes-editor.is-empty::before {
   content: attr(data-placeholder);
   position: absolute; pointer-events: none; color: var(--pewter);
@@ -491,15 +556,9 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 
 /* ---------- forms ---------- */
 
-.task-editor { margin: var(--s-2) var(--s-3); padding: var(--s-4); backdrop-filter: none; }
-.task-list > li:has(> .task-editor) { border-bottom: 1px solid var(--hairline-on-glass); padding: var(--s-1) 0; }
-.editor-description { margin-top: var(--s-3); }
-.field .notes-editor { min-height: calc(3lh + 22px); max-height: 60vh; }
-.task-editor .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3) var(--s-4); margin-top: var(--s-3); }
-@media (max-width: 540px) { .task-editor .grid { grid-template-columns: 1fr; } }
 
 .field label { display: block; margin-bottom: 6px; font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); }
-.field input, .field select, .field textarea, .field .notes-editor, .status-select {
+.field input, .field select, .field textarea, .status-select {
   width: 100%;
   font-size: var(--t-body); color: var(--ink);
   background: var(--glass-input);
@@ -507,8 +566,8 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   padding: 10px 14px;
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
-.field input:hover, .field select:hover, .field textarea:hover, .field .notes-editor:hover { border-color: var(--mist); }
-.field input:focus, .field select:focus, .field textarea:focus, .field .notes-editor:focus, .status-select:focus-visible {
+.field input:hover, .field select:hover, .field textarea:hover { border-color: var(--mist); }
+.field input:focus, .field select:focus, .field textarea:focus, .status-select:focus-visible {
   outline: none; border-color: transparent; box-shadow: 0 0 0 2px var(--spark-deep), var(--spark-glow);
 }
 .field input::placeholder, .field textarea::placeholder { color: var(--pewter); }
@@ -614,7 +673,7 @@ dialog.confirm::backdrop { background: var(--scrim); }
   border-top: 1px solid var(--hairline-on-glass);
   font-size: var(--t-caption); font-weight: 500; color: var(--pewter);
 }
-.project-card .quick-add { border-top: 1px solid var(--hairline-on-glass); }
+.project-card .task-sheet[data-sheet="compose"] { border-top: 1px solid var(--hairline-on-glass); }
 .project-card > .expander { border-top: 1px solid var(--hairline-on-glass); padding: 2px var(--s-4); }
 
 .project-editor { padding: var(--s-4); }

@@ -30,8 +30,8 @@
   <ul class="task-list" id="project-tasks-{{ p.id }}">
     {% for row in card.loose_rows %}{% include "partials/task_row.html" %}{% endfor %}
   </ul>
-  {% with target = "project-tasks-" ~ p.id, planned_for = none, project_id = p.id, placeholder = "Add a task to " ~ p.name ~ "…" %}
-    {% include "partials/quick_add.html" %}
+  {% with mode = "compose", target = "project-tasks-" ~ p.id, planned_for = none, project_id = p.id, placeholder = "Add a task to " ~ p.name ~ "…" %}
+    {% include "partials/task_sheet.html" %}
   {% endwith %}
 
   <details class="expander">

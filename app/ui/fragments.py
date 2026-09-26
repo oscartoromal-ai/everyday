@@ -22,6 +22,7 @@ from app.ui.views import (
     projects_list_ctx,
     replan_slot,
     row_ctx,
+    sheet_ctx,
     templates,
 )
 
@@ -65,16 +66,32 @@ def quick_add(
     db: DbSession,
     title: Annotated[str, Form()],
     notes: Annotated[str, Form()] = "",
-    planned_for: Annotated[date | None, Form()] = None,
-    project_id: Annotated[int | None, Form()] = None,
+    planned_for: Annotated[str, Form()] = "",
+    due: Annotated[str, Form()] = "",
+    repeat: Annotated[str, Form()] = "none",
+    project_id: Annotated[str, Form()] = "",
+    list_day: Annotated[str, Form()] = "",
 ):
     title = title.strip()
     if not title:
         return HTMLResponse("")
+    day = date.fromisoformat(planned_for) if planned_for else None
     task = tasks_svc.create_task(
-        db, title=title, notes=notes, planned_for=planned_for, project_id=project_id
+        db,
+        title=title,
+        notes=notes,
+        planned_for=day,
+        due=date.fromisoformat(due) if due else None,
+        project_id=int(project_id) if project_id else None,
     )
+    _apply_task_repeat(db, task, repeat)
     db.commit()
+    if list_day and day != date.fromisoformat(list_day):
+        # Dated away from the list it was written in (Today's): it does not
+        # join that list, and the page regroups; tasks.js carries the composer.
+        response = HTMLResponse("")
+        response.headers["HX-Trigger"] = "tasks:changed"
+        return response
     response = _row_response(request, db, task.id)
     # Only Today's open count follows; a full list refresh would re-render
     # the composer and pull focus out of it mid-entry.
@@ -156,16 +173,8 @@ def replan_task(request: Request, db: DbSession, task_id: int):
 @router.get("/tasks/{task_id}/edit")
 def edit_task(request: Request, db: DbSession, task_id: int):
     task = tasks_svc.get_task(db, task_id)
-    projects = projects_svc.list_projects(db)
-    template = task.recurrence_template
-    repeat = (
-        recurrence_svc.preset_of(template) if template is not None and template.active else "none"
-    )
-    return templates.TemplateResponse(
-        request,
-        "partials/task_editor.html",
-        {"request": request, "task": task, "projects": projects, "repeat": repeat},
-    )
+    context = {"request": request, "mode": "edit", "sheet": sheet_ctx(db, task, date.today())}
+    return templates.TemplateResponse(request, "partials/task_sheet.html", context)
 
 
 @router.get("/tasks/{task_id}/row")

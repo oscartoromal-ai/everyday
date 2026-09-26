@@ -328,7 +328,7 @@ def test_editor_roundtrip(client, db) -> None:
     task = tasks_svc.create_task(db, title="edit me")
 
     editor = client.get(f"/ui/tasks/{task.id}/edit").text
-    assert "task-editor" in editor and "edit me" in editor
+    assert 'data-sheet="edit"' in editor and "edit me" in editor
 
     row = client.post(
         f"/ui/tasks/{task.id}",
@@ -345,6 +345,77 @@ def test_editor_roundtrip(client, db) -> None:
     ).text
     assert "edited" in row
     assert "due" in row
+
+
+def test_the_edit_sheet_carries_the_task_as_fields(client, db) -> None:
+    from app.models import MilestoneStatus, ProjectStatus
+
+    app_ = projects_svc.create_project(db, name="App")
+    v1 = projects_svc.create_milestone(db, project_id=app_.id, name="v1")
+    reached = projects_svc.create_milestone(db, project_id=app_.id, name="v0")
+    reached.status = MilestoneStatus.reached
+    shelved = projects_svc.create_project(db, name="Shelved")
+    shelved.status = ProjectStatus.done
+    task = tasks_svc.create_task(
+        db, title="ship it", project_id=app_.id, milestone_id=v1.id,
+        planned_for=TODAY + timedelta(days=1), due=TODAY,
+    )
+    db.flush()
+
+    sheet = client.get(f"/ui/tasks/{task.id}/edit").text
+    assert f'name="planned_for" value="{(TODAY + timedelta(days=1)).isoformat()}"' in sheet
+    assert f'name="due" value="{TODAY.isoformat()}"' in sheet
+    assert f'name="milestone_id" value="{v1.id}"' in sheet
+    assert 'name="repeat" value="none"' in sheet
+    assert '<span class="prop-value">tomorrow</span>' in sheet  # the do-date's label
+    assert '<span class="prop-value">today</span>' in sheet  # the due date's
+    assert "App › v1" in sheet
+    # Open projects and milestones to file into; done ones stay out.
+    assert '"name": "v1"' in sheet and '"name": "v0"' not in sheet
+    assert "Shelved" not in sheet
+
+
+def test_quick_add_takes_the_sheets_fields(client, db) -> None:
+    p = projects_svc.create_project(db, name="Home")
+    response = client.post(
+        "/ui/tasks/quick-add",
+        data={
+            "title": "water plants",
+            "planned_for": TODAY.isoformat(),
+            "due": (TODAY + timedelta(days=3)).isoformat(),
+            "repeat": "weekly",
+            "project_id": str(p.id),
+            "list_day": TODAY.isoformat(),
+        },
+    )
+    assert response.headers["HX-Trigger"] == "task:added"
+    task = next(t for t in tasks_svc.list_tasks(db) if t.title == "water plants")
+    assert task.due == TODAY + timedelta(days=3)
+    assert task.project_id == p.id
+    assert task.recurrence_template is not None and task.recurrence_template.active
+
+
+def test_a_task_dated_away_from_todays_list_regroups_instead(client, db) -> None:
+    response = client.post(
+        "/ui/tasks/quick-add",
+        data={
+            "title": "later thing",
+            "planned_for": (TODAY + timedelta(days=1)).isoformat(),
+            "list_day": TODAY.isoformat(),
+        },
+    )
+    assert response.text == ""
+    assert response.headers["HX-Trigger"] == "tasks:changed"
+    task = next(t for t in tasks_svc.list_tasks(db) if t.title == "later thing")
+    assert task.planned_for == TODAY + timedelta(days=1)
+
+
+def test_todays_composer_starts_dated_today(client) -> None:
+    page = client.get("/today").text
+    composer = page.split('data-sheet="compose"')[1].split("</form>")[0]
+    assert f'name="planned_for" value="{TODAY.isoformat()}"' in composer
+    assert f'name="list_day" value="{TODAY.isoformat()}"' in composer
+    assert '<span class="prop-value">today</span>' in composer
 
 
 def test_calendar_page_renders_grid_and_tray(client, db) -> None:

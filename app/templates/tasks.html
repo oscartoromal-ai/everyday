@@ -21,8 +21,8 @@
   </header>
 
   <section class="list-section capture" aria-label="Add a task">
-    {% with target = "nodate-list" if view == "date" else "loose-list", planned_for = None, placeholder = "Add a task…" %}
-      {% include "partials/quick_add.html" %}
+    {% with mode = "compose", target = "nodate-list" if view == "date" else "loose-list", planned_for = None, placeholder = "Add a task…" %}
+      {% include "partials/task_sheet.html" %}
     {% endwith %}
   </section>
 

@@ -174,7 +174,7 @@ Per [Architecture](tracker/tickets/009-architecture.md) and [Decision: security 
 ### Frontend
 
 - Server-rendered: Jinja templates plus HTMX for pages, lists, and forms; no build step, state server-side.
-- Real client JS is limited to a few focused vanilla islands, each built well once: the drag-to-slot calendar (week grid and Today's timeline), drag-to-replan on the Weeks view, and the task composer with its line-based description editor.
+- Real client JS is limited to a few focused vanilla islands, each built well once: the drag-to-slot calendar (week grid and Today's timeline), drag-to-replan on the Weeks view, and the task sheet (one editor for adding and editing, with its line-based description editor).
 
 ### Background jobs
 

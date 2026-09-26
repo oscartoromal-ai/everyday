@@ -409,9 +409,14 @@
       if (!sel) return;
       const model = read(root);
       const here = model[sel.start.i];
-      // Tab nests sub-tasks and notes; on a plain top-level line it keeps its
-      // usual job of moving focus on.
-      const nestable = e.shiftKey ? here.depth > 0 : here.kind === "item" || here.depth > 0 || model[sel.start.i - 1]?.kind === "item";
+      // Tab nests sub-tasks and notes, like an outline: at most one level
+      // under the line above. Where it cannot nest (a plain top-level line,
+      // or a line already as deep as it can go) it keeps its usual job of
+      // moving focus on, so the keyboard never gets stuck in the description.
+      const above = model[sel.start.i - 1];
+      const nestable = e.shiftKey
+        ? here.depth > 0
+        : !!above && here.depth <= above.depth && (here.kind === "item" || here.depth > 0 || above.kind === "item");
       if (!nestable) return;
       e.preventDefault();
       remember(root, true);
