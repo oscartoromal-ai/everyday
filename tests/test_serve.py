@@ -8,6 +8,10 @@ from app import serve
 def test_the_hidden_app_logs_to_a_file(tmp_path, monkeypatch) -> None:
     root = logging.getLogger()
     saved = root.handlers[:], root.level
+    # A live server started by an earlier test sets uvicorn's own levels for
+    # the process; this one needs uvicorn.error's INFO lines to pass.
+    uvicorn_error = logging.getLogger("uvicorn.error")
+    monkeypatch.setattr(uvicorn_error, "level", logging.NOTSET)
     monkeypatch.setattr(threading, "excepthook", threading.excepthook)
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     path = tmp_path / "logs" / "personal-calendar.log"

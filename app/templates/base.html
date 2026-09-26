@@ -43,8 +43,8 @@ SYSTEM: {{ ds.name }} {{ ds.version }}, from the design-language repo (C:/Users/
 Switch with: node ../design-language/bin/design-language.mjs use <system> app/static/design
 -->
 <div class="shell">
-  {% macro nav_link(href, key, label) %}
-  <a href="{{ href }}" title="{{ label }}" {% if active == key %}aria-current="page"{% endif %}>
+  {% macro nav_link(href, key, label, shortcut) %}
+  <a href="{{ href }}" title="{{ label }}" aria-keyshortcuts="{{ shortcut }}" {% if active == key %}aria-current="page"{% endif %}>
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ caller() }}</svg>
     <span class="nav-label">{{ label }}</span>
   </a>
@@ -63,13 +63,13 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
     <nav class="nav" id="main-nav" aria-label="Main">
       <div class="nav-group" role="group" aria-labelledby="nav-planner">
         <div class="nav-group-label" id="nav-planner">Planner</div>
-        {% call nav_link("/", "tasks", "Tasks") %}<path d="M3.5 5.5l1.5 1.5 2.5-3"/><path d="M10.5 5.5h6"/><path d="M3.5 10.5l1.5 1.5 2.5-3"/><path d="M10.5 10.5h6"/><rect x="3.5" y="13.5" width="4" height="4" rx="1"/><path d="M10.5 15.5h6"/>{% endcall %}
-        {% call nav_link("/today", "today", "Today") %}<rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M3 8h14"/><circle cx="10" cy="12.5" r="1.4" fill="currentColor" stroke="none"/>{% endcall %}
-        {% call nav_link("/calendar", "calendar", "Calendar") %}<rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/>{% endcall %}
-        {% call nav_link("/weeks", "weeks", "Weeks") %}<rect x="3" y="3.5" width="14" height="13" rx="2.5"/><path d="M3 7.8h14"/><path d="M3 12.2h14"/><path d="M7.7 3.5v13"/><path d="M12.3 3.5v13"/>{% endcall %}
+        {% call nav_link("/", "tasks", "Tasks", "1") %}<path d="M3.5 5.5l1.5 1.5 2.5-3"/><path d="M10.5 5.5h6"/><path d="M3.5 10.5l1.5 1.5 2.5-3"/><path d="M10.5 10.5h6"/><rect x="3.5" y="13.5" width="4" height="4" rx="1"/><path d="M10.5 15.5h6"/>{% endcall %}
+        {% call nav_link("/today", "today", "Today", "2") %}<rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M3 8h14"/><circle cx="10" cy="12.5" r="1.4" fill="currentColor" stroke="none"/>{% endcall %}
+        {% call nav_link("/calendar", "calendar", "Calendar", "3") %}<rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/>{% endcall %}
+        {% call nav_link("/weeks", "weeks", "Weeks", "4") %}<rect x="3" y="3.5" width="14" height="13" rx="2.5"/><path d="M3 7.8h14"/><path d="M3 12.2h14"/><path d="M7.7 3.5v13"/><path d="M12.3 3.5v13"/>{% endcall %}
       </div>
       <div class="nav-group">
-        {% call nav_link("/projects", "projects", "Projects") %}<path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/>{% endcall %}
+        {% call nav_link("/projects", "projects", "Projects", "5") %}<path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/>{% endcall %}
       </div>
     </nav>
     <div class="rail-foot">
@@ -96,6 +96,51 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
     <div class="confirm-actions">
       <button class="btn ghost" value="cancel" autofocus>Cancel</button>
       <button class="btn danger-quiet" value="go">Confirm</button>
+    </div>
+  </form>
+</dialog>
+{# ? opens it anywhere (shell.js). #}
+<dialog id="keys-dialog" class="keys-dialog" aria-labelledby="keys-title" tabindex="-1">
+  <form method="dialog">
+    <header>
+      <h2 id="keys-title">Keyboard</h2>
+      <button class="btn ghost" value="close" aria-label="Close">Esc</button>
+    </header>
+    <div class="keys-columns">
+      <section>
+        <h3>Anywhere</h3>
+        <dl>
+          <dt><kbd>1</kbd>–<kbd>5</kbd></dt><dd>Tasks, Today, Calendar, Weeks, Projects</dd>
+          <dt><kbd>?</kbd></dt><dd>These keys</dd>
+        </dl>
+        <h3>Writing a task</h3>
+        <dl>
+          <dt><kbd>Enter</kbd></dt><dd>From the title to the description</dd>
+          <dt><kbd>Ctrl</kbd> <kbd>Enter</kbd></dt><dd>Add the task, or save it</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Back to the list (an edit saves)</dd>
+          <dt><kbd>Tab</kbd></dt><dd>Through the fields; in the description, nests a sub-task</dd>
+          <dt>friday <kbd>Space</kbd></dt><dd>Words become fields: today, tomorrow, a weekday, next week; due friday; every day, weekday, week or month</dd>
+          <dt><kbd>Backspace</kbd></dt><dd>Right after, turns them back into words</dd>
+        </dl>
+      </section>
+      <section>
+        <h3>Tasks</h3>
+        <dl>
+          <dt><kbd>↑</kbd> <kbd>↓</kbd> <span class="or">or</span> <kbd>K</kbd> <kbd>J</kbd></dt><dd>Move between tasks</dd>
+          <dt><kbd>Shift</kbd> + move</dt><dd>Previous or next group</dd>
+          <dt><kbd>Home</kbd> <kbd>End</kbd></dt><dd>First or last task</dd>
+          <dt><kbd>Enter</kbd> <span class="or">or</span> <kbd>E</kbd></dt><dd>Edit</dd>
+          <dt><kbd>N</kbd></dt><dd>New task</dd>
+          <dt><kbd>X</kbd></dt><dd>Done, or not done</dd>
+          <dt><kbd>T</kbd> <kbd>M</kbd></dt><dd>Do today, tomorrow</dd>
+          <dt><kbd>D</kbd></dt><dd>Pick a day, or none</dd>
+          <dt><kbd>P</kbd></dt><dd>Project and milestone</dd>
+          <dt><kbd>Space</kbd></dt><dd>Show the description; opens Done</dd>
+          <dt><kbd>Delete</kbd></dt><dd>Delete, after asking</dd>
+          <dt><kbd>V</kbd></dt><dd>By date or by project</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Leave the list</dd>
+        </dl>
+      </section>
     </div>
   </form>
 </dialog>

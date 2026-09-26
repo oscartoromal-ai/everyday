@@ -397,10 +397,15 @@
 
   const closeMenu = (restore = true) => {
     if (!menu) return;
-    const { el, button, returnTo, range } = menu;
+    const { form, el, button, returnTo, range } = menu;
     menu = null;
     el.remove();
     button.setAttribute("aria-expanded", "false");
+    // A sheet opened for one field (D or P on Tasks) is done once its menu is.
+    if (form._quick) {
+      save(form, { keyboard: true });
+      return;
+    }
     if (!restore || !returnTo.isConnected) return;
     returnTo.focus();
     if (range) {
@@ -480,7 +485,7 @@
 
     if (SUBMIT(e)) {
       e.preventDefault();
-      if (isEdit(form)) save(form);
+      if (isEdit(form)) save(form, { keyboard: true });
       else if (!titleText(form)) placeCaret(titleOf(form), 0);
       else form.requestSubmit();
       return;
@@ -489,12 +494,13 @@
     if (e.key === "Escape") {
       e.preventDefault();
       if (isEdit(form)) {
-        save(form);
+        save(form, { keyboard: true });
         return;
       }
-      // Esc steps away; a draft stays put until Cancel or Add.
+      // Esc steps away, back to the list's cursor where there is one; a
+      // draft stays put until Cancel or Add.
       if (!hasNotes(form) && !titleText(form)) form.classList.remove("composing");
-      e.target.blur();
+      if (!window.TaskCursor?.restore()) e.target.blur();
       return;
     }
 
@@ -564,6 +570,8 @@
   document.addEventListener("htmx:afterRequest", (e) => {
     const form = e.detail.elt;
     if (!form.matches?.(".task-sheet[data-sheet='compose']") || !e.detail.successful) return;
+    const added = /id="(task-\d+)"/.exec(e.detail.xhr.responseText);
+    if (added) window.TaskCursor?.remember(added[1]);
     resetComposer(form);
     placeCaret(titleOf(form), 0); // ready for the next one
   });
@@ -572,14 +580,19 @@
 
   const snapshot = (form) => new URLSearchParams(new FormData(form)).toString();
 
-  const save = (form) => {
+  // `keyboard`: closed by a key (Esc, Ctrl+Enter, a quick menu), so the
+  // list's cursor comes back: to this task, or after a quick change, to the
+  // row the list said follows it.
+  const save = (form, { keyboard = false } = {}) => {
     if (!form.isConnected || form.dataset.saving) return;
     form.dataset.saving = "";
     closeMenu(false);
     convertTrailing(form);
     if (!titleText(form)) setTitle(form, titleOf(form).dataset.original);
     const id = form.closest("[id^='task-']").id;
-    if (snapshot(form) === form._initial) {
+    const changed = snapshot(form) !== form._initial;
+    if (keyboard) window.TaskCursor?.land((changed && form._quick?.landOnChange) || id);
+    if (!changed) {
       // Nothing changed: back to the row, without a save that re-renders the lists.
       htmx.ajax("GET", `/ui/tasks/${id.slice(5)}/row`, { target: `#${id}`, swap: "outerHTML" });
     } else {
@@ -619,12 +632,75 @@
       form._initial = snapshot(form);
       const title = titleOf(form);
       placeCaret(title, title.textContent.length);
+      if (pending && form.closest("li").id === pending.id) {
+        form._quick = { landOnChange: pending.landOnChange };
+        openMenu(form, form.querySelector(`.prop[data-prop="${pending.field}"]`));
+      }
+      pending = null;
     }
+  };
+
+  /* ---- for tasks.js: the keyboard's ways in ---- */
+
+  let pending = null; // {id, field, landOnChange}: an edit to open on one field's menu
+  window.TaskSheet = {
+    // Edit a row's task with one field's menu open; choosing (or Esc) saves.
+    edit(row, field, landOnChange) {
+      pending = { id: row.id, field, landOnChange };
+      row.querySelector(".task-title-btn").click();
+    },
+    // Start writing in a composer (N).
+    compose(form) {
+      if (!form) return;
+      form.scrollIntoView({ block: "nearest" });
+      const title = titleOf(form);
+      placeCaret(title, title.textContent.length);
+    },
   };
   document.addEventListener("htmx:load", (e) => {
     const elt = e.detail.elt;
     if (elt.matches?.(".task-sheet")) init(elt);
     elt.querySelectorAll?.(".task-sheet").forEach(init);
+  });
+
+  /* ---- open edits survive live refreshes ---- */
+
+  // A list re-rendering around an open edit (a refresh from elsewhere, or a
+  // regroup still in flight when E was pressed) keeps the sheet as it is,
+  // words, fields and caret, where the task's new row lands. Not a sheet
+  // being saved, and not when the swap is the sheet's own (its save).
+  const held = new WeakMap(); // request -> [{li, active, range}]
+  document.addEventListener("htmx:beforeSwap", (e) => {
+    const target = e.detail.target;
+    const sheets = [...target.querySelectorAll(".task-sheet[data-sheet='edit']")]
+      .filter((form) => form.dataset.saving == null && form.closest("li") !== target)
+      .map((form) => {
+        const sel = document.getSelection();
+        const inside = form.contains(document.activeElement);
+        return {
+          li: form.closest("li"),
+          active: inside ? document.activeElement : null,
+          range: inside && sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null,
+        };
+      });
+    if (sheets.length) held.set(e.detail.xhr, sheets);
+  });
+  document.addEventListener("htmx:afterSwap", (e) => {
+    const sheets = held.get(e.detail.xhr);
+    if (!sheets) return;
+    held.delete(e.detail.xhr);
+    for (const { li, active, range } of sheets) {
+      const row = document.getElementById(li.id);
+      if (!row || row === li) continue; // gone from this list, or untouched
+      row.replaceWith(li);
+      if (!active) continue;
+      active.focus();
+      if (range) {
+        const sel = document.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
   });
 
   /* ---- drafts survive live refreshes ---- */

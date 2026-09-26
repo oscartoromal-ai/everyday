@@ -16,85 +16,235 @@
     }
   });
 
-  /* ---- Tasks: keyboard triage ---- */
+  /* ---- Tasks: the keyboard cursor ---- */
 
-  // Up/Down (or J/K) move between rows; T today, M tomorrow, D pick a day,
-  // X done, E edit, Space opens the description. Dating or finishing a row
-  // regroups the page, and the cursor lands on the row that followed it, so
-  // a pass down No date never leaves the keyboard.
+  // The whole page works from the keyboard. The cursor is the focused row
+  // (or a Done fold's header, which Enter or Space opens), drawn as the nav's
+  // spark bar. Up/Down or J/K move it, Shift jumps a group, Home/End go to
+  // the ends; Enter or E edits, N writes a new task, X done, T today,
+  // M tomorrow, D picks a day and P a project (the task sheet's menus),
+  // Space opens the description, Delete deletes after asking, V switches
+  // By date and By project, Esc leaves. The list re-renders from the server
+  // after every change, and the cursor lands where it belongs: on the row
+  // that followed one dated, filed, finished or deleted away, and on the
+  // same task after an edit.
   const TYPING = "input, textarea, select, [contenteditable]";
-  const rows = () => [...document.querySelectorAll("#task-groups .task-row[tabindex]")];
-  let landOn = null; // task id to focus once the page has regrouped
+  const LIST_KEYS = new Set([
+    "ArrowDown", "ArrowUp", "j", "k", "Home", "End", "n", "v", "Escape",
+    "t", "m", "d", "p", "x", "e", "Enter", " ", "Delete", "Backspace",
+  ]);
+  const STOPS = "#task-groups .task-row[tabindex], #task-groups .done-fold > summary";
+  const CURSOR_KEY = "pc-task-cursor"; // carries the cursor across V's reload
+  const onTasks = () => !!document.querySelector(".tasks-page");
+  const shown = (el) => (el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null);
+  const stops = () => [...document.querySelectorAll(STOPS)].filter(shown);
+  const groupOf = (stop) => stop.closest(".list-section, .project-card");
 
-  const neighbour = (row) => {
-    const all = rows();
-    const at = all.indexOf(row);
+  let landOn = null; // id to focus once the list has re-rendered
+  let last = null; // id of the cursor's last stop, to come back to from writing
+
+  const focusStop = (stop) => {
+    if (!stop) return false;
+    stop.focus();
+    stop.scrollIntoView({ block: "nearest" });
+    return true;
+  };
+  const byId = (id) => {
+    const el = id && document.getElementById(id);
+    return el && el.matches(STOPS) && shown(el) ? el : null;
+  };
+  const neighbour = (stop) => {
+    const all = stops().filter((s) => s.matches(".task-row"));
+    const at = all.indexOf(stop);
     return all[at + 1] || all[at - 1] || null;
   };
-  const move = (row, step) => {
-    const all = rows();
-    const at = all.indexOf(row);
-    const next = at === -1 ? all[0] : all[Math.max(0, Math.min(all.length - 1, at + step))];
-    next?.focus();
-    next?.scrollIntoView({ block: "nearest" });
+
+  const move = (from, step) => {
+    const all = stops();
+    const at = all.indexOf(from);
+    focusStop(at === -1 ? all[0] : all[Math.max(0, Math.min(all.length - 1, at + step))]);
+  };
+  const jump = (from, step) => {
+    const all = stops();
+    const at = all.indexOf(from);
+    if (at === -1) return focusStop(all[0]);
+    const here = groupOf(from);
+    if (step > 0) return focusStop(all.slice(at + 1).find((s) => groupOf(s) !== here));
+    // Up: to the start of this group, or from its start to the previous group's.
+    const first = all.find((s) => groupOf(s) === here);
+    const before = all.slice(0, at).reverse().find((s) => groupOf(s) !== here);
+    const target = first !== from ? here : before ? groupOf(before) : here;
+    return focusStop(all.find((s) => groupOf(s) === target));
+  };
+
+  document.addEventListener("focusin", (e) => {
+    if (e.target.matches?.(STOPS)) last = e.target.id;
+  });
+
+  // A re-rendered list is only live once its swap settles (about 20ms on):
+  // htmx wires up the new rows' controls, and gives focus back to the row
+  // that had it, then. A key pressed in between waits for it, and belongs to
+  // that row.
+  let settling = null; // id of the row that had the cursor, while a list settles
+  let listSettling = false;
+  let settleTimer = 0;
+  const queued = [];
+  document.addEventListener("htmx:beforeSwap", (e) => {
+    if (!e.detail.target.querySelector?.(STOPS) && !e.detail.target.matches?.(STOPS)) return;
+    listSettling = true;
+    const active = document.activeElement;
+    if (active?.matches?.(STOPS) && e.detail.target.contains(active)) settling = active.id;
+    // A swap that removes its own target (a deleted row) settles on a detached
+    // element, whose event never reaches the document: a fallback ends it.
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(settled, 100);
+  });
+
+  // For task-sheet.js: where the keyboard goes when writing is done.
+  window.TaskCursor = {
+    // After the list settles, land here (a row's id).
+    land(id) { landOn = id; },
+    // Back from a composer: to the last stop, else the first.
+    restore() { return onTasks() && focusStop(byId(last) || stops()[0]); },
+    // A task just added: the cursor's next stop.
+    remember(id) { last = id; },
   };
 
   document.addEventListener("keydown", (e) => {
-    if (!document.querySelector(".tasks-page")) return;
-    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
-    if (e.target.closest?.(TYPING)) return;
-    const row = e.target.closest?.("#task-groups .task-row[tabindex]");
-    const key = e.key.toLowerCase();
-
-    if (key === "arrowdown" || key === "j" || key === "arrowup" || key === "k") {
+    if (!onTasks() || e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
+    if (e.target.closest?.(TYPING) || document.querySelector("dialog[open]")) return;
+    if (listSettling && LIST_KEYS.has(e.key.length === 1 ? e.key.toLowerCase() : e.key)) {
       e.preventDefault();
-      move(row, key === "arrowdown" || key === "j" ? 1 : -1);
+      queued.push({ key: e.key, shiftKey: e.shiftKey });
+      return;
+    }
+    let stop = e.target.closest?.(STOPS);
+    if (!stop && e.target === document.body && settling && byId(settling)) {
+      stop = byId(settling);
+      stop.focus();
+    }
+    const row = stop?.matches(".task-row") ? stop : null;
+    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+
+    if (key === "ArrowDown" || key === "j" || key === "ArrowUp" || key === "k") {
+      e.preventDefault();
+      const step = key === "ArrowDown" || key === "j" ? 1 : -1;
+      if (e.shiftKey) jump(stop, step);
+      else move(stop, step);
+      return;
+    }
+    if (key === "Home" || key === "End") {
+      e.preventDefault();
+      const all = stops();
+      focusStop(key === "Home" ? all[0] : all[all.length - 1]);
+      return;
+    }
+    if (key === "n") {
+      e.preventDefault();
+      // By project, into the cursor's project; otherwise the page's composer.
+      const card = stop?.closest(".project-card");
+      const composer = card?.querySelector(".task-sheet[data-composer]") || document.querySelector(".capture .task-sheet");
+      window.TaskSheet.compose(composer);
+      return;
+    }
+    if (key === "v") {
+      e.preventDefault();
+      const other = document.querySelector(".tasks-page .segmented a:not([aria-current])");
+      try {
+        if (last) sessionStorage.setItem(CURSOR_KEY, last);
+      } catch { /* storage blocked: the cursor starts over */ }
+      other?.click();
+      return;
+    }
+    if (key === "Escape" && stop) {
+      stop.blur();
       return;
     }
     if (!row) return;
+
     const click = (selector) => {
       const target = row.querySelector(selector);
       if (!target) return false;
       target.click();
       return true;
     };
-    const leaving = () => { landOn = neighbour(row)?.dataset.taskId ?? null; };
+    const leaving = () => { landOn = neighbour(row)?.id ?? null; };
 
     if (key === "t" || key === "m") {
       e.preventDefault();
       leaving();
       if (!click(`[data-plan="${key === "t" ? "today" : "tomorrow"}"]`)) landOn = null;
-    } else if (key === "d") {
+    } else if (key === "d" || key === "p") {
       e.preventDefault();
-      leaving();
-      click("[data-pick-date]");
+      // The sheet opens on the field's menu; a change lands on the next row.
+      window.TaskSheet.edit(row, key === "d" ? "planned_for" : "project", neighbour(row)?.id ?? null);
     } else if (key === "x") {
       e.preventDefault();
       leaving();
       click(".task-check");
-    } else if (key === "e" || key === "enter") {
+    } else if (key === "e" || key === "Enter") {
       e.preventDefault();
       click(".task-title-btn");
     } else if (key === " ") {
       e.preventDefault();
       click(".notes-toggle");
-    } else if (key === "escape") {
-      row.blur();
+    } else if (key === "Delete" || key === "Backspace") {
+      e.preventDefault();
+      leaving();
+      click(".task-delete"); // asks first; Cancel leaves the cursor where it was
     }
   });
 
   // Reaching for the mouse means the keyboard pass is over (and a cancelled
   // date picker must not leave a landing spot for some later refresh).
   document.addEventListener("pointerdown", () => { landOn = null; }, true);
+  // So must a cancelled delete ("close" does not bubble; caught on the way
+  // down). A close that arrives with the dialog open again is a late one from
+  // an earlier opening (see shell.js), not this delete's answer.
+  document.addEventListener("close", (e) => {
+    const dialog = e.target;
+    if (dialog.id === "confirm-dialog" && !dialog.open && dialog.returnValue !== "go") landOn = null;
+  }, true);
 
-  // htmx:load fires for the regrouped list; put the cursor where it belongs.
-  document.addEventListener("htmx:load", (e) => {
-    if (!landOn || !e.detail.elt.matches?.("#task-groups")) return;
-    const row = document.getElementById(`task-${landOn}`);
-    landOn = null;
-    row?.focus();
-    row?.scrollIntoView({ block: "nearest" });
-  });
+  // Once a swap has settled, the cursor lands where a key said it should.
+  // htmx already puts focus back on a re-rendered element with the same id,
+  // which keeps the cursor on a row through a refresh; a landing overrides
+  // that, but only from a row or from the page, never from anything else the
+  // user moved to.
+  // Once a list has settled: the cursor lands where a key said it should,
+  // then keys that waited for the list replay on the row that has focus.
+  // htmx already puts focus back on a re-rendered element with the same id,
+  // which keeps the cursor on a row through a refresh; a landing overrides
+  // that, but only from a row or from the page, never from anything else the
+  // user moved to.
+  function settled() {
+    clearTimeout(settleTimer);
+    listSettling = false;
+    settling = null;
+    const active = document.activeElement;
+    const stop = landOn && byId(landOn);
+    if (stop && (!active || active === document.body || active.matches(STOPS))) {
+      landOn = null;
+      focusStop(stop);
+    }
+    for (const { key, shiftKey } of queued.splice(0)) {
+      const at = document.activeElement || document.body;
+      at.dispatchEvent(new KeyboardEvent("keydown", { key, shiftKey, bubbles: true, cancelable: true }));
+    }
+  }
+  document.addEventListener("htmx:afterSettle", settled);
+
+  // After V's reload, the cursor comes back to the task it was on.
+  const carried = (() => {
+    try {
+      const id = sessionStorage.getItem(CURSOR_KEY);
+      sessionStorage.removeItem(CURSOR_KEY);
+      return id;
+    } catch {
+      return null;
+    }
+  })();
+  if (carried) document.addEventListener("DOMContentLoaded", () => focusStop(byId(carried)));
 
   /* ---- project cards: drag a task onto a milestone, another project, or No project ---- */
 

@@ -4,6 +4,9 @@ import os
 # guard before the cached Settings is first built.
 os.environ.setdefault("PC_SERVER__EXTRA_HOSTS", '["testserver"]')
 
+import socket  # noqa: E402
+import threading  # noqa: E402
+import time  # noqa: E402
 from collections.abc import Generator  # noqa: E402
 
 import pytest  # noqa: E402
@@ -59,3 +62,46 @@ def client(db):  # noqa: ANN201
     client.get("/")  # obtain the CSRF cookie
     client.headers["X-CSRF"] = client.cookies.get("csrf", "")
     return client
+
+
+@pytest.fixture
+def live(app_db) -> Generator[str, None, None]:
+    """The app served over HTTP from a thread, on a free port, over app_db."""
+    import uvicorn
+
+    from app.main import create_app
+
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    # log_config=None as serve.py runs it: uvicorn leaves the process's logging alone.
+    server = uvicorn.Server(
+        uvicorn.Config(
+            create_app(), host="127.0.0.1", port=port, log_level="warning", log_config=None
+        )
+    )
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 10
+    while not server.started and time.monotonic() < deadline:
+        time.sleep(0.02)
+    yield f"http://127.0.0.1:{port}"
+    server.should_exit = True
+    thread.join(5)
+
+
+@pytest.fixture
+def page(live) -> Generator:
+    """A Chromium page (skipped without one); any page error fails the test."""
+    sync_api = pytest.importorskip("playwright.sync_api")
+    with sync_api.sync_playwright() as p:
+        try:
+            browser = p.chromium.launch()
+        except Exception as exc:  # noqa: BLE001
+            pytest.skip(f"no Chromium for Playwright: {exc}")
+        page = browser.new_page(viewport={"width": 1200, "height": 900})
+        errors: list[str] = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        yield page
+        browser.close()
+        assert errors == []

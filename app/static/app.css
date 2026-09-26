@@ -194,7 +194,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
   font-size: var(--t-h-sm); line-height: 1.33; font-weight: 600; letter-spacing: -0.015em;
 }
 .day-header .rest, .page-header .rest { margin-top: var(--s-1); font-size: var(--t-body-sm); color: var(--graphite); }
-.page-header .segmented { margin: var(--s-1) 0 0; }
+.page-header .segmented { flex: none; margin: var(--s-1) 0 0; white-space: nowrap; }
 
 /* ---------- glass cards (resting surfaces: no shadow) ---------- */
 
@@ -236,7 +236,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 .task-row[tabindex]:focus { outline: none; }
 .task-row[tabindex] { position: relative; }
 .task-row[tabindex]:focus-visible { border-radius: 0; box-shadow: none; background: var(--glass-row-hover); }
-.task-row[tabindex]:focus-visible::before {
+.task-row[tabindex]:focus-visible::before, .done-fold > summary:focus-visible::before, .sheet-menu [role="menuitemradio"]:focus-visible::before {
   content: ""; position: absolute; left: 0; top: 8px; bottom: 8px;
   width: 3px; border-radius: 0 2px 2px 0;
   background: var(--spark); box-shadow: var(--spark-glow);
@@ -406,11 +406,7 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .tasks-page .capture { margin-bottom: var(--s-6); }
 /* the triage keys, named where they are used; no keyboard, no hint */
 .keys-hint { margin: var(--s-2) 0 0; font-size: var(--t-caption); color: var(--pewter); }
-.keys-hint kbd {
-  display: inline-block; min-width: 18px; margin-right: 2px; padding: 0 4px;
-  font: inherit; font-weight: 500; color: var(--graphite); text-align: center;
-  border: 1px solid var(--hairline); border-radius: var(--r-tag);
-}
+.keys-hint kbd { margin-right: 2px; }
 @media (hover: none), (max-width: 720px) { .keys-hint { display: none; } }
 
 /* ---------- Done: finished work folded under a list ---------- */
@@ -424,6 +420,9 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 }
 .done-fold > summary::-webkit-details-marker { display: none; }
 .done-fold > summary:hover { color: var(--ink); background: var(--glass-row-hover); }
+/* the keyboard cursor stops here too (tasks.js): the rows' own spark bar */
+.done-fold > summary { position: relative; }
+.done-fold > summary:focus-visible { border-radius: 0; box-shadow: none; color: var(--ink); background: var(--glass-row-hover); }
 .done-fold > summary svg { flex: none; stroke: currentColor; }
 .done-fold[open] > summary svg { transform: rotate(90deg); }
 .done-fold .fold-note { margin-left: auto; font-size: var(--t-caption); font-weight: 400; color: var(--pewter); }
@@ -474,7 +473,7 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 }
 .prop.is-set { color: var(--graphite); }
 .prop.is-set svg { stroke: var(--graphite); }
-.prop:hover, .prop[aria-expanded="true"] { color: var(--ink); background: var(--glass-hover); }
+.prop:hover, .prop[aria-expanded="true"] { color: var(--ink); background: var(--fog); }
 .prop:hover svg, .prop[aria-expanded="true"] svg { stroke: var(--ink); }
 .prop-value:empty, .prop[hidden] { display: none; }
 
@@ -509,9 +508,12 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   color: var(--ink); text-align: left; cursor: pointer;
 }
 .sheet-menu [role="menuitemradio"].indent { padding-left: 26px; color: var(--graphite); }
+/* --fog, not a glass tint: the menu is opaque paper. The keyboard's item
+   also takes the rows' spark bar, the one cursor the app draws. */
 .sheet-menu [role="menuitemradio"]:hover, .sheet-menu [role="menuitemradio"]:focus-visible {
-  outline: none; box-shadow: none; background: var(--glass-hover);
+  outline: none; box-shadow: none; background: var(--fog);
 }
+.sheet-menu [role="menuitemradio"]:focus-visible::before { top: 7px; bottom: 7px; }
 .sheet-menu [role="menuitemradio"]:focus { outline: none; }
 .sheet-menu [aria-checked="true"] { font-weight: 600; }
 .sheet-menu .label { min-width: 0; overflow-wrap: anywhere; }
@@ -616,6 +618,36 @@ dialog.confirm::backdrop { background: var(--scrim); }
 .confirm-text { margin: var(--s-2) 0 0; font-size: var(--t-body-sm); line-height: 1.5; color: var(--graphite); }
 .confirm-name { color: var(--ink); font-weight: 600; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: var(--s-2); margin-top: var(--s-6); }
+
+/* every key, behind ? (shell.js): the confirm dialog's paper, two columns of pairs */
+dialog.keys-dialog {
+  width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow-y: auto;
+  margin: auto; padding: var(--s-6);
+  color: var(--ink); background: var(--paper);
+  border: 1px solid var(--hairline); border-radius: var(--r-ctl); box-shadow: var(--shadow-modal);
+}
+dialog.keys-dialog[open] { animation: confirm-in 220ms var(--ease); }
+dialog.keys-dialog::backdrop { background: var(--scrim); }
+/* it takes focus itself (shell.js), so no control starts out ringed */
+dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal); }
+.keys-dialog header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--s-4); }
+.keys-dialog h2 { font-size: var(--t-sub); }
+.keys-dialog header .btn { padding: 4px 10px; font-size: var(--t-caption); }
+.keys-columns { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2) var(--s-8); }
+@media (max-width: 640px) { .keys-columns { grid-template-columns: 1fr; } }
+/* one grid per column, so every list in it lines its descriptions up */
+.keys-dialog section { display: grid; grid-template-columns: max-content 1fr; gap: 6px var(--s-4); align-content: start; font-size: var(--t-body-sm); }
+.keys-dialog dl { display: contents; }
+.keys-dialog h3 { grid-column: 1 / -1; margin: var(--s-3) 0 0; font-size: var(--t-caption); font-weight: 600; color: var(--pewter); }
+.keys-dialog section > h3:first-child { margin-top: 0; }
+.keys-dialog dt { color: var(--graphite); white-space: nowrap; }
+.keys-dialog dd { margin: 0; color: var(--ink); }
+.keys-dialog .or { font-size: var(--t-caption); color: var(--pewter); }
+.keys-dialog kbd, .keys-hint kbd {
+  display: inline-block; min-width: 18px; padding: 0 4px;
+  font: inherit; font-size: var(--t-caption); font-weight: 500; color: var(--graphite); text-align: center;
+  border: 1px solid var(--hairline); border-radius: var(--r-tag);
+}
 
 /* ---------- projects ---------- */
 

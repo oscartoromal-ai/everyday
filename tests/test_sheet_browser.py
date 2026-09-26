@@ -1,11 +1,8 @@
 """The task sheet in a real browser: typed words, menus, adding, and editing
 that saves when focus leaves. The sheet is mostly task-sheet.js, which only a
-browser runs; the app serves from a thread over a throwaway database."""
+browser runs; the app serves from a thread over a throwaway database
+(the `live` and `page` fixtures, conftest.py)."""
 
-import socket
-import threading
-import time
-from collections.abc import Generator
 from datetime import date, timedelta
 
 import pytest
@@ -13,44 +10,7 @@ import pytest
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
-sync_api = pytest.importorskip("playwright.sync_api")
-
-
-@pytest.fixture
-def live(app_db) -> Generator[str, None, None]:
-    import uvicorn
-
-    from app.main import create_app
-
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        port = sock.getsockname()[1]
-    server = uvicorn.Server(
-        uvicorn.Config(create_app(), host="127.0.0.1", port=port, log_level="warning")
-    )
-    thread = threading.Thread(target=server.run, daemon=True)
-    thread.start()
-    deadline = time.monotonic() + 10
-    while not server.started and time.monotonic() < deadline:
-        time.sleep(0.02)
-    yield f"http://127.0.0.1:{port}"
-    server.should_exit = True
-    thread.join(5)
-
-
-@pytest.fixture
-def page(live) -> Generator:
-    with sync_api.sync_playwright() as p:
-        try:
-            browser = p.chromium.launch()
-        except Exception as exc:  # noqa: BLE001
-            pytest.skip(f"no Chromium for Playwright: {exc}")
-        page = browser.new_page(viewport={"width": 1200, "height": 900})
-        errors: list[str] = []
-        page.on("pageerror", lambda e: errors.append(str(e)))
-        yield page
-        browser.close()
-        assert errors == []
+pytest.importorskip("playwright.sync_api")
 
 
 def next_weekday(day: int) -> date:

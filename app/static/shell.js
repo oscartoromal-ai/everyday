@@ -1,7 +1,8 @@
 /* Shell chrome shared by every page: the light/dark toggle, the collapsible
-   sidebar, and the confirm dialog behind hx-confirm. The saved theme
-   and sidebar state are first applied by the inline script in base.html's
-   <head>, before paint; this file keeps them in step with the controls. */
+   sidebar, the keys that work everywhere, and the confirm dialog behind
+   hx-confirm. The saved theme and sidebar state are first applied by the
+   inline script in base.html's <head>, before paint; this file keeps them
+   in step with the controls. */
 
 (() => {
   const root = document.documentElement;
@@ -58,9 +59,31 @@
   });
   applyRail(root.dataset.rail === "collapsed");
 
+  /* ---- keys that work on every page: 1-5 go to the nav's pages in order,
+     ? shows every key (#keys-dialog). Never while typing, or over a dialog. ---- */
+
+  const TYPING = "input, textarea, select, [contenteditable]";
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
+    if (e.target.closest?.(TYPING) || document.querySelector("dialog[open]")) return;
+    if (e.key === "?") {
+      e.preventDefault();
+      const dialog = document.getElementById("keys-dialog");
+      dialog.showModal();
+      dialog.focus(); // the dialog itself, so no control starts out ringed
+      return;
+    }
+    const link = /^[1-9]$/.test(e.key) && document.querySelectorAll(".nav a[aria-keyshortcuts]")[Number(e.key) - 1];
+    if (link && link.getAttribute("aria-current") !== "page") {
+      e.preventDefault();
+      link.click();
+    }
+  });
+
   /* ---- confirm: hx-confirm on an element with data-confirm-* opens the
      app's dialog (#confirm-dialog) instead of the browser's native box ---- */
 
+  let answer = null; // the open confirm's close handler
   document.addEventListener("htmx:confirm", (e) => {
     const source = e.detail.elt;
     if (!source.dataset.confirmTitle) return;
@@ -71,9 +94,19 @@
     dialog.querySelector(".confirm-detail").textContent = source.dataset.confirmDetail || "";
     dialog.querySelector("[value=go]").textContent = source.dataset.confirmAction || "Confirm";
     dialog.returnValue = "";
-    dialog.addEventListener("close", () => {
+    // One answer per opening. A dialog's "close" arrives a task after it
+    // closes, so an Esc followed at once by another open would hand the new
+    // opening the old one's close; that one is ignored (the dialog is open
+    // again), and a previous opening's handler never hears the new answer.
+    if (answer) dialog.removeEventListener("close", answer);
+    const heard = () => {
+      if (dialog.open) return;
+      dialog.removeEventListener("close", heard);
+      answer = null;
       if (dialog.returnValue === "go") e.detail.issueRequest(true);
-    }, { once: true });
+    };
+    answer = heard;
+    dialog.addEventListener("close", heard);
     dialog.showModal();
   });
 })();
