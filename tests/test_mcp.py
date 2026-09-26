@@ -19,6 +19,8 @@ EXPECTED_TOOLS = {
     "get_agenda",
     "schedule_block",
     "add_event",
+    "get_notebook",
+    "get_task_history",
 }
 
 
@@ -90,3 +92,41 @@ async def test_domain_errors_surface_as_tool_errors(app_db) -> None:
     async with Client(mcp) as client:
         with pytest.raises(ToolError, match="title"):
             await client.call_tool("upsert_tasks", {"tasks": [{"notes": "no title"}]})
+
+
+async def test_claude_reads_the_notebook_and_a_tasks_history(app_db) -> None:
+    from app.services import notebook as notebook_svc
+    from app.services import tasks as tasks_svc
+
+    with app_db() as db:
+        task = tasks_svc.create_task(db, title="Call the dentist", written_on=TODAY)
+        notebook_svc.save_page(
+            db,
+            TODAY,
+            [
+                {"kind": "text", "text": "Slow morning."},
+                {"kind": "task", "id": task.id},
+                {"kind": "reflection", "text": "Calmer."},
+            ],
+            version=0,
+        )
+        db.commit()
+        task_id = task.id
+
+    async with Client(mcp) as client:
+        await client.call_tool("update_task_status", {"task_id": task_id, "status": "done"})
+        pages = (await client.call_tool("get_notebook", {})).data
+        [text, written, reflection] = pages[TODAY.isoformat()]
+        assert text == {"kind": "text", "text": "Slow morning."}
+        assert written["task"]["title"] == "Call the dentist"
+        assert written["task"]["status"] == "done"
+        assert reflection == {"kind": "reflection", "text": "Calmer."}
+
+        agenda = (await client.call_tool("get_agenda", {})).data
+        assert agenda["days"][TODAY.isoformat()]["notebook"][1]["title"] == "Call the dentist"
+
+        history = (await client.call_tool("get_task_history", {"task_id": task_id})).data
+        # Claude's own change is named as Claude's.
+        assert history[0]["actor"] == "claude"
+        assert history[0]["fields"] == [{"field": "status", "from": "todo", "to": "done"}]
+        assert history[-1]["change"] == "created"

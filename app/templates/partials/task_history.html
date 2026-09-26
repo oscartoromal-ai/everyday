@@ -1,0 +1,13 @@
+{# How a task changed, newest first (views.history_ctx), inside its sheet. #}
+{% if steps %}
+<ol class="history-list">
+  {% for step in steps %}
+  <li class="history-step">
+    <span class="history-when">{{ step.when }} · {{ step.who }}</span>
+    {% for line in step.lines %}<span class="history-line">{{ line }}</span>{% endfor %}
+  </li>
+  {% endfor %}
+</ol>
+{% else %}
+<p class="history-empty">No changes recorded yet.</p>
+{% endif %}

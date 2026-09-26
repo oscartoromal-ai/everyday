@@ -24,6 +24,7 @@ from app.models import (
     TaskStatus,
 )
 from app.services import blocks as blocks_svc
+from app.services import notebook as notebook_svc
 from app.services import projects as projects_svc
 from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
@@ -151,6 +152,7 @@ def sheet_ctx(db: Session, task: Task, today: date) -> dict[str, Any]:
         for p in projects_svc.list_projects(db)
         if p.status != ProjectStatus.done or p.id == task.project_id
     ]
+    block = blocks_svc.day_block(task, task.planned_for) if task.planned_for else None
     project_label = ""
     if task.project:
         project_label = task.project.name
@@ -169,31 +171,42 @@ def sheet_ctx(db: Session, task: Task, today: date) -> dict[str, Any]:
         "milestone_id": task.milestone_id or "",
         "planned_label": short_date(task.planned_for, today) if task.planned_for else "",
         "due_label": short_date(task.due, today) if task.due else "",
+        # Its time on its do-date, as the sheet's time field writes it.
+        "time": f"{block.start:%H:%M}-{block.end:%H:%M}" if block else "",
+        "time_label": f"{block.start:%H:%M}–{block.end:%H:%M}" if block else "",
         "project_label": project_label,
         "projects": projects,
     }
 
 
-def row_ctx(task: Task, now: datetime, *, planning: bool = False) -> dict[str, Any]:
+def row_ctx(
+    task: Task, now: datetime, *, planning: bool = False, day: date | None = None
+) -> dict[str, Any]:
     """Everything the task-row partial needs, precomputed.
 
     `planning` rows (the Tasks page) always name their do-date, today
-    included, and carry the quick do-date buttons."""
+    included, and carry the quick do-date buttons. `day` is the day the row
+    is shown under (a day page's), today by default: a do-date of that day
+    goes without saying, and the time shown is the task's time then."""
     missed = tasks_svc.has_missed_marker(task, now)
     missed_block = last_missed_block(task) if missed else None
     replan = replan_slot(task, now) if missed else None
     today = now.date()
-    block = todays_block(task, today)
+    day = day or today
+    # Its time on the day it is shown under, else on its own do-date.
+    block = todays_block(task, day) or (
+        todays_block(task, task.planned_for) if task.planned_for else None
+    )
     subtasks_done, subtasks_total = checklist.progress(task.notes)
     return {
         "description": description_blocks(task.notes),
         "subtasks_done": subtasks_done,
         "subtasks_total": subtasks_total,
         "block_label": f"{block.start:%H:%M}–{block.end:%H:%M}" if block else None,
-        # Today's list is today by definition; while planning, the day always matters.
+        # A day's list is that day by definition; while planning, the day always matters.
         "planned_label": (
             short_date(task.planned_for, today)
-            if task.planned_for and (planning or task.planned_for != today)
+            if task.planned_for and (planning or task.planned_for != day)
             else None
         ),
         "plan_controls": planning,
@@ -215,6 +228,13 @@ def row_ctx(task: Task, now: datetime, *, planning: bool = False) -> dict[str, A
         ),
         "chip_class": CHIPS[task.status][1] if task.status in CHIPS else "",
         "due_label": f"due {short_date(task.due, today)}" if task.due else None,
+        # Written on another day's page: where to read what was written around it.
+        "written_on": task.written_on if task.written_on and task.written_on != day else None,
+        "written_label": (
+            f"from {short_date(task.written_on, today)}"
+            if task.written_on and task.written_on != day
+            else None
+        ),
         "due_soon": bool(task.due and task.due <= today + timedelta(days=DUE_SOON_DAYS)),
         "project_name": task.project.name if task.project else None,
     }
@@ -374,20 +394,162 @@ def projects_list_ctx(db: Session, now: datetime) -> dict[str, Any]:
     return cards
 
 
-def today_page_tasks(db: Session, now: datetime) -> tuple[list[Task], list[Task]]:
-    """(oscar_rows, delegated_rows) for the Today page.
+def notebook_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
+    """A day's notebook page as it renders: its blocks with every task as a
+    row, and a line to write on around every box, so there is always
+    somewhere to put the caret before, between and after them."""
+    rendered: list[dict[str, Any]] = []
+    for block in notebook_svc.blocks_of(db, day):
+        if block["kind"] == "task":
+            task = block["task"]
+            rendered.append(
+                {
+                    "kind": "task",
+                    "id": block["id"],
+                    "row": row_ctx(task, now, day=day) if task else None,
+                    "gone_title": None if task else block["last_known"].get("title", "A task"),
+                }
+            )
+        else:
+            rendered.append(block)
+    spaced: list[dict[str, Any]] = []
+    for block in rendered:
+        if block["kind"] != "text" and (not spaced or spaced[-1]["kind"] != "text"):
+            spaced.append({"kind": "text", "text": ""})
+        spaced.append(block)
+    if not spaced or spaced[-1]["kind"] != "text":
+        spaced.append({"kind": "text", "text": ""})
+    return {
+        "day": day,
+        "version": notebook_svc.version_of(db, day),
+        "blocks": spaced,
+    }
 
-    Oscar's list: tasks planned for today plus fallen-back missed tasks from
-    other days. Delegated: open Claude-owned tasks, own section.
-    """
+
+def day_page_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
+    """A day's page: its notebook, then what else is on for the day (tasks
+    planned for it that were written elsewhere), and on today's, what is
+    overdue and Claude's work.
+
+    Overdue: open tasks planned before today, and tasks whose time passed
+    unworked on another day (the missed marker) and are not replanned onto
+    today. What the notebook holds is never listed again under it."""
     today = now.date()
-    planned = tasks_svc.daily_list(db, today)
-    fallback = [
-        t
-        for t in tasks_svc.list_tasks(db)
-        if tasks_svc.has_missed_marker(t, now) and t.planned_for != today
-    ]
-    combined = planned + sorted(fallback, key=lambda t: t.status_changed_at)
-    oscar_rows = [t for t in combined if t.owner == TaskOwner.oscar]
-    delegated_rows = tasks_svc.delegated(db)
-    return oscar_rows, delegated_rows
+    notebook = notebook_ctx(db, day, now)
+    on_page = {b["id"] for b in notebook["blocks"] if b["kind"] == "task"}
+
+    def mine(tasks: list[Task]) -> list[Task]:
+        return [t for t in tasks if t.owner == TaskOwner.oscar and t.id not in on_page]
+
+    also = mine(tasks_svc.daily_list(db, day))
+    overdue: list[Task] = []
+    delegated: list[Task] = []
+    if day == today:
+        overdue = mine(
+            [
+                t
+                for t in tasks_svc.list_tasks(db)
+                if t.status in tasks_svc.OPEN_STATUSES
+                and t.planned_for != today
+                and (
+                    (t.planned_for is not None and t.planned_for < today)
+                    or tasks_svc.has_missed_marker(t, now)
+                )
+            ]
+        )
+        overdue.sort(key=lambda t: (t.planned_for or today, t.created_at))
+        delegated = tasks_svc.delegated(db)
+    also_rows = [row_ctx(t, now, day=day) for t in also]
+    page_tasks = [b["row"] for b in notebook["blocks"] if b["kind"] == "task" and b["row"]]
+    open_count = sum(1 for r in page_tasks + also_rows if not r["done"])
+    return {
+        "day": day,
+        "is_today": day == today,
+        "prev_day": day - timedelta(days=1),
+        "next_day": day + timedelta(days=1),
+        "notebook": notebook,
+        # Finished work folds away under the list instead of lingering in it.
+        "rows": [r for r in also_rows if not r["done"]],
+        "done_rows": [r for r in also_rows if r["done"]],
+        "overdue": [row_ctx(t, now, day=day) for t in overdue],
+        "delegated": [row_ctx(t, now, day=day) for t in delegated],
+        "open_count": open_count,
+    }
+
+
+HISTORY_FIELDS = {
+    "title": "Title",
+    "notes": "Description",
+    "status": "Status",
+    "owner": "Owner",
+    "project_id": "Project",
+    "milestone_id": "Milestone",
+    "planned_for": "Do date",
+    "due": "Due",
+}
+STATUS_WORDS = {
+    "todo": "To do",
+    "in_progress": "In progress",
+    "blocked": "Blocked",
+    "needs_review": "Needs review",
+    "done": "Done",
+    "cancelled": "Cancelled",
+}
+ACTOR_WORDS = {"oscar": "Oscar", "claude": "Claude", "system": "The planner"}
+
+
+def _ticks(before: str, after: str) -> list[str] | None:
+    """When a description changed only by ticking sub-tasks, what was ticked
+    ("Ticked “x”", "Unticked “y”"); None for any other edit."""
+    old, new = checklist.parse(before or ""), checklist.parse(after or "")
+    if len(old) != len(new):
+        return None
+    out = []
+    for a, b in zip(old, new, strict=True):
+        if (a.kind, a.text, a.depth) != (b.kind, b.text, b.depth):
+            return None
+        if a.checked != b.checked:
+            out.append(f"{'Ticked' if b.checked else 'Unticked'} “{b.text}”")
+    return out
+
+
+def _history_value(field: str, value: Any, today: date) -> str:
+    if value is None or value == "":
+        return "none"
+    if field in ("planned_for", "due"):
+        return short_date(date.fromisoformat(value), today)
+    if field == "status":
+        return STATUS_WORDS.get(value, value)
+    if field == "owner":
+        return ACTOR_WORDS.get(value, value)
+    return str(value)
+
+
+def history_ctx(changes: list[dict[str, Any]], today: date) -> list[dict[str, Any]]:
+    """A task's history (app.services.history.changes) in words: when, who,
+    and one line per thing that changed."""
+    steps = []
+    for change in changes:
+        at: datetime = change["at"]
+        when = f"{short_date(at.date(), today).capitalize()} {at:%H:%M}"
+        if change["change"] == "created":
+            lines = ["Written"]
+        elif change["change"] == "deleted":
+            lines = ["Deleted"]
+        else:
+            lines = []
+            for f in change["fields"]:
+                name = HISTORY_FIELDS[f["field"]]
+                if f["field"] == "notes":
+                    ticks = _ticks(f["from"], f["to"])
+                    lines += ticks if ticks else ["Description edited"]
+                elif f["field"] == "title":
+                    lines.append(f"Title: “{f['from']}” → “{f['to']}”")
+                else:
+                    lines.append(
+                        f"{name}: {_history_value(f['field'], f['from'], today)}"
+                        f" → {_history_value(f['field'], f['to'], today)}"
+                    )
+        steps.append({"when": when, "who": ACTOR_WORDS.get(change["actor"], change["actor"]),
+                      "lines": lines})
+    return steps

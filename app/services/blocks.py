@@ -10,6 +10,10 @@ from sqlalchemy.orm import Session
 from app.models import Block, BlockState, Event, Task, TaskStatus
 from app.services import DomainError
 
+# Time given without an end: what a drop on the timeline gives (calendar.js
+# DEFAULT_BLOCK_MIN) and the keyboard's B.
+DEFAULT_LENGTH = timedelta(hours=1)
+
 
 def schedule_block(db: Session, *, task_id: int, start: datetime, end: datetime) -> Block:
     task = db.get(Task, task_id)
@@ -114,3 +118,35 @@ def ghost_blocks(db: Session, day: date) -> list[Block]:
         Block.start < day_end,
     )
     return list(db.scalars(stmt))
+
+
+def day_block(task: Task, day: date) -> Block | None:
+    """The task's time on `day`: its first planned block that starts then."""
+    planned = [
+        b for b in task.blocks if b.state == BlockState.planned and b.start.date() == day
+    ]
+    return min(planned, key=lambda b: b.start) if planned else None
+
+
+def set_day_time(
+    db: Session,
+    task: Task,
+    day: date,
+    start: time | None,
+    end: time | None,
+    *,
+    was: date | None = None,
+) -> Block | None:
+    """Give the task time on `day` from `start` to `end` (an hour, without
+    one), moving the time it had on `was` (its day before a change of day;
+    `day` itself by default); with no `start`, take that time away."""
+    block = day_block(task, was or day)
+    if start is None:
+        if block is not None:
+            delete_block(db, block.id)
+        return None
+    begin = datetime.combine(day, start)
+    finish = datetime.combine(day, end) if end is not None else begin + DEFAULT_LENGTH
+    if block is None:
+        return schedule_block(db, task_id=task.id, start=begin, end=finish)
+    return move_block(db, block.id, start=begin, end=finish)

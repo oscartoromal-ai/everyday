@@ -1,0 +1,41 @@
+{#
+  One block of a notebook page (notebook.js): prose, a task, or a reflection.
+  Prose and reflections are the description editor in prose mode
+  (notes-editor.js); a task is its row, which re-reads itself when the plan
+  changes, so the page always shows the task as it stands now.
+#}
+{% if block.kind == "text" %}
+<div class="nb-text" data-block="text" data-notes-field>
+  <textarea hidden tabindex="-1" aria-hidden="true">{{ block.text }}</textarea>
+  <div class="notes-editor nb-prose" contenteditable="true" role="textbox" aria-multiline="true"
+       aria-label="Notebook" data-notes-editor="prose" spellcheck="true"
+       data-placeholder="Write about the day. Start a line with - for a task, or / for more."></div>
+</div>
+{% elif block.kind == "task" and block.row %}
+<ul class="task-list nb-task" data-block="task" data-task-id="{{ block.id }}"
+    hx-get="/ui/tasks/{{ block.id }}/row" hx-trigger="tasks:changed from:body, calendar:refresh from:body"
+    hx-swap="innerHTML">
+  {% with row = block.row, expanded = False %}{% include "partials/task_row.html" %}{% endwith %}
+</ul>
+{% elif block.kind == "task" %}
+{# Deleted since it was written: the page keeps its place, quietly. #}
+<div class="nb-gone" data-block="task" data-task-id="{{ block.id }}">
+  <span class="nb-gone-title">{{ block.gone_title }}</span>
+  <span class="nb-gone-note">deleted</span>
+  <button type="button" class="nb-gone-remove" data-nb-remove title="Remove from the page"
+          aria-label="Remove “{{ block.gone_title }}” from the page">
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5.5 5.5l9 9"/><path d="M14.5 5.5l-9 9"/></svg>
+  </button>
+</div>
+{% elif block.kind == "reflection" %}
+<section class="nb-reflection" data-block="reflection" aria-label="Reflection">
+  <header class="nb-reflection-head">Reflection</header>
+  <div data-notes-field>
+    <textarea hidden tabindex="-1" aria-hidden="true">{{ block.text }}</textarea>
+    <div class="notes-editor nb-prose" contenteditable="true" role="textbox" aria-multiline="true"
+         aria-label="Reflection" data-notes-editor="prose" spellcheck="true"
+         data-placeholder="How did it go?"></div>
+  </div>
+  <p class="nb-hint"><span class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to close the reflection</span></p>
+</section>
+{% endif %}

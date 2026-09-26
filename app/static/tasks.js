@@ -188,7 +188,10 @@
       target.click();
       return true;
     };
-    const leaving = () => { landOn = neighbour(row)?.id ?? null; };
+    // A row acted on leaves its list, so the cursor moves on; a notebook's
+    // row stays where it was written (until it is deleted), and so does the cursor.
+    const stays = !!row.closest("[data-notebook]");
+    const leaving = (gone = false) => { landOn = stays && !gone ? row.id : neighbour(row)?.id ?? null; };
 
     if (key === "t" || key === "m") {
       e.preventDefault();
@@ -200,7 +203,7 @@
       });
     } else if (key === "b") {
       e.preventDefault();
-      book(row, neighbour(row)?.id ?? null);
+      book(row, stays ? row.id : neighbour(row)?.id ?? null);
     } else if (key === "r") {
       if (!row.querySelector(".replan-btn")) return;
       e.preventDefault();
@@ -209,7 +212,7 @@
     } else if (key === "d" || key === "p") {
       e.preventDefault();
       // The sheet opens on the field's menu; a change lands on the next row.
-      window.TaskSheet.edit(row, key === "d" ? "planned_for" : "project", neighbour(row)?.id ?? null);
+      window.TaskSheet.edit(row, key === "d" ? "planned_for" : "project", stays ? row.id : neighbour(row)?.id ?? null);
     } else if (key === "x") {
       e.preventDefault();
       leaving();
@@ -222,7 +225,7 @@
       click(".notes-toggle");
     } else if (key === "Delete" || key === "Backspace") {
       e.preventDefault();
-      leaving();
+      leaving(true);
       click(".task-delete"); // asks first; Cancel leaves the cursor where it was
     }
   });

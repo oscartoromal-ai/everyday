@@ -10,7 +10,7 @@
             hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML">
       <span class="task-title">{{ row.task.title }}</span>
     </button>
-    {% if row.description or row.chip or row.project_name or row.due_label or row.missed or row.block_label or row.planned_label %}
+    {% if row.description or row.chip or row.project_name or row.due_label or row.missed or row.block_label or row.planned_label or row.written_label %}
     <div class="task-meta">
       {% if row.description %}
       <button type="button" class="notes-toggle"
@@ -26,6 +26,7 @@
       {% if row.planned_label %}<span class="planned">{{ row.planned_label }}</span>{% endif %}
       {% if row.block_label %}<span class="when">{{ row.block_label }}</span>{% endif %}
       {% if row.project_name %}<span class="project">{{ row.project_name }}</span>{% endif %}
+      {% if row.written_label %}<a class="origin" href="/day/{{ row.written_on.isoformat() }}" title="Read the page it was written on">{{ row.written_label }}</a>{% endif %}
       {% if row.due_label %}<span class="due{% if row.due_soon %} soon{% endif %}">{{ row.due_label }}</span>{% endif %}
       {% if row.missed %}<span class="missed">{{ row.missed_label }}</span>
       <button type="button" class="replan-btn"

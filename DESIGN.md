@@ -83,7 +83,7 @@ Content is 800px wide for list pages (Tasks, Projects) and 1200px for Today, Cal
 
 ## Components
 
-**List cards.** Today, Delegated to Claude, each project, each week in Rows and the trays are glass cards.
+**List cards.** Today's lists, Delegated to Claude, each project, each week in Rows and the trays are glass cards.
 A title row sits on a stronger hairline, and rows below are full-bleed, dividing with hairlines and lighting on hover with `--glass-row-hover`.
 
 **Task rows.** An 18px checkbox with a 6px radius fills with ink when checked; there is no draw-in animation.
@@ -107,22 +107,26 @@ Each opening hears only its own answer: a dialog's close arrives a moment after 
 
 **Task sheet.** Adding a task and editing one are the same sheet, written like a document rather than filled in like a form.
 It is shaped like the row it becomes: the row's box (or, to add, a steel plus), then the title in 14px/500 ink, which wraps as a line of text.
-The do-date, due and repeat fields trail the title's last word as small icons in `--steel`, 14px, with the value beside the icon in 12px graphite once set ("tomorrow", "Fri 2 Oct"); repeat stays an icon, its rule in the tooltip.
+The do-date, time, due and repeat fields trail the title's last word as small icons in `--steel`, 14px, with the value beside the icon in 12px graphite once set ("tomorrow", "15:00–16:00", "Fri 2 Oct"); repeat stays an icon, its rule in the tooltip.
 The gaps before and between them are the line's own spaces, widened, so when they wrap they start flush with the title's text.
-Each is a 24px target that opens a small menu on paper with the dropdown shadow: Today, Tomorrow, Next week, Pick a date (the native picker) and No date, or the repeat presets; the current choice is 600 with a tick, and choosing hands the caret back to where it was.
-Writing sets them too: "today", "tomorrow", a weekday's name or "next week" followed by a space becomes the do-date, "due friday" the due date, and "every day", "every weekday", "every week" or "every month" the repeat.
+Each is a 24px target that opens a small menu on paper with the dropdown shadow: Today, Tomorrow, Next week, Pick a date (the native picker) and No date; for the time, Pick a time, then Change the start, Change the end and No time (native pickers, 15-minute steps; a new start keeps the length); or the repeat presets.
+The current choice is 600 with a tick, and choosing hands the caret back to where it was.
+Writing sets them too: "today", "tomorrow", a weekday's name or "next week" followed by a space becomes the do-date, "at 3", "3pm", "15:30" or "9-10:30am" the time (an hour when no end is given; a bare number stays a word), "due friday" the due date, and "every day", "every weekday", "every week" or "every month" the repeat.
+A time is the task's block on its do-date: set, it books that time on the calendar; changed, it moves it, with the day if the day changes; cleared, it frees it.
 The words leave the title as they convert, and Backspace straight after puts them back as words, which then stay words.
 The description follows under the title, aligned with its text.
-Editing adds an end line under the description: Project › Milestone (a flag, "Project" when there is none, one menu of open projects with their open milestones indented), a person icon that names Claude when the task is Claude's, its status once it is Claude's or beyond the box, and the bin.
+Editing adds an end line under the description: Project › Milestone (a flag, "Project" when there is none, one menu of open projects with their open milestones indented), a person icon that names Claude when the task is Claude's, its status once it is Claude's or beyond the box, History, and the bin.
+History opens under the end line, above a hairline: each change newest first, a 12px pewter line of when and who ("Today 14:02 · Claude"), then a 12px graphite line per field that moved ("Do date: tomorrow → Fri 2 Oct", "Ticked “oil”", "Description edited").
 Project and milestone live only there, since the list a task is written in already says which project it belongs to.
 
-To add, each list card ends in the sheet's plus and a pewter placeholder, dated or filed by the card it sits in (Today's is dated today; a project card's is in that project).
+To add, each list card ends in the sheet's plus and a pewter placeholder, filed by the card it sits in (a project card's is in that project); on Today, tasks are written in the notebook instead.
 Typing a title opens the icons and the description (focus alone does not, so a composer that folds away never shifts the page under a click), with a pewter "Ctrl+Enter to add" hint (hidden on touch), a secondary Cancel and the spark "Add task".
 Enter in the title moves to the description, and Ctrl+Enter adds the task and returns to an empty title for the next one.
-A task dated away from the list it was written in (off Today's day) does not join it; the page regroups instead.
+A task dated away from the list it was written in does not join it; the page regroups instead.
 
 To edit, the row's title swaps the sheet in place, on the row hover fill, with the caret at the end of the title.
 There is no Save: the sheet saves when focus leaves it (a click elsewhere, Tab past its last control, Esc or Ctrl+Enter), and if nothing changed it goes back to its row without a save.
+Tab past its last control leaves it even where nothing on the page follows to take the focus; the window losing focus does not.
 
 **Description editor.** One line per block, in 14px graphite.
 A line typed as "- words" turns into a sub-task when Enter is pressed: a 14px box, drawn as the line's own `::before`, that fills ink when clicked, with the words in ink, or pewter and struck through once ticked.
@@ -132,6 +136,19 @@ Tab and Shift+Tab nest and un-nest by 22px, at most one level under the line abo
 Pasted "- " lines arrive as sub-tasks; the editor keeps its own undo.
 Esc steps away but keeps a written draft open; Cancel clears it.
 The empty-list note hides once the list has a row.
+
+**Notebook.** Today, and every day's page (`/day/2026-09-25`), is a notebook beside the day's timeline.
+The header is the day's name at 24px ("Today" on today's), a pair of 32px chevrons for the day before and after, and on any other day a pill back to Today; the line under it gives the date and the open count, and the key line names -, /, Ctrl+Enter and the arrows.
+The page is one glass card, 24px in, written at 16px ink with 1.6 line height, since the words are Oscar's; a blank page alone carries the pewter prompt ("Write about the day. Start a line with - for a task, or / for more.").
+Boxes sit in the text's flow with 8px above and below: a 1px hairline border and the control radius, outset 12px so what is inside starts exactly where the text does.
+A task is its row, as in any list (box, title, meta, bin), whatever day it is for, and re-reads itself whenever the plan changes; it is also a drag source for the timeline.
+A task being written is the task sheet in the box, on the row hover fill, its border `--spark-deep` while the caret is in it, with a pewter "Ctrl+Enter to close the task" under it (hidden on touch).
+A reflection is a box with a 12px graphite "Reflection" caption over its text, the border spark while it is written, and the same hint.
+A task deleted since it was written keeps its place as a ghost, as a missed block does: a dashed mist border, its title pewter and struck through, "deleted", and a steel × that takes it off the page.
+The line kept around each box for the caret folds to nothing while empty and unfocused, so boxes stack with their own spacing.
+"/" at a line's start opens the commands on the sheet menus' paper, under the caret: Reflection and Task, each with a pewter aside; the highlighted one takes the fog fill and the spark bar.
+When the page was saved in another window, a line at the card's foot says so above a hairline, with Show that version and Keep mine as secondary buttons.
+Under the card: "Also today" (tasks planned for the day but written elsewhere, descriptions open, each with a pewter "from Tue 22 Sep" linking the page it was written on, and the Done fold), then on today's page Overdue and Delegated to Claude.
 
 **Tasks.** A page header ("Tasks", the open and undated counts, and a By date / By project segmented control on the right), the composer alone in its own card, then the tasks.
 By date is one list card per do-date group; By project is Projects' cards (without their status control, which moves cards between Projects' shelves, and with a neutral badge on a parked project that still holds open work), then a No project card in the same form, its empty edit slot keeping the counts in line.
@@ -154,7 +171,7 @@ Which folds are open is remembered per tab (`sessionStorage` key `pc-open-folds`
 Each column is one grid, so all its descriptions start on one line; keys are 12px graphite in hairline boxes.
 The dialog takes focus itself, so no control opens ringed; Esc closes it.
 
-**Capture window.** N or Shift+N writes a new task from any page: on Tasks, Today and Projects into the page's own list, and on Calendar and Weeks, which have no list to write in, in a window holding the task sheet (600px, 15vh from the top, on the confirm dialog's paper).
+**Capture window.** N or Shift+N writes a new task from any page: on Tasks and Projects into the page's own list, on Today in a box at the notebook's end, and on Calendar and Weeks, which have no list to write in, in a window holding the task sheet (600px, 15vh from the top, on the confirm dialog's paper).
 It stays open for the next task, and a toast says where each one went ("Added “Call the plumber” for Fri 2 Oct", or "to No date"), since no list on the page shows it; Weeks' Unplanned tray catches up.
 Esc closes it and keeps a half-written draft for the next time.
 
@@ -236,6 +253,16 @@ Lists that re-render from the server take any half-written task with them: `task
 A task whose add is in flight is not a draft: only the focus moves over, so it is never offered to be added twice, and if its list re-rendered from a moment before the add landed, the lists render again so the new task shows.
 `notes-editor.js` is the description editor: a contenteditable whose structure is always its own, since every edit that could split, merge or restyle a line is cancelled in `beforeinput` and redone on a line model.
 It writes the same plain text the server stores into a hidden `notes` textarea, so forms and the server never see the editor.
+In prose mode (the notebook's text and reflections) every line is plain text: no sub-tasks, no nesting, and Tab moves on.
+The confirm dialog answers the row it was asked about even when a late list refresh swapped that row while it was open: focus goes back to the row's live twin, and a confirmed delete is sent from it rather than silently dropped with the detached one.
+
+**Notebook** (`app/static/notebook.js`, vanilla, listeners on `document`).
+The page is a column of blocks with a prose block around every box; "- " at a line's start splits the prose there and opens a task box (the rest of the line its title), "/" opens the commands, and closing a box (Ctrl+Enter, Esc, or writing elsewhere) puts the caret on the line after it.
+An empty box closes to nothing, and Backspace in a fresh box's empty title puts the line back.
+Up and Down at a block's edge (the first or last row as drawn, wrapped lines included) step into the next block, a task row included, where the list keys work; on a notebook row X, T, M, B, D and P keep the cursor on it, since the row stays where it was written.
+N (outside the text) opens a box at the page's end, and Left and Right go a day back or on.
+The page saves itself as a whole 600ms after a change, when the tab is hidden, and when it is left (a box still open then is written down too); tasks are saved by their sheet and referenced by id.
+A save names the version it was made from; refused (another window saved since), the page stops saving and asks; returning to the tab shows a newer version when nothing here is unsaved.
 
 **Assets.** Static URLs go through `asset()`, which appends the file's mtime (`?v=`), so a browser never pairs new templates with a stale stylesheet.
 The favicon is the Today icon in ink on a white tile, its dot the spark (Neon Signage's day pink, `#e5006e`).

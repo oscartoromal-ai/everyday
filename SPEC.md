@@ -41,11 +41,32 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Sub-tasks and the calendar**: sub-tasks have no blocks of their own; a task's block is the time its checklist is worked, and the block's menu on the calendar lists the sub-tasks so they tick off there. Milestones likewise attach to tasks, never sub-tasks.
 - **Triage by keyboard**: on Tasks, arrow keys move a row cursor and single keys act on it (T today, M tomorrow, D pick a day, X done, E edit), the cursor moving on to the next row as each one is dated or finished.
 - **Filing by drag**: in By project (and on Projects) a task is dragged onto a milestone, another project, or No project to file it there.
-- **Today** puts the day's list beside a one-day timeline (events, blocks, ghosts), so the day is planned on one screen; dragging a task from the list onto the timeline gives it a block.
+- **Today is a notebook**, per [the notebook decision](#the-notebook-decided-2026-09-26): a page per day, written like a document beside the day's timeline, not a view of the database.
+  What Oscar writes stays where he wrote it; some of it are commands the page sends to the database.
+  A line started with "- " is a task, written as the task sheet is (its words become its do-date, time, due and repeat), and closed with Ctrl+Enter or Esc; the task keeps its place on the page whatever day it is for, and shows as it stands now.
+  "/" at a line's start offers the other commands: "/reflection" writes a reflection, free text in a box of its own.
+  Under the notebook, the day's other tasks: those planned for it but written elsewhere (on another day's page, on Tasks, by Claude), each with its description and a link to the page it was written on; on today's page also what is overdue, and Claude's work.
+  Only tasks with a time show on the timeline; dragging a task onto the timeline still gives it one.
+  Every day has its page: Left and Right (outside the text) go a day back or on, and past pages stay editable.
 - **Weeks** is the planning-ahead surface: six weeks at a glance, as a month-style grid or as one ruled row per day, Oscar's choice and remembered.
   Each day shows its planned tasks, deadlines, milestones, and personal events; the work calendar is condensed to a load figure (meetings and busy hours) rather than listed.
   Dragging a task between days replans it (sets planned_for); an Unplanned tray holds tasks with no do-date, and dragging back to it unplans.
   It supersedes the earlier seven-day next-days list.
+
+### The notebook (decided 2026-09-26)
+
+Oscar's own words, from the session that decided it: Today will be kind of a notebook, written naturally; treat Today not as the database but as a notebook that sends commands to the database.
+The problem it solves: a task added on Today but dated another day used to vanish from the page it was written on.
+Decided with Oscar:
+
+- One page per day; past pages stay editable.
+- "- " starts a task; inside its box, "- " lines are its sub-tasks, and Ctrl+Enter ends the box.
+- A task's fields are set as in the task sheet, with its icons and typed words.
+- A date and a time put the task on the calendar, as a block.
+- A task on the page shows its current state, and every task keeps a version history of how it changed.
+- "/reflection" writes a reflection, free text only; "/" is the prefix for commands, "- " for tasks.
+- Underneath: the tasks planned for the day that were written elsewhere, with their context; on today's page also overdue and Claude's work.
+- Claude can read the notebook through MCP.
 
 ## 4. Domain model
 
@@ -60,7 +81,7 @@ v3 adds a Goal entity plus a nullable goal reference on Project.
 **Milestone**: belongs to one project; name, optional target date, status (open / reached / dropped).
 Progress toward a milestone is computable from its attached tasks.
 
-**Task**: title, notes, status, owner (oscar / claude), optional project, optional milestone (only of its own project), optional planned_for (do-date), optional due (deadline).
+**Task**: title, notes, status, owner (oscar / claude), optional project, optional milestone (only of its own project), optional planned_for (do-date), optional due (deadline), optional written_on (the notebook page it was written on).
 Notes are the task's free-form description, and sub-tasks live inside it: a line starting with "- " (or "* ") is a sub-task, "- [x] " once done, and every other line is context kept where it was written.
 Sub-tasks are text, not rows: they carry no status, owner, or dates of their own, and ticking one rewrites only its own line.
 A repeating task's occurrences start with every sub-task open.
@@ -71,6 +92,15 @@ The Weeks view is driven by planned_for, due, and milestone target dates.
 **Block**: belongs to one task; start, end, state (planned / completed / missed).
 A task accumulates blocks over time (missed Tuesday, re-slotted Thursday).
 The missed marker and the ghost outline both derive from block state; missed is a block-level fact, never a task status.
+
+A task's time is a block on its do-date: giving a task a time (in the sheet, or "at 3pm" as it is written) creates, moves or removes that block, an hour long unless an end is given.
+
+**TaskRevision**: one step in a task's history: when, who (oscar, claude or system), the kind of change (created, updated, deleted), and the task's fields as they stood after it.
+Recorded by the ORM on every flush that touches a task, whatever path made the change, and kept after the task is deleted; the history started on 2026-09-26 with a baseline of every task as it stood.
+It is shown under the task's sheet and read by Claude through `get_task_history`.
+
+**NotebookPage**: one per day; its blocks in the order they were written (prose, task references by id, reflections) and a version.
+A save names the version it was made from, and a save from an older copy is refused, so two windows never silently overwrite each other; the page asks which to keep.
 
 **Event**: title, start, end, all-day flag, source (local / work), read-only flag, external id.
 One entity for own and external events: work-calendar events are rows with source=work, read-only, upserted by external id.
@@ -131,6 +161,13 @@ Two layers, both machine-wide across all projects:
 Failure handling: hooks spool events to disk when the POST fails; the app ingests the spool backlog at startup (spool and replay).
 Hook commands need a short HTTP timeout so a down app never delays sessions.
 
+### Notebook and history
+
+- `get_notebook(start, days)` reads Oscar's notebook pages: prose, the tasks he wrote there as they stand now, and reflections.
+  `get_agenda` carries each day's page in brief too, so planning with Claude starts from what Oscar wrote.
+  The notebook is read-only to Claude: it is Oscar's own writing.
+- `get_task_history(task_id)` reads how a task changed and who changed it; Claude's own changes are named as Claude's.
+
 ### Plan truth
 
 - The app database is canonical for cross-project plan state.
@@ -174,7 +211,7 @@ Per [Architecture](tracker/tickets/009-architecture.md) and [Decision: security 
 ### Frontend
 
 - Server-rendered: Jinja templates plus HTMX for pages, lists, and forms; no build step, state server-side.
-- Real client JS is limited to a few focused vanilla islands, each built well once: the drag-to-slot calendar (week grid and Today's timeline), drag-to-replan on the Weeks view, and the task sheet (one editor for adding and editing, with its line-based description editor).
+- Real client JS is limited to a few focused vanilla islands, each built well once: the drag-to-slot calendar (week grid and Today's timeline), drag-to-replan on the Weeks view, the task sheet (one editor for adding and editing, with its line-based description editor), and Today's notebook (the same line editor in prose mode, with the sheet as its task box).
 
 ### Background jobs
 

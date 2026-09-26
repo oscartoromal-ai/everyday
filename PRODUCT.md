@@ -17,7 +17,8 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 
 ## Core objects (v1)
 
-- Tasks planned on the Tasks page (grouped by do-date, undated ones first in line), worked from Today, and planned across days on the Weeks view, with lifecycle todo / in_progress / blocked / needs_review / done / cancelled.
+- Tasks planned on the Tasks page (grouped by do-date, undated ones first in line), worked from Today, and planned across days on the Weeks view, with lifecycle todo / in_progress / blocked / needs_review / done / cancelled, and a history of every change.
+- Today as a notebook: a page per day written like a document, where "- " writes a task and "/reflection" a reflection, and what is written stays where it was written.
 - "Delegated to Claude" list section with status chips: queued, running, needs review.
 - Missed marker on tasks whose scheduled calendar block passed uncompleted (derived, shown as an error badge).
 - Projects with milestones (target dates, computed progress).
@@ -33,6 +34,6 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 
 ## Constraints
 
-- Server-rendered Jinja + HTMX; no build step; the only real client JS is a few small islands: the calendar drag (week grid and Today's timeline), the Weeks drag-to-replan, and the task composer and description editor.
+- Server-rendered Jinja + HTMX; no build step; the only real client JS is a few small islands: the calendar drag (week grid and Today's timeline), the Weeks drag-to-replan, the task composer and description editor, and Today's notebook.
 - Works on desktop and phone widths; phone gets the full UI, not a cut-down version.
 - No login screens, no marketing surfaces; the app opens straight into Tasks, where the day's plan is made.

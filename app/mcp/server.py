@@ -20,6 +20,8 @@ from app.models import ProjectStatus, TaskOwner, TaskStatus
 from app.services import DomainError
 from app.services import blocks as blocks_svc
 from app.services import events as events_svc
+from app.services import history as history_svc
+from app.services import notebook as notebook_svc
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
@@ -30,7 +32,9 @@ mcp = FastMCP(
         "task blocks. The app database is canonical for cross-project plan state. "
         "Dates are calendar dates (YYYY-MM-DD); datetimes are naive local wall time. "
         "A task's notes are its free-form description: lines starting with '- ' are "
-        "its sub-tasks ('- [x] ' once done), and other lines are context around them."
+        "its sub-tasks ('- [x] ' once done), and other lines are context around them. "
+        "Each day has a notebook page Oscar writes in: prose, the tasks he wrote there "
+        "(as they stand now), and reflections; read it for context with get_notebook."
     ),
 )
 
@@ -49,7 +53,7 @@ def _project_payload(db, project) -> dict[str, Any]:  # noqa: ANN001
 @mcp.tool
 def list_projects(status: ProjectStatus | None = None) -> list[dict[str, Any]]:
     """List projects with their milestones and per-milestone (done, total) progress."""
-    with session_scope() as db:
+    with session_scope("claude") as db:
         return [_project_payload(db, p) for p in projects_svc.list_projects(db, status=status)]
 
 
@@ -62,7 +66,7 @@ def upsert_project(
 ) -> dict[str, Any]:
     """Create or update a project. Matches by project_id when given, else by exact
     name; creates when no match exists."""
-    with session_scope() as db:
+    with session_scope("claude") as db:
         if project_id is None:
             existing = next(
                 (p for p in projects_svc.list_projects(db) if p.name == name.strip()), None
@@ -89,7 +93,7 @@ def list_tasks(
 ) -> list[dict[str, Any]]:
     """List tasks, optionally filtered. Each task carries its blocks and a `missed`
     flag (a scheduled block passed uncompleted and was not replanned)."""
-    with session_scope() as db:
+    with session_scope("claude") as db:
         found = tasks_svc.list_tasks(
             db,
             project_id=project_id,
@@ -122,7 +126,7 @@ def upsert_tasks(tasks: list[TaskUpsert]) -> list[dict[str, Any]]:
     sub-tasks as '- ' lines (tick one by rewriting it as '- [x] '), keeping context
     lines next to the sub-tasks they explain."""
     out: list[dict[str, Any]] = []
-    with session_scope() as db:
+    with session_scope("claude") as db:
         for item in tasks:
             fields = item.model_dump(exclude_unset=True)
             task_id = fields.pop("task_id", None)
@@ -140,7 +144,7 @@ def upsert_tasks(tasks: list[TaskUpsert]) -> list[dict[str, Any]]:
 def update_task_status(task_id: int, status: TaskStatus) -> dict[str, Any]:
     """Set a task's lifecycle status (todo, in_progress, blocked, needs_review,
     done, cancelled)."""
-    with session_scope() as db:
+    with session_scope("claude") as db:
         return task_out(tasks_svc.set_status(db, task_id, status)).model_dump()
 
 
@@ -148,12 +152,16 @@ def update_task_status(task_id: int, status: TaskStatus) -> dict[str, Any]:
 def get_agenda(start: date | None = None, days: int = 1) -> dict[str, Any]:
     """The plan for `days` days from `start` (default today): calendar events,
     scheduled task blocks, tasks planned per day, and upcoming dues/milestones."""
-    with session_scope() as db:
+    with session_scope("claude") as db:
         first = start or date.today()
         window_start = datetime.combine(first, datetime.min.time())
         window_end = window_start + timedelta(days=days)
         events, blocks = events_svc.calendar_range(db, window_start, window_end)
         view = tasks_svc.next_days(db, first, days=days)
+        pages = {
+            first + timedelta(days=i): _notebook_payload(db, first + timedelta(days=i), brief=True)
+            for i in range(days)
+        }
         return {
             "events": [EventOut.model_validate(e).model_dump() for e in events],
             "blocks": [
@@ -174,16 +182,62 @@ def get_agenda(start: date | None = None, days: int = 1) -> dict[str, Any]:
                     "milestones": [
                         MilestoneOut.model_validate(m).model_dump() for m in v["milestones"]
                     ],
+                    "notebook": pages[day],
                 }
                 for day, v in view.items()
             },
         }
 
 
+def _notebook_payload(db, day: date, *, brief: bool = False) -> list[dict[str, Any]]:  # noqa: ANN001
+    """A day's notebook page as blocks: prose and reflections as written, and
+    each task as it stands now (brief: its id, title and status only)."""
+    out: list[dict[str, Any]] = []
+    for block in notebook_svc.blocks_of(db, day):
+        if block["kind"] != "task":
+            out.append({"kind": block["kind"], "text": block["text"]})
+        elif block["task"] is None:
+            out.append({"kind": "task", "task_id": block["id"], "deleted": True,
+                        "title": block["last_known"].get("title")})
+        elif brief:
+            task = block["task"]
+            out.append({"kind": "task", "task_id": task.id, "title": task.title,
+                        "status": task.status})
+        else:
+            out.append({"kind": "task", "task": task_out(block["task"]).model_dump()})
+    return out
+
+
+@mcp.tool
+def get_notebook(start: date | None = None, days: int = 1) -> dict[str, Any]:
+    """Oscar's notebook pages for `days` days from `start` (default today), in
+    the order he wrote them: prose ("text"), tasks written there ("task", as
+    they stand now; a deleted one keeps its last title) and reflections.
+    Read-only: the notebook is Oscar's own writing."""
+    with session_scope("claude") as db:
+        first = start or date.today()
+        return {
+            str(first + timedelta(days=i)): _notebook_payload(db, first + timedelta(days=i))
+            for i in range(days)
+        }
+
+
+@mcp.tool
+def get_task_history(task_id: int) -> list[dict[str, Any]]:
+    """How a task changed, newest first: when, who (oscar, claude or system),
+    the kind of change (created, updated, deleted) and, for an update, each
+    field that moved from what to what. Works for deleted tasks too."""
+    with session_scope("claude") as db:
+        return [
+            {"at": c["at"], "actor": c["actor"], "change": c["change"], "fields": c["fields"]}
+            for c in history_svc.changes(db, task_id)
+        ]
+
+
 @mcp.tool
 def schedule_block(task_id: int, start: datetime, end: datetime) -> dict[str, Any]:
     """Give a task a calendar block (protected time). Naive local datetimes."""
-    with session_scope() as db:
+    with session_scope("claude") as db:
         block = blocks_svc.schedule_block(db, task_id=task_id, start=start, end=end)
         return {"id": block.id, "task_id": block.task_id, "start": block.start,
                 "end": block.end, "state": block.state}
@@ -199,7 +253,7 @@ def add_event(
 ) -> dict[str, Any]:
     """Create a local calendar event. Work-calendar events are read-only and
     cannot be created or edited."""
-    with session_scope() as db:
+    with session_scope("claude") as db:
         return EventOut.model_validate(
             events_svc.create_event(
                 db, title=title, start=start, end=end, all_day=all_day, location=location

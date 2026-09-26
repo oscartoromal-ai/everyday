@@ -79,9 +79,12 @@ DbSession = Annotated[Session, Depends(get_db, scope="function")]
 
 
 @contextmanager
-def session_scope() -> Generator[Session, None, None]:
-    """Commit-on-success session for MCP tools and background jobs."""
+def session_scope(actor: str = "system") -> Generator[Session, None, None]:
+    """Commit-on-success session for MCP tools ("claude") and background jobs
+    ("system"). The actor is who the task history names for its changes;
+    request sessions (get_db) are Oscar's."""
     session = get_session_factory()()
+    session.info["actor"] = actor
     try:
         yield session
         session.commit()

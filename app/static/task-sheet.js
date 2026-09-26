@@ -3,15 +3,19 @@
    place of its row (edit).
 
    The title is a line of a document: a plaintext contenteditable that wraps,
-   with the do-date, due and repeat icons trailing its last word. Typing
-   "tomorrow", "friday", "due friday" or "every week" followed by a space
-   turns the words into the matching field; Backspace straight after puts
-   them back. Each field is a hidden input the form posts; the icons and the
-   small menus they open only read and write those inputs.
+   with the do-date, time, due and repeat icons trailing its last word.
+   Typing "tomorrow", "friday", "at 3pm", "15:00-16:30", "due friday" or
+   "every week" followed by a space turns the words into the matching field;
+   Backspace straight after puts them back. Each field is a hidden input the
+   form posts; the icons and the small menus they open only read and write
+   those inputs.
 
    Compose adds with Ctrl+Enter or Add task. Edit has no Save: the sheet
    saves when focus leaves it (a click elsewhere, Tab away, Esc or
    Ctrl+Enter), and goes back to its row untouched when nothing changed.
+   A notebook's box (compose, data-notebook) is written down the same way,
+   when it is closed (Ctrl+Enter, Esc) or focus leaves it; an empty one is
+   handed back to the page (notebook:discard), which takes the box away.
    The description is notes-editor.js. Listeners sit on document, so they
    survive htmx swaps. */
 
@@ -19,6 +23,7 @@
   const SUBMIT = (e) => e.key === "Enter" && (e.ctrlKey || e.metaKey);
 
   const sheetOf = (el) => el?.closest?.(".task-sheet");
+  const isNotebook = (form) => form.dataset.notebook != null;
   const titleOf = (form) => form.querySelector(".sheet-title");
   const notesEditorOf = (form) => form.querySelector("[data-notes-editor]");
   const isEdit = (form) => form.dataset.sheet === "edit";
@@ -70,10 +75,44 @@
     return iso(nextWeekday(WEEKDAYS.indexOf(word)));
   };
   const REPEATS = { day: "daily", weekday: "weekdays", week: "weekly", month: "monthly" };
+
+  // "at 3", "3pm", "15:30", "9-10:30am", "15:00-16:30": a time needs "at",
+  // a colon or am/pm, so a bare number ("buy 2 ") stays a word. Without an
+  // end it lasts an hour, as a drop on the timeline does.
+  const TIME = /(?:^|\s)((at )?(\d{1,2})(?::([0-5]\d))?(am|pm)?(?:-(\d{1,2})(?::([0-5]\d))?(am|pm)?)?) $/i;
+  const hhmm = (minutes) => `${pad(Math.floor(minutes / 60) % 24)}:${pad(minutes % 60)}`;
+  const minutesOf = (value) => {
+    const [h, m] = value.split(":").map(Number);
+    return h * 60 + m;
+  };
+  const DEFAULT_MINUTES = 60;
+  const timeOfWords = (m) => {
+    const [, , at, h1, m1, ap1, h2, m2, ap2] = m;
+    if (!at && m1 === undefined && !ap1 && !ap2) return null;
+    const clock = (h, min, ap) => {
+      let hour = Number(h);
+      if (ap) {
+        if (hour < 1 || hour > 12) return null;
+        hour = (hour % 12) + (ap.toLowerCase() === "pm" ? 12 : 0);
+      } else if (hour > 23) {
+        return null;
+      }
+      return hour * 60 + Number(min || 0);
+    };
+    // "9-10:30am": the start takes the end's half of the day, if that keeps it first.
+    let start = clock(h1, m1, ap1 || (h2 !== undefined && ap2 && Number(h1) <= Number(h2) ? ap2 : undefined));
+    if (start === null) return null;
+    if (h2 === undefined) return `${hhmm(start)}-${hhmm(Math.min(start + DEFAULT_MINUTES, 24 * 60 - 1))}`;
+    const end = clock(h2, m2, ap2);
+    if (end === null || end <= start) return null;
+    return `${hhmm(start)}-${hhmm(end)}`;
+  };
+
   // Tried in order against the text before the caret; each ends at the typed space.
   const RULES = [
     { name: "due", re: new RegExp(`(?:^|\\s)(due (${DATE_WORDS})) $`, "i"), value: (m) => dateOfWord(m[2]) },
     { name: "planned_for", re: new RegExp(`(?:^|\\s)((${DATE_WORDS})) $`, "i"), value: (m) => dateOfWord(m[2]) },
+    { name: "time", re: TIME, value: timeOfWords },
     { name: "repeat", re: /(?:^|\s)(every (day|weekday|week|month)) $/i, value: (m) => REPEATS[m[2].toLowerCase()] },
   ];
 
@@ -113,6 +152,8 @@
     for (const rule of RULES) {
       const m = rule.re.exec(text);
       if (!m) continue;
+      const value = rule.value(m);
+      if (value == null) continue;
       const start = text.length - m[1].length - 1;
       if (kept.get(form)?.has(start)) return false;
       const full = titleOf(form).textContent;
@@ -121,7 +162,7 @@
         form, before: full, caretBefore: caret, after, caretAfter: start,
         name: rule.name, previous: valueOf(form, rule.name), start,
       };
-      setField(form, rule.name, rule.value(m));
+      setField(form, rule.name, value);
       setTitle(form, after, moveCaret ? start : null);
       return true;
     }
@@ -180,6 +221,11 @@
         set = value !== "";
         text = set ? shortDate(value) : "";
         if (set) spoken = `${button.title}: ${text}`;
+      } else if (name === "time") {
+        const value = valueOf(form, "time");
+        set = value !== "";
+        text = set ? value.replace("-", "–") : "";
+        if (set) spoken = `Time: ${text}`;
       } else if (name === "repeat") {
         const value = valueOf(form, "repeat") || "none";
         set = value !== "none";
@@ -324,8 +370,55 @@
     return items;
   };
 
+  // A native time picker under a menu item, as the date picker's is.
+  const timePickItem = (label, current, aside, apply) => {
+    const pickItem = item(label, { tag: "div", aside });
+    const input = document.createElement("input");
+    input.type = "time";
+    input.step = 900;
+    input.tabIndex = -1;
+    input.value = current;
+    input.addEventListener("change", () => {
+      if (input.value) apply(input.value);
+      closeMenu();
+    });
+    pickItem.classList.add("pick");
+    pickItem.append(input);
+    pickItem._pick = () => {
+      try {
+        input.showPicker();
+      } catch {
+        input.focus();
+      }
+      return "keep";
+    };
+    return pickItem;
+  };
+
+  const timeItems = (form) => {
+    const current = valueOf(form, "time");
+    const [start, end] = current ? current.split("-") : ["", ""];
+    const length = current ? minutesOf(end) - minutesOf(start) : DEFAULT_MINUTES;
+    const items = [
+      // A new start keeps the length the time had.
+      timePickItem(current ? "Change the start…" : "Pick a time…", start, start, (value) => {
+        const from = minutesOf(value);
+        setField(form, "time", `${value}-${hhmm(Math.min(from + length, 24 * 60 - 1))}`);
+      }),
+    ];
+    if (current) {
+      items.push(timePickItem("Change the end…", end, end, (value) => {
+        if (minutesOf(value) > minutesOf(start)) setField(form, "time", `${start}-${value}`);
+        else window.toast?.("The end has to come after the start.");
+      }));
+      items.push(item("No time", { pick: () => setField(form, "time", "") }));
+    }
+    return items;
+  };
+
   const menuItems = (form, name) => {
     if (name === "planned_for" || name === "due") return dateItems(form, name);
+    if (name === "time") return timeItems(form);
     if (name === "repeat") {
       const current = valueOf(form, "repeat") || "none";
       return Object.entries(REPEAT_LABELS).map(([value, label]) =>
@@ -483,6 +576,12 @@
     }
     if (inTitle && e.key !== "Shift") converted = e.key === "Backspace" ? converted : null;
 
+    if ((SUBMIT(e) || e.key === "Escape") && isNotebook(form)) {
+      e.preventDefault();
+      writeDown(form);
+      return;
+    }
+
     if (SUBMIT(e)) {
       e.preventDefault();
       if (isEdit(form)) save(form, { keyboard: true });
@@ -593,6 +692,7 @@
   const added = (form, e) => {
     const row = /id="(task-\d+)"/.exec(e.detail.xhr.responseText);
     if (row) window.TaskCursor?.remember(row[1]);
+    if (isNotebook(form)) return; // it took the box's place; notebook.js moves on
     if (form.closest("dialog")) {
       // Written away from any list: say where it went, and let the page's
       // own views of tasks catch up (Weeks' Unplanned tray, say).
@@ -608,6 +708,21 @@
     if (!form.isConnected) return; // its twin took the focus, and no draft
     resetComposer(form);
     placeCaret(titleOf(form), 0); // ready for the next one
+  };
+
+  /* ---- a notebook's box: written down when it closes ---- */
+
+  // The task is added (and takes the box's place), or, with no title, the
+  // page takes the empty box away. Once only: a box being added is done.
+  const writeDown = (form) => {
+    if (!form.isConnected || form.dataset.sending != null || form.dataset.closing != null) return;
+    closeMenu(false);
+    if (titleText(form)) {
+      form.requestSubmit();
+      return;
+    }
+    form.dataset.closing = "";
+    form.dispatchEvent(new CustomEvent("notebook:discard", { bubbles: true }));
   };
 
   /* ---- edit: saves when focus leaves the sheet ---- */
@@ -640,11 +755,42 @@
     document.querySelectorAll(".task-sheet[data-sheet='edit']").forEach((form) => {
       if (outside(form, e.target)) save(form);
     });
+    document.querySelectorAll(".task-sheet[data-notebook]").forEach((form) => {
+      if (outside(form, e.target)) writeDown(form);
+    });
   }, true);
 
+  // Focus lost to nothing (the window, the browser's own controls) is not
+  // leaving the sheet; see Tab below for the page's last control.
   document.addEventListener("focusout", (e) => {
     const form = sheetOf(e.target);
-    if (form && isEdit(form) && outside(form, e.relatedTarget)) save(form);
+    if (!form || !outside(form, e.relatedTarget)) return;
+    if (isEdit(form)) save(form);
+    else if (isNotebook(form)) writeDown(form);
+  });
+
+  // Tab past a sheet's last control leaves it, even where nothing on the
+  // page comes after it to take the focus (it would go to the browser).
+  const TABBABLE = "button:not([hidden]), input:not([type='hidden']), [contenteditable], [tabindex='0']";
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab" || e.shiftKey || e.defaultPrevented) return;
+    const form = sheetOf(e.target);
+    if (!form || (!isEdit(form) && !isNotebook(form))) return;
+    const stops = [...form.querySelectorAll(TABBABLE)].filter((el) => el.tabIndex >= 0 && el.checkVisibility());
+    if (e.target !== stops[stops.length - 1]) return;
+    e.preventDefault();
+    if (isEdit(form)) save(form, { keyboard: true });
+    else writeDown(form);
+  });
+
+  // A task's history, under its sheet: loaded once (hx-trigger), then shown and hidden.
+  document.addEventListener("click", (e) => {
+    const button = e.target.closest?.(".task-sheet [data-history]");
+    if (!button) return;
+    const panel = document.getElementById(button.getAttribute("aria-controls"));
+    const open = button.getAttribute("aria-expanded") !== "true";
+    button.setAttribute("aria-expanded", String(open));
+    panel.hidden = !open;
   });
 
   document.addEventListener("change", (e) => {
@@ -691,6 +837,8 @@
       pending = { id: row.id, field, landOnChange };
       row.querySelector(".task-title-btn").click();
     },
+    // Take up a sheet made by the page (a notebook's box, from its template).
+    init,
     // Start writing in a composer (N).
     compose(form) {
       if (!form) return;
@@ -750,7 +898,7 @@
   // Today's list and the Tasks page re-render from the server whenever the
   // plan changes, composers included. Carry a half-written task, its fields
   // and focus over to the fresh composer with the same key.
-  const FIELDS = ["planned_for", "due", "repeat", "project_id"];
+  const FIELDS = ["planned_for", "time", "due", "repeat", "project_id"];
   const carried = new WeakMap(); // request -> drafts
   document.addEventListener("htmx:beforeSwap", (e) => {
     const drafts = [...e.detail.target.querySelectorAll(".task-sheet[data-composer]")]

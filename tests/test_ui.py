@@ -89,9 +89,9 @@ def test_done_work_folds_away_on_tasks_and_today(client, db) -> None:
     assert "last 14 days" in fold
 
     today = client.get("/today").text
-    today_list = today.split('id="today-list"')[1].split("</ul>")[0]
-    assert "still going" in today_list and "finished it" not in today_list
-    assert "finished it" in today.split('id="today-done"')[1]
+    also = today.split('id="also-list"')[1].split("</ul>")[0]
+    assert "still going" in also and "finished it" not in also
+    assert "finished it" in today.split('id="day-done"')[1]
     assert "1 task open" in today
 
 
@@ -160,9 +160,9 @@ def test_today_page_has_timeline_with_events_and_blocks(client, db) -> None:
     timeline = page.split('class="today-timeline"')[1]
     assert 'data-days="1"' in timeline
     assert "standup" in timeline and "focus" in timeline
-    # The list row carries the block's time and is marked as a drag source.
-    assert "11:00–12:00" in page.split('id="today-list"')[1]
-    assert "data-drag-to-grid" in page
+    # The list row carries the block's time; the notebook's rows are drag sources.
+    assert "11:00–12:00" in page.split('id="also-list"')[1]
+    assert 'id="notebook" data-notebook data-drag-to-grid' in page
 
 
 def test_grid_fragment_refreshes_one_day_and_a_week(client) -> None:
@@ -410,12 +410,13 @@ def test_a_task_dated_away_from_todays_list_regroups_instead(client, db) -> None
     assert task.planned_for == TODAY + timedelta(days=1)
 
 
-def test_todays_composer_starts_dated_today(client) -> None:
+def test_todays_notebook_boxes_are_written_on_today(client) -> None:
     page = client.get("/today").text
-    composer = page.split('data-sheet="compose"')[1].split("</form>")[0]
-    assert f'name="planned_for" value="{TODAY.isoformat()}"' in composer
-    assert f'name="list_day" value="{TODAY.isoformat()}"' in composer
-    assert '<span class="prop-value">today</span>' in composer
+    box = page.split('id="nb-draft-template"')[1].split("</form>")[0]
+    assert f'name="planned_for" value="{TODAY.isoformat()}"' in box
+    assert f'name="written_on" value="{TODAY.isoformat()}"' in box
+    assert "list_day" not in box
+    assert '<span class="prop-value">today</span>' in box
 
 
 def test_calendar_page_renders_grid_and_tray(client, db) -> None:

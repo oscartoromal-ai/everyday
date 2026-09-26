@@ -12,11 +12,10 @@ from app.db import DbSession
 from app.ui.calendar_view import grid_ctx, tray_tasks, week_monday
 from app.ui.views import (
     TASKS_VIEWS,
+    day_page_ctx,
     projects_list_ctx,
-    row_ctx,
     tasks_page_ctx,
     templates,
-    today_page_tasks,
 )
 from app.ui.weeks_view import LAYOUTS, weeks_ctx
 
@@ -46,22 +45,29 @@ def tasks_page(request: Request, db: DbSession, view: str | None = None):
 
 @router.get("/today")
 def today_page(request: Request, db: DbSession):
+    return _day_page(request, db, date.today())
+
+
+@router.get("/day/{day}")
+def day_page(request: Request, db: DbSession, day: date):
+    if day == date.today():
+        return RedirectResponse("/today", status_code=303)
+    return _day_page(request, db, day)
+
+
+def _day_page(request: Request, db: DbSession, day: date):
+    """A day's page: its notebook beside its timeline. Today's is /today."""
     from app.services import nudges as nudges_svc
 
     now = datetime.now()
-    oscar_rows, delegated_rows = today_page_tasks(db, now)
-    rows = [row_ctx(t, now) for t in oscar_rows]
     return templates.TemplateResponse(
         request,
         "today.html",
         {
             **_base(request, "today"),
-            # Finished work folds away under the list instead of lingering in it.
-            "rows": [r for r in rows if not r["done"]],
-            "done_rows": [r for r in rows if r["done"]],
-            "delegated": [row_ctx(t, now) for t in delegated_rows],
-            "nudges": nudges_svc.active_nudges(db, now),
-            "grid": grid_ctx(db, now.date(), now, day_count=1),
+            **day_page_ctx(db, day, now),
+            "nudges": nudges_svc.active_nudges(db, now) if day == now.date() else [],
+            "grid": grid_ctx(db, day, now, day_count=1),
         },
     )
 

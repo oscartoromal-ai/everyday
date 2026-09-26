@@ -137,8 +137,16 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
           <dt><kbd>Ctrl</kbd> <kbd>Enter</kbd></dt><dd>Add the task, or save it</dd>
           <dt><kbd>Esc</kbd></dt><dd>Back to the list (an edit saves)</dd>
           <dt><kbd>Tab</kbd></dt><dd>Through the fields; in the description, nests a sub-task</dd>
-          <dt>friday <kbd>Space</kbd></dt><dd>Words become fields: today, tomorrow, a weekday, next week; due friday; every day, weekday, week or month</dd>
+          <dt>friday <kbd>Space</kbd></dt><dd>Words become fields: today, tomorrow, a weekday, next week; at 3pm, 15:00-16:30; due friday; every day, weekday, week or month</dd>
           <dt><kbd>Backspace</kbd></dt><dd>Right after, turns them back into words</dd>
+        </dl>
+        <h3>Today's notebook</h3>
+        <dl>
+          <dt><kbd>-</kbd> <kbd>Space</kbd></dt><dd>At a line's start: a task, written there</dd>
+          <dt><kbd>/</kbd></dt><dd>At a line's start: a reflection, or a task</dd>
+          <dt><kbd>Ctrl</kbd> <kbd>Enter</kbd> <span class="or">or</span> <kbd>Esc</kbd></dt><dd>Close the task or reflection, and write on</dd>
+          <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>From the text into a task, and on</dd>
+          <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>The day before or after</dd>
         </dl>
       </section>
       <section>
@@ -148,7 +156,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
           <dt><kbd>Shift</kbd> + move</dt><dd>Previous or next group, or project</dd>
           <dt><kbd>Home</kbd> <kbd>End</kbd></dt><dd>First or last task</dd>
           <dt><kbd>Enter</kbd> <span class="or">or</span> <kbd>E</kbd></dt><dd>Edit</dd>
-          <dt><kbd>N</kbd></dt><dd>New task, in the cursor's project if it has one</dd>
+          <dt><kbd>N</kbd></dt><dd>New task, in the cursor's project if it has one; on Today, at the notebook's end</dd>
           <dt><kbd>X</kbd></dt><dd>Done, or not done</dd>
           <dt><kbd>T</kbd> <kbd>M</kbd></dt><dd>Do today, tomorrow</dd>
           <dt><kbd>B</kbd></dt><dd>Book the next free hour today</dd>

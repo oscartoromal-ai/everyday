@@ -1,52 +1,100 @@
 {% extends "base.html" %}
-{% block title %}Today · Personal Calendar{% endblock %}
+{% block title %}{% if is_today %}Today{% else %}{{ day.strftime("%a") }} {{ day.day }} {{ day.strftime("%b") }}{% endif %} · Personal Calendar{% endblock %}
 {% block content %}
+{# A day's page: its notebook, what else is on for the day, and its timeline.
+   Rows re-render for the page's day (X-Row-Day), so its own date goes without saying. #}
 <div class="today-page">
-  <div class="today-lists" data-cursor>
+  <div class="today-lists" data-cursor hx-headers='{"X-Row-Day": "{{ day.isoformat() }}"}'>
     <header class="day-header">
-      <div class="weekday">{{ today.strftime("%A") }}</div>
-      <div class="rest" id="day-rest"
-           hx-get="/today" hx-select="#day-rest" hx-swap="outerHTML" hx-trigger="task:added from:body">
-        {{ today.day }} {{ today.strftime("%B %Y") }}
-        {% set open_count = rows | rejectattr("done") | list | length %}
+      <div class="day-title">
+        <div class="weekday">{% if is_today %}Today{% else %}{{ day.strftime("%A") }}{% endif %}</div>
+        <nav class="day-nav" aria-label="Days">
+          <a class="day-step" href="/day/{{ prev_day.isoformat() }}" data-day-step="prev"
+             aria-label="Previous day" title="Previous day">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5 6.5 10l5.5 5.5"/></svg>
+          </a>
+          {% if not is_today %}<a class="day-today" href="/today">Today</a>{% endif %}
+          <a class="day-step" href="/day/{{ next_day.isoformat() }}" data-day-step="next"
+             aria-label="Next day" title="Next day">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4.5 13.5 10 8 15.5"/></svg>
+          </a>
+        </nav>
+      </div>
+      <div class="rest" id="day-rest">
+        {% if is_today %}{{ day.strftime("%A") }} {% endif %}{{ day.day }} {{ day.strftime("%B %Y") }}
         · {% if open_count == 0 %}nothing open{% elif open_count == 1 %}1 task open{% else %}{{ open_count }} tasks open{% endif %}
       </div>
       <p class="keys-hint">
-        <kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> edit · <kbd>N</kbd> new · <kbd>X</kbd> done · <kbd>B</kbd> book an hour · <kbd>?</kbd> all keys
+        <kbd>-</kbd> task · <kbd>/</kbd> reflection · <kbd>Ctrl</kbd><kbd>Enter</kbd> close it · <kbd>←</kbd><kbd>→</kbd> days · <kbd>?</kbd> all keys
       </p>
     </header>
 
     <div id="nudges-slot">{% with nudges = nudges %}{% include "partials/nudges.html" %}{% endwith %}</div>
 
-    <section class="list-section" id="today-section"
-             hx-get="/today" hx-select="#today-section" hx-select-oob="#day-rest,#nudges-slot" hx-swap="outerHTML"
-             hx-trigger="calendar:refresh from:body, tasks:changed from:body" hx-disinherit="*">
-      <h2>Today</h2>
-      <ul class="task-list" id="today-list" data-drag-to-grid>
-        {% for row in rows %}{% include "partials/task_row.html" %}{% endfor %}
-      </ul>
-      {% if not rows %}
-      <p class="empty">{% if done_rows %}Everything planned for today is done.{% else %}Nothing planned for today. Give something today's date on Tasks, or add it below.{% endif %}</p>
-      {% endif %}
-      {% with mode = "compose", target = "today-list", planned_for = today, placeholder = "Add a task for today…" %}
-        {% include "partials/task_sheet.html" %}
-      {% endwith %}
-      {% with fold_id = "today-done", fold_note = None %}
-        {% include "partials/done_fold.html" %}
-      {% endwith %}
+    <section class="notebook-card" aria-label="Notebook">
+      <div class="notebook" id="notebook" data-notebook data-drag-to-grid
+           data-day="{{ day.isoformat() }}" data-version="{{ notebook.version }}">
+        {% for block in notebook.blocks %}{% include "partials/notebook_block.html" %}{% endfor %}
+      </div>
+      <div class="nb-stale" id="nb-stale" role="alert" hidden>
+        <span>This page was changed in another window.</span>
+        <button type="button" class="btn quiet" data-nb-reload>Show that version</button>
+        <button type="button" class="btn quiet" data-nb-keep>Keep mine</button>
+      </div>
     </section>
+    <template id="nb-draft-template">
+      <div class="nb-draft" data-block="draft">
+        {% with mode = "compose", notebook = True, planned_for = day, project_id = None, target = "", placeholder = "A task" %}
+          {% include "partials/task_sheet.html" %}
+        {% endwith %}
+      </div>
+    </template>
+    <template id="nb-reflection-template">
+      {% with block = {"kind": "reflection", "text": ""} %}{% include "partials/notebook_block.html" %}{% endwith %}
+    </template>
+    <template id="nb-text-template">
+      {% with block = {"kind": "text", "text": ""} %}{% include "partials/notebook_block.html" %}{% endwith %}
+    </template>
 
-    {% if delegated %}
-    <section class="list-section">
-      <h2>Delegated to Claude <span class="count">{{ delegated | length }}</span></h2>
-      <ul class="task-list" id="delegated-list">
-        {% for row in delegated %}{% include "partials/task_row.html" %}{% endfor %}
-      </ul>
-    </section>
-    {% endif %}
+    <div id="day-lists"
+         hx-get="{{ '/today' if is_today else '/day/' ~ day.isoformat() }}" hx-select="#day-lists"
+         hx-select-oob="#day-rest,#nudges-slot" hx-swap="outerHTML"
+         hx-trigger="calendar:refresh from:body, tasks:changed from:body"
+         hx-disinherit="hx-get hx-select hx-select-oob hx-swap hx-trigger">
+      {% if rows or done_rows %}
+      <section class="list-section" id="also-section">
+        <h2>{% if is_today %}Also today{% else %}Also on this day{% endif %} <span class="count">{{ rows | length }}</span></h2>
+        <ul class="task-list" id="also-list">
+          {% for row in rows %}{% with expanded = True %}{% include "partials/task_row.html" %}{% endwith %}{% endfor %}
+        </ul>
+        {% if not rows %}<p class="empty">Everything else planned for this day is done.</p>{% endif %}
+        {% with fold_id = "day-done", fold_note = None %}
+          {% include "partials/done_fold.html" %}
+        {% endwith %}
+      </section>
+      {% endif %}
+
+      {% if overdue %}
+      <section class="list-section" id="overdue-section">
+        <h2>Overdue <span class="count">{{ overdue | length }}</span></h2>
+        <ul class="task-list" id="overdue-list">
+          {% for row in overdue %}{% with expanded = False %}{% include "partials/task_row.html" %}{% endwith %}{% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+
+      {% if delegated %}
+      <section class="list-section">
+        <h2>Delegated to Claude <span class="count">{{ delegated | length }}</span></h2>
+        <ul class="task-list" id="delegated-list">
+          {% for row in delegated %}{% include "partials/task_row.html" %}{% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+    </div>
   </div>
 
-  <section class="today-timeline" aria-label="Today's timeline">
+  <section class="today-timeline" aria-label="{{ 'Today' if is_today else day.strftime('%A') }}'s timeline">
     <header class="timeline-header">
       <h2>Timeline</h2>
       <span class="hint">Drag a task here to give it time</span>
@@ -55,4 +103,5 @@
   </section>
 </div>
 <script src="{{ asset('calendar.js') }}" defer></script>
+<script src="{{ asset('notebook.js') }}" defer></script>
 {% endblock %}

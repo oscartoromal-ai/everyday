@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import enum
 from datetime import date, datetime
+from typing import Any
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Date,
     DateTime,
@@ -115,6 +117,7 @@ class Task(Base):
         Index("ix_tasks_planned_for", "planned_for"),
         Index("ix_tasks_due", "due"),
         Index("ix_tasks_status", "status"),
+        Index("ix_tasks_written_on", "written_on"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -130,6 +133,8 @@ class Task(Base):
         ForeignKey("recurrence_templates.id"), default=None
     )
     occurrence_date: Mapped[date | None] = mapped_column(Date, default=None)
+    # The day whose notebook page it was written on, if it was written in one.
+    written_on: Mapped[date | None] = mapped_column(Date, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     # When the current status was entered; drives the needs_review-age nudge.
     status_changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
@@ -230,3 +235,36 @@ class RecurrenceTemplate(Base):
     start_time: Mapped[str | None] = mapped_column(String(5), default=None)  # "HH:MM"
     end_time: Mapped[str | None] = mapped_column(String(5), default=None)
     all_day: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class TaskRevision(Base):
+    """One step in a task's history: the task as it stood after a change, and
+    who made it. app.services.history writes one on every flush that creates,
+    changes or deletes a task, whichever path made the change (the UI, REST,
+    MCP, a job), and keeps them after the task itself is deleted."""
+
+    __tablename__ = "task_revisions"
+    __table_args__ = (Index("ix_task_revisions_task", "task_id", "at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # Not a foreign key: the history outlives the task.
+    task_id: Mapped[int] = mapped_column(Integer)
+    at: Mapped[datetime] = mapped_column(DateTime)
+    change: Mapped[str] = mapped_column(String(20))  # created / updated / deleted / baseline
+    actor: Mapped[str] = mapped_column(String(20))  # oscar / claude / system
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSON)
+
+
+class NotebookPage(Base):
+    """A day's notebook page: what Oscar wrote on that day, in order. Prose
+    stays as written, tasks are referenced by id and render as they stand
+    now, and reflections are free text (block shapes: app.services.notebook)."""
+
+    __tablename__ = "notebook_pages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    day: Mapped[date] = mapped_column(Date, unique=True)
+    blocks: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    # Bumped by every save; a save made from an older copy is refused.
+    version: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

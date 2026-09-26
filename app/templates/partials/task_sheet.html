@@ -3,32 +3,39 @@
   - compose: the last row of a list card. Context comes from the include:
     target (the list a new row joins), planned_for, project_id, placeholder.
   - edit: the task in place of its row, from sheet_ctx() (views.py).
-  The title wraps like a line of a document and the do-date, due and repeat
-  icons trail its last word. The description follows. In edit mode the sheet
+  - compose in a notebook page (notebook=True): a box in the page's flow,
+    written on that page (day); once added it becomes the page's task block.
+  The title wraps like a line of a document and the do-date, time, due and
+  repeat icons trail its last word. The description follows. In edit mode the sheet
   ends with Project › Milestone, owner (and status once it is Claude's), and
   delete; it saves when focus leaves it.
 #}
 {% set editing = mode == "edit" %}
 {% set s = sheet if editing else {
   "title": "", "notes": "", "status": "todo", "owner": "oscar", "repeat": "none",
-  "planned_for": planned_for.isoformat() if planned_for else "", "due": "",
+  "planned_for": planned_for.isoformat() if planned_for else "", "due": "", "time": "",
   "project_id": project_id or "", "milestone_id": "",
-  "planned_label": planned_for | short_date if planned_for else "", "due_label": "",
+  "planned_label": planned_for | short_date if planned_for else "", "due_label": "", "time_label": "",
 } %}
 {% if editing %}<li id="task-{{ s.id }}" class="sheet-item">{% endif %}
 <form class="task-sheet" data-sheet="{{ mode }}"
   {%- if editing %}
       hx-post="/ui/tasks/{{ s.id }}" hx-target="#task-{{ s.id }}" hx-swap="outerHTML"
+  {%- elif notebook %}
+      data-notebook
+      hx-post="/ui/tasks/quick-add" hx-target="closest .nb-draft" hx-swap="outerHTML"
   {%- else %}
       data-composer data-composer-key="{{ target }}"
       hx-post="/ui/tasks/quick-add" hx-target="#{{ target }}" hx-swap="beforeend"
   {%- endif %}>
   <input type="hidden" name="title" value="{{ s.title }}">
-  {% for name in ["planned_for", "due", "repeat", "project_id", "owner", "status"] %}
+  {% for name in ["planned_for", "time", "due", "repeat", "project_id", "owner", "status"] %}
   <input type="hidden" name="{{ name }}" value="{{ s[name] }}" data-default="{{ s[name] }}">
   {% endfor %}
   {% if editing %}
   <input type="hidden" name="milestone_id" value="{{ s.milestone_id }}">
+  {% elif notebook %}
+  <input type="hidden" name="written_on" value="{{ planned_for.isoformat() }}">
   {% elif planned_for %}
   {# The list's own day: a task dated elsewhere regroups the page instead of joining it. #}
   <input type="hidden" name="list_day" value="{{ planned_for.isoformat() }}">
@@ -52,6 +59,11 @@
                 title="Do date" aria-label="Do date{{ ': ' ~ s.planned_label if s.planned_label }}">
           <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/></svg>
           <span class="prop-value">{{ s.planned_label }}</span>
+        </button>
+        <button type="button" class="prop" data-prop="time" aria-haspopup="menu"
+                title="Time" aria-label="Time{{ ': ' ~ s.time_label if s.time_label }}">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2"/></svg>
+          <span class="prop-value">{{ s.time_label }}</span>
         </button>
         <button type="button" class="prop" data-prop="due" aria-haspopup="menu"
                 title="Due" aria-label="Due{{ ': ' ~ s.due_label if s.due_label }}">
@@ -86,6 +98,12 @@
         <button type="button" class="prop" data-prop="status" aria-haspopup="menu" title="Status">
           <span class="prop-value"></span>
         </button>
+        <button type="button" class="prop" data-history aria-expanded="false" aria-controls="history-{{ s.id }}"
+                title="How it changed" hx-get="/ui/tasks/{{ s.id }}/history" hx-target="#history-{{ s.id }}"
+                hx-trigger="click once" hx-swap="innerHTML">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 10a6.5 6.5 0 1 0 1.9-4.6"/><path d="M3.5 3.5v3.25h3.25"/><path d="M10 6.5V10l2.5 1.75"/></svg>
+          <span class="prop-value">History</span>
+        </button>
         <span class="spacer"></span>
         <button type="button" class="task-delete" aria-label="Delete “{{ s.title }}”" title="Delete"
                 hx-post="/ui/tasks/{{ s.id }}/delete"
@@ -98,7 +116,12 @@
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>
         </button>
       </div>
+      <div class="sheet-history" id="history-{{ s.id }}" hidden></div>
       <script type="application/json" data-sheet-projects>{{ s.projects | tojson }}</script>
+      {% else %}
+      {% if notebook %}
+      {# The page is the form: the task is written down when the box closes. #}
+      <p class="sheet-actions nb-hint"><span class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to close the task</span></p>
       {% else %}
       <div class="sheet-actions">
         <span class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to add</span>
@@ -106,6 +129,7 @@
         <button type="button" class="btn quiet" data-composer-cancel>Cancel</button>
         <button type="submit" class="btn primary">Add task</button>
       </div>
+      {% endif %}
       {% endif %}
     </div>
   </div>

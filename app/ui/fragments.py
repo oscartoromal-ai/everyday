@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
@@ -49,6 +49,26 @@ def _checklist_response(request: Request, db, task_id: int) -> HTMLResponse:  # 
     return templates.TemplateResponse(request, "partials/block_checklist.html", context)
 
 
+def _row_day(request: Request) -> date | None:
+    """The day the row is shown under, as a day page marks its requests."""
+    value = request.headers.get("X-Row-Day", "")
+    try:
+        return date.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
+def _time_range(value: str) -> tuple[time | None, time | None]:
+    """The sheet's time field: "HH:MM", "HH:MM-HH:MM", or empty for none."""
+    if not value:
+        return None, None
+    start, _, end = value.partition("-")
+    try:
+        return time.fromisoformat(start), time.fromisoformat(end) if end else None
+    except ValueError as exc:
+        raise DomainError(f"Not a time: {value}") from exc
+
+
 def _row_response(
     request: Request,
     db,  # noqa: ANN001
@@ -57,7 +77,7 @@ def _row_response(
     expanded: bool = False,
 ) -> HTMLResponse:
     task = tasks_svc.get_task(db, task_id)
-    row = row_ctx(task, datetime.now(), planning=_planning(request))
+    row = row_ctx(task, datetime.now(), planning=_planning(request), day=_row_day(request))
     context = {"request": request, "row": row, "expanded": expanded}
     return templates.TemplateResponse(request, "partials/task_row.html", context)
 
@@ -69,15 +89,22 @@ def quick_add(
     title: Annotated[str, Form()],
     notes: Annotated[str, Form()] = "",
     planned_for: Annotated[str, Form()] = "",
+    time_range: Annotated[str, Form(alias="time")] = "",
     due: Annotated[str, Form()] = "",
     repeat: Annotated[str, Form()] = "none",
     project_id: Annotated[str, Form()] = "",
     list_day: Annotated[str, Form()] = "",
+    written_on: Annotated[str, Form()] = "",
 ):
     title = title.strip()
     if not title:
         return HTMLResponse("")
+    page_day = date.fromisoformat(written_on) if written_on else None
+    start, end = _time_range(time_range)
     day = date.fromisoformat(planned_for) if planned_for else None
+    if start is not None and day is None:
+        # A time needs a day: the day it was written in, else today.
+        day = page_day or (date.fromisoformat(list_day) if list_day else date.today())
     task = tasks_svc.create_task(
         db,
         title=title,
@@ -85,19 +112,34 @@ def quick_add(
         planned_for=day,
         due=date.fromisoformat(due) if due else None,
         project_id=int(project_id) if project_id else None,
+        written_on=page_day,
     )
     _apply_task_repeat(db, task, repeat)
+    if start is not None:
+        blocks_svc.set_day_time(db, task, day, start, end)
     db.commit()
+    triggers = ["calendar:refresh"] if start is not None else []
+    if page_day is not None:
+        # Written in a notebook: the task takes the box's place on the page,
+        # whatever day it is for.
+        now = datetime.now()
+        block = {"kind": "task", "id": task.id, "row": row_ctx(task, now, day=page_day)}
+        response = templates.TemplateResponse(
+            request, "partials/notebook_block.html", {"request": request, "block": block}
+        )
+        if triggers:
+            response.headers["HX-Trigger"] = ", ".join(triggers)
+        return response
     if list_day and day != date.fromisoformat(list_day):
-        # Dated away from the list it was written in (Today's): it does not
-        # join that list, and the page regroups; tasks.js carries the composer.
+        # Dated away from the list it was written in: it does not join that
+        # list, and the page regroups; tasks.js carries the composer.
         response = HTMLResponse("")
-        response.headers["HX-Trigger"] = "tasks:changed"
+        response.headers["HX-Trigger"] = ", ".join([*triggers, "tasks:changed"])
         return response
     response = _row_response(request, db, task.id)
-    # Only Today's open count follows; a full list refresh would re-render
+    # Only the page's open count follows; a full list refresh would re-render
     # the composer and pull focus out of it mid-entry.
-    response.headers["HX-Trigger"] = "task:added"
+    response.headers["HX-Trigger"] = ", ".join([*triggers, "task:added"])
     return response
 
 
@@ -172,9 +214,8 @@ def replan_task(request: Request, db: DbSession, task_id: int):
     return response
 
 
-# A task given time from the keyboard gets what a drop on the timeline gives
-# (calendar.js DEFAULT_BLOCK_MIN).
-BOOK_LENGTH = timedelta(hours=1)
+# A task given time from the keyboard gets what a drop on the timeline gives.
+BOOK_LENGTH = blocks_svc.DEFAULT_LENGTH
 
 
 @router.post("/tasks/{task_id}/book")
@@ -215,9 +256,15 @@ def save_task(
     project_id: Annotated[str, Form()] = "",
     milestone_id: Annotated[str, Form()] = "",
     planned_for: Annotated[str, Form()] = "",
+    time_range: Annotated[str, Form(alias="time")] = "",
     due: Annotated[str, Form()] = "",
     repeat: Annotated[str, Form()] = "none",
 ):
+    was = tasks_svc.get_task(db, task_id).planned_for
+    day = date.fromisoformat(planned_for) if planned_for else None
+    start, end = _time_range(time_range)
+    if start is not None and day is None:
+        day = was or date.today()  # a time needs a day
     task = tasks_svc.update_task(
         db,
         task_id,
@@ -227,14 +274,23 @@ def save_task(
         owner=owner,
         project_id=int(project_id) if project_id else None,
         milestone_id=int(milestone_id) if milestone_id else None,
-        planned_for=date.fromisoformat(planned_for) if planned_for else None,
+        planned_for=day,
         due=date.fromisoformat(due) if due else None,
     )
     _apply_task_repeat(db, task, repeat)
+    # Its time rides with its day: moved with it, set, or taken away.
+    had = blocks_svc.day_block(task, was) if was else None
+    had_time = f"{had.start:%H:%M}-{had.end:%H:%M}" if had else ""
+    if time_range != had_time or (had is not None and day != was):
+        if day is not None:
+            blocks_svc.set_day_time(db, task, day, start, end, was=was)
+        elif had is not None:
+            blocks_svc.delete_block(db, had.id)
     db.commit()
     response = _row_response(request, db, task_id)
-    # Its day may have changed: lists grouped or filtered by day re-render.
-    response.headers["HX-Trigger"] = "tasks:changed"
+    # Its day or time may have changed: lists grouped or filtered by day, and
+    # the time grid, re-render.
+    response.headers["HX-Trigger"] = "tasks:changed, calendar:refresh"
     return response
 
 
@@ -292,8 +348,6 @@ def add_event(
     all_day: Annotated[bool, Form()] = False,
     repeat: Annotated[str, Form()] = "none",
 ):
-    from datetime import datetime, time, timedelta
-
     if repeat != "none":
         template = recurrence_svc.create_template(
             db,
@@ -444,4 +498,45 @@ def toggle_milestone(request: Request, db: DbSession, milestone_id: int):
         request,
         "partials/milestone_row.html",
         {"request": request, "m": milestone_ctx(db, milestone, date.today())},
+    )
+
+
+@router.post("/notebook/{day}")
+async def save_notebook(request: Request, db: DbSession, day: date):
+    """Save a day's page (notebook.js): {"version": the copy's version,
+    "blocks": [...]}. Answers the new version, or 409 with the page's
+    current one when it was saved elsewhere since."""
+    from app.services import notebook as notebook_svc
+
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise DomainError("Expected a page")
+    try:
+        page = notebook_svc.save_page(
+            db, day, body.get("blocks"), version=int(body.get("version", -1))
+        )
+    except notebook_svc.StalePage as exc:
+        return JSONResponse(
+            {"detail": str(exc), "version": notebook_svc.version_of(db, day)}, status_code=409
+        )
+    db.commit()
+    return JSONResponse({"version": page.version})
+
+
+@router.get("/notebook/{day}/version")
+def notebook_version(db: DbSession, day: date):
+    from app.services import notebook as notebook_svc
+
+    return JSONResponse({"version": notebook_svc.version_of(db, day)})
+
+
+@router.get("/tasks/{task_id}/history")
+def task_history(request: Request, db: DbSession, task_id: int):
+    """How the task changed, newest first, for its sheet."""
+    from app.services import history as history_svc
+    from app.ui.views import history_ctx
+
+    steps = history_ctx(history_svc.changes(db, task_id), date.today())
+    return templates.TemplateResponse(
+        request, "partials/task_history.html", {"request": request, "steps": steps}
     )

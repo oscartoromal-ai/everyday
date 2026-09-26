@@ -48,6 +48,7 @@ def create_task(
     milestone_id: int | None = None,
     planned_for: date | None = None,
     due: date | None = None,
+    written_on: date | None = None,
 ) -> Task:
     if not title.strip():
         raise DomainError("Task title must not be empty")
@@ -61,6 +62,7 @@ def create_task(
         milestone_id=milestone_id,
         planned_for=planned_for,
         due=due,
+        written_on=written_on,
     )
     db.add(task)
     db.flush()

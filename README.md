@@ -44,7 +44,7 @@ With the app running, add it as a user-level MCP server:
 claude mcp add --scope user --transport http personal-calendar http://127.0.0.1:8377/mcp/
 ```
 
-This gives any Claude Code session the planner tools (list/upsert projects and tasks, update task status, get the agenda, schedule a block, add an event) against the same database the web UI uses.
+This gives any Claude Code session the planner tools (list/upsert projects and tasks, update task status, get the agenda, read the day's notebook and a task's history, schedule a block, add an event) against the same database the web UI uses.
 No auth is required locally; the trust boundary is the network (localhost and the tailnet), not a token.
 
 ## Work-calendar setup

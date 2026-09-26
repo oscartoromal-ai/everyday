@@ -231,11 +231,11 @@ def test_today_from_the_keyboard(page, live, app_db, monkeypatch) -> None:
     with app_db() as db:
         assert tasks_svc.get_task(db, claude_id).planned_for == TODAY + timedelta(days=1)
 
-    # N writes into Today's own list.
+    # N writes at the end of Today's notebook.
     press(page, "n")
     page.keyboard.type("Juliet")
     press(page, "Control+Enter")
-    page.locator("#today-list .task-row", has_text="Juliet").wait_for()
+    page.locator("#notebook .task-row", has_text="Juliet").wait_for()
 
 
 def test_projects_from_the_keyboard(page, live, app_db) -> None:
@@ -317,18 +317,18 @@ def test_shift_n_writes_a_new_task_from_any_page(page, live, app_db, tasks) -> N
 
 def test_an_add_racing_a_list_refresh_lands_once(page, live, app_db) -> None:
     """A refresh fetched just before an add lands just after it: the new task
-    still shows, and its words do not come back as a draft to add again."""
+    shows once, in the notebook it was written in, and nowhere else."""
     page.goto(f"{live}/today")
     press(page, "n")
     page.keyboard.type("Kilo")
     # The refresh goes out first, then the add, in one tick.
     page.evaluate("""() => {
       htmx.trigger(document.body, 'tasks:changed');
-      document.querySelector('#today-section .task-sheet').requestSubmit();
+      document.querySelector('#notebook .nb-draft .task-sheet').requestSubmit();
     }""")
-    page.locator("#today-list .task-row", has_text="Kilo").wait_for(timeout=5000)
+    page.locator("#notebook .task-row", has_text="Kilo").wait_for(timeout=5000)
     page.wait_for_timeout(300)  # any second refresh has landed too
-    assert page.locator("#today-list .task-row", has_text="Kilo").count() == 1
-    assert page.locator("#today-section .task-sheet .sheet-title").text_content() == ""
+    assert page.locator(".task-row", has_text="Kilo").count() == 1
+    assert page.locator("#notebook .nb-draft").count() == 0
     with app_db() as db:
         assert [t.title for t in tasks_svc.list_tasks(db)].count("Kilo") == 1
