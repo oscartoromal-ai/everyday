@@ -28,7 +28,7 @@
 
   {# Regroups whenever a task is added, dated, saved, ticked or deleted;
      tasks.js carries any half-written composer across the swap. #}
-  <div id="task-groups"
+  <div id="task-groups" data-cursor
        hx-get="/" hx-select="#task-groups" hx-select-oob="#tasks-rest" hx-swap="outerHTML"
        hx-trigger="task:added from:body, tasks:changed from:body, calendar:refresh from:body"
        hx-disinherit="hx-get hx-select hx-select-oob hx-swap hx-trigger">

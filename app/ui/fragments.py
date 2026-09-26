@@ -6,10 +6,11 @@ from datetime import date, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.db import DbSession
 from app.models import MilestoneStatus, ProjectStatus, RecurrenceKind, TaskOwner, TaskStatus
+from app.services import DomainError
 from app.services import blocks as blocks_svc
 from app.services import events as events_svc
 from app.services import projects as projects_svc
@@ -18,6 +19,7 @@ from app.services import tasks as tasks_svc
 from app.ui.views import (
     last_missed_block,
     milestone_ctx,
+    next_slot_today,
     project_card_ctx,
     projects_list_ctx,
     replan_slot,
@@ -168,6 +170,25 @@ def replan_task(request: Request, db: DbSession, task_id: int):
     # Today's list and timeline re-render; the Tasks page regroups.
     response.headers["HX-Trigger"] = "calendar:refresh, tasks:changed"
     return response
+
+
+# A task given time from the keyboard gets what a drop on the timeline gives
+# (calendar.js DEFAULT_BLOCK_MIN).
+BOOK_LENGTH = timedelta(hours=1)
+
+
+@router.post("/tasks/{task_id}/book")
+def book_task(db: DbSession, task_id: int):
+    """Give a task the next free hour today: the keyboard's drop on the
+    timeline. Answers the booked time, or 422 when today has no free hour."""
+    now = datetime.now()
+    start = next_slot_today(db, BOOK_LENGTH, now)
+    if start is None:
+        raise DomainError("No free hour left today.")
+    blocks_svc.schedule_block(db, task_id=task_id, start=start, end=start + BOOK_LENGTH)
+    tasks_svc.update_task(db, task_id, planned_for=now.date())
+    db.commit()
+    return JSONResponse({"start": f"{start:%H:%M}", "end": f"{start + BOOK_LENGTH:%H:%M}"})
 
 
 @router.get("/tasks/{task_id}/edit")

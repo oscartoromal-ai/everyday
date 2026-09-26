@@ -2,7 +2,12 @@
 {% block title %}Projects · Personal Calendar{% endblock %}
 {% block content %}
 <header class="page-header">
-  <h1>Projects</h1>
+  <div>
+    <h1>Projects</h1>
+    <p class="keys-hint">
+      <kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Shift</kbd> next project · <kbd>Enter</kbd> edit · <kbd>N</kbd> new · <kbd>P</kbd> file · <kbd>?</kbd> all keys
+    </p>
+  </div>
 </header>
 
 {% include "partials/projects_list.html" %}

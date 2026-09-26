@@ -1,5 +1,5 @@
 {# Re-renders when a task is filed elsewhere (dragged, or saved in its editor). #}
-<div id="projects"
+<div id="projects" data-cursor
      hx-get="/projects" hx-select="#projects" hx-swap="outerHTML" hx-trigger="tasks:changed from:body"
      hx-disinherit="hx-get hx-select hx-swap hx-trigger">
   {% for card in active %}{% include "partials/project_card.html" %}{% endfor %}
@@ -7,7 +7,8 @@
   <p class="empty">No active projects. Start one below; milestones and tasks hang off it.</p>
   {% endif %}
   {% for label, cards in [("Paused", paused), ("Done", done)] if cards %}
-  <details class="project-shelf">
+  {# Open shelves stay open through the list's refreshes (tasks.js, pc-open-folds). #}
+  <details class="project-shelf" id="shelf-{{ label | lower }}" data-remember>
     <summary>{{ label }} <span class="count">{{ cards | length }}</span></summary>
     {% for card in cards %}{% include "partials/project_card.html" %}{% endfor %}
   </details>

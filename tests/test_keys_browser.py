@@ -6,7 +6,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.models import TaskStatus
+from app.models import ProjectStatus, TaskOwner, TaskStatus
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
@@ -19,14 +19,23 @@ CURSOR = """(() => {
   const a = document.activeElement;
   if (a?.matches('.task-row')) return a.dataset.taskTitle;
   if (a?.matches('.done-fold > summary')) return 'Done';
+  if (a?.matches('.project-shelf > summary')) return a.childNodes[0].textContent.trim();
   return null;
 })()"""
 
 # The cursor's path, in order: rows and fold headers the eye can see.
-STOPS = """[...document.querySelectorAll(
-  '#task-groups .task-row[tabindex], #task-groups .done-fold > summary')]
+STOPS = """[...document.querySelectorAll([
+    '[data-cursor] .task-row[tabindex]',
+    '[data-cursor] .done-fold > summary',
+    '[data-cursor] .project-shelf > summary',
+  ].join(', '))]
   .filter((e) => e.checkVisibility())
-  .map((e) => e.dataset.taskTitle || 'Done')"""
+  .map((e) => e.dataset.taskTitle
+    || (e.closest('.done-fold') ? 'Done' : e.childNodes[0].textContent.trim()))"""
+
+# The task rows alone, in the cursor's order.
+ROWS = """[...document.querySelectorAll('[data-cursor] .task-row[tabindex]')]
+  .filter((e) => e.checkVisibility()).map((e) => e.dataset.taskTitle)"""
 
 
 @pytest.fixture
@@ -62,7 +71,7 @@ def cursor(page) -> str:
 def following(page) -> str:
     """The row after the cursor's (or before it, at the end): where it goes
     once its row is dated, filed, finished or deleted away."""
-    rows = [s for s in page.evaluate(STOPS) if s != "Done"]
+    rows = page.evaluate(ROWS)
     at = rows.index(cursor(page))
     return rows[at + 1] if at + 1 < len(rows) else rows[at - 1]
 
@@ -169,3 +178,100 @@ def test_keys_that_work_anywhere(page, live, tasks) -> None:
     page.wait_for_url("**/today")
     press(page, "5")
     page.wait_for_url("**/projects")
+
+
+def fixed_clock(monkeypatch, hour: int) -> None:
+    """Pin the fragment endpoints' clock (the live server runs in this process)."""
+    import datetime as dt
+
+    import app.ui.fragments as fragments
+
+    moment = dt.datetime.combine(TODAY, dt.time(hour))
+
+    class Fixed(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):  # noqa: ANN001, ANN206
+            return moment
+
+    monkeypatch.setattr(fragments, "datetime", Fixed)
+
+
+def test_today_from_the_keyboard(page, live, app_db, monkeypatch) -> None:
+    fixed_clock(monkeypatch, 10)
+    with app_db() as db:
+        first = tasks_svc.create_task(db, title="Golf", planned_for=TODAY)
+        tasks_svc.create_task(db, title="Hotel", planned_for=TODAY)
+        claude = tasks_svc.create_task(db, title="India", planned_for=TODAY, owner=TaskOwner.claude)
+        db.commit()
+        first_id, claude_id = first.id, claude.id
+    page.goto(f"{live}/today")
+
+    # The cursor runs through Today's list into Claude's section.
+    press(page, "j")
+    cursor_on(page, "Golf")
+    press(page, "End")
+    cursor_on(page, "India")
+
+    # B: the next free hour, and on to the next row.
+    press(page, "Home")
+    cursor_on(page, "Golf")
+    press(page, "b")
+    page.locator(".cal-toast.show", has_text="Booked 10:00–11:00: Golf").wait_for()
+    cursor_on(page, "Hotel")
+    with app_db() as db:
+        blocks = tasks_svc.get_task(db, first_id).blocks
+        assert [(b.start.hour, b.end.hour) for b in blocks] == [(10, 11)]
+
+    # M moves Claude's task to tomorrow from here too (no do-date buttons on Today).
+    press(page, "End", "m")
+    page.wait_for_function(f"{CURSOR} !== 'India'", timeout=5000)
+    with app_db() as db:
+        assert tasks_svc.get_task(db, claude_id).planned_for == TODAY + timedelta(days=1)
+
+    # N writes into Today's own list.
+    press(page, "n")
+    page.keyboard.type("Juliet")
+    press(page, "Control+Enter")
+    page.locator("#today-list .task-row", has_text="Juliet").wait_for()
+
+
+def test_projects_from_the_keyboard(page, live, app_db) -> None:
+    with app_db() as db:
+        health = projects_svc.create_project(db, name="Health")
+        home = projects_svc.create_project(db, name="Home")
+        shelved = projects_svc.create_project(db, name="Japanese")
+        tasks_svc.create_task(db, title="Kilo", project_id=health.id)
+        tasks_svc.create_task(db, title="Lima", project_id=home.id)
+        tasks_svc.create_task(db, title="Mike", project_id=shelved.id)
+        shelved.status = ProjectStatus.paused
+        db.commit()
+        home_id = home.id
+    page.goto(f"{live}/projects")
+
+    press(page, "j")
+    cursor_on(page, "Kilo")
+    press(page, "Shift+J")  # the next project
+    cursor_on(page, "Lima")
+
+    # N writes into the cursor's project.
+    press(page, "n")
+    page.keyboard.type("November")
+    press(page, "Control+Enter")
+    page.locator(f"#project-{home_id} .task-row", has_text="November").wait_for()
+    press(page, "Escape")
+    cursor_on(page, "November")
+
+    # The Paused shelf is a stop; Space opens it and its tasks join the path.
+    press(page, "End")
+    cursor_on(page, "Paused")
+    press(page, "Space", "j")
+    cursor_on(page, "Mike")
+    after = following(page)
+    press(page, "t")
+    # The cursor moves on once the list has refreshed around the change, and
+    # the shelf it was in stays open through that refresh.
+    cursor_on(page, after)
+    assert page.evaluate("document.querySelector('#shelf-paused').open")
+    with app_db() as db:
+        mike = next(t for t in tasks_svc.list_tasks(db) if t.title == "Mike")
+        assert mike.planned_for == TODAY

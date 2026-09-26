@@ -2,7 +2,7 @@
 {% block title %}Today · Personal Calendar{% endblock %}
 {% block content %}
 <div class="today-page">
-  <div class="today-lists">
+  <div class="today-lists" data-cursor>
     <header class="day-header">
       <div class="weekday">{{ today.strftime("%A") }}</div>
       <div class="rest" id="day-rest"
@@ -11,6 +11,9 @@
         {% set open_count = rows | rejectattr("done") | list | length %}
         · {% if open_count == 0 %}nothing open{% elif open_count == 1 %}1 task open{% else %}{{ open_count }} tasks open{% endif %}
       </div>
+      <p class="keys-hint">
+        <kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> edit · <kbd>N</kbd> new · <kbd>X</kbd> done · <kbd>B</kbd> book an hour · <kbd>?</kbd> all keys
+      </p>
     </header>
 
     <div id="nudges-slot">{% with nudges = nudges %}{% include "partials/nudges.html" %}{% endwith %}</div>

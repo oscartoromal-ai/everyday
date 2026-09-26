@@ -710,3 +710,34 @@ def test_missed_row_moves_to_tomorrow_when_today_is_full(client, db, monkeypatch
     assert task.planned_for == TODAY + timedelta(days=1)
     assert not [b for b in task.blocks if b.state.value == "planned"]
     assert "missed" not in response.text and "tomorrow" in response.text
+
+
+def test_book_gives_a_task_the_next_free_hour_today(client, db, monkeypatch) -> None:
+    from app.models import Event, EventSource
+
+    _fixed_now(monkeypatch, at(14, 7))
+    task = tasks_svc.create_task(db, title="deep work")
+    db.add(Event(title="1:1", start=at(14, 15), end=at(15, 0),
+                 source=EventSource.work, read_only=True))
+    db.flush()
+
+    response = client.post(f"/ui/tasks/{task.id}/book")
+    assert response.status_code == 200
+    assert response.json() == {"start": "15:00", "end": "16:00"}
+    assert [(b.start, b.end) for b in task.blocks] == [(at(15, 0), at(16, 0))]
+    assert task.planned_for == TODAY
+
+
+def test_book_says_when_today_is_full(client, db, monkeypatch) -> None:
+    from app.models import Event, EventSource
+
+    _fixed_now(monkeypatch, at(14, 7))
+    task = tasks_svc.create_task(db, title="deep work")
+    db.add(Event(title="Offsite", start=at(14, 0), end=at(22, 0),
+                 source=EventSource.work, read_only=True))
+    db.flush()
+
+    response = client.post(f"/ui/tasks/{task.id}/book")
+    assert response.status_code == 422
+    assert response.json() == {"detail": "No free hour left today."}
+    assert task.blocks == []

@@ -139,10 +139,11 @@ Each row ends in quiet do-date buttons, always shown since dating is the page's 
 They darken to graphite on row hover and ink on their own hover; a button for the day the task already has leaves its slot empty, so the columns line up down the page.
 On phones they take their own line under the title's text, without empty slots.
 Dating a task regroups the page from the server.
-The page works from the keyboard alone.
-A 12px pewter line under the header names the first keys and ends in "? all keys" (hidden on touch and phones); the focused row is the cursor, drawn as the nav's own marker, a 3px spark bar inset on its left edge with the spark glow, over the row hover fill.
+The page works from the keyboard alone, as do Today and Projects (each marks its lists' area `data-cursor`).
+A 12px pewter line under each of their headers names the page's first keys and ends in "? all keys" (hidden on touch and phones); the focused row is the cursor, drawn as the nav's own marker, a 3px spark bar inset on its left edge with the spark glow, over the row hover fill.
 The bar shows for keyboard focus only (`:focus-visible`), never after a click.
-It is the one cursor the app draws: a Done fold's header and the item under the keyboard in a task sheet's menu take the same bar (on `--fog` in the menu, which is opaque paper).
+It is the one cursor the app draws: a Done fold's header, a Projects shelf's header (as an inset shadow, since its `::before` is the +/− sign) and the item under the keyboard in a task sheet's menu take the same bar (on `--fog` in the menu, which is opaque paper).
+Projects' shelves remember being open like the Done folds, so a key acting inside one never folds it away.
 
 **Done fold.** Finished tasks fold away under a list: a pewter "Done" summary with its count and a steel chevron that turns when open, then the rows, checked and struck through, ready to untick.
 On Today it is the last row of the Today card; on Tasks it is its own card at the foot, noting "last 14 days".
@@ -221,10 +222,10 @@ After the PATCH, `weeks:refresh` re-renders the board.
 **Writing tasks** (`app/static/task-sheet.js`, `app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`).
 `task-sheet.js` runs the task sheet: the title line, its field icons and their menus, typed words becoming fields, adding, and saving an edit when focus leaves it.
 Every field is a hidden input the form posts, so the icons and menus only read and write those inputs; the menus live in the body, since list cards clip what overflows them.
-`tasks.js` runs the row disclosures, the Done folds, the Tasks cursor and filing by drag; `shell.js` the keys that work on every page, 1 to 5 for the nav's pages and ? for the keys dialog.
-The Tasks keys: Up/Down or J/K move (a Done fold's header is a stop, opened by Enter or Space), Shift jumps a group, Home and End go to the ends; Enter or E edits, N writes a new task (By project, in the cursor's project), X done, T today, M tomorrow, D and P open the task sheet on its day or project menu, Space opens the description, Delete deletes after asking, V switches By date and By project, Esc leaves.
+`tasks.js` runs the row disclosures, the Done folds, the cursor on Tasks, Today and Projects, and filing by drag; `shell.js` the keys that work on every page, 1 to 5 for the nav's pages and ? for the keys dialog.
+The list keys: Up/Down or J/K move (a Done fold's or shelf's header is a stop, opened by Enter or Space), Shift jumps a group (a project, on Projects), Home and End go to the ends; Enter or E edits, N writes a new task (into the cursor's project where it has one, else the page's own composer), X done, T today, M tomorrow (posted directly where rows have no do-date buttons), B books the next free hour today (the keyboard's drop on Today's timeline; a toast says what it booked, or that today is full), R replans a missed task, D and P open the task sheet on its day or project menu, Space opens the description, Delete deletes after asking, V switches Tasks' views, Esc leaves.
 The cursor lands where the work leaves it: on the row that followed one dated, filed, finished or deleted away; on the same task after an edit, wherever it regrouped to; on a task just added when Esc leaves the composer; and on the same task across V's reload (`sessionStorage` key `pc-task-cursor`).
-A re-rendered list is only live once htmx settles it, so a key pressed in between waits and replays; an open edit caught in a list's re-render keeps its sheet, words, fields and caret where the task's new row lands.
+A re-rendered list is only live once htmx settles it, so a key pressed in between waits and replays, and a sheet submitted before htmx has taken it over waits too, rather than let the browser submit it and leave the page; an open edit caught in a list's re-render keeps its sheet, words, fields and caret where the task's new row lands.
 Keys never fire while typing in a field or over a dialog, and reaching for the mouse ends the pass.
 Lists that re-render from the server take any half-written task with them: `task-sheet.js` carries its title, description, fields and focus across the swap to the fresh sheet with the same `data-composer-key`.
 `notes-editor.js` is the description editor: a contenteditable whose structure is always its own, since every edit that could split, merge or restyle a line is cancelled in `beforeinput` and redone on a line model.

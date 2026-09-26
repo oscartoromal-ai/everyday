@@ -16,29 +16,40 @@
     }
   });
 
-  /* ---- Tasks: the keyboard cursor ---- */
+  /* ---- the keyboard cursor: Tasks, Today and Projects ---- */
 
-  // The whole page works from the keyboard. The cursor is the focused row
-  // (or a Done fold's header, which Enter or Space opens), drawn as the nav's
-  // spark bar. Up/Down or J/K move it, Shift jumps a group, Home/End go to
-  // the ends; Enter or E edits, N writes a new task, X done, T today,
-  // M tomorrow, D picks a day and P a project (the task sheet's menus),
+  // Every page with task lists works from the keyboard alone; each marks its
+  // lists' area with data-cursor. The cursor is the focused row (or a fold's
+  // header: Done, or a Projects shelf, which Enter or Space opens), drawn as
+  // the nav's spark bar. Up/Down or J/K move it, Shift jumps a group (a
+  // project, on Projects), Home/End go to the ends; Enter or E edits, N
+  // writes a new task (into the cursor's project where there is one), X
+  // done, T today, M tomorrow, B books the next free hour today, R replans a
+  // missed task, D picks a day and P a project (the task sheet's menus),
   // Space opens the description, Delete deletes after asking, V switches
-  // By date and By project, Esc leaves. The list re-renders from the server
-  // after every change, and the cursor lands where it belongs: on the row
-  // that followed one dated, filed, finished or deleted away, and on the
-  // same task after an edit.
+  // Tasks' views, Esc leaves. The lists re-render from the server after
+  // every change, and the cursor lands where it belongs: on the row that
+  // followed one acted on, and on the same task after an edit.
   const TYPING = "input, textarea, select, [contenteditable]";
   const LIST_KEYS = new Set([
     "ArrowDown", "ArrowUp", "j", "k", "Home", "End", "n", "v", "Escape",
-    "t", "m", "d", "p", "x", "e", "Enter", " ", "Delete", "Backspace",
+    "t", "m", "b", "r", "d", "p", "x", "e", "Enter", " ", "Delete", "Backspace",
   ]);
-  const STOPS = "#task-groups .task-row[tabindex], #task-groups .done-fold > summary";
+  const STOPS = [
+    "[data-cursor] .task-row[tabindex]",
+    "[data-cursor] .done-fold > summary",
+    "[data-cursor] .project-shelf > summary",
+  ].join(", ");
   const CURSOR_KEY = "pc-task-cursor"; // carries the cursor across V's reload
-  const onTasks = () => !!document.querySelector(".tasks-page");
+  const onCursorPage = () => !!document.querySelector("[data-cursor]");
   const shown = (el) => (el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null);
   const stops = () => [...document.querySelectorAll(STOPS)].filter(shown);
-  const groupOf = (stop) => stop.closest(".list-section, .project-card");
+  const groupOf = (stop) => stop.closest(".list-section, .project-card, .project-shelf");
+  const isoDay = (offset) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
 
   let landOn = null; // id to focus once the list has re-rendered
   let last = null; // id of the cursor's last stop, to come back to from writing
@@ -105,13 +116,31 @@
     // After the list settles, land here (a row's id).
     land(id) { landOn = id; },
     // Back from a composer: to the last stop, else the first.
-    restore() { return onTasks() && focusStop(byId(last) || stops()[0]); },
+    restore() { return onCursorPage() && focusStop(byId(last) || stops()[0]); },
     // A task just added: the cursor's next stop.
     remember(id) { last = id; },
   };
 
+  // B: the next free hour today, the keyboard's drop on Today's timeline.
+  // The page says what it booked, or that today is full.
+  const book = async (row, next) => {
+    const res = await fetch(`/ui/tasks/${row.dataset.taskId}/book`, {
+      method: "POST", headers: { "X-CSRF": window.csrfToken() },
+    });
+    let answer = {};
+    try { answer = await res.json(); } catch { /* no body */ }
+    if (!res.ok) {
+      toast(answer.detail || "Could not book that task.");
+      return;
+    }
+    toast(`Booked ${answer.start}–${answer.end}: ${row.dataset.taskTitle}`);
+    landOn = next;
+    htmx.trigger(document.body, "calendar:refresh");
+    htmx.trigger(document.body, "tasks:changed");
+  };
+
   document.addEventListener("keydown", (e) => {
-    if (!onTasks() || e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
+    if (!onCursorPage() || e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
     if (e.target.closest?.(TYPING) || document.querySelector("dialog[open]")) return;
     if (listSettling && LIST_KEYS.has(e.key.length === 1 ? e.key.toLowerCase() : e.key)) {
       e.preventDefault();
@@ -141,19 +170,23 @@
     }
     if (key === "n") {
       e.preventDefault();
-      // By project, into the cursor's project; otherwise the page's composer.
+      // Into the cursor's project where it has one; else the page's own
+      // composer (Tasks' capture card, Today's), else the first project's.
       const card = stop?.closest(".project-card");
-      const composer = card?.querySelector(".task-sheet[data-composer]") || document.querySelector(".capture .task-sheet");
+      const composers = [...document.querySelectorAll(".task-sheet[data-composer]")];
+      const composer = card?.querySelector(".task-sheet[data-composer]")
+        || composers.find((form) => !form.closest(".project-card")) || composers[0];
       window.TaskSheet.compose(composer);
       return;
     }
     if (key === "v") {
-      e.preventDefault();
       const other = document.querySelector(".tasks-page .segmented a:not([aria-current])");
+      if (!other) return;
+      e.preventDefault();
       try {
         if (last) sessionStorage.setItem(CURSOR_KEY, last);
       } catch { /* storage blocked: the cursor starts over */ }
-      other?.click();
+      other.click();
       return;
     }
     if (key === "Escape" && stop) {
@@ -173,7 +206,19 @@
     if (key === "t" || key === "m") {
       e.preventDefault();
       leaving();
-      if (!click(`[data-plan="${key === "t" ? "today" : "tomorrow"}"]`)) landOn = null;
+      // Only Tasks' rows carry the do-date buttons; elsewhere the key posts it.
+      if (click(`[data-plan="${key === "t" ? "today" : "tomorrow"}"]`)) return;
+      htmx.ajax("POST", `/ui/tasks/${row.dataset.taskId}/plan`, {
+        source: row, swap: "none", values: { planned_for: isoDay(key === "t" ? 0 : 1) },
+      });
+    } else if (key === "b") {
+      e.preventDefault();
+      book(row, neighbour(row)?.id ?? null);
+    } else if (key === "r") {
+      if (!row.querySelector(".replan-btn")) return;
+      e.preventDefault();
+      leaving();
+      click(".replan-btn");
     } else if (key === "d" || key === "p") {
       e.preventDefault();
       // The sheet opens on the field's menu; a change lands on the next row.
@@ -206,11 +251,6 @@
     if (dialog.id === "confirm-dialog" && !dialog.open && dialog.returnValue !== "go") landOn = null;
   }, true);
 
-  // Once a swap has settled, the cursor lands where a key said it should.
-  // htmx already puts focus back on a re-rendered element with the same id,
-  // which keeps the cursor on a row through a refresh; a landing overrides
-  // that, but only from a row or from the page, never from anything else the
-  // user moved to.
   // Once a list has settled: the cursor lands where a key said it should,
   // then keys that waited for the list replay on the row that has focus.
   // htmx already puts focus back on a re-rendered element with the same id,

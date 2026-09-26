@@ -109,6 +109,18 @@ def description_blocks(notes: str) -> list[dict[str, Any]]:
     ]
 
 
+def next_slot_today(db: Session, duration: timedelta, now: datetime) -> datetime | None:
+    """The next free stretch of today's calendar this long, from now (or the
+    grid's first hour) to the grid's last; None when today has no room left."""
+    today = now.date()
+    return blocks_svc.next_free_slot(
+        db,
+        duration=duration,
+        after=max(now, datetime.combine(today, time(DAY_START_HOUR))),
+        until=datetime.combine(today, time(DAY_END_HOUR)),
+    )
+
+
 def replan_slot(task: Task, now: datetime) -> datetime | None:
     """Where a missed task's time would go if replanned now: the next free
     stretch of today's calendar as long as its last missed block, or None when
@@ -117,13 +129,7 @@ def replan_slot(task: Task, now: datetime) -> datetime | None:
     db = object_session(task)
     if missed_block is None or db is None:
         return None
-    today = now.date()
-    return blocks_svc.next_free_slot(
-        db,
-        duration=missed_block.end - missed_block.start,
-        after=max(now, datetime.combine(today, time(DAY_START_HOUR))),
-        until=datetime.combine(today, time(DAY_END_HOUR)),
-    )
+    return next_slot_today(db, missed_block.end - missed_block.start, now)
 
 
 def sheet_ctx(db: Session, task: Task, today: date) -> dict[str, Any]:

@@ -518,6 +518,22 @@
   document.addEventListener("submit", (e) => {
     const form = sheetOf(e.target);
     if (!form || e.target !== form) return;
+    // A sheet only ever posts through htmx. One swapped in a moment ago is
+    // not htmx's yet (it takes a sheet over as the swap settles), and the
+    // browser would submit it itself, leaving the page; the submit waits, and
+    // goes to the sheet that is live by then (a composer's draft moves to its
+    // re-rendered twin).
+    if (form.dataset.ready == null) {
+      e.preventDefault();
+      e.stopPropagation();
+      const key = form.dataset.composerKey;
+      setTimeout(() => {
+        const live = form.isConnected ? form
+          : key && document.querySelector(`.task-sheet[data-composer-key="${CSS.escape(key)}"]`);
+        if (live?.dataset.ready != null) live.requestSubmit();
+      }, 60);
+      return;
+    }
     closeMenu(false);
     convertTrailing(form);
     if (!titleText(form)) {

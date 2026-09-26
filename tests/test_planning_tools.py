@@ -21,10 +21,12 @@ def test_planning_rows_take_keyboard_focus_and_name_their_actions(client, db) ->
     assert 'tabindex="-1"' in row
     buttons = _row(client.get("/").text, task.id)
     assert 'data-plan="today"' in buttons and 'data-plan="tomorrow"' in buttons
-    # Rows outside Tasks are not part of the triage cursor.
+    # Today's and Projects' rows are cursor stops too, inside their pages' cursor areas.
     tasks_svc.update_task(db, task.id, planned_for=TODAY)
-    today_row = client.get("/today").text.split(f'id="task-{task.id}"')[1].split(">")[0]
-    assert "tabindex" not in today_row
+    today = client.get("/today").text
+    assert 'tabindex="-1"' in today.split(f'id="task-{task.id}"')[1].split(">")[0]
+    assert 'class="today-lists" data-cursor' in today
+    assert 'id="projects" data-cursor' in client.get("/projects").text
 
 
 def test_project_cards_and_milestones_are_drop_targets(client, db) -> None:

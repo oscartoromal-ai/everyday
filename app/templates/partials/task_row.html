@@ -1,6 +1,5 @@
 <li class="task-row{% if row.done %} done{% endif %}" id="task-{{ row.task.id }}"
-    data-task-id="{{ row.task.id }}" data-task-title="{{ row.task.title }}"
-    {%- if row.plan_controls %} tabindex="-1"{% endif %}>
+    data-task-id="{{ row.task.id }}" data-task-title="{{ row.task.title }}" tabindex="-1">
   <input type="checkbox" class="task-check" {% if row.done %}checked{% endif %}
          hx-post="/ui/tasks/{{ row.task.id }}/toggle"
          hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML"
