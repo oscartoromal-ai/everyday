@@ -19,6 +19,15 @@ GRID_PX = (DAY_END_HOUR - DAY_START_HOUR) * HOUR_PX
 ITEM_LINE_PX = 15.6
 ITEM_PAD_PX = 6
 ITEM_GAP_PX = 2
+# A gutter label's line box (12px type at 1.3); the first hour's label sits 2px
+# down from the top instead of centred on its line. Two labels' digits (about
+# 9px tall) only collide when their centres are closer than GUTTER_CLEAR_PX.
+GUTTER_LABEL_PX = 16
+GUTTER_CLEAR_PX = 12
+
+
+def _hour_label_centre(index: int) -> float:
+    return 2 + GUTTER_LABEL_PX / 2 if index == 0 else index * HOUR_PX
 
 
 def week_monday(anchor: date) -> date:
@@ -159,9 +168,18 @@ def grid_ctx(db: Session, first_day: date, now: datetime, day_count: int = 7) ->
         if 0 < px < GRID_PX:
             now_px = round(px, 1)
 
+    # The now-label covers the gutter where it sits; an hour label it would half
+    # cover gives way instead of peeking out above or below it.
+    hours = list(range(DAY_START_HOUR, DAY_END_HOUR))
+    hours_under_now = [
+        i for i in range(len(hours))
+        if now_px is not None and abs(_hour_label_centre(i) - now_px) < GUTTER_CLEAR_PX
+    ]
+
     return {
         "days": days,
-        "hours": list(range(DAY_START_HOUR, DAY_END_HOUR)),
+        "hours": hours,
+        "hours_under_now": hours_under_now,
         "hour_px": HOUR_PX,
         "grid_px": GRID_PX,
         "day_start_hour": DAY_START_HOUR,

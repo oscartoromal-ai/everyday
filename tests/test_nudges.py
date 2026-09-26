@@ -29,7 +29,7 @@ def test_missed_block_nudge_raised_once(db) -> None:
     # Same fact never nags twice, even after dismissal.
     nudges_svc.dismiss(db, created[0].id, NOW)
     assert nudges_svc.evaluate(db, NOW) == []
-    assert nudges_svc.active_nudges(db) == []
+    assert nudges_svc.active_nudges(db, NOW) == []
 
 
 def test_due_and_milestone_nudges_within_lookahead(db) -> None:
@@ -47,6 +47,30 @@ def test_due_and_milestone_nudges_within_lookahead(db) -> None:
     assert types == ["due_soon", "milestone_soon"]
     assert any("near" in n.message for n in created)
     assert any("v1" in n.message for n in created)
+
+
+def test_a_nudge_stays_only_while_its_fact_holds(db) -> None:
+    missed = _missed_task(db, title="slipped")
+    due = tasks_svc.create_task(db, title="invoice", due=TODAY + timedelta(days=1))
+    review = tasks_svc.create_task(db, title="review me")
+    tasks_svc.set_status(db, review.id, TaskStatus.needs_review)
+    review.status_changed_at = NOW - timedelta(hours=72)
+    db.flush()
+    nudges_svc.evaluate(db, NOW)
+    assert len(nudges_svc.active_nudges(db, NOW)) == 3
+
+    # Replanned, finished, reviewed: each nudge has had its answer.
+    block = blocks_svc.schedule_block(
+        db, task_id=missed.id, start=NOW + timedelta(hours=1), end=NOW + timedelta(hours=2)
+    )
+    tasks_svc.set_status(db, due.id, TaskStatus.done)
+    tasks_svc.set_status(db, review.id, TaskStatus.done)
+    assert nudges_svc.active_nudges(db, NOW) == []
+
+    # Its fact true again (the new block gone), the missed nudge comes back.
+    blocks_svc.delete_block(db, block.id)
+    assert [n.task_id for n in nudges_svc.active_nudges(db, NOW)] == [missed.id]
+
 
 
 def test_needs_review_nudge_after_threshold(db) -> None:

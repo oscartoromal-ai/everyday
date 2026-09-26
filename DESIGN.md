@@ -41,7 +41,8 @@ An inline script at the top of `<head>` sets that attribute before first paint: 
 With no saved choice, `shell.js` keeps following the system live.
 
 - **Neutrals:** `--paper`, `--fog`, `--hairline`, `--mist`, `--steel`, `--pewter`, `--graphite`, `--ink`, and `--carbon` for dark chrome with `--on-carbon` text.
-  Headings and primary data are ink, secondary text graphite or pewter, placeholders and muted labels steel.
+  Headings and primary data are ink, secondary text graphite, and placeholders and muted labels pewter.
+  `--steel` never draws text: it is for marks (empty checkboxes, muted icons, grips) at 3:1 or more.
 - **Spark:** `--spark` with `--spark-deep` for hover and for spark-coloured text, `--spark-tint` for selection and drop-target state only, and `--on-spark` for text on it (near-black at night, since white on neon pink fails contrast).
 - **Signal:** `--signal` draws the now-line, `--signal-deep` writes its time.
 - **Solid:** `--solid`, `--on-solid` and `--solid-handle` make task blocks solid ink in both modes: deep indigo by day, white tubes at night.
@@ -70,13 +71,13 @@ The shell is a 240px matte sidebar plus a content column on the canvas.
 The wordmark is Brasa's pattern: the name in 600 followed by a spark period, "Personal Calendar.".
 At night the name carries a faint halo (`--ink-glow-text`) and the period glows and strikes once on load, three stutters and then steady, like a tube coming on (`--spark-entrance`).
 Nav items are 14px/500 graphite; the active one is ink 600 with Brasa's 3px spark bar, glowing at night, inset 8px from the viewport edge.
-Nav is grouped in the Brasa manner: the planning pages (Tasks, Today, Calendar, Weeks) sit under a 12px steel "Planner" group label, Tasks first since the app opens on it; Projects follows as a second group.
+Nav is grouped in the Brasa manner: the planning pages (Tasks, Today, Calendar, Weeks) sit under a 12px pewter "Planner" group label, Tasks first since the app opens on it; Projects follows as a second group.
 The foot carries Brasa's shipped light/dark toggle: the current mode's sun or moon, which rotates and fades into the other, beside the mode's name in 12px pewter.
 The names are the installed system's own, read from `design-language.json`: "Day" and "Night" for Neon Signage.
 A panel icon beside the wordmark collapses the sidebar to a 64px icon rail (`data-rail="collapsed"` on `<html>`, saved as `pc-rail`, applied before paint).
 The shell animates its column width on `--ease` over 220ms.
 When collapsed, the wordmark and labels hide, each link keeps its name as a tooltip, group labels become hairlines, and the spark bar stays.
-Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the spark bar moves above the active tab's icon, and the collapse and theme controls stay desktop-only (a saved theme still applies).
+Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the spark bar moves above the active tab's icon, and the mode toggle ends the bar as a 44px sun or moon icon past a hairline, with no label; the collapse control stays desktop-only.
 Content is 800px wide for list pages (Tasks, Projects) and 1200px for Today, Calendar and Weeks.
 
 ## Components
@@ -90,9 +91,11 @@ The box the user has just ticked plays the system's `--check-pulse` once (in Neo
 The title is 14px/500 ink, and the meta line is 12px pewter.
 Today's block time is ink 500, and a do-date off Today is graphite.
 "Due soon" and "missed" are warn and err badges.
+A missed task offers one step back onto the plan beside its badge, a quiet 12px pewter button like the do-date buttons: "Replan at 16:30" books the missed block's length into the next free quarter-hour slot today (past timed events and other blocks, before 22:00), or "Move to tomorrow" gives it tomorrow as its do-date when today has no room.
+The meta line sits 4px under the title, so the description disclosure can take a full 24px target (WCAG 2.5.8) without touching the title's.
 Claude's statuses are badges too: Queued neutral, Running ok (with a static dot), Needs review warn, Blocked err.
-A task with a description adds a steel disclosure to the start of its meta line: a chevron and the sub-task count ("1/3"), or "Notes" when it has none.
-Opened, the description sits under the meta line in 14px graphite: context lines as written, sub-tasks as 14px ink checkboxes that fill like the row's own, and a done sub-task steel with a strikethrough.
+A task with a description adds a pewter disclosure to the start of its meta line: a chevron and the sub-task count ("1/3"), or "Notes" when it has none.
+Opened, the description sits under the meta line in 14px graphite: context lines as written, sub-tasks as 14px ink checkboxes that fill like the row's own, and a done sub-task pewter with a strikethrough.
 An indented line under a sub-task is its note, hung 22px in so it aligns with the sub-task's words.
 Which descriptions are open is remembered per tab (`sessionStorage` key `pc-open-notes`), so Today's live refreshes never fold them shut.
 A small trash bin ends each row, steel and hidden until the row is hovered or focused (always shown on touch), and err-tinted on hover.
@@ -101,11 +104,11 @@ The dialog restates the task's name in ink 600 and offers a Ghost Cancel (focuse
 It is the one handler behind every `hx-confirm` that carries `data-confirm-*` attributes (`shell.js`), so the browser's native confirm box never appears.
 
 **Composer.** Each list card ends in a quick-add row: a steel plus and a borderless title.
-Typing a title opens the description underneath (focus alone does not, so a composer that folds away never shifts the page under a click), aligned with the title's text, with a steel "Ctrl+Enter to add" hint (hidden on touch), a secondary Cancel and the spark "Add task".
+Typing a title opens the description underneath (focus alone does not, so a composer that folds away never shifts the page under a click), aligned with the title's text, with a pewter "Ctrl+Enter to add" hint (hidden on touch), a secondary Cancel and the spark "Add task".
 Enter in the title moves to the description, and Ctrl+Enter adds the task and returns to an empty title for the next one.
 
 **Description editor.** One line per block, in 14px graphite (16px ink inside the task editor's field).
-A line typed as "- words" turns into a sub-task when Enter is pressed: a 14px box, drawn as the line's own `::before`, that fills ink when clicked, with the words in ink, or steel and struck through once ticked.
+A line typed as "- words" turns into a sub-task when Enter is pressed: a 14px box, drawn as the line's own `::before`, that fills ink when clicked, with the words in ink, or pewter and struck through once ticked.
 Enter on a sub-task starts the next one, Enter on an empty one steps out of the list, and Backspace at a sub-task's start turns it back into plain text.
 Shift+Enter under a sub-task writes a note hung 22px in, under its words; Enter on a note starts the next sub-task.
 Tab and Shift+Tab nest and un-nest by 22px; pasted "- " lines arrive as sub-tasks; the editor keeps its own undo.
@@ -120,7 +123,7 @@ Each row ends in quiet do-date buttons, always shown since dating is the page's 
 They darken to graphite on row hover and ink on their own hover; a button for the day the task already has leaves its slot empty, so the columns line up down the page.
 On phones they take their own line under the title's text, without empty slots.
 Dating a task regroups the page from the server.
-The keyboard triages: a 12px steel line under the header names the keys (hidden on touch and phones), and the focused row is the cursor, drawn as the nav's own marker, a 3px spark bar inset on its left edge with the spark glow, over the row hover fill.
+The keyboard triages: a 12px pewter line under the header names the keys (hidden on touch and phones), and the focused row is the cursor, drawn as the nav's own marker, a 3px spark bar inset on its left edge with the spark glow, over the row hover fill.
 The bar shows for keyboard focus only (`:focus-visible`), never after a click.
 
 **Done fold.** Finished tasks fold away under a list: a pewter "Done" summary with its count and a steel chevron that turns when open, then the rows, checked and struck through, ready to untick.
@@ -130,10 +133,11 @@ Which folds are open is remembered per tab (`sessionStorage` key `pc-open-folds`
 **Buttons.** `.btn.primary` is the spark primary, glowing at night, `.btn.quiet` the glass secondary, `.btn.danger-quiet` the destructive secondary with an err border.
 Week navigation and nudge actions are secondary-style controls.
 
-**Inputs.** 16px text, a 12px radius and a hairline border on glass; focus clears the border and draws Brasa's 2px spark ring, glowing at night.
+**Inputs.** 16px text, a 12px radius and a hairline border on glass; focus clears the border and draws Brasa's 2px ring, glowing at night.
+Every focus ring is `--spark-deep`, not `--spark`: accent text holds 4.5:1 on every surface, where the bright spark can sink into a glow of its own colour (Brasa's ember aurora).
 
 **Time grid** (Calendar's week and Today's one-day timeline, one partial).
-Day heads are 12px steel over a 14px/600 number, with today in `--spark-deep`, glowing at night.
+Day heads are 12px pewter over a 14px/600 number, with today in `--spark-deep`, glowing at night.
 Weekend columns carry `--ink-tint-faint`.
 Items are 6px-radius tags with a 2px gap below, so back-to-back items never merge:
 
@@ -146,9 +150,10 @@ Items are 6px-radius tags with a 2px gap below, so back-to-back items never merg
 
 Titles wrap over the lines an item's height allows.
 The grid's one light is the now-line in `--signal` (cyan in Neon Signage, glowing at night), whose time is written in `--signal-deep` in the gutter.
+An hour label whose digits the time would overlap (centres within 12px) is hidden, so the gutter never shows a clipped "06:00" behind "06:21".
 
 **Weeks.** The Grid/Rows switch is Brasa's segmented control: a pill track, the active option `--carbon` with `--on-carbon` text (deep violet at night, never the spark's pink).
-*Grid* is a card of six weeks by seven days, in the manner of Brasa's month calendar: 12px steel weekday heads, cells at least 112px tall, tinted weekends, past day numbers in steel, and today's number in the 2px spark ring, glowing at night, the board's one spark.
+*Grid* is a card of six weeks by seven days, in the manner of Brasa's month calendar: 12px pewter weekday heads, cells at least 112px tall, tinted weekends, past day numbers and entries in pewter, and today's number in the 2px spark ring, glowing at night, the board's one spark.
 *Rows* is one card per week, a 14px/600 date column and wrapped entries, with the week's meeting load right-aligned over the days' figures.
 Entries are one line each:
 
@@ -164,7 +169,7 @@ The add-a-task plus shows on hover, or always on touch, and opens an opaque popo
 
 **Project cards.** The title is 20px/600, followed by the open count, a secondary-style status select, and a ghost pencil that swaps in the inline editor.
 Milestone rows are 14px/600 with steel circles that turn ink when reached, and a warn badge when the target is close.
-Each milestone's open tasks are indented beneath it; the other tasks follow under a steel caption, then the project's quick-add row.
+Each milestone's open tasks are indented beneath it; the other tasks follow under a pewter caption, then the project's quick-add row.
 Paused and done projects sit on collapsible shelves.
 A task files by drag: onto a milestone group, into that milestone; onto another card, into that project with no milestone; onto No project, out of any.
 The row in hand fades to 40%, and the target under it lights like a Weeks drop target, `--spark-tint` with an inset 1.5px spark ring.

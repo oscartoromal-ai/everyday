@@ -119,14 +119,19 @@ def has_missed_marker(task: Task, now: datetime) -> bool:
     """Missed marker: a block was missed and the task is neither replanned nor closed.
 
     Derived from block state per the spec; missed is never a task status.
+    Replanned means a block still to come, or a do-date after the day of the
+    last miss that has not itself passed yet.
     """
     if task.status in (TaskStatus.done, TaskStatus.cancelled):
         return False
-    has_missed = any(b.state == BlockState.missed for b in task.blocks)
-    if not has_missed:
+    missed = [b for b in task.blocks if b.state == BlockState.missed]
+    if not missed:
         return False
-    replanned = any(b.state == BlockState.planned and b.start >= now for b in task.blocks)
-    return not replanned
+    if any(b.state == BlockState.planned and b.start >= now for b in task.blocks):
+        return False
+    missed_on = max(b.start for b in missed).date()
+    redated = task.planned_for is not None and task.planned_for > missed_on
+    return not (redated and task.planned_for >= now.date())
 
 
 def _with_blocks(stmt):  # noqa: ANN001, ANN202

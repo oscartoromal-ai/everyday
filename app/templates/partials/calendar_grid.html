@@ -33,7 +33,7 @@
   <div class="grid-body" style="height: {{ grid.grid_px }}px;">
     <div class="gutter">
       {% for hour in grid.hours %}
-      <div class="hour-label" style="top: {{ loop.index0 * grid.hour_px }}px;">{{ "%02d:00" | format(hour) }}</div>
+      <div class="hour-label{% if loop.index0 in grid.hours_under_now %} under-now{% endif %}" style="top: {{ loop.index0 * grid.hour_px }}px;">{{ "%02d:00" | format(hour) }}</div>
       {% endfor %}
       {% if grid.now_px is not none %}
       {# The now-line never carries its meaning alone: the gutter names the time. #}

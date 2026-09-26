@@ -61,6 +61,32 @@ def test_missed_marker_derives_from_blocks(db) -> None:
     assert block.state == BlockState.missed
 
 
+def test_a_new_do_date_after_the_miss_replans(db) -> None:
+    yesterday = TODAY - timedelta(days=1)
+    task = tasks_svc.create_task(db, title="call", planned_for=yesterday)
+    start = NOW - timedelta(days=1)
+    blocks_svc.schedule_block(db, task_id=task.id, start=start, end=start + timedelta(hours=1))
+    blocks_svc.mark_missed_blocks(db, NOW)
+    assert tasks_svc.has_missed_marker(task, NOW)
+
+    # Given a day after the miss (Weeks drag, T on Tasks, Move to tomorrow): replanned.
+    for day in (TODAY, TODAY + timedelta(days=1)):
+        tasks_svc.update_task(db, task.id, planned_for=day)
+        assert not tasks_svc.has_missed_marker(task, NOW)
+    # Once that new day passes too, it is missed again.
+    assert tasks_svc.has_missed_marker(task, NOW + timedelta(days=2))
+
+
+def test_a_block_missed_on_its_do_date_stays_missed(db) -> None:
+    task = tasks_svc.create_task(db, title="write", planned_for=TODAY)
+    blocks_svc.schedule_block(
+        db, task_id=task.id, start=NOW - timedelta(hours=3), end=NOW - timedelta(hours=2)
+    )
+    blocks_svc.mark_missed_blocks(db, NOW)
+    assert tasks_svc.has_missed_marker(task, NOW)
+
+
+
 def test_missed_marker_gone_when_done(db) -> None:
     task = tasks_svc.create_task(db, title="t")
     blocks_svc.schedule_block(

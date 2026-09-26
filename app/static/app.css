@@ -32,7 +32,9 @@ body {
 }
 
 ::selection { background: var(--spark-tint); color: var(--spark-deep); }
-:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--spark), var(--spark-glow); border-radius: var(--r-tag); }
+/* focus rings take --spark-deep, which holds 4.5:1 on every surface (the bright
+   spark can sink into a glow of its own colour) */
+:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--spark-deep), var(--spark-glow); border-radius: var(--r-tag); }
 input, textarea { caret-color: var(--spark); }
 
 /* inline links are ink + underline; the spark never colours a text run */
@@ -155,7 +157,8 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 
 .main { width: 100%; max-width: 800px; margin-inline: auto; padding: var(--s-8); }
 
-/* phone: the rail becomes a bottom tab bar; collapse and theme live on desktop */
+/* phone: the rail becomes a bottom tab bar; the mode toggle ends it as an icon,
+   past a hairline, and the collapse control stays on desktop */
 @media (max-width: 720px) {
   .shell, :root[data-rail="collapsed"] .shell { grid-template-columns: minmax(0, 1fr); }
   .rail {
@@ -165,7 +168,12 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
     background: var(--glass-tab-bar);
     border-right: none; border-top: 1px solid var(--chrome-flank-border);
   }
-  .rail-head, .rail-foot, .nav-group-label { display: none; }
+  .rail-head, .nav-group-label { display: none; }
+  .rail-foot { display: flex; align-self: center; margin: 0; padding: 0 0 0 var(--s-1); border-top: none; border-left: 1px solid var(--chrome-flank-border); }
+  .theme-toggle { width: 44px; height: 44px; padding: 0; justify-content: center; }
+  .theme-toggle:hover { background: none; }
+  .theme-toggle__label { display: none; }
+  .theme-toggle__icon-stack, .theme-toggle__icon { width: 20px; height: 20px; }
   :root[data-rail="collapsed"] .nav-label { display: inline; }
   .nav, .nav-group { display: contents; }
   .nav a { flex-direction: column; gap: 2px; padding: 6px var(--s-2); font-size: var(--t-caption); }
@@ -281,7 +289,7 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 
 .task-meta {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3);
-  margin-top: 2px;
+  margin-top: 4px;
   font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums;
 }
 .task-meta .when { color: var(--ink); font-weight: 500; }
@@ -290,13 +298,25 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 /* the description: folded under the meta line, opened by its count */
 .notes-toggle {
   display: inline-flex; align-items: center; gap: 3px;
-  margin-left: -2px; padding: 0 4px 0 2px; border-radius: var(--r-tag);
+  /* a 24px target (WCAG 2.5.8) over a 17px line: padded, pulled back by margins */
+  min-height: 24px; margin: -3.5px 0 -3.5px -2px; padding: 3.5px 4px 3.5px 2px; border-radius: var(--r-tag);
   color: var(--pewter); font-variant-numeric: tabular-nums;
   transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
 .notes-toggle svg { stroke: currentColor; }
 .notes-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
 .notes-toggle:hover { color: var(--ink); background: var(--glass-hover); }
+
+/* a missed task's one step back onto the plan: quiet like the do-date buttons */
+.replan-btn {
+  display: inline-flex; align-items: center;
+  /* a 24px target over the 17px meta line, pulled back like the disclosure's */
+  min-height: 24px; margin: -3.5px -6px; padding: 3.5px 6px; border-radius: var(--r-tag);
+  font-weight: 500; color: var(--pewter); font-variant-numeric: tabular-nums;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.task-row:hover .replan-btn, .task-row[tabindex]:focus-visible .replan-btn { color: var(--graphite); }
+.replan-btn:hover, .task-row:hover .replan-btn:hover { color: var(--ink); background: var(--glass-hover); }
 
 .task-notes { margin-top: var(--s-2); font-size: var(--t-body-sm); line-height: 1.5; color: var(--graphite); }
 .task-notes p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -489,7 +509,7 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 }
 .field input:hover, .field select:hover, .field textarea:hover, .field .notes-editor:hover { border-color: var(--mist); }
 .field input:focus, .field select:focus, .field textarea:focus, .field .notes-editor:focus, .status-select:focus-visible {
-  outline: none; border-color: transparent; box-shadow: 0 0 0 2px var(--spark), var(--spark-glow);
+  outline: none; border-color: transparent; box-shadow: 0 0 0 2px var(--spark-deep), var(--spark-glow);
 }
 .field input::placeholder, .field textarea::placeholder { color: var(--pewter); }
 .field input[type="date"], .field input[type="time"] { font-variant-numeric: tabular-nums; }
@@ -573,7 +593,7 @@ dialog.confirm::backdrop { background: var(--scrim); }
   border-top: 1px solid var(--hairline-on-glass);
   font-size: var(--t-body-sm);
 }
-.milestone button { display: grid; place-content: center; border-radius: 50%; }
+.milestone button { display: grid; place-content: center; width: 24px; height: 24px; margin: -4px; border-radius: 50%; }
 .milestone svg { flex: none; stroke: var(--steel); }
 .milestone.reached svg { stroke: var(--ink); }
 .milestone .name { flex: 1; font-weight: 600; }
@@ -699,6 +719,8 @@ dialog.confirm::backdrop { background: var(--scrim); }
   font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums;
 }
 .gutter .hour-label:first-child { transform: none; top: 2px !important; }
+/* an hour label the now-label would half cover gives way to it */
+.hour-label.under-now { visibility: hidden; }
 .now-label {
   position: absolute; right: 6px; z-index: 6; transform: translateY(-50%);
   padding: 0 2px; border-radius: var(--r-tag);
@@ -892,7 +914,7 @@ dialog.confirm::backdrop { background: var(--scrim); }
   background: var(--fog); border: 1px solid transparent; border-radius: var(--r-ctl);
 }
 .plan-add input::placeholder { color: var(--pewter); }
-.plan-add input:focus { outline: none; box-shadow: 0 0 0 2px var(--spark), var(--spark-glow); }
+.plan-add input:focus { outline: none; box-shadow: 0 0 0 2px var(--spark-deep), var(--spark-glow); }
 @media (hover: none) { .plan-add summary { opacity: 1; } }
 
 /* grid layout: Brasa's month calendar */

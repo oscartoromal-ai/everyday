@@ -567,3 +567,75 @@ def test_shell_has_theme_toggle_and_collapse_control(client) -> None:
     assert head.index("/static/design/design.css?v=") < head.index("/static/app.css?v=")
     for font in design_system()["fonts"]:
         assert f'href="/static/design/{font}" as="font"' in head
+
+
+def at(hour: int, minute: int):  # noqa: ANN201
+    """A wall-clock time today."""
+    from datetime import datetime, time
+
+    return datetime.combine(TODAY, time(hour, minute))
+
+
+def _fixed_now(monkeypatch, moment):  # noqa: ANN001, ANN202
+    """Pin datetime.now() for the fragments module (the replan endpoint's clock)."""
+    import datetime as dt
+
+    import app.ui.fragments as fragments
+
+    class Fixed(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):  # noqa: ANN001, ANN206
+            return moment
+
+    monkeypatch.setattr(fragments, "datetime", Fixed)
+
+
+def test_missed_row_replans_into_the_next_free_slot(client, db, monkeypatch) -> None:
+    from app.models import Event, EventSource
+    from app.services import blocks as blocks_svc
+
+    now = at(14, 7)
+    _fixed_now(monkeypatch, now)
+    task = tasks_svc.create_task(db, title="slipped", planned_for=TODAY - timedelta(days=1))
+    blocks_svc.schedule_block(
+        db, task_id=task.id, start=at(9, 0), end=at(9, 45)
+    )
+    blocks_svc.mark_missed_blocks(db, now)
+    db.add(Event(title="1:1", start=at(14, 15), end=at(15, 0),
+                 source=EventSource.work, read_only=True))
+    db.flush()
+
+    row = client.get(f"/ui/tasks/{task.id}/row").text
+    assert 'class="replan-btn"' in row and f'hx-post="/ui/tasks/{task.id}/replan"' in row
+
+    response = client.post(f"/ui/tasks/{task.id}/replan")
+    assert response.status_code == 200
+    assert response.headers["hx-trigger"] == "calendar:refresh, tasks:changed"
+    planned = [b for b in task.blocks if b.state.value == "planned"]
+    assert [(b.start, b.end) for b in planned] == [
+        (at(15, 0), at(15, 45))
+    ]
+    assert task.planned_for == TODAY
+    assert "missed" not in response.text and "15:00–15:45" in response.text
+
+
+def test_missed_row_moves_to_tomorrow_when_today_is_full(client, db, monkeypatch) -> None:
+    from app.models import Event, EventSource
+    from app.services import blocks as blocks_svc
+
+    now = at(14, 7)
+    _fixed_now(monkeypatch, now)
+    task = tasks_svc.create_task(db, title="slipped", planned_for=TODAY)
+    blocks_svc.schedule_block(
+        db, task_id=task.id, start=at(9, 0), end=at(10, 0)
+    )
+    blocks_svc.mark_missed_blocks(db, now)
+    db.add(Event(title="Offsite", start=at(14, 0), end=at(22, 0),
+                 source=EventSource.work, read_only=True))
+    db.flush()
+
+    response = client.post(f"/ui/tasks/{task.id}/replan")
+    assert response.status_code == 200
+    assert task.planned_for == TODAY + timedelta(days=1)
+    assert not [b for b in task.blocks if b.state.value == "planned"]
+    assert "missed" not in response.text and "tomorrow" in response.text

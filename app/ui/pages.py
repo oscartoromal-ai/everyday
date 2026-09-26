@@ -60,7 +60,7 @@ def today_page(request: Request, db: DbSession):
             "rows": [r for r in rows if not r["done"]],
             "done_rows": [r for r in rows if r["done"]],
             "delegated": [row_ctx(t, now) for t in delegated_rows],
-            "nudges": nudges_svc.active_nudges(db),
+            "nudges": nudges_svc.active_nudges(db, now),
             "grid": grid_ctx(db, now.date(), now, day_count=1),
         },
     )

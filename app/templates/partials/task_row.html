@@ -28,7 +28,12 @@
       {% if row.block_label %}<span class="when">{{ row.block_label }}</span>{% endif %}
       {% if row.project_name %}<span class="project">{{ row.project_name }}</span>{% endif %}
       {% if row.due_label %}<span class="due{% if row.due_soon %} soon{% endif %}">{{ row.due_label }}</span>{% endif %}
-      {% if row.missed %}<span class="missed">{{ row.missed_label }}</span>{% endif %}
+      {% if row.missed %}<span class="missed">{{ row.missed_label }}</span>
+      <button type="button" class="replan-btn"
+              hx-post="/ui/tasks/{{ row.task.id }}/replan"
+              hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML">
+        {%- if row.replan_at %}Replan at {{ row.replan_at }}{% else %}Move to tomorrow{% endif -%}
+      </button>{% endif %}
     </div>
     {% endif %}
     {% if row.description %}

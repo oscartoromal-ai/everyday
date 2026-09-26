@@ -7,7 +7,7 @@ from datetime import date, datetime, time, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Block, BlockState, Task, TaskStatus
+from app.models import Block, BlockState, Event, Task, TaskStatus
 from app.services import DomainError
 
 
@@ -24,6 +24,38 @@ def schedule_block(db: Session, *, task_id: int, start: datetime, end: datetime)
     db.add(block)
     db.flush()
     return block
+
+
+def next_free_slot(
+    db: Session, *, duration: timedelta, after: datetime, until: datetime, step_minutes: int = 15
+) -> datetime | None:
+    """The earliest start at or after `after`, on a quarter-hour boundary, where
+    `duration` fits before `until` without overlapping a timed event or another
+    planned or completed block. All-day events and missed blocks take no time."""
+    events = db.scalars(
+        select(Event).where(Event.start < until, Event.end > after, Event.all_day.is_(False))
+    )
+    blocks = db.scalars(
+        select(Block).where(
+            Block.start < until, Block.end > after, Block.state != BlockState.missed
+        )
+    )
+    busy = sorted([(e.start, e.end) for e in events] + [(b.start, b.end) for b in blocks])
+    step = timedelta(minutes=step_minutes)
+
+    def on_step(moment: datetime) -> datetime:
+        floor = moment.replace(minute=0, second=0, microsecond=0)
+        steps = -(-(moment - floor) // step)  # ceiling division
+        return floor + steps * step
+
+    start = on_step(after)
+    while start + duration <= until:
+        end = start + duration
+        clash = next(((s, e) for s, e in busy if s < end and e > start), None)
+        if clash is None:
+            return start
+        start = on_step(max(clash[1], start + step))
+    return None
 
 
 def move_block(db: Session, block_id: int, *, start: datetime, end: datetime) -> Block:
@@ -48,7 +80,9 @@ def complete_block(db: Session, block_id: int) -> Block:
 
 def delete_block(db: Session, block_id: int) -> None:
     block = get_block(db, block_id)
-    db.delete(block)
+    # Leaving the task's blocks deletes it (delete-orphan), and keeps the task's
+    # loaded collection true for the rest of the session.
+    block.task.blocks.remove(block)
     db.flush()
 
 

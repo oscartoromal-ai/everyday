@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app import checklist
 from app.dates import human_date, short_date
@@ -23,8 +23,10 @@ from app.models import (
     TaskOwner,
     TaskStatus,
 )
+from app.services import blocks as blocks_svc
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
+from app.ui.calendar_view import DAY_END_HOUR, DAY_START_HOUR
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 
@@ -106,6 +108,23 @@ def description_blocks(notes: str) -> list[dict[str, Any]]:
     ]
 
 
+def replan_slot(task: Task, now: datetime) -> datetime | None:
+    """Where a missed task's time would go if replanned now: the next free
+    stretch of today's calendar as long as its last missed block, or None when
+    today has no room left (the row then offers tomorrow instead)."""
+    missed_block = last_missed_block(task)
+    db = object_session(task)
+    if missed_block is None or db is None:
+        return None
+    today = now.date()
+    return blocks_svc.next_free_slot(
+        db,
+        duration=missed_block.end - missed_block.start,
+        after=max(now, datetime.combine(today, time(DAY_START_HOUR))),
+        until=datetime.combine(today, time(DAY_END_HOUR)),
+    )
+
+
 def row_ctx(task: Task, now: datetime, *, planning: bool = False) -> dict[str, Any]:
     """Everything the task-row partial needs, precomputed.
 
@@ -113,6 +132,7 @@ def row_ctx(task: Task, now: datetime, *, planning: bool = False) -> dict[str, A
     included, and carry the quick do-date buttons."""
     missed = tasks_svc.has_missed_marker(task, now)
     missed_block = last_missed_block(task) if missed else None
+    replan = replan_slot(task, now) if missed else None
     today = now.date()
     block = todays_block(task, today)
     subtasks_done, subtasks_total = checklist.progress(task.notes)
@@ -134,6 +154,8 @@ def row_ctx(task: Task, now: datetime, *, planning: bool = False) -> dict[str, A
         "plan_today": today,
         "plan_tomorrow": today + timedelta(days=1),
         "missed": missed,
+        # One step back onto the plan: the next free slot today, else tomorrow.
+        "replan_at": f"{replan:%H:%M}" if replan else None,
         "missed_label": (
             f"missed {short_date(missed_block.start.date(), today)}" if missed_block else None
         ),

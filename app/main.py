@@ -63,4 +63,6 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     return app
 
 
-app = create_app(with_scheduler=True)
+# The dev server's app (`uvicorn app.main:app`). It runs no jobs, since it may share
+# the always-on app's database; `personal-calendar` (serve.py) builds the one that does.
+app = create_app()

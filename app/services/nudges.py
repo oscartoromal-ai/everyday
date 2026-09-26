@@ -134,14 +134,28 @@ def evaluate(db: Session, now: datetime) -> list[Nudge]:
     return created
 
 
-def active_nudges(db: Session) -> list[Nudge]:
-    return list(
-        db.scalars(
-            select(Nudge)
-            .where(Nudge.dismissed_at.is_(None))
-            .order_by(Nudge.created_at.desc())
-        )
+def _still_holds(nudge: Nudge, now: datetime) -> bool:
+    """Whether the fact a task's nudge names is still true: a replanned or
+    finished task has had its answer, so its nudge stops asking."""
+    task = nudge.task
+    if task is None:
+        return True
+    if nudge.type == NudgeType.missed_block:
+        return tasks_svc.has_missed_marker(task, now)
+    if nudge.type == NudgeType.needs_review:
+        return task.status == TaskStatus.needs_review
+    return task.status in tasks_svc.OPEN_STATUSES
+
+
+def active_nudges(db: Session, now: datetime) -> list[Nudge]:
+    """Undismissed nudges whose fact still holds, newest first."""
+    nudges = db.scalars(
+        select(Nudge)
+        .options(selectinload(Nudge.task).selectinload(Task.blocks))
+        .where(Nudge.dismissed_at.is_(None))
+        .order_by(Nudge.created_at.desc())
     )
+    return [n for n in nudges if _still_holds(n, now)]
 
 
 def dismiss(db: Session, nudge_id: int, now: datetime | None = None) -> None:

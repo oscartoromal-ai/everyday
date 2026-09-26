@@ -31,6 +31,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   The calendar shows real events plus deliberately scheduled task blocks, never a forced block per task.
 - **Delegated to Claude** is a list section with status chips (queued, running, needs review), not a calendar lane.
 - **Missed blocks**: when a scheduled block passes uncompleted, the task falls back to the list wearing a visible "missed" marker until replanned or completed.
+  Replanned means a block still to come, or a do-date after the day it missed that has not itself passed; the row offers one step back onto the plan, the next free slot today or else tomorrow.
   The empty slot stays on today's calendar as a faded ghost outline, gone tomorrow.
   The calendar's future is a plan; its past stays honest.
 - **Tasks** is where the app opens, because planning comes before doing: every open task of Oscar's, grouped by do-date (Overdue, No date, Today, Tomorrow, Later this week, Next week, Later), each with one-click Today and Tomorrow buttons and a date picker.
@@ -149,6 +150,7 @@ Per [Decision: AI nudging and notifications](tracker/tickets/013-ai-nudging.md):
   3. Upcoming due dates and milestone target dates within about 3 days, task not done.
   4. Needs-review backlog: tasks sitting in needs_review beyond a threshold.
 - Nudges are templated by APScheduler jobs; Claude remains the planner Oscar talks to, not a background voice.
+- A task's nudge shows only while its fact still holds: replanning a missed task, finishing a task, or clearing its review retires the nudge without a dismissal.
 - **Channels**: an in-app nudge center (inbox/banner, each nudge dismissable or actionable) plus phone push via a relay.
   Windows toasts explicitly not used.
 - **Cadence**: a morning digest bundles the day's shape, missed blocks, upcoming dues, and review backlog.

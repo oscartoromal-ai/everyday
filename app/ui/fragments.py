@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
@@ -10,11 +10,20 @@ from fastapi.responses import HTMLResponse
 
 from app.db import DbSession
 from app.models import MilestoneStatus, ProjectStatus, RecurrenceKind, TaskOwner, TaskStatus
+from app.services import blocks as blocks_svc
 from app.services import events as events_svc
 from app.services import projects as projects_svc
 from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
-from app.ui.views import milestone_ctx, project_card_ctx, projects_list_ctx, row_ctx, templates
+from app.ui.views import (
+    last_missed_block,
+    milestone_ctx,
+    project_card_ctx,
+    projects_list_ctx,
+    replan_slot,
+    row_ctx,
+    templates,
+)
 
 router = APIRouter(prefix="/ui", include_in_schema=False)
 
@@ -119,6 +128,28 @@ def toggle_task(request: Request, db: DbSession, task_id: int):
     db.commit()
     response = _row_response(request, db, task_id)
     response.headers["HX-Trigger"] = "calendar:refresh"  # keeps Today's open count honest
+    return response
+
+
+@router.post("/tasks/{task_id}/replan")
+def replan_task(request: Request, db: DbSession, task_id: int):
+    """Put a missed task back on the plan in one step: its missed block's
+    length in the next free slot today, or tomorrow when today is full."""
+    task = tasks_svc.get_task(db, task_id)
+    now = datetime.now()
+    missed_block = last_missed_block(task)
+    slot = replan_slot(task, now) if tasks_svc.has_missed_marker(task, now) else None
+    if slot is not None and missed_block is not None:
+        blocks_svc.schedule_block(
+            db, task_id=task_id, start=slot, end=slot + (missed_block.end - missed_block.start)
+        )
+        tasks_svc.update_task(db, task_id, planned_for=now.date())
+    elif missed_block is not None:
+        tasks_svc.update_task(db, task_id, planned_for=now.date() + timedelta(days=1))
+    db.commit()
+    response = _row_response(request, db, task_id)
+    # Today's list and timeline re-render; the Tasks page regroups.
+    response.headers["HX-Trigger"] = "calendar:refresh, tasks:changed"
     return response
 
 
