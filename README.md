@@ -100,6 +100,9 @@ To install it:
 ```
 
 This makes the app effectively always-up while Oscar is logged in, which the work-calendar poll and nudge jobs assume.
+The task has no execution time limit; Task Scheduler's default of 72 hours would stop the app after three days.
+
+The hidden app's output goes to `data/logs/personal-calendar.log` (rotated at 5 MB, five kept), including why it stopped: Ctrl+C, a closed console, or an uncaught error.
 
 To restart it, for example after pulling changes:
 
