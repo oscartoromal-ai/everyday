@@ -497,9 +497,14 @@
         save(form, { keyboard: true });
         return;
       }
-      // Esc steps away, back to the list's cursor where there is one; a
-      // draft stays put until Cancel or Add.
+      // Esc steps away, back to the list's cursor where there is one (or out
+      // of the capture window); a draft stays put until Cancel or Add.
       if (!hasNotes(form) && !titleText(form)) form.classList.remove("composing");
+      const dialog = form.closest("dialog");
+      if (dialog) {
+        dialog.close();
+        return;
+      }
       if (!window.TaskCursor?.restore()) e.target.blur();
       return;
     }
@@ -518,11 +523,10 @@
   document.addEventListener("submit", (e) => {
     const form = sheetOf(e.target);
     if (!form || e.target !== form) return;
-    // A sheet only ever posts through htmx. One swapped in a moment ago is
-    // not htmx's yet (it takes a sheet over as the swap settles), and the
-    // browser would submit it itself, leaving the page; the submit waits, and
-    // goes to the sheet that is live by then (a composer's draft moves to its
-    // re-rendered twin).
+    // A sheet only ever posts through htmx: one that htmx has not taken over
+    // yet would be submitted by the browser itself, leaving the page. The
+    // submit waits, and goes to the sheet that is live by then (a composer's
+    // draft moves to its re-rendered twin).
     if (form.dataset.ready == null) {
       e.preventDefault();
       e.stopPropagation();
@@ -583,14 +587,28 @@
     document.activeElement?.blur();
   });
 
-  document.addEventListener("htmx:afterRequest", (e) => {
-    const form = e.detail.elt;
-    if (!form.matches?.(".task-sheet[data-sheet='compose']") || !e.detail.successful) return;
-    const added = /id="(task-\d+)"/.exec(e.detail.xhr.responseText);
-    if (added) window.TaskCursor?.remember(added[1]);
+  // An add, done. Heard on the form itself (init), since a list that
+  // re-rendered while the add was in flight took this composer with it, and a
+  // detached form's events never reach the document.
+  const added = (form, e) => {
+    const row = /id="(task-\d+)"/.exec(e.detail.xhr.responseText);
+    if (row) window.TaskCursor?.remember(row[1]);
+    if (form.closest("dialog")) {
+      // Written away from any list: say where it went, and let the page's
+      // own views of tasks catch up (Weeks' Unplanned tray, say).
+      const day = valueOf(form, "planned_for");
+      window.toast(`Added “${titleText(form)}” ${day ? `for ${shortDate(day)}` : "to No date"}`);
+      document.getElementById("capture-sink")?.replaceChildren();
+      htmx.trigger(document.body, "weeks:refresh");
+      htmx.trigger(document.body, "calendar:refresh");
+    }
+    // The list re-rendered while the add was in flight, from a moment before
+    // it: the new row went to the old list. Render the lists again.
+    if (!e.detail.target?.isConnected) htmx.trigger(document.body, "tasks:changed");
+    if (!form.isConnected) return; // its twin took the focus, and no draft
     resetComposer(form);
     placeCaret(titleOf(form), 0); // ready for the next one
-  });
+  };
 
   /* ---- edit: saves when focus leaves the sheet ---- */
 
@@ -642,6 +660,14 @@
     form.dataset.ready = "";
     syncTitle(form);
     draw(form);
+    if (!isEdit(form)) {
+      // While its add is in flight, what it holds is being saved, not a draft.
+      form.addEventListener("htmx:beforeRequest", () => { form.dataset.sending = ""; });
+      form.addEventListener("htmx:afterRequest", (e) => {
+        delete form.dataset.sending;
+        if (e.detail.successful) added(form, e);
+      });
+    }
     if (isEdit(form)) {
       // notes-editor.js loads first, so its htmx:load has already rendered the
       // description from the field: this is the task exactly as it stands.
@@ -728,14 +754,21 @@
   const carried = new WeakMap(); // request -> drafts
   document.addEventListener("htmx:beforeSwap", (e) => {
     const drafts = [...e.detail.target.querySelectorAll(".task-sheet[data-composer]")]
-      .map((form) => ({
-        key: form.dataset.composerKey,
-        title: titleOf(form).textContent,
-        notes: field(form, "notes").value,
-        fields: Object.fromEntries(FIELDS.map((name) => [name, valueOf(form, name)])),
-        focus: !form.contains(document.activeElement) ? null
-          : document.activeElement === titleOf(form) ? "title" : "notes",
-      }))
+      .map((form) => {
+        const focus = !form.contains(document.activeElement) ? null
+          : document.activeElement === titleOf(form) ? "title" : "notes";
+        const key = form.dataset.composerKey;
+        // An add in flight is being saved: only the focus moves over, so the
+        // same task is never offered to be added twice.
+        if (form.dataset.sending != null) return { key, title: "", notes: "", fields: null, focus };
+        return {
+          key,
+          title: titleOf(form).textContent,
+          notes: field(form, "notes").value,
+          fields: Object.fromEntries(FIELDS.map((name) => [name, valueOf(form, name)])),
+          focus,
+        };
+      })
       .filter((d) => d.title || d.notes || d.focus);
     if (drafts.length) carried.set(e.detail.xhr, drafts);
   });
@@ -746,7 +779,7 @@
     for (const d of drafts) {
       const form = document.querySelector(`.task-sheet[data-composer-key="${CSS.escape(d.key)}"]`);
       if (!form) continue;
-      for (const [name, value] of Object.entries(d.fields)) field(form, name).value = value;
+      for (const [name, value] of Object.entries(d.fields || {})) field(form, name).value = value;
       field(form, "notes").value = d.notes;
       window.NotesEditor.reload(notesEditorOf(form));
       setTitle(form, d.title);

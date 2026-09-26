@@ -619,6 +619,16 @@ dialog.confirm::backdrop { background: var(--scrim); }
 .confirm-name { color: var(--ink); font-weight: 600; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: var(--s-2); margin-top: var(--s-6); }
 
+/* a new task from Calendar or Weeks (N): the task sheet in a window, on the
+   confirm dialog's paper, near the top where a quick note belongs */
+dialog.capture-dialog {
+  width: min(600px, calc(100vw - 32px)); margin: 15vh auto auto; padding: var(--s-2) 0;
+  color: var(--ink); background: var(--paper);
+  border: 1px solid var(--hairline); border-radius: var(--r-ctl); box-shadow: var(--shadow-modal);
+}
+dialog.capture-dialog[open] { animation: confirm-in 220ms var(--ease); }
+dialog.capture-dialog::backdrop { background: var(--scrim); }
+
 /* every key, behind ? (shell.js): the confirm dialog's paper, two columns of pairs */
 dialog.keys-dialog {
   width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow-y: auto;

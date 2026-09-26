@@ -4,6 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}Personal Calendar{% endblock %}</title>
+  {# New content is live the moment htmx swaps it in. htmx's default is to wire
+     up swapped-in elements (hx-* attributes, body-triggered refreshes) only as
+     the swap settles, 20ms on, for CSS transitions this app does not use; in
+     that gap a refreshed list could miss the next refresh, and a key or a
+     submit could meet a control not yet wired up. #}
+  <meta name="htmx-config" content='{"defaultSettleDelay": 0}'>
   {% set ds = design() %}
   {# The design system comes from the design-language repo, installed into static/design (design-language.json).
      Its fonts are preloaded at exactly the URL design.css asks for, so each is fetched once. #}
@@ -99,6 +105,17 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
     </div>
   </form>
 </dialog>
+{% if active in ("calendar", "weeks") %}
+{# N or Shift+N on a page without a list of its own: a task sheet in a window
+   (shell.js). New tasks join a list nobody sees here, so the page says where
+   each one went; Esc closes it and keeps a half-written draft. #}
+<dialog id="capture-dialog" class="capture-dialog" aria-label="New task">
+  {% with mode = "compose", target = "capture-sink", planned_for = None, project_id = None, placeholder = "Add a task…" %}
+    {% include "partials/task_sheet.html" %}
+  {% endwith %}
+  <ul id="capture-sink" hidden></ul>
+</dialog>
+{% endif %}
 {# ? opens it anywhere (shell.js). #}
 <dialog id="keys-dialog" class="keys-dialog" aria-labelledby="keys-title" tabindex="-1">
   <form method="dialog">
@@ -111,6 +128,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         <h3>Anywhere</h3>
         <dl>
           <dt><kbd>1</kbd>–<kbd>5</kbd></dt><dd>Tasks, Today, Calendar, Weeks, Projects</dd>
+          <dt><kbd>N</kbd> <span class="or">or</span> <kbd>Shift</kbd> <kbd>N</kbd></dt><dd>New task</dd>
           <dt><kbd>?</kbd></dt><dd>These keys</dd>
         </dl>
         <h3>Writing a task</h3>
@@ -130,7 +148,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
           <dt><kbd>Shift</kbd> + move</dt><dd>Previous or next group, or project</dd>
           <dt><kbd>Home</kbd> <kbd>End</kbd></dt><dd>First or last task</dd>
           <dt><kbd>Enter</kbd> <span class="or">or</span> <kbd>E</kbd></dt><dd>Edit</dd>
-          <dt><kbd>N</kbd></dt><dd>New task</dd>
+          <dt><kbd>N</kbd></dt><dd>New task, in the cursor's project if it has one</dd>
           <dt><kbd>X</kbd></dt><dd>Done, or not done</dd>
           <dt><kbd>T</kbd> <kbd>M</kbd></dt><dd>Do today, tomorrow</dd>
           <dt><kbd>B</kbd></dt><dd>Book the next free hour today</dd>

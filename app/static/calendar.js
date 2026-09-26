@@ -36,18 +36,6 @@
   });
   placeScroll();
 
-  const toast = (message) => {
-    let el = document.querySelector(".cal-toast");
-    if (!el) {
-      el = document.createElement("div");
-      el.className = "cal-toast";
-      document.body.appendChild(el);
-    }
-    el.textContent = message;
-    el.classList.add("show");
-    setTimeout(() => el.classList.remove("show"), 2600);
-  };
-
   const api = async (method, url, body) => {
     const headers = { "X-CSRF": window.csrfToken ? window.csrfToken() : "" };
     if (body) headers["Content-Type"] = "application/json";
@@ -59,7 +47,7 @@
     if (!res.ok) {
       let detail = "Something went wrong.";
       try { detail = (await res.json()).detail || detail; } catch { /* keep default */ }
-      toast(detail);
+      window.toast(detail);
       throw new Error(detail);
     }
     return res.status === 204 ? null : res.json();

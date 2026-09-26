@@ -6,18 +6,6 @@
 (() => {
   const refresh = () => htmx.trigger(document.body, "weeks:refresh");
 
-  const toast = (message) => {
-    let el = document.querySelector(".cal-toast");
-    if (!el) {
-      el = document.createElement("div");
-      el.className = "cal-toast";
-      document.body.appendChild(el);
-    }
-    el.textContent = message;
-    el.classList.add("show");
-    setTimeout(() => el.classList.remove("show"), 2600);
-  };
-
   const replan = async (taskId, plannedFor) => {
     const res = await fetch(`/api/tasks/${taskId}`, {
       method: "PATCH",
@@ -27,7 +15,7 @@
     if (!res.ok) {
       let detail = "Could not move that task.";
       try { detail = (await res.json()).detail || detail; } catch { /* keep default */ }
-      toast(detail);
+      window.toast(detail);
     }
     refresh();
   };

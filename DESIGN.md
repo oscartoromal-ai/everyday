@@ -63,7 +63,8 @@ Dates, times, counts and busy hours are `tabular-nums`.
 
 - **Radii:** only `--r-tag` 6px (badges, checkboxes, calendar items), `--r-ctl` 12px (buttons, inputs, cards, nav items) and `--r-pill` (status badges, the segmented control).
 - **Spacing:** the `--s-*` scale (4, 8, 12, 16, 24, 32, 48).
-- **Elevation:** resting glass has no shadow; only the block menu, the add-a-task popover and the toast float, on opaque paper with `--shadow-dropdown`.
+- **Elevation:** resting glass has no shadow; only the block menu, the add-a-task popover, the task sheet's menus and the toast float, on opaque paper with `--shadow-dropdown`.
+  There is one toast, `window.toast` in `shell.js`, for every page; a newer message gets its own full moment.
 
 ## Shell
 
@@ -149,9 +150,13 @@ Projects' shelves remember being open like the Done folds, so a key acting insid
 On Today it is the last row of the Today card; on Tasks it is its own card at the foot, noting "last 14 days".
 Which folds are open is remembered per tab (`sessionStorage` key `pc-open-folds`).
 
-**Keys dialog.** `?` on any page opens every key, grouped Anywhere, Writing a task and Tasks, on the confirm dialog's paper, 760px wide in two columns (one under 640px).
+**Keys dialog.** `?` on any page opens every key, grouped Anywhere, Writing a task and Lists, on the confirm dialog's paper, 760px wide in two columns (one under 640px).
 Each column is one grid, so all its descriptions start on one line; keys are 12px graphite in hairline boxes.
 The dialog takes focus itself, so no control opens ringed; Esc closes it.
+
+**Capture window.** N or Shift+N writes a new task from any page: on Tasks, Today and Projects into the page's own list, and on Calendar and Weeks, which have no list to write in, in a window holding the task sheet (600px, 15vh from the top, on the confirm dialog's paper).
+It stays open for the next task, and a toast says where each one went ("Added “Call the plumber” for Fri 2 Oct", or "to No date"), since no list on the page shows it; Weeks' Unplanned tray catches up.
+Esc closes it and keeps a half-written draft for the next time.
 
 **Buttons.** `.btn.primary` is the spark primary, glowing at night, `.btn.quiet` the glass secondary, `.btn.danger-quiet` the destructive secondary with an err border.
 Week navigation and nudge actions are secondary-style controls.
@@ -225,9 +230,10 @@ Every field is a hidden input the form posts, so the icons and menus only read a
 `tasks.js` runs the row disclosures, the Done folds, the cursor on Tasks, Today and Projects, and filing by drag; `shell.js` the keys that work on every page, 1 to 5 for the nav's pages and ? for the keys dialog.
 The list keys: Up/Down or J/K move (a Done fold's or shelf's header is a stop, opened by Enter or Space), Shift jumps a group (a project, on Projects), Home and End go to the ends; Enter or E edits, N writes a new task (into the cursor's project where it has one, else the page's own composer), X done, T today, M tomorrow (posted directly where rows have no do-date buttons), B books the next free hour today (the keyboard's drop on Today's timeline; a toast says what it booked, or that today is full), R replans a missed task, D and P open the task sheet on its day or project menu, Space opens the description, Delete deletes after asking, V switches Tasks' views, Esc leaves.
 The cursor lands where the work leaves it: on the row that followed one dated, filed, finished or deleted away; on the same task after an edit, wherever it regrouped to; on a task just added when Esc leaves the composer; and on the same task across V's reload (`sessionStorage` key `pc-task-cursor`).
-A re-rendered list is only live once htmx settles it, so a key pressed in between waits and replays, and a sheet submitted before htmx has taken it over waits too, rather than let the browser submit it and leave the page; an open edit caught in a list's re-render keeps its sheet, words, fields and caret where the task's new row lands.
+htmx wires up swapped-in content in the same step as the swap (`defaultSettleDelay: 0`, in base.html): with its default 20ms settle, a re-rendered list missed a refresh fired in that gap, and keys and submits met controls not yet wired up. Keys are never queued, since a replayed key cannot type; a sheet htmx has not taken over never submits natively and leaves the page; an open edit caught in a list's re-render keeps its sheet, words, fields and caret where the task's new row lands.
 Keys never fire while typing in a field or over a dialog, and reaching for the mouse ends the pass.
 Lists that re-render from the server take any half-written task with them: `task-sheet.js` carries its title, description, fields and focus across the swap to the fresh sheet with the same `data-composer-key`.
+A task whose add is in flight is not a draft: only the focus moves over, so it is never offered to be added twice, and if its list re-rendered from a moment before the add landed, the lists render again so the new task shows.
 `notes-editor.js` is the description editor: a contenteditable whose structure is always its own, since every edit that could split, merge or restyle a line is cancelled in `beforeinput` and redone on a line model.
 It writes the same plain text the server stores into a hidden `notes` textarea, so forms and the server never see the editor.
 

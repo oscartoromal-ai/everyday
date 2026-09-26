@@ -170,6 +170,9 @@ def test_v_switches_the_view_and_keeps_the_cursor(page, live, tasks) -> None:
 
 def test_keys_that_work_anywhere(page, live, tasks) -> None:
     page.goto(live)
+    # Swapped-in content is live at once (base.html's htmx-config), which the
+    # cursor, the sheet and the lists' refreshes all rely on.
+    assert page.evaluate("htmx.config.defaultSettleDelay") == 0
     press(page, "?")
     page.locator("#keys-dialog[open]").wait_for()
     press(page, "Escape")
@@ -275,3 +278,57 @@ def test_projects_from_the_keyboard(page, live, app_db) -> None:
     with app_db() as db:
         mike = next(t for t in tasks_svc.list_tasks(db) if t.title == "Mike")
         assert mike.planned_for == TODAY
+
+
+def test_shift_n_writes_a_new_task_from_any_page(page, live, app_db, tasks) -> None:
+    # On a list page, into the page's own composer.
+    page.goto(live)
+    press(page, "Shift+N")
+    page.wait_for_function("document.activeElement.matches('.capture .sheet-title')", timeout=5000)
+    press(page, "Escape")
+
+    # On Weeks, a window: typed words work, the page says where each task
+    # went, and the window stays for the next one until Esc.
+    page.goto(f"{live}/weeks")
+    press(page, "Shift+N")
+    page.locator("#capture-dialog[open]").wait_for()
+    page.keyboard.type("Quebec tomorrow ")
+    press(page, "Control+Enter")
+    page.locator(".cal-toast.show", has_text="Added “Quebec” for tomorrow").wait_for()
+    assert page.evaluate("document.activeElement.matches('#capture-dialog .sheet-title')")
+    page.keyboard.type("Romeo")
+    press(page, "Control+Enter")
+    page.locator(".cal-toast.show", has_text="Added “Romeo” to No date").wait_for()
+    press(page, "Escape")
+    page.locator("#capture-dialog[open]").wait_for(state="detached")
+    # Weeks' Unplanned tray caught up with the undated one.
+    page.locator(".tray", has_text="Romeo").wait_for()
+
+    # On Calendar, plain N too.
+    page.goto(f"{live}/calendar")
+    press(page, "n")
+    page.locator("#capture-dialog[open]").wait_for()
+
+    with app_db() as db:
+        by_title = {t.title: t for t in tasks_svc.list_tasks(db)}
+        assert by_title["Quebec"].planned_for == TODAY + timedelta(days=1)
+        assert by_title["Romeo"].planned_for is None
+
+
+def test_an_add_racing_a_list_refresh_lands_once(page, live, app_db) -> None:
+    """A refresh fetched just before an add lands just after it: the new task
+    still shows, and its words do not come back as a draft to add again."""
+    page.goto(f"{live}/today")
+    press(page, "n")
+    page.keyboard.type("Kilo")
+    # The refresh goes out first, then the add, in one tick.
+    page.evaluate("""() => {
+      htmx.trigger(document.body, 'tasks:changed');
+      document.querySelector('#today-section .task-sheet').requestSubmit();
+    }""")
+    page.locator("#today-list .task-row", has_text="Kilo").wait_for(timeout=5000)
+    page.wait_for_timeout(300)  # any second refresh has landed too
+    assert page.locator("#today-list .task-row", has_text="Kilo").count() == 1
+    assert page.locator("#today-section .task-sheet .sheet-title").text_content() == ""
+    with app_db() as db:
+        assert [t.title for t in tasks_svc.list_tasks(db)].count("Kilo") == 1

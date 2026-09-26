@@ -59,13 +59,41 @@
   });
   applyRail(root.dataset.rail === "collapsed");
 
+  /* ---- a toast: one line of news at the foot of the page, for a moment ---- */
+
+  let toastTimer = 0;
+  window.toast = (message) => {
+    let el = document.querySelector(".cal-toast");
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "cal-toast";
+      el.setAttribute("role", "status");
+      document.body.appendChild(el);
+    }
+    el.textContent = message;
+    el.classList.add("show");
+    // A newer toast gets its own full moment.
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+  };
+
   /* ---- keys that work on every page: 1-5 go to the nav's pages in order,
-     ? shows every key (#keys-dialog). Never while typing, or over a dialog. ---- */
+     ? shows every key (#keys-dialog), and N or Shift+N writes a new task (on
+     the list pages, tasks.js puts it in the page's own list; elsewhere it
+     opens #capture-dialog). Never while typing, or over a dialog. ---- */
 
   const TYPING = "input, textarea, select, [contenteditable]";
   document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
     if (e.target.closest?.(TYPING) || document.querySelector("dialog[open]")) return;
+    if ((e.key === "n" || e.key === "N") && !document.querySelector("[data-cursor]")) {
+      const capture = document.getElementById("capture-dialog");
+      if (!capture) return;
+      e.preventDefault();
+      capture.showModal();
+      window.TaskSheet.compose(capture.querySelector(".task-sheet"));
+      return;
+    }
     if (e.key === "?") {
       e.preventDefault();
       const dialog = document.getElementById("keys-dialog");

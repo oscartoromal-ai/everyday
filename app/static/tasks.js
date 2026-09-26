@@ -31,10 +31,6 @@
   // every change, and the cursor lands where it belongs: on the row that
   // followed one acted on, and on the same task after an edit.
   const TYPING = "input, textarea, select, [contenteditable]";
-  const LIST_KEYS = new Set([
-    "ArrowDown", "ArrowUp", "j", "k", "Home", "End", "n", "v", "Escape",
-    "t", "m", "b", "r", "d", "p", "x", "e", "Enter", " ", "Delete", "Backspace",
-  ]);
   const STOPS = [
     "[data-cursor] .task-row[tabindex]",
     "[data-cursor] .done-fold > summary",
@@ -92,19 +88,14 @@
     if (e.target.matches?.(STOPS)) last = e.target.id;
   });
 
-  // A re-rendered list is only live once its swap settles (about 20ms on):
-  // htmx wires up the new rows' controls, and gives focus back to the row
-  // that had it, then. A key pressed in between waits for it, and belongs to
-  // that row.
+  // htmx gives focus back to a re-rendered row as its swap settles; a key
+  // pressed before that lands on the page, and still belongs to that row.
   let settling = null; // id of the row that had the cursor, while a list settles
-  let listSettling = false;
   let settleTimer = 0;
-  const queued = [];
   document.addEventListener("htmx:beforeSwap", (e) => {
-    if (!e.detail.target.querySelector?.(STOPS) && !e.detail.target.matches?.(STOPS)) return;
-    listSettling = true;
     const active = document.activeElement;
-    if (active?.matches?.(STOPS) && e.detail.target.contains(active)) settling = active.id;
+    if (!active?.matches?.(STOPS) || !e.detail.target.contains(active)) return;
+    settling = active.id;
     // A swap that removes its own target (a deleted row) settles on a detached
     // element, whose event never reaches the document: a fallback ends it.
     clearTimeout(settleTimer);
@@ -130,10 +121,10 @@
     let answer = {};
     try { answer = await res.json(); } catch { /* no body */ }
     if (!res.ok) {
-      toast(answer.detail || "Could not book that task.");
+      window.toast(answer.detail || "Could not book that task.");
       return;
     }
-    toast(`Booked ${answer.start}–${answer.end}: ${row.dataset.taskTitle}`);
+    window.toast(`Booked ${answer.start}–${answer.end}: ${row.dataset.taskTitle}`);
     landOn = next;
     htmx.trigger(document.body, "calendar:refresh");
     htmx.trigger(document.body, "tasks:changed");
@@ -142,11 +133,6 @@
   document.addEventListener("keydown", (e) => {
     if (!onCursorPage() || e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
     if (e.target.closest?.(TYPING) || document.querySelector("dialog[open]")) return;
-    if (listSettling && LIST_KEYS.has(e.key.length === 1 ? e.key.toLowerCase() : e.key)) {
-      e.preventDefault();
-      queued.push({ key: e.key, shiftKey: e.shiftKey });
-      return;
-    }
     let stop = e.target.closest?.(STOPS);
     if (!stop && e.target === document.body && settling && byId(settling)) {
       stop = byId(settling);
@@ -175,7 +161,8 @@
       const card = stop?.closest(".project-card");
       const composers = [...document.querySelectorAll(".task-sheet[data-composer]")];
       const composer = card?.querySelector(".task-sheet[data-composer]")
-        || composers.find((form) => !form.closest(".project-card")) || composers[0];
+        || composers.find((form) => !form.closest(".project-card, dialog"))
+        || composers.find((form) => !form.closest("dialog"));
       window.TaskSheet.compose(composer);
       return;
     }
@@ -251,25 +238,19 @@
     if (dialog.id === "confirm-dialog" && !dialog.open && dialog.returnValue !== "go") landOn = null;
   }, true);
 
-  // Once a list has settled: the cursor lands where a key said it should,
-  // then keys that waited for the list replay on the row that has focus.
+  // Once a list has settled, the cursor lands where a key said it should.
   // htmx already puts focus back on a re-rendered element with the same id,
   // which keeps the cursor on a row through a refresh; a landing overrides
   // that, but only from a row or from the page, never from anything else the
   // user moved to.
   function settled() {
     clearTimeout(settleTimer);
-    listSettling = false;
     settling = null;
     const active = document.activeElement;
     const stop = landOn && byId(landOn);
     if (stop && (!active || active === document.body || active.matches(STOPS))) {
       landOn = null;
       focusStop(stop);
-    }
-    for (const { key, shiftKey } of queued.splice(0)) {
-      const at = document.activeElement || document.body;
-      at.dispatchEvent(new KeyboardEvent("keydown", { key, shiftKey, bubbles: true, cancelable: true }));
     }
   }
   document.addEventListener("htmx:afterSettle", settled);
@@ -297,19 +278,6 @@
     const project = card?.dataset.fileProject ? Number(card.dataset.fileProject) : null;
     const milestone = target.dataset.fileMilestone ? Number(target.dataset.fileMilestone) : null;
     return { project_id: project, milestone_id: milestone };
-  };
-
-  const toast = (message) => {
-    let el = document.querySelector(".cal-toast");
-    if (!el) {
-      el = document.createElement("div");
-      el.className = "cal-toast";
-      el.setAttribute("role", "status");
-      document.body.appendChild(el);
-    }
-    el.textContent = message;
-    el.classList.add("show");
-    setTimeout(() => el.classList.remove("show"), 2600);
   };
 
   const armFiling = (root) => {
@@ -364,7 +332,7 @@
     if (!res.ok) {
       let detail = "Could not move that task.";
       try { detail = (await res.json()).detail || detail; } catch { /* keep default */ }
-      toast(detail);
+      window.toast(detail);
     }
     htmx.trigger(document.body, "tasks:changed");
   });

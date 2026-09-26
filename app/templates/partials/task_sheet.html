@@ -21,7 +21,7 @@
       hx-post="/ui/tasks/{{ s.id }}" hx-target="#task-{{ s.id }}" hx-swap="outerHTML"
   {%- else %}
       data-composer data-composer-key="{{ target }}"
-      hx-post="/ui/tasks/quick-add" hx-target="#{{ target }}" hx-swap="beforeend settle:240ms"
+      hx-post="/ui/tasks/quick-add" hx-target="#{{ target }}" hx-swap="beforeend"
   {%- endif %}>
   <input type="hidden" name="title" value="{{ s.title }}">
   {% for name in ["planned_for", "due", "repeat", "project_id", "owner", "status"] %}
