@@ -111,11 +111,32 @@
   /* ---- confirm: hx-confirm on an element with data-confirm-* opens the
      app's dialog (#confirm-dialog) instead of the browser's native box ---- */
 
+  // A list can re-render while its question is open (a refresh from an
+  // earlier change landing late), leaving the asking row detached. The
+  // answer goes to the row's live twin: the element with the same id, and
+  // within it the control that asks the same thing.
+  const live = (el) => {
+    if (!el || el.isConnected) return el;
+    const holder = el.id ? el : el.closest("[id]");
+    const twin = holder && document.getElementById(holder.id);
+    if (!twin || holder === el) return twin;
+    return [...twin.querySelectorAll("[hx-confirm]")].find(
+      (c) => c.getAttribute("hx-post") === el.getAttribute("hx-post") && c.className === el.className,
+    ) || null;
+  };
+
   let answer = null; // the open confirm's close handler
   document.addEventListener("htmx:confirm", (e) => {
     const source = e.detail.elt;
     if (!source.dataset.confirmTitle) return;
     e.preventDefault();
+    if (source._answered) {
+      // Asked already, on the twin this stands in for.
+      delete source._answered;
+      e.detail.issueRequest(true);
+      return;
+    }
+    const returnTo = document.activeElement;
     const dialog = document.getElementById("confirm-dialog");
     dialog.querySelector(".confirm-title").textContent = source.dataset.confirmTitle;
     dialog.querySelector(".confirm-name").textContent = source.dataset.confirmName || "";
@@ -131,7 +152,17 @@
       if (dialog.open) return;
       dialog.removeEventListener("close", heard);
       answer = null;
-      if (dialog.returnValue === "go") e.detail.issueRequest(true);
+      // The dialog gives focus back to where it was, unless that was swapped away.
+      if (returnTo && !returnTo.isConnected) live(returnTo)?.focus();
+      if (dialog.returnValue !== "go") return;
+      if (source.isConnected) {
+        e.detail.issueRequest(true);
+        return;
+      }
+      const twin = live(source);
+      if (!twin) return; // gone for good: nothing left to act on
+      twin._answered = true;
+      htmx.trigger(twin, "click");
     };
     answer = heard;
     dialog.addEventListener("close", heard);
