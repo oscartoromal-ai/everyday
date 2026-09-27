@@ -87,10 +87,12 @@ def test_a_task_is_written_in_the_notes(page, live, app_db) -> None:
     page.locator(".cal-toast.show", has_text="Task added: Call the dentist").wait_for()
     assert mark.is_hidden()
     page.keyboard.type("After.")
-    saved_as(app_db, [{"kind": "text", "text": "Morning.\n- [ ] Call the dentist\n- ask about the crown\nAfter."}])
+    notes = "Morning.\n- [ ] Call the dentist\n- ask about the crown\nAfter."
+    saved_as(app_db, [{"kind": "text", "text": notes}])
     with app_db() as db:
         [task] = tasks_svc.list_tasks(db)
-        assert (task.title, task.notes, task.planned_for) == ("Call the dentist", "- ask about the crown", TODAY)
+        assert task.title == "Call the dentist"
+        assert (task.notes, task.planned_for) == ("- ask about the crown", TODAY)
 
     # Esc closes one where it is.
     page.keyboard.press("Enter")
@@ -98,4 +100,5 @@ def test_a_task_is_written_in_the_notes(page, live, app_db) -> None:
     page.keyboard.press("Escape")
     page.locator(".cal-toast.show", has_text="Task added: Water the plants").wait_for()
     with app_db() as db:
-        assert sorted(t.title for t in tasks_svc.list_tasks(db)) == ["Call the dentist", "Water the plants"]
+        titles = sorted(t.title for t in tasks_svc.list_tasks(db))
+        assert titles == ["Call the dentist", "Water the plants"]
