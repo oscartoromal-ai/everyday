@@ -286,11 +286,32 @@
   const marksOf = () => document.querySelector(".pad-marks");
   const lineHeight = () => parseFloat(getComputedStyle(pad()).lineHeight) || 36;
 
+  // The text as it reads, drawn under the textarea's clear letters: each row
+  // in place, a task's first row darker than the rest. Redrawn when the
+  // text or the rows' kinds change; moved with the textarea's scroll.
+  let mirrored = "";
+  const mirror = (el) => {
+    const inner = document.querySelector(".pad-mirror-inner");
+    if (!inner) return;
+    const key = el.value + "\u0000" + meta.map((m) => (m ? 1 : 0)).join("");
+    if (key !== mirrored) {
+      mirrored = key;
+      inner.replaceChildren(...linesOf().map((line, row) => {
+        const div = document.createElement("div");
+        div.textContent = line || "​";
+        if (meta[row]) div.className = "title";
+        return div;
+      }));
+    }
+    inner.style.transform = `translate(${-el.scrollLeft}px, ${-el.scrollTop}px)`;
+  };
+
   function draw() {
     const el = pad();
     const rows = rowsOf();
     const marks = marksOf();
     if (!el || !rows || !marks) return;
+    mirror(el);
     const h = lineHeight();
     const written = meta.length;
     const count = Math.max(written, Math.ceil(el.clientHeight / h) + 1) + Math.ceil(el.scrollTop / h);

@@ -1082,16 +1082,28 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   background: color-mix(in srgb, var(--paper) 35%, transparent);
   border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
 }
+/* The textarea holds the text and the caret; its own letters are clear, and
+   the mirror under it draws them, row by row, in the same place: the body in
+   a grey darker than the Task label, a task's first line in ink. The two
+   share every metric (font, size, padding, tab, line), so they never drift. */
+.notepad, .pad-mirror-inner {
+  padding: 0 var(--s-4) 0 calc(var(--pad-rows) + var(--pad-gap));
+  font: inherit; font-size: var(--t-body-sm); line-height: var(--pad-line); letter-spacing: -0.01em;
+  tab-size: var(--pad-tab); white-space: pre;
+}
 .notepad {
   position: relative; z-index: 1;
-  flex: 1; min-height: 420px; padding: 0 var(--s-4) 0 calc(var(--pad-rows) + var(--pad-gap));
-  font: inherit; font-size: var(--t-body); line-height: var(--pad-line); color: var(--ink);
-  tab-size: var(--pad-tab);
+  flex: 1; min-height: 420px;
+  color: transparent; caret-color: var(--ink);
   background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--pad-line) - 1px), var(--hairline) calc(var(--pad-line) - 1px) var(--pad-line));
   background-attachment: local;
-  border: none; resize: none; white-space: pre; overflow: auto;
+  border: none; resize: none; overflow: auto;
 }
+.notepad::selection { color: transparent; background: color-mix(in srgb, var(--spark) 22%, transparent); }
 .notepad::placeholder { color: var(--pewter); }
+.pad-mirror { position: absolute; z-index: 2; inset: 0; overflow: hidden; pointer-events: none; }
+.pad-mirror-inner > div { height: var(--pad-line); color: color-mix(in srgb, var(--ink) 55%, var(--graphite)); }
+.pad-mirror-inner > div.title { color: var(--ink); }
 .notepad:focus, .notepad:focus-visible { outline: none; box-shadow: none; }
 .pad-rows {
   position: absolute; z-index: 3; top: 0; bottom: 0; left: 0; width: var(--pad-rows); overflow: hidden;
