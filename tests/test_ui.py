@@ -24,6 +24,14 @@ def test_today_is_a_notepad_beside_the_timeline(client, db) -> None:
     assert 'id="capture-dialog"' in page
 
 
+
+def task_rows_of(pad: str) -> list[dict]:
+    """The notepad's task rows, as the page hands them to notepad.js."""
+    import json
+
+    return json.loads(pad.split("data-task-rows='")[1].split("'")[0])
+
+
 def test_a_page_written_with_tasks_reads_back_as_text(client, db) -> None:
     from app.services import notebook as notebook_svc
 
@@ -37,7 +45,10 @@ def test_a_page_written_with_tasks_reads_back_as_text(client, db) -> None:
     pad = client.get("/today").text.split('id="notepad"')[1].split("</textarea>")[0]
     # Its task row shows its "- [ ] " as a tab: the page draws the checkbox there.
     assert ">Morning.\n\tCall the dentist" in pad
-    assert f"""data-task-rows='[{{"done": false, "id": {task.id}, "row": 1}}]'""" in pad
+    [row] = task_rows_of(pad)
+    assert (row["row"], row["done"], row["id"]) == (1, False, task.id)
+    # Its title row's controls get the task's fields.
+    assert row["fields"]["status"] == "todo" and row["fields"]["planned_for"] == ""
 
 
 def test_task_rows_follow_their_tasks(client, db) -> None:
@@ -59,8 +70,9 @@ def test_task_rows_follow_their_tasks(client, db) -> None:
     pad = client.get("/today").text.split('id="notepad"')[1].split("</textarea>")[0]
     assert ">Morning.\n\tCall the dentist\n\tjust a thought" in pad
     # Ticked elsewhere: its row reads done. A row that made no task stays a row.
-    assert f'{{"done": true, "id": {task.id}, "row": 1}}' in pad
-    assert '{"done": false, "id": null, "row": 2}' in pad
+    rows = {r["row"]: r for r in task_rows_of(pad)}
+    assert (rows[1]["done"], rows[1]["id"]) == (True, task.id)
+    assert (rows[2]["done"], rows[2]["id"], rows[2]["fields"]) == (False, None, None)
 
 
 def test_app_opens_on_tasks_grouped_by_do_date(client, db) -> None:

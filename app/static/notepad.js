@@ -14,7 +14,11 @@
    always; the task the caret is in has its row numbers in ink. Ctrl+Enter or
    Esc in a task saves it (adds it for the day, or writes its title and
    description to the task it made), Ctrl+Enter then going on to a fresh
-   plain row. Ticking a task's box ticks its task.
+   plain row. Ticking a task's box ticks its task. After a task's title's
+   last word come its controls, the task sheet's icons (do date, time, due,
+   repeat, project); a title too long for the box runs on under them, at the
+   box's right, unless the caret is writing there. What they set goes with
+   the task when it is added, and straight to it once it has been.
 
    The notes are saved as text, a task row as "- [ ] " or "- [x] " and the
    task it made by row (links), a moment after each change, when the tab is
@@ -46,19 +50,31 @@
 
   /* ---- rows: which are tasks ---- */
 
-  // One entry per row: null, or {done, id, saved} for a task row (id once it
-  // is added; saved: its title and description as last written to it).
+  // One entry per row: null, or {done, id, saved, fields} for a task row (id
+  // once it is added; saved: its title and description as last written to
+  // it; fields: its do date, time, project and the rest, as the sheet posts
+  // them).
   let meta = [];
   // The text and selection as they stood before the edit being followed.
   let lastValue = "";
   let lastSel = [0, 0];
+
+  // A task not yet added is for the notes' day, as the page's other tasks.
+  const newFields = (day) => ({
+    planned_for: day, time: "", due: "", repeat: "none",
+    project_id: "", milestone_id: "", status: "todo", owner: "oscar",
+  });
 
   const readRows = (el) => {
     const lines = el.value.split("\n");
     const rows = lines.map(() => null);
     let marks = [];
     try { marks = JSON.parse(el.dataset.taskRows || "[]"); } catch { /* none */ }
-    for (const { row, done, id } of marks) if (row < rows.length) rows[row] = { done, id, saved: null };
+    for (const { row, done, id, fields } of marks) {
+      if (row >= rows.length) continue;
+      const given = Object.entries(fields || {}).map(([name, value]) => [name, value == null ? "" : String(value)]);
+      rows[row] = { done, id, saved: null, fields: { ...newFields(el.dataset.day), ...Object.fromEntries(given) } };
+    }
     return rows;
   };
 
@@ -244,28 +260,35 @@
   const post = (url, body, keepalive = false) =>
     fetch(url, { method: "POST", headers: { "X-CSRF": window.csrfToken() }, body, keepalive });
 
+  // An added task written whole, as its sheet saves it: its words, fields
+  // and done or not. Its title stays what it was while its row is empty.
+  async function writeTask(block, { leaving = false } = {}) {
+    const m = block.m;
+    const content = contentOf(block);
+    content.title ||= m.saved?.title || "";
+    if (!content.title) return false;
+    const status = m.done ? "done" : m.fields.status === "done" ? "todo" : m.fields.status;
+    const body = new URLSearchParams({ ...m.fields, status, ...content });
+    const res = await post(`/ui/tasks/${m.id}`, body, leaving).catch(() => null);
+    if (leaving) return true;
+    if (!res?.ok) return false;
+    m.saved = content;
+    htmx.trigger(document.body, "calendar:refresh");
+    return true;
+  }
+
   async function saveTask(block, { leaving = false } = {}) {
     const { title, notes } = contentOf(block);
     const m = block.m;
     if (!title || (m.saved && m.saved.title === title && m.saved.notes === notes)) return;
-    const day = pad().dataset.day;
     if (m.id) {
-      const res = await fetch(`/api/tasks/${m.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "X-CSRF": window.csrfToken() },
-        body: JSON.stringify({ title, notes }),
-        keepalive: leaving,
-      }).catch(() => null);
+      const ok = await writeTask(block, { leaving });
       if (leaving) return;
-      if (!res?.ok) {
-        window.toast("Could not save that task. Its words are still in the notes.");
-        return;
-      }
-      m.saved = { title, notes };
-      window.toast(`Task saved: ${title}`);
+      window.toast(ok ? `Task saved: ${title}` : "Could not save that task. Its words are still in the notes.");
       return;
     }
-    const body = new URLSearchParams({ title, notes, planned_for: day, list_day: day });
+    const { planned_for, time, due, repeat, project_id } = m.fields;
+    const body = new URLSearchParams({ title, notes, planned_for, time, due, repeat, project_id });
     const res = await post("/ui/tasks/quick-add", body, leaving).catch(() => null);
     if (leaving) return;
     const html = res?.ok ? await res.text() : "";
@@ -278,7 +301,25 @@
     window.toast(`Task added: ${title}`);
     htmx.trigger(document.body, "calendar:refresh");
     schedule();
+    // What adding leaves out: its milestone, and a box ticked before it was added.
+    if (m.id && (m.done || m.fields.milestone_id)) writeTask(block);
   }
+
+  // A task's controls changed a field: kept for its adding, or written to it.
+  // A milestone comes with its project (two changes): one write for both.
+  const fieldWrites = new WeakMap(); // meta entry -> timer
+  document.addEventListener("sheet:field", (e) => {
+    const m = e.target._m;
+    if (!m) return;
+    m.fields[e.detail.name] = e.detail.value;
+    if (e.detail.name === "project_id") m.fields.milestone_id = "";
+    if (!m.id) return;
+    clearTimeout(fieldWrites.get(m));
+    fieldWrites.set(m, setTimeout(async () => {
+      const block = blocks().find((b) => b.m === m);
+      if (block && !(await writeTask(block))) window.toast("Could not save that change to the task.");
+    }));
+  });
 
   /* ---- the columns and marks drawn beside the text ---- */
 
@@ -287,8 +328,9 @@
   const lineHeight = () => parseFloat(getComputedStyle(pad()).lineHeight) || 36;
 
   // The text as it reads, drawn under the textarea's clear letters: each row
-  // in place, a task's first row darker than the rest. Redrawn when the
-  // text or the rows' kinds change; moved with the textarea's scroll.
+  // in place, a task's first row darker than the rest (its words in a span,
+  // measured for where its controls go). Redrawn when the text or the rows'
+  // kinds change; moved with the textarea's scroll.
   let mirrored = "";
   const mirror = (el) => {
     const inner = document.querySelector(".pad-mirror-inner");
@@ -298,8 +340,13 @@
       mirrored = key;
       inner.replaceChildren(...linesOf().map((line, row) => {
         const div = document.createElement("div");
-        div.textContent = line || "​";
-        if (meta[row]) div.className = "title";
+        if (meta[row]) {
+          div.className = "title";
+          div.append(document.createElement("span"));
+          div.firstChild.textContent = line;
+        } else {
+          div.textContent = line || "​";
+        }
         return div;
       }));
     }
@@ -332,27 +379,88 @@
       row.classList.toggle("task", !!current && i >= current.row && i <= current.end);
     });
 
-    // Every task bracketed; in each task's tab, its box and the word Task.
+    // Every task bracketed; in each task's tab, its box and the word Task;
+    // after its title's last word, its controls. Each task keeps its own
+    // marks, so a menu open on its controls stays open while the notes are
+    // written.
     const lines = linesOf();
-    marks.replaceChildren(...all.map((b) => {
-      const mark = document.createElement("div");
-      mark.className = "pad-task-mark";
+    const titles = document.querySelector(".pad-mirror-inner")?.children || [];
+    const fresh = [];
+    const wanted = all.map((b) => {
+      let mark = markOf.get(b.m);
+      if (!mark) {
+        mark = makeMark(b.m);
+        markOf.set(b.m, mark);
+        fresh.push(mark.querySelector(".pad-props"));
+      }
       mark.classList.toggle("current", b === current);
+      // In use: the caret is in it, or a menu of its controls is open.
+      mark.classList.toggle("in-use", b === current || !!mark.querySelector(".prop[aria-expanded='true']"));
       mark.style.top = `${b.row * h - el.scrollTop}px`;
       mark.style.height = `${(b.end - b.row + 1) * h}px`;
-      const kind = document.createElement("div");
-      kind.className = "pad-kind";
+      const kind = mark.querySelector(".pad-kind");
       kind.classList.toggle("done", !!b.m.done);
-      kind.style.transform = `translateX(${-el.scrollLeft}px)`;
-      kind.innerHTML = '<button type="button" class="pad-check" role="checkbox"></button><span class="pad-kind-name">Task</span>';
-      const box = kind.firstElementChild;
+      const box = kind.querySelector(".pad-check");
       box.dataset.row = String(b.row);
       box.setAttribute("aria-checked", String(!!b.m.done));
       box.setAttribute("aria-label", `${b.m.done ? "Not done" : "Done"}: ${lines[b.row].slice(1) || "task"}`);
-      mark.append(kind);
       return mark;
-    }));
+    });
+    if (wanted.length !== marks.childElementCount || wanted.some((mark, i) => marks.children[i] !== mark)) {
+      marks.replaceChildren(...wanted);
+    }
+    // Their icons and menus are the task sheet's (task-sheet.js takes them up).
+    for (const form of fresh) form.dispatchEvent(new CustomEvent("htmx:load", { bubbles: true, detail: { elt: form } }));
+
+    // Where the text is: the tab's marks move with it, and the controls go
+    // after the title's last word, or, the title running on past the box,
+    // at its right with the words fading out under them. The caret writing
+    // where they would stand sends them on after the words (out of sight).
+    const style = getComputedStyle(el);
+    const box = el.getBoundingClientRect();
+    const right = box.left + el.clientLeft + el.clientWidth - parseFloat(style.paddingRight);
+    all.forEach((b, i) => {
+      const line = wanted[i].querySelector(".pad-task-line");
+      line.style.setProperty("--pad-x", `${-el.scrollLeft}px`);
+      const words = titles[b.row]?.firstElementChild;
+      if (!words) return;
+      const props = line.querySelector(".pad-props");
+      const from = line.getBoundingClientRect().left;
+      const text = words.getBoundingClientRect();
+      const trailing = text.right + PROPS_GAP;
+      const edge = Math.max(right - props.offsetWidth, line.querySelector(".pad-kind").getBoundingClientRect().right + PROPS_GAP);
+      const writing = focused && here === b.row && caretX(words) > edge - PROPS_GAP;
+      const pinned = trailing > edge && !writing;
+      props.style.left = `${(pinned ? edge : trailing) - from}px`;
+      const fade = edge - PROPS_GAP - text.left;
+      words.style.maskImage = pinned ? `linear-gradient(to right, #000 ${fade - 24}px, transparent ${fade}px)` : "";
+    });
   }
+
+  const PROPS_GAP = 12;
+  // The caret's place in a title's words (drawn in the mirror).
+  const caretX = (words) => {
+    const node = words.firstChild;
+    if (!node) return 0;
+    const range = document.createRange();
+    const at = Math.min(caret().col, node.length);
+    range.setStart(node, at);
+    range.setEnd(node, at);
+    return range.getBoundingClientRect().left;
+  };
+
+  const markOf = new WeakMap(); // meta entry -> its marks
+  const makeMark = (m) => {
+    const mark = document.createElement("div");
+    mark.className = "pad-task-mark";
+    // The title's row, clipped at the row numbers as the text is.
+    mark.innerHTML = '<div class="pad-task-line"><div class="pad-kind"><button type="button" class="pad-check" role="checkbox"></button><span class="pad-kind-name">Task</span></div></div>';
+    const form = document.getElementById("pad-props-template").content.firstElementChild.cloneNode(true);
+    for (const [name, value] of Object.entries(m.fields)) if (form.elements[name]) form.elements[name].value = value;
+    form._m = m;
+    mark.firstElementChild.append(form);
+    return mark;
+  };
 
   // Ticking a task's box ticks its task (and its row, in the notes).
   document.addEventListener("pointerdown", (e) => {
@@ -375,6 +483,7 @@
       window.toast("Could not tick that task.");
       return;
     }
+    m.fields.status = m.done ? "done" : "todo";
     htmx.trigger(document.body, "calendar:refresh");
   });
 
@@ -389,7 +498,7 @@
     const at = rowStart(lines, row);
     el.setSelectionRange(at, at + OPENS.length);
     type(TAB);
-    meta[row] = { done: false, id: null, saved: null };
+    meta[row] = { done: false, id: null, saved: null, fields: newFields(el.dataset.day) };
   };
 
   document.addEventListener("input", (e) => {

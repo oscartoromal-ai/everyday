@@ -135,25 +135,34 @@ def replan_slot(task: Task, now: datetime) -> datetime | None:
     return next_slot_today(db, missed_block.end - missed_block.start, now)
 
 
-def sheet_ctx(db: Session, task: Task, today: date) -> dict[str, Any]:
-    """The task sheet in edit mode (partials/task_sheet.html): the task's
-    fields as form values, their labels, and the projects it could file into
-    (open ones, plus its own if that has closed)."""
-    template = task.recurrence_template
-    repeat = recurrence_svc.preset_of(template) if template and template.active else "none"
-    projects = [
+def project_choices(
+    db: Session, project_id: int | None = None, milestone_id: int | None = None
+) -> list[dict[str, Any]]:
+    """The projects a task can be filed into, as the sheet's project menu
+    lists them: open ones with their open milestones, plus the task's own
+    project and milestone if those have closed."""
+    return [
         {
             "id": p.id,
             "name": p.name,
             "milestones": [
                 {"id": m.id, "name": m.name}
                 for m in p.milestones
-                if m.status == MilestoneStatus.open or m.id == task.milestone_id
+                if m.status == MilestoneStatus.open or m.id == milestone_id
             ],
         }
         for p in projects_svc.list_projects(db)
-        if p.status != ProjectStatus.done or p.id == task.project_id
+        if p.status != ProjectStatus.done or p.id == project_id
     ]
+
+
+def sheet_ctx(db: Session, task: Task, today: date) -> dict[str, Any]:
+    """The task sheet in edit mode (partials/task_sheet.html): the task's
+    fields as form values, their labels, and the projects it could file into
+    (open ones, plus its own if that has closed)."""
+    template = task.recurrence_template
+    repeat = recurrence_svc.preset_of(template) if template and template.active else "none"
+    projects = project_choices(db, task.project_id, task.milestone_id)
     block = blocks_svc.day_block(task, task.planned_for) if task.planned_for else None
     project_label = ""
     if task.project:
@@ -390,6 +399,10 @@ def projects_list_ctx(db: Session, now: datetime) -> dict[str, Any]:
 
 
 TASK_ROW = re.compile(r"^- \[[ xX]\] ")
+# A task's fields as the sheet posts them (fragments.save_task).
+TASK_FIELDS = (
+    "planned_for", "time", "due", "repeat", "project_id", "milestone_id", "status", "owner",
+)
 
 
 def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
@@ -428,11 +441,19 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
             continue
         task = tasks.get(links.get(row))
         done = task.status == TaskStatus.done if task else mark[0][3] in "xX"
-        task_rows.append({"row": row, "done": done, "id": task.id if task else None})
+        fields = None
+        if task:
+            # The fields its title row's controls show and set (the sheet's own).
+            sheet = sheet_ctx(db, task, day)
+            fields = {k: sheet[k] for k in TASK_FIELDS}
+        task_rows.append(
+            {"row": row, "done": done, "id": task.id if task else None, "fields": fields}
+        )
         lines[row] = "\t" + line[mark.end():]
     return {
         "text": "\n".join(lines),
         "task_rows": task_rows,
+        "projects": project_choices(db),
         "version": notebook_svc.version_of(db, day),
     }
 

@@ -36,6 +36,36 @@
                 data-task-rows='{{ notepad.task_rows | tojson }}'
                 wrap="off" spellcheck="true" aria-label="Notes" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
     </section>
+    {# A task row's controls, after its title (notepad.js clones one
+       per task): the task sheet's icons and menus alone (task-sheet.js,
+       data-sheet="props"), over the task's fields. #}
+    <template id="pad-props-template">
+      <form class="task-sheet pad-props" data-sheet="props" onsubmit="return false">
+        {% for name in ["planned_for", "time", "due", "repeat", "project_id", "milestone_id", "status", "owner"] %}
+        <input type="hidden" name="{{ name }}" value="">
+        {% endfor %}
+        <button type="button" class="prop" data-prop="planned_for" aria-haspopup="menu" title="Do date" aria-label="Do date">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/></svg>
+          <span class="prop-value"></span>
+        </button>
+        <button type="button" class="prop" data-prop="time" aria-haspopup="menu" title="Time" aria-label="Time">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2"/></svg>
+          <span class="prop-value"></span>
+        </button>
+        <button type="button" class="prop" data-prop="due" aria-haspopup="menu" title="Due" aria-label="Due">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 2.75h9"/><path d="M5.5 17.25h9"/><path d="M6.5 2.75c0 4 7 4.5 7 7.25s-7 3.25-7 7.25"/><path d="M13.5 2.75c0 4-7 4.5-7 7.25s7 3.25 7 7.25"/></svg>
+          <span class="prop-value"></span>
+        </button>
+        <button type="button" class="prop" data-prop="repeat" aria-haspopup="menu" title="Repeat" aria-label="Repeat">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 9.5V8a3 3 0 0 1 3-3h10l-2.5-2.5"/><path d="M16.5 10.5V12a3 3 0 0 1-3 3h-10l2.5 2.5"/></svg>
+        </button>
+        <button type="button" class="prop" data-prop="project" aria-haspopup="menu" title="Project and milestone">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
+          <span class="prop-value" data-empty=""></span>
+        </button>
+        <script type="application/json" data-sheet-projects>{{ notepad.projects | tojson }}</script>
+      </form>
+    </template>
     <div class="pad-stale" id="pad-stale" role="alert" hidden>
       <span>These notes were changed in another window.</span>
       <button type="button" class="btn quiet" data-pad-reload>Show that version</button>

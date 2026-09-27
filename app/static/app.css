@@ -1101,9 +1101,12 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 }
 .notepad::selection { color: transparent; background: color-mix(in srgb, var(--spark) 22%, transparent); }
 .notepad::placeholder { color: var(--pewter); }
-.pad-mirror { position: absolute; z-index: 2; inset: 0; overflow: hidden; pointer-events: none; }
+/* scrolled sideways, the text goes under the row numbers, not through them */
+.pad-mirror { position: absolute; z-index: 2; inset: 0; overflow: hidden; pointer-events: none; clip-path: inset(0 0 0 var(--pad-rows)); }
 .pad-mirror-inner > div { height: var(--pad-line); color: color-mix(in srgb, var(--ink) 55%, var(--graphite)); }
 .pad-mirror-inner > div.title { color: var(--ink); }
+/* a title's words, measured, and faded out under its controls when it runs on */
+.pad-mirror-inner > div.title > span { display: inline-block; }
 .notepad:focus, .notepad:focus-visible { outline: none; box-shadow: none; }
 .pad-rows {
   position: absolute; z-index: 3; top: 0; bottom: 0; left: 0; width: var(--pad-rows); overflow: hidden;
@@ -1127,8 +1130,15 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 }
 .pad-task-mark.current { border-color: var(--ink); }
 /* in a task row's tab: its box and the word Task, not text */
+/* a task's title row, to the right of the row numbers: what is in it moves
+   with the text (--pad-x, its sideways scroll) and is clipped where the
+   text is */
+.pad-task-line {
+  position: absolute; top: 0; left: var(--pad-rows); right: 0; height: calc(var(--pad-line) - 2px);
+  overflow: clip;
+}
 .pad-kind {
-  position: absolute; top: 0; left: calc(var(--pad-rows) + var(--pad-gap)); height: calc(var(--pad-line) - 2px);
+  position: absolute; top: 0; left: calc(var(--pad-gap) + var(--pad-x, 0px)); height: 100%;
   display: flex; align-items: center; gap: 6px; color: var(--graphite);
 }
 .pad-check {
@@ -1142,6 +1152,19 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 }
 .pad-kind-name { font-size: var(--t-caption); color: var(--graphite); }
 .pad-kind.done .pad-kind-name { color: var(--pewter); text-decoration: line-through; }
+/* after a task's title's last word, its controls: the task sheet's icons,
+   as they trail a title in the sheet; at the box's right edge when the
+   title runs on past it (notepad.js places them). Not a plate: no sheet, no
+   crosses, a set value in graphite. */
+.task-sheet.pad-props {
+  position: absolute; top: 0; height: 100%;
+  display: flex; align-items: center; gap: var(--s-2); padding: 0;
+  background: none; box-shadow: none; outline: none; pointer-events: auto;
+}
+.task-sheet.pad-props::before { content: none; }
+.task-sheet.pad-props .prop { margin: 0; }
+.task-sheet.pad-props .prop.is-set .prop-value { color: var(--graphite); }
+.task-sheet.pad-props .prop.is-set svg { stroke: var(--graphite); }
 
 .pad-stale { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-3); font-size: var(--t-body-sm); color: var(--ink); }
 .pad-stale[hidden] { display: none; }
@@ -1166,6 +1189,9 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 @media (max-width: 720px) {
   .notepad-card { --pad-rows: 34px; --pad-gap: var(--s-2); --pad-tab: 70px; }
   .notepad { padding-right: var(--s-3); }
+  /* too narrow for every icon on every task: the task in use shows them all,
+     the others only the fields they have */
+  .pad-task-mark:not(.in-use) .pad-props .prop:not(.is-set) { display: none; }
 }
 
 /* ---------- weeks: several weeks at a glance, as a grid or as rows ---------- */

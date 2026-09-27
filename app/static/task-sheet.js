@@ -10,6 +10,10 @@
    form posts; the icons and the small menus they open only read and write
    those inputs.
 
+   A sheet of controls only (data-sheet="props", a task row's in Today's
+   notepad) is the icons and their menus alone: each change it makes is
+   announced (sheet:field) for the page to keep.
+
    Compose adds with Ctrl+Enter or Add task. Edit has no Save: the sheet
    saves when focus leaves it (a click elsewhere, Tab away, Esc or
    Ctrl+Enter), and goes back to its row untouched when nothing changed.
@@ -23,6 +27,7 @@
   const titleOf = (form) => form.querySelector(".sheet-title");
   const notesEditorOf = (form) => form.querySelector("[data-notes-editor]");
   const isEdit = (form) => form.dataset.sheet === "edit";
+  const isProps = (form) => form.dataset.sheet === "props";
   const field = (form, name) => form.elements[name];
   const valueOf = (form, name) => field(form, name)?.value ?? "";
   const titleText = (form) => titleOf(form).textContent.replace(/\s+/g, " ").trim();
@@ -259,6 +264,8 @@
     field(form, name).value = value;
     if (name === "project_id") field(form, "milestone_id").value = "";
     draw(form);
+    // Heard by a page that keeps the fields itself (Today's notepad).
+    form.dispatchEvent(new CustomEvent("sheet:field", { bubbles: true, detail: { name, value } }));
   };
 
   /* ---- the title line ---- */
@@ -469,7 +476,10 @@
     closeMenu(false);
     const sel = document.getSelection();
     const range = sel.rangeCount && form.contains(sel.anchorNode) ? sel.getRangeAt(0).cloneRange() : null;
-    const returnTo = form.contains(document.activeElement) ? document.activeElement : titleOf(form);
+    // Back to where the writing was: in the sheet, its title; for a sheet of
+    // controls only (Today's notepad), whatever held the focus.
+    const returnTo = form.contains(document.activeElement)
+      ? document.activeElement : titleOf(form) || document.activeElement;
     const el = document.createElement("div");
     el.className = "sheet-menu";
     el.setAttribute("role", "menu");
@@ -495,7 +505,7 @@
       save(form, { keyboard: true });
       return;
     }
-    if (!restore || !returnTo.isConnected) return;
+    if (!restore || !returnTo?.isConnected) return;
     returnTo.focus();
     if (range) {
       const sel = document.getSelection();
@@ -558,7 +568,7 @@
 
   document.addEventListener("keydown", (e) => {
     const form = sheetOf(e.target);
-    if (!form || e.isComposing) return;
+    if (!form || e.isComposing || isProps(form)) return;
     const inTitle = e.target.matches(".sheet-title");
 
     if (inTitle && e.key === "Backspace" && converted?.form === form) {
@@ -650,12 +660,12 @@
   // page under the pointer between mousedown and mouseup, losing that click.
   document.addEventListener("focusin", (e) => {
     const form = sheetOf(e.target);
-    if (form && !isEdit(form) && (titleText(form) || hasNotes(form))) form.classList.add("composing");
+    if (form && !isEdit(form) && !isProps(form) && (titleText(form) || hasNotes(form))) form.classList.add("composing");
   });
 
   document.addEventListener("focusout", (e) => {
     const form = sheetOf(e.target);
-    if (!form || isEdit(form) || form.contains(e.relatedTarget) || menu?.form === form) return;
+    if (!form || isEdit(form) || isProps(form) || form.contains(e.relatedTarget) || menu?.form === form) return;
     // A started task stays open; only an untouched composer folds away.
     if (!titleText(form) && !hasNotes(form)) form.classList.remove("composing");
   });
@@ -775,6 +785,12 @@
   const init = (form) => {
     if (form.dataset.ready != null) return;
     form.dataset.ready = "";
+    // A sheet of controls only (a task row's in Today's notepad): its icons
+    // and their menus, nothing to write in or post.
+    if (form.dataset.sheet === "props") {
+      draw(form);
+      return;
+    }
     syncTitle(form);
     draw(form);
     if (!isEdit(form)) {

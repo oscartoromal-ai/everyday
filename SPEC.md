@@ -45,6 +45,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   The notes are plain text, saved as they are written.
   A task is written in them: "- [ ] " at a row's start makes the row a task, tabbed in with a checkbox and "Task" beside it (not text); the rows added under it with Enter are tabbed in the same way and are its description ("- " rows its sub-tasks); plain rows stay at the left.
   Every task stays bracketed by a rule above and below its rows; Ctrl+Enter or Esc in a task saves it (added for that day, or the task it made updated), Ctrl+Enter then going on to a plain row.
+  After a task's title come its controls, the task sheet's icons: do date, time, due, repeat and project, set before the task is added or changed on it after.
   Ticking the box ticks the task, and the box shows the task as it stands, wherever it was ticked; the notes keep the row as "- [ ] " or "- [x] " text, and the page remembers which task each row made.
   Every day has its notepad: Left and Right (outside the text) go a day back or on, and past days stay editable.
   N writes a new task from Today in the capture window, as on Calendar and Weeks; the day's tasks are worked from Tasks, and the nudge center now opens Tasks.
