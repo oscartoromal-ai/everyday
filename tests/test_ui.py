@@ -93,7 +93,7 @@ def test_done_work_folds_away_on_tasks_and_today(client, db) -> None:
     also = today.split('id="also-list"')[1].split("</ul>")[0]
     assert "still going" in also and "finished it" not in also
     assert "finished it" in today.split('id="day-done"')[1]
-    assert "<dt>Open</dt><dd>1</dd>" in today
+    assert "1 task open" in today
 
 
 def test_projects_show_one_occurrence_of_a_repeating_task(client, db) -> None:
@@ -158,18 +158,12 @@ def test_today_page_has_timeline_with_events_and_blocks(client, db) -> None:
     )
 
     page = client.get("/today").text
-    strip = page.split('id="day-strip"')[1].split('class="storyboard"')[0]
-    assert "standup" in strip and "focus" in strip
-    # 09:00 on a 06 to 22 scale sits 3/16 of the way along.
-    assert "left: 18.75%" in strip
-    # The row carries the block's time in TIME; rows are drag sources for the strip.
-    row = page.split('id="also-list"')[1]
-    assert '<span class="when">11:00</span><span class="until">12:00</span>' in row
+    timeline = page.split('class="today-timeline"')[1]
+    assert 'data-days="1"' in timeline
+    assert "standup" in timeline and "focus" in timeline
+    # The list row carries the block's time; the notebook's rows are drag sources.
+    assert "11:00–12:00" in page.split('id="also-list"')[1]
     assert 'id="notebook" data-notebook data-drag-to-grid' in page
-    assert '<div id="day-lists" data-drag-to-grid' in page
-
-    fragment = client.get(f"/calendar/strip?day={TODAY.isoformat()}").text
-    assert 'id="day-strip"' in fragment and "focus" in fragment
 
 
 def test_grid_fragment_refreshes_one_day_and_a_week(client) -> None:

@@ -194,47 +194,6 @@ def grid_ctx(db: Session, first_day: date, now: datetime, day_count: int = 7) ->
     }
 
 
-def strip_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
-    """A day's time as a horizontal scale (a day page's strip): the same
-    items as the one-day grid, placed by percent of the day's span, with
-    overlapping ones in lanes."""
-    grid = grid_ctx(db, day, now, day_count=1)
-    column = grid["days"][0]
-    origin = datetime.combine(day, time(DAY_START_HOUR))
-    span = (DAY_END_HOUR - DAY_START_HOUR) * 60
-
-    def pct(moment: datetime) -> float:
-        return max(0.0, min(100.0, (moment - origin).total_seconds() / 60 / span * 100))
-
-    items = []
-    for item in column["entries"]:
-        left, right = pct(item["start"]), pct(item["end"])
-        if right <= left:
-            continue  # wholly outside the scale's hours
-        items.append({**item, "left": round(left, 3), "width": round(right - left, 3)})
-    lanes = max((i["lanes"] for i in items), default=1)
-    hours = [
-        {"label": f"{h:02d}", "left": round((h - DAY_START_HOUR) * 60 / span * 100, 3)}
-        for h in range(DAY_START_HOUR, DAY_END_HOUR + 1)
-    ]
-    now_pct = None
-    if day == now.date():
-        value = pct(now)
-        if 0 < value < 100:
-            now_pct = round(value, 3)
-    return {
-        "day": day,
-        "items": items,
-        "lanes": lanes,
-        "hours": hours,
-        "all_day": column["all_day"],
-        "now_pct": now_pct,
-        "now_label": f"{now:%H:%M}",
-        "start_hour": DAY_START_HOUR,
-        "end_hour": DAY_END_HOUR,
-    }
-
-
 def _week_label(week_start: date) -> str:
     week_end = week_start + timedelta(days=6)
     if week_start.month == week_end.month:

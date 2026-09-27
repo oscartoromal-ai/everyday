@@ -25,7 +25,7 @@ def test_planning_rows_take_keyboard_focus_and_name_their_actions(client, db) ->
     tasks_svc.update_task(db, task.id, planned_for=TODAY)
     today = client.get("/today").text
     assert 'tabindex="-1"' in today.split(f'id="task-{task.id}"')[1].split(">")[0]
-    assert 'class="day-sheet" data-cursor' in today
+    assert 'class="today-lists" data-cursor' in today
     assert 'id="projects" data-cursor' in client.get("/projects").text
 
 
@@ -73,7 +73,7 @@ def test_block_menu_lists_the_tasks_subtasks(client, db) -> None:
     start = datetime.combine(TODAY, datetime.min.time()) + timedelta(hours=12)
     blocks_svc.schedule_block(db, task_id=task.id, start=start, end=start + timedelta(hours=1))
 
-    page = client.get("/calendar").text
+    page = client.get("/today").text
     assert f'data-task-id="{task.id}" data-state="planned"' in page
     assert f'hx-get="/ui/tasks/{task.id}/checklist"' not in page  # set when a menu opens
 

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse
 
 from app.db import DbSession
-from app.ui.calendar_view import grid_ctx, strip_ctx, tray_tasks, week_monday
+from app.ui.calendar_view import grid_ctx, tray_tasks, week_monday
 from app.ui.views import (
     TASKS_VIEWS,
     day_page_ctx,
@@ -56,8 +56,7 @@ def day_page(request: Request, db: DbSession, day: date):
 
 
 def _day_page(request: Request, db: DbSession, day: date):
-    """A day's page: its notebook, drawn as a storyboard sheet with the
-    day's time across its top. Today's is /today."""
+    """A day's page: its notebook beside its timeline. Today's is /today."""
     from app.services import nudges as nudges_svc
 
     now = datetime.now()
@@ -68,7 +67,7 @@ def _day_page(request: Request, db: DbSession, day: date):
             **_base(request, "today"),
             **day_page_ctx(db, day, now),
             "nudges": nudges_svc.active_nudges(db, now) if day == now.date() else [],
-            "strip": strip_ctx(db, day, now),
+            "grid": grid_ctx(db, day, now, day_count=1),
         },
     )
 
@@ -157,16 +156,6 @@ def calendar_grid(
         request,
         "partials/calendar_grid.html",
         {"request": request, "grid": grid_ctx(db, start, now, day_count=days)},
-    )
-
-
-@router.get("/calendar/strip")
-def day_strip(request: Request, db: DbSession, day: date | None = None):
-    """A day page's strip, re-read when the plan's time changes."""
-    return templates.TemplateResponse(
-        request,
-        "partials/day_strip.html",
-        {"request": request, "strip": strip_ctx(db, day or date.today(), datetime.now())},
     )
 
 

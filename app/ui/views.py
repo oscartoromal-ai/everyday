@@ -199,8 +199,6 @@ def row_ctx(
     )
     subtasks_done, subtasks_total = checklist.progress(task.notes)
     return {
-        # The row's number in the database, as a day page's RECORD column shows it.
-        "record_no": f"{task.id:03d}",
         "description": description_blocks(task.notes),
         "subtasks_done": subtasks_done,
         "subtasks_total": subtasks_total,
@@ -425,8 +423,6 @@ def notebook_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
         "day": day,
         "version": notebook_svc.version_of(db, day),
         "blocks": spaced,
-        # A storyboard's cuts: every block but the empty lines kept around boxes.
-        "cuts": sum(1 for b in spaced if b["kind"] != "text" or b["text"]),
     }
 
 

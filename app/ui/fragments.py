@@ -33,8 +33,7 @@ router = APIRouter(prefix="/ui", include_in_schema=False)
 
 def _row_context(request: Request) -> str:
     """Where a task is being shown, as its page marks its requests: "plan"
-    (the Tasks page), "block" (a calendar block's menu), "day" (a day page's
-    storyboard rows), or "" (a list)."""
+    (the Tasks page), "block" (a calendar block's menu), or "" (a list)."""
     return request.headers.get("X-Row-Context", "")
 
 
@@ -80,10 +79,7 @@ def _row_response(
     task = tasks_svc.get_task(db, task_id)
     row = row_ctx(task, datetime.now(), planning=_planning(request), day=_row_day(request))
     context = {"request": request, "row": row, "expanded": expanded}
-    # A day page's rows are storyboard rows; everywhere else, list rows.
-    day_sheet = _row_context(request) == "day"
-    partial = "partials/day_row.html" if day_sheet else "partials/task_row.html"
-    return templates.TemplateResponse(request, partial, context)
+    return templates.TemplateResponse(request, "partials/task_row.html", context)
 
 
 @router.post("/tasks/quick-add")

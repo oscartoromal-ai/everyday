@@ -19,11 +19,11 @@
   "planned_label": planned_for | short_date if planned_for else "", "due_label": "", "time_label": "",
 } %}
 {% if editing %}<li id="task-{{ s.id }}" class="sheet-item">{% elif not notebook %}<div class="draft-slot">{% endif %}
-{# In a notebook the row itself says what it is (its RECORD cell). #}
-{% if not notebook %}<p class="draft-label">
+<p class="draft-label">
   {%- if editing %}Edit task
+  {%- elif notebook %}New task
   {%- else %}<span class="when-rest">Add a task</span><span class="when-writing">New task</span>
-  {%- endif %}</p>{% endif %}
+  {%- endif %}</p>
 <form class="task-sheet" data-sheet="{{ mode }}"
   {%- if editing %}
       hx-post="/ui/tasks/{{ s.id }}" hx-target="#task-{{ s.id }}" hx-swap="outerHTML"

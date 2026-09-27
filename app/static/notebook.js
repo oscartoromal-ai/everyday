@@ -96,7 +96,6 @@
         version = answer.version;
         root.dataset.version = String(version);
         saved = body;
-        recount();
       } else if (res.status === 409) {
         showStale(answer.version);
       } else {
@@ -111,29 +110,6 @@
     if (again) {
       again = false;
       flush();
-    }
-  }
-
-  // The sheet's title block counts what was saved. Read on its own, not
-  // through htmx, whose queue drops a read that meets one in flight; one
-  // more read follows when saves land during one.
-  let counting = false;
-  let recountAgain = false;
-  async function recount() {
-    if (counting) {
-      recountAgain = true;
-      return;
-    }
-    counting = true;
-    try {
-      const res = await fetch(location.pathname, { headers: { "X-Row-Context": "day" } });
-      const fresh = new DOMParser().parseFromString(await res.text(), "text/html").getElementById("day-rest");
-      if (fresh) document.getElementById("day-rest")?.replaceWith(fresh);
-    } catch { /* the next save counts again */ }
-    counting = false;
-    if (recountAgain) {
-      recountAgain = false;
-      recount();
     }
   }
 
@@ -206,8 +182,6 @@
     const lines = texts(block);
     const before = lines.slice(0, at);
     const after = lines.slice(at + 1);
-    // Blank lines left over above the box only space it; the sheet's rule does that.
-    while (before.length && !before[before.length - 1].trim()) before.pop();
     Editor().set(editorOf(block), before.length ? before : [""]);
     const box = fromTemplate(boxKind === "task" ? "nb-draft-template" : "nb-reflection-template");
     if (boxKind === "task") {
@@ -531,10 +505,10 @@
     }
   }, true);
 
-  // A click on the page's margin, or on a blank frame under what is written, writes at its end.
+  // A click on the page's margin, under or beside what is written, writes at its end.
   document.addEventListener("pointerdown", (e) => {
     const root = notebook();
-    if (e.target !== root && !e.target.closest?.(".sb-blank")) return;
+    if (e.target !== root) return;
     const last = blocks().filter((b) => kind(b) === "text").pop();
     if (!last) return;
     const lastBox = last.getBoundingClientRect();

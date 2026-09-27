@@ -12,10 +12,7 @@
 
    In prose mode (data-notes-editor="prose", the notebook's text and
    reflections) every line is plain text: no sub-tasks, no nesting, and Tab
-   moves on. It is markdown in live preview: "# " headings and **strong**,
-   *emphasis*, `code` and ~~struck~~ runs render in place while their marks
-   stay in the text, faded, so the line is still exactly what was typed.
-   notebook.js drives it through window.NotesEditor. */
+   moves on. notebook.js drives it through window.NotesEditor. */
 
 (() => {
   const ITEM = /^([ \t]*)([-*])[ \t]+(?:\[([ xX])\][ \t]+)?(\S.*)$/;
@@ -56,44 +53,6 @@
       })
       .join("\n");
 
-  /* ---- live markdown, for prose: marks kept, faded; runs styled ---- */
-
-  const HEADING = /^(#{1,3})([ \t]+)/;
-  // code, then strong, struck and emphasis; a run starts and ends on a non-space
-  const INLINE = /(`)([^`]+)`|(\*\*)(?=\S)(.+?)(?<=\S)\*\*|(~~)(?=\S)(.+?)(?<=\S)~~|(?<![\w*])(\*|_)(?=[^\s*_])(.+?)(?<=[^\s*_])\7(?![\w*])/g;
-  const RUNS = { "`": "md-code", "**": "md-strong", "~~": "md-strike", "*": "md-em", _: "md-em" };
-
-  const span = (cls, text) => {
-    const el = document.createElement("span");
-    el.className = `md ${cls}`;
-    el.textContent = text;
-    return el;
-  };
-
-  // A prose line's nodes: plain text, and spans that add nothing to its text.
-  const decorate = (el, text) => {
-    const nodes = [];
-    let rest = text;
-    const heading = HEADING.exec(text);
-    if (heading) {
-      el.dataset.h = String(heading[1].length);
-      nodes.push(span("md-mark", heading[0]));
-      rest = text.slice(heading[0].length);
-    } else {
-      delete el.dataset.h;
-    }
-    let at = 0;
-    for (const m of rest.matchAll(INLINE)) {
-      if (m.index > at) nodes.push(document.createTextNode(rest.slice(at, m.index)));
-      const mark = m[1] || m[3] || m[5] || m[7];
-      const inner = m[2] ?? m[4] ?? m[6] ?? m[8];
-      nodes.push(span("md-mark", mark), span(RUNS[mark], inner), span("md-mark", mark));
-      at = m.index + m[0].length;
-    }
-    if (at < rest.length) nodes.push(document.createTextNode(rest.slice(at)));
-    el.replaceChildren(...nodes);
-  };
-
   /* ---- the DOM: one div.ln per line ---- */
 
   const lines = (root) => [...root.children];
@@ -102,15 +61,14 @@
   const field = (root) => root.closest("[data-notes-field]").querySelector("textarea");
   const textOf = (el) => el.textContent.replace(/ /g, " ").replace(/\n/g, " ");
 
-  const lineEl = (b, prose = false) => {
+  const lineEl = (b) => {
     const el = document.createElement("div");
     el.className = "ln";
     el.dataset.kind = b.kind;
     el.dataset.depth = String(b.depth);
     el.style.setProperty("--depth", b.depth);
     if (b.kind === "item" && b.checked) el.dataset.checked = "";
-    if (prose) decorate(el, b.text);
-    else el.textContent = b.text;
+    el.textContent = b.text;
     if (!b.text) el.append(document.createElement("br")); // keeps an empty line caret-able
     return el;
   };
@@ -134,8 +92,7 @@
   };
 
   const render = (root, model) => {
-    const prose = isProse(root);
-    root.replaceChildren(...(model.length ? model : parseFor(root, "")).map((b) => lineEl(b, prose)));
+    root.replaceChildren(...(model.length ? model : parseFor(root, "")).map(lineEl));
     sync(root);
   };
 
@@ -410,10 +367,9 @@
   document.addEventListener("input", (e) => {
     const root = editorOf(e.target);
     if (!root) return;
-    const ours = (c) => c.nodeType === 3 || c.nodeName === "BR"
-      || (c.nodeType === 1 && c.classList.contains("md") && [...c.childNodes].every((t) => t.nodeType === 3));
     const clean = [...root.childNodes].every(
-      (n) => n.nodeType === 1 && n.classList.contains("ln") && [...n.childNodes].every(ours),
+      (n) => n.nodeType === 1 && n.classList.contains("ln")
+        && [...n.childNodes].every((c) => c.nodeType === 3 || c.nodeName === "BR"),
     );
     if (!clean) {
       const sel = selectionIn(root);
@@ -429,18 +385,6 @@
     lines(root).forEach((line) => {
       if (!line.firstChild) line.append(document.createElement("br"));
     });
-    // Live markdown: the line being typed in is drawn again from its text,
-    // the caret kept at the same offset.
-    if (isProse(root) && !e.isComposing) {
-      const sel = selectionIn(root);
-      if (sel && sel.start.i === sel.end.i && sel.start.o === sel.end.o) {
-        const line = lines(root)[sel.start.i];
-        const text = textOf(line);
-        decorate(line, text);
-        if (!text) line.append(document.createElement("br"));
-        place(root, sel.start.i, sel.start.o);
-      }
-    }
     sync(root);
   });
 

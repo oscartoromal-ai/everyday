@@ -41,14 +41,12 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Sub-tasks and the calendar**: sub-tasks have no blocks of their own; a task's block is the time its checklist is worked, and the block's menu on the calendar lists the sub-tasks so they tick off there. Milestones likewise attach to tasks, never sub-tasks.
 - **Triage by keyboard**: on Tasks, arrow keys move a row cursor and single keys act on it (T today, M tomorrow, D pick a day, X done, E edit), the cursor moving on to the next row as each one is dated or finished.
 - **Filing by drag**: in By project (and on Projects) a task is dragged onto a milestone, another project, or No project to file it there.
-- **Today is a notebook**, per [the notebook decision](#the-notebook-decided-2026-09-26): a page per day, written like a document, not a view of the database.
-  Since 2026-09-27 it is drawn as an anime storyboard sheet (Oscar's pick): every block written is a numbered cut in four columns, CUT, CONTENT (what he wrote, markdown in live preview: headings, strong, emphasis, code, struck), RECORD (what the planner recorded: the task's number, its day, deadline, project, the page it came from) and TIME (its time).
+- **Today is a notebook**, per [the notebook decision](#the-notebook-decided-2026-09-26): a page per day, written like a document beside the day's timeline, not a view of the database.
   What Oscar writes stays where he wrote it; some of it are commands the page sends to the database.
   A line started with "- " is a task, written as the task sheet is (its words become its do-date, time, due and repeat), and closed with Ctrl+Enter or Esc; the task keeps its place on the page whatever day it is for, and shows as it stands now.
   "/" at a line's start offers the other commands: "/reflection" writes a reflection, free text in a box of its own.
   Under the notebook, the day's other tasks: those planned for it but written elsewhere (on another day's page, on Tasks, by Claude), each with its description and a link to the page it was written on; on today's page also what is overdue, and Claude's work.
-  The day's time runs across the top of the sheet as a scale from 06 to 22 (events, task blocks, the missed ghosts, the now mark); only tasks with a time show on it, and dropping a task on it gives it an hour there.
-  Moving and resizing blocks, and a block's menu, are the Calendar's.
+  Only tasks with a time show on the timeline; dragging a task onto the timeline still gives it one.
   Every day has its page: Left and Right (outside the text) go a day back or on, and past pages stay editable.
 - **Weeks** is the planning-ahead surface: six weeks at a glance, as a month-style grid or as one ruled row per day, Oscar's choice and remembered.
   Each day shows its planned tasks, deadlines, milestones, and personal events; the work calendar is condensed to a load figure (meetings and busy hours) rather than listed.
@@ -213,7 +211,7 @@ Per [Architecture](tracker/tickets/009-architecture.md) and [Decision: security 
 ### Frontend
 
 - Server-rendered: Jinja templates plus HTMX for pages, lists, and forms; no build step, state server-side.
-- Real client JS is limited to a few focused vanilla islands, each built well once: the drag-to-slot calendar (the week grid, and Today's time scale as a drop target), drag-to-replan on the Weeks view, the task sheet (one editor for adding and editing, with its line-based description editor), and Today's notebook (the same line editor in prose mode, with the sheet as its task box).
+- Real client JS is limited to a few focused vanilla islands, each built well once: the drag-to-slot calendar (week grid and Today's timeline), drag-to-replan on the Weeks view, the task sheet (one editor for adding and editing, with its line-based description editor), and Today's notebook (the same line editor in prose mode, with the sheet as its task box).
 
 ### Background jobs
 

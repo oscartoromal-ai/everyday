@@ -12,7 +12,7 @@
 
   const refresh = () => document.body.dispatchEvent(new Event("calendar:refresh"));
 
-  /* ---- scroll position of a height-capped grid ---- */
+  /* ---- scroll position of a height-capped grid (Today's timeline) ---- */
 
   // First paint lands an hour before now; a refresh keeps wherever Oscar was.
   let keptScroll = null;

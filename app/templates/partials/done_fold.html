@@ -8,7 +8,7 @@
     {% if fold_note %}<span class="fold-note">{{ fold_note }}</span>{% endif %}
   </summary>
   <ul class="task-list">
-    {% for row in done_rows %}{% include fold_row | default("partials/task_row.html") %}{% endfor %}
+    {% for row in done_rows %}{% include "partials/task_row.html" %}{% endfor %}
   </ul>
 </details>
 {% endif %}
