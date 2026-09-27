@@ -55,7 +55,8 @@ def test_the_composer_adds_with_its_fields(page, live, app_db) -> None:
     sheet.locator(".sheet-line").click()
     page.keyboard.type("Water the plants")
     sheet.locator(".prop[data-prop=due]").click()
-    page.locator(".sheet-menu [role=menuitemradio]", has_text="Tomorrow").click()
+    # By name, exactly: on a Sunday, Next week's aside also reads "tomorrow".
+    page.locator(".sheet-menu").get_by_role("menuitemradio", name="Tomorrow", exact=True).click()
     # The menu hands the caret back to the title, where writing carries on.
     assert page.evaluate("document.activeElement.className") == "sheet-title"
     page.keyboard.press("Control+Enter")

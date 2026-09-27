@@ -29,6 +29,7 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 - Visual direction: **Neon Signage**, from Oscar's central design-language repo (`C:/Users/me/design-language/systems/neon-signage/SYSTEM.md`).
   Pink and cyan neon over black glass by night, the same signs unlit and printed on a pale sky by day; ink draws the interface; pink is you, cyan is time; Inter only.
 - The app consumes the system only through the repo's token contract, so switching to another of Oscar's systems (Brasa v2, Tokyo Night, Sumi & Neon) is one command.
+- Inputs (user-pinned 2026-09-27): drafted like a 90s anime settei sheet, a future Japan where the tech is blended in but subtle; ruled plates on graph paper with registration crosses, captions in condensed caps, the field in use marked in red pencil; a cyanotype by night. English only, no Japanese text.
 - Theme: Day and Night, following the system theme until the user picks one.
 - Pixel-perfection matters; quality over development cost (SPEC.md section 10).
 

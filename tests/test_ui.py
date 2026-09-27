@@ -37,7 +37,8 @@ def test_app_opens_on_tasks_grouped_by_do_date(client, db) -> None:
     assert headings[:3] == ["Overdue", "No date", "Today"]
     assert headings[-1] == "Later"
     assert "Tomorrow" not in headings
-    assert plan_group(sunday + timedelta(days=1), TODAY) == "nextweek"
+    # Next week's Tuesday: never tomorrow, whatever day the suite runs.
+    assert plan_group(sunday + timedelta(days=2), TODAY) == "nextweek"
 
     nodate = page.split('id="nodate-list"')[1].split("</ul>")[0]
     # A deadline outranks a bare capture; Claude's work stays off this page.

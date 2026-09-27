@@ -2,13 +2,14 @@
 <article class="project-card editing" id="project-{{ p.id }}">
   <form class="project-editor"
         hx-post="/ui/projects/{{ p.id }}" hx-target="#project-{{ p.id }}" hx-swap="outerHTML">
-    <div class="editor-title">
-      <input name="name" value="{{ p.name }}" required aria-label="Project name" autofocus>
-    </div>
-    <div class="field">
-      <label for="notes-{{ p.id }}">Notes</label>
-      <textarea id="notes-{{ p.id }}" name="notes" rows="3">{{ p.notes }}</textarea>
-    </div>
+    <label class="field">
+      <span class="draft-label">Project</span>
+      <span class="plate"><input name="name" value="{{ p.name }}" required autofocus></span>
+    </label>
+    <label class="field">
+      <span class="draft-label">Notes</span>
+      <span class="plate"><textarea name="notes" rows="3">{{ p.notes }}</textarea></span>
+    </label>
     <div class="editor-actions">
       <button type="submit" class="btn primary">Save</button>
       <button type="button" class="btn quiet"

@@ -16,9 +16,10 @@
       hx-post="/ui/projects"
       hx-target="#projects" hx-swap="outerHTML"
       hx-on::after-request="if (event.detail.successful) this.reset()">
-  <div class="field" style="flex: 2;">
-    <input name="name" placeholder="Start a project…" aria-label="Project name" required>
-  </div>
+  <label class="field" style="flex: 2;">
+    <span class="draft-label">New project</span>
+    <span class="plate"><input name="name" placeholder="Start a project…" required></span>
+  </label>
   <button type="submit" class="btn primary">Create</button>
 </form>
 {% endblock %}

@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Input fields: future Japan, 90s anime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Barlow+Condensed:wght@500;600&family=Noto+Sans+JP:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Prototype only: three directions for the app's input fields (the task
+   composer at rest and while writing, a form row, the buttons), each by Day
+   and by Night. One markup (the template below), dressed per direction. */
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 40px 32px 80px;
+  background: #e6e4ea; color: #1b1a22;
+  font: 14px/1.45 "Inter", system-ui, sans-serif; letter-spacing: -0.01em;
+}
+.intro, .dir { max-width: 1200px; margin: 0 auto; }
+.intro { margin-bottom: 32px; }
+.intro h1 { margin: 0 0 6px; font-size: 24px; font-weight: 600; }
+.intro p { margin: 0; max-width: 72ch; color: #4b4858; }
+.dir { margin-bottom: 56px; }
+.dir > h2 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+.dir > p { margin: 0 0 16px; max-width: 84ch; color: #4b4858; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 1040px) { .pair { grid-template-columns: 1fr; } }
+.mode { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: #6c6880; }
+
+/* ---------- shared structure ---------- */
+
+.p {
+  --jp: "Noto Sans JP", sans-serif;
+  --cond: "Barlow Condensed", "Inter", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+  position: relative; overflow: hidden; padding: 22px 24px 26px;
+  background: var(--bg); color: var(--ink);
+}
+.p .sys { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; font: 600 11px/1 var(--cond); letter-spacing: 0.22em; text-transform: uppercase; color: var(--dim); }
+.p .sys .rule { flex: 1; height: 1px; background: var(--line); }
+.p .sys .jp { font: 500 10px/1 var(--jp); letter-spacing: 0.1em; }
+.p .sys .code { font: 400 10.5px/1 var(--mono); letter-spacing: 0.04em; text-transform: none; }
+
+.lab { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; font: 600 11px/1 var(--cond); letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); }
+.lab .jp { font: 500 10px/1 var(--jp); letter-spacing: 0.08em; text-transform: none; opacity: 0.85; }
+.lab .no { margin-left: auto; font: 400 10px/1 var(--mono); letter-spacing: 0; opacity: 0.7; }
+
+svg.i { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.caret { display: inline-block; width: 2px; height: 1.05em; margin-left: 1px; vertical-align: -0.16em; background: var(--accent); animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
+
+.block + .block { margin-top: 18px; }
+
+/* the composer at rest */
+.rest { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; color: var(--dim); }
+.rest .i { color: var(--mark); }
+
+/* the composer while writing */
+.write { padding: 12px 14px 12px; }
+.write .title { font-size: 15px; font-weight: 500; color: var(--ink); }
+.write .props { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; }
+.prop { display: inline-flex; align-items: center; gap: 6px; font: 500 12px/1 "Inter", sans-serif; color: var(--dim); }
+.prop .k { font: 500 10px/1 var(--jp); letter-spacing: 0.06em; opacity: 0.8; }
+.prop.set { color: var(--ink); }
+.prop.set .v { font: 500 12px/1 var(--mono); color: var(--accent-text); }
+.write .desc { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; color: var(--dim); }
+.write .foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.write .hint { margin-right: auto; font: 400 11px/1 var(--mono); color: var(--dim); }
+
+/* the form row */
+.row { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 12px; }
+.field { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; padding: 0 12px; font-size: 14px; color: var(--ink); }
+.field .v { font: 500 13px/1 var(--mono); color: var(--ink); }
+.field .i { color: var(--dim); }
+
+/* buttons */
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 14px; border: none; background: none; cursor: pointer; font: 600 12px/1 var(--cond); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink); }
+.btn .jp { font: 500 10px/1 var(--jp); letter-spacing: 0.06em; text-transform: none; opacity: 0.8; }
+
+@media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+
+/* ================= 1. MAGI terminal ================= */
+/* Evangelion's command terminals, quietened: fields are chamfered plates
+   (cut corners, never rounded), one warm
+   light for you. Night is amber on black; Day is the same plate printed in
+   vermilion on warm paper. */
+
+.magi { --cut: 10px; }
+.magi.night {
+  --bg: radial-gradient(120% 70% at 100% 0%, rgba(255, 140, 30, 0.07), transparent 60%), #0c0a0b;
+  --ink: #f1e6d6; --dim: #9a8670; --line: #3a2c20; --mark: #6f5a44;
+  --field: #15110f; --edge: #3d2e21; --accent: #ff8c1a; --accent-text: #ffa640; --alert: #ff3d2e;
+  --glow: 0 0 14px rgba(255, 140, 26, 0.35);
+}
+.magi.day {
+  --bg: #f3eee4;
+  --ink: #1d1712; --dim: #7a6a5b; --line: #d9ccb8; --mark: #9c8a77;
+  --field: #fbf8f2; --edge: #c9b8a0; --accent: #d6361e; --accent-text: #c02e18; --alert: #d6361e;
+  --glow: none;
+}
+.magi .sys .rule { background: repeating-linear-gradient(90deg, var(--line) 0 18px, transparent 18px 22px); }
+/* A plate: the edge is the outer layer, the fill an inner layer 1px in,
+   both cut at the corners. */
+.magi .plate { position: relative; background: var(--edge); clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)); }
+.magi .plate > .in { position: relative; background: var(--field); clip-path: polygon(calc(var(--cut) - 0.4px) 1px, calc(100% - 1px) 1px, calc(100% - 1px) calc(100% - var(--cut) + 0.4px), calc(100% - var(--cut) + 0.4px) calc(100% - 1px), 1px calc(100% - 1px), 1px calc(var(--cut) - 0.4px)); }
+.magi .plate.focus { background: var(--accent); filter: drop-shadow(var(--glow, 0 0 0 transparent)); }
+.magi .write .lab { color: var(--accent-text); }
+.magi .write .desc { border-top: 1px dashed var(--line); }
+.magi .btn { --cut: 7px; clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut)); }
+.magi .btn.quiet { background: var(--edge); color: var(--ink); }
+.magi.night .btn.quiet { background: #2a2019; }
+.magi .btn.go { background: var(--accent); color: #140c05; }
+.magi.day .btn.go { color: #fff8f0; }
+.magi.night .btn.go { box-shadow: var(--glow); }
+
+/* ================= 2. Section 9 ================= */
+/* Ghost in the Shell's displays: a field is barely there, four corner ticks
+   and a baseline, until it is in use; then the baseline lights and a data
+   rule runs along the top. Night is phosphor on deep teal, with scanlines
+   you have to look for; Day is the same HUD on pale mint glass. */
+
+.s9.night {
+  --bg:
+    repeating-linear-gradient(180deg, rgba(120, 255, 220, 0.025) 0 1px, transparent 1px 3px),
+    radial-gradient(100% 70% at 0% 0%, rgba(80, 230, 200, 0.10), transparent 60%),
+    #071416;
+  --ink: #d6fff3; --dim: #6fa89c; --line: #1c3c3a; --mark: #3f7a70;
+  --field: rgba(40, 110, 100, 0.10); --tick: #3f7a70; --accent: #5ff0c8; --accent-text: #7ff7d6;
+  --glow: 0 0 10px rgba(95, 240, 200, 0.55);
+}
+.s9.day {
+  --bg: radial-gradient(100% 70% at 0% 0%, rgba(90, 200, 180, 0.14), transparent 60%), #eef3f1;
+  --ink: #0f2724; --dim: #5a7a74; --line: #cfe0db; --mark: #7fa39b;
+  --field: rgba(255, 255, 255, 0.55); --tick: #7fa39b; --accent: #0e8f78; --accent-text: #0b7a66;
+  --glow: none;
+}
+.s9 .plate { position: relative; background: var(--field); }
+.s9 .plate::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(var(--tick), var(--tick)) 0 0 / 7px 1px no-repeat, linear-gradient(var(--tick), var(--tick)) 0 0 / 1px 7px no-repeat,
+    linear-gradient(var(--tick), var(--tick)) 100% 0 / 7px 1px no-repeat, linear-gradient(var(--tick), var(--tick)) 100% 0 / 1px 7px no-repeat,
+    linear-gradient(var(--tick), var(--tick)) 0 100% / 100% 1px no-repeat;
+}
+.s9 .plate.focus { --tick: var(--accent); }
+.s9 .plate.focus::before { filter: drop-shadow(var(--glow, 0 0 0 transparent)); }
+/* the data rule along the top of a field in use: index marks, the first lit */
+.s9 .plate.focus::after { content: ""; position: absolute; left: 12px; right: 12px; top: 3px; height: 3px;
+  background:
+    linear-gradient(90deg, var(--accent) 0 28%, transparent 28%) 0 0 / 100% 1px no-repeat,
+    repeating-linear-gradient(90deg, var(--tick) 0 1px, transparent 1px 24px) 0 1px / 100% 2px no-repeat;
+  opacity: 0.7;
+}
+.s9 .write { padding-top: 14px; }
+.s9 .write .lab { color: var(--accent-text); }
+.s9.night .write .lab { text-shadow: 0 0 8px rgba(95, 240, 200, 0.45); }
+.s9 .btn.quiet { box-shadow: inset 0 -1px 0 var(--tick); color: var(--dim); }
+.s9 .btn.go { box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent-text); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.s9.night .btn.go { text-shadow: 0 0 8px rgba(95, 240, 200, 0.5); box-shadow: inset 0 0 0 1px var(--accent), 0 0 12px -2px rgba(95, 240, 200, 0.45); }
+
+/* ================= 3. Settei sheet ================= */
+/* The model sheets animators drew mecha from (Patlabor, Macross): fields are
+   drafted, not styled, a thin rule with registration crosses at the corners
+   and a leader line to the label; the field in use is marked in red pencil.
+   Night is the cyanotype of the same sheet. */
+
+.settei.day {
+  --bg:
+    linear-gradient(rgba(43, 95, 174, 0.06) 1px, transparent 1px) 0 0 / 100% 16px,
+    linear-gradient(90deg, rgba(43, 95, 174, 0.06) 1px, transparent 1px) 0 0 / 16px 100%,
+    #f4eddd;
+  --ink: #1a2233; --dim: #5d6a86; --line: #b9c6de; --mark: #7d8fb3;
+  --field: rgba(255, 255, 255, 0.5); --rule: #2b5fae; --accent: #d0463b; --accent-text: #c23a30;
+}
+.settei.night {
+  --bg:
+    linear-gradient(rgba(190, 215, 255, 0.07) 1px, transparent 1px) 0 0 / 100% 16px,
+    linear-gradient(90deg, rgba(190, 215, 255, 0.07) 1px, transparent 1px) 0 0 / 16px 100%,
+    radial-gradient(120% 80% at 50% 0%, #143461, #0b1f3d 70%);
+  --ink: #e6efff; --dim: #8aa3cf; --line: #29487a; --mark: #6f8cc0;
+  --field: rgba(10, 25, 55, 0.45); --rule: #bcd3ff; --accent: #ff6d5e; --accent-text: #ff8a7d;
+}
+.settei .plate { position: relative; margin: 6px; background: var(--field); box-shadow: inset 0 0 0 1px var(--rule); }
+/* registration crosses just outside each corner */
+.settei .plate::before { content: ""; position: absolute; inset: -6px; pointer-events: none;
+  --c: var(--rule);
+  background:
+    linear-gradient(var(--c), var(--c)) 0 6px / 11px 1px no-repeat, linear-gradient(var(--c), var(--c)) 6px 0 / 1px 11px no-repeat,
+    linear-gradient(var(--c), var(--c)) 100% 6px / 11px 1px no-repeat, linear-gradient(var(--c), var(--c)) calc(100% - 6px) 0 / 1px 11px no-repeat,
+    linear-gradient(var(--c), var(--c)) 0 calc(100% - 6px) / 11px 1px no-repeat, linear-gradient(var(--c), var(--c)) 6px 100% / 1px 11px no-repeat,
+    linear-gradient(var(--c), var(--c)) 100% calc(100% - 6px) / 11px 1px no-repeat, linear-gradient(var(--c), var(--c)) calc(100% - 6px) 100% / 1px 11px no-repeat;
+  opacity: 0.8;
+}
+/* in use: redrawn in red pencil, slightly off the ruled line */
+.settei .plate.focus { box-shadow: inset 0 0 0 1px var(--rule), 0 0 0 2px var(--field), 0 0 0 3px var(--accent); }
+.settei .plate.focus::before { --c: var(--accent); }
+.settei .lab { position: relative; padding-left: 16px; margin-left: 6px; }
+.settei .lab::before { content: ""; position: absolute; left: 0; top: 50%; width: 11px; height: 1px; background: var(--rule); opacity: 0.7; }
+.settei .write .lab { color: var(--accent-text); }
+.settei .write .lab::before { background: var(--accent); }
+.settei .write .desc { border-top: 1px dashed var(--line); }
+.settei .btn.quiet { box-shadow: inset 0 0 0 1px var(--rule); color: var(--ink); }
+.settei .btn.go { background: var(--accent); color: #fff; }
+.settei.night .btn.go { color: #1a0906; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="plus" viewBox="0 0 20 20"><path d="M10 4v12M4 10h12"/></symbol>
+  <symbol id="cal" viewBox="0 0 20 20"><rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3M13 2.5v3M3 8.5h14"/></symbol>
+  <symbol id="clock" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2"/></symbol>
+  <symbol id="due" viewBox="0 0 20 20"><path d="M5.5 2.75h9M5.5 17.25h9M6.5 2.75c0 4 7 4.5 7 7.25s-7 3.25-7 7.25M13.5 2.75c0 4-7 4.5-7 7.25s7 3.25 7 7.25"/></symbol>
+  <symbol id="rep" viewBox="0 0 20 20"><path d="M3.5 9.5V8a3 3 0 0 1 3-3h10l-2.5-2.5M16.5 10.5V12a3 3 0 0 1-3 3h-10l2.5 2.5"/></symbol>
+  <symbol id="down" viewBox="0 0 20 20"><path d="M5.5 8l4.5 4.5L14.5 8"/></symbol>
+</svg>
+
+<template id="inputs">
+  <div class="sys"><span>Planner</span><span class="rule"></span><span class="code">IN-01</span></div>
+
+  <div class="block">
+    <div class="lab">Add a task</div>
+    <div class="plate"><div class="in"><div class="rest"><svg class="i"><use href="#plus"/></svg>Add a task…</div></div></div>
+  </div>
+
+  <div class="block">
+    <div class="lab">New task<span class="no">02</span></div>
+    <div class="plate focus"><div class="in"><div class="write">
+      <div class="title">Call the dentist about the crown<span class="caret"></span></div>
+      <div class="props">
+        <span class="prop set"><svg class="i"><use href="#cal"/></svg><span class="v">tomorrow</span></span>
+        <span class="prop set"><svg class="i"><use href="#clock"/></svg><span class="v">15:00–16:00</span></span>
+        <span class="prop"><svg class="i"><use href="#due"/></svg></span>
+        <span class="prop"><svg class="i"><use href="#rep"/></svg></span>
+      </div>
+      <div class="desc">Add context. Start a line with - to make it a sub-task.</div>
+      <div class="foot">
+        <span class="hint">ctrl+enter</span>
+        <button class="btn quiet" type="button">Cancel</button>
+        <button class="btn go" type="button">Add task</button>
+      </div>
+    </div></div></div>
+  </div>
+
+  <div class="block">
+    <div class="row">
+      <div>
+        <div class="lab">Project</div>
+        <div class="plate"><div class="in"><div class="field">Garden rebuild</div></div></div>
+      </div>
+      <div>
+        <div class="lab">Status</div>
+        <div class="plate"><div class="in"><div class="field">Active<svg class="i"><use href="#down"/></svg></div></div></div>
+      </div>
+      <div>
+        <div class="lab">Target</div>
+        <div class="plate"><div class="in"><div class="field"><span class="v">Fri 2 Oct</span><svg class="i"><use href="#cal"/></svg></div></div></div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<header class="intro">
+  <h1>Input fields: a future Japan, as 90s anime drew it</h1>
+  <p>The same inputs in each: the task composer at rest and while writing, a form row (text, select, date), and its buttons. Day on the left, Night on the right. The tech is in the details: cut corners, corner ticks, a lit baseline. Nothing else on the page changes.</p>
+</header>
+
+<section class="dir">
+  <h2>1. MAGI terminal</h2>
+  <p>Evangelion's command terminals, quietened. Fields are chamfered plates, cut corners instead of rounded ones, with one warm light for the field you are in. Night is amber on black; Day is the same plate printed in vermilion on warm paper.</p>
+  <div class="pair">
+    <div><p class="mode">Day</p><div class="p magi day"></div></div>
+    <div><p class="mode">Night</p><div class="p magi night"></div></div>
+  </div>
+</section>
+
+<section class="dir">
+  <h2>2. Section 9</h2>
+  <p>Ghost in the Shell's displays. A field is barely there, four corner ticks and a baseline, until you are in it: then the ticks and baseline light and a data rule with index marks runs along its top. Night is phosphor on deep teal with scanlines you have to look for; Day is the same HUD on pale mint glass.</p>
+  <div class="pair">
+    <div><p class="mode">Day</p><div class="p s9 day"></div></div>
+    <div><p class="mode">Night</p><div class="p s9 night"></div></div>
+  </div>
+</section>
+
+<section class="dir">
+  <h2>3. Settei sheet</h2>
+  <p>The model sheets animators drew mecha from (Patlabor, Macross). Fields are drafted rather than styled: a thin rule, registration crosses at the corners, a leader line to each label, and the field in use re-marked in red pencil. Night is the cyanotype of the same sheet.</p>
+  <div class="pair">
+    <div><p class="mode">Day</p><div class="p settei day"></div></div>
+    <div><p class="mode">Night</p><div class="p settei night"></div></div>
+  </div>
+</section>
+
+<script>
+  const tpl = document.getElementById("inputs");
+  document.querySelectorAll(".p").forEach((panel) => panel.append(tpl.content.cloneNode(true)));
+</script>
+</body>
+</html>

@@ -435,11 +435,10 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 /* ---------- the task sheet: writing a task, added or edited (task-sheet.js) ---------- */
 
 /* shaped like a row: a box (or the composer's plus), then the words */
-.task-sheet { display: flex; align-items: flex-start; gap: var(--s-3); padding: 10px var(--s-4); }
-.task-sheet[data-sheet="edit"] { padding: var(--s-3) var(--s-4); background: var(--glass-row-hover); }
-.sheet-item { border-bottom: 1px solid var(--hairline-on-glass); }
-.sheet-plus { flex: none; width: 18px; height: 18px; margin-top: 1px; stroke: var(--steel); }
-.task-sheet:focus-within .sheet-plus { stroke: var(--ink); }
+.task-sheet { display: flex; align-items: flex-start; gap: var(--s-3); padding: 10px var(--s-3); }
+.sheet-item { padding: var(--s-3) var(--s-4) var(--s-4); border-bottom: 1px solid var(--hairline-on-glass); }
+.sheet-plus { flex: none; width: 18px; height: 18px; margin-top: 1px; stroke: var(--draft-rule); }
+.task-sheet:focus-within .sheet-plus { stroke: var(--draft-pencil); }
 .sheet-body { flex: 1; min-width: 0; }
 
 /* the title is a line of a document: it wraps, and the icons trail its last word */
@@ -488,7 +487,7 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .sheet-end { gap: var(--s-1); margin-left: -4px; }
 .sheet-end .prop { margin: 0; }
 .sheet-actions .spacer, .sheet-end .spacer { flex: 1; }
-.sheet-actions .btn { padding: 6px 14px; }
+
 .sheet-actions .hint { font-size: var(--t-caption); color: var(--pewter); }
 .hint kbd { font: inherit; }
 @media (hover: none) { .sheet-actions .hint { display: none; } }
@@ -559,31 +558,132 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 /* ---------- forms ---------- */
 
 
-.field label { display: block; margin-bottom: 6px; font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); }
-.field input, .field select, .field textarea, .status-select {
-  width: 100%;
-  font-size: var(--t-body); color: var(--ink);
-  background: var(--glass-input);
-  border: 1px solid var(--hairline); border-radius: var(--r-ctl);
-  padding: 10px 14px;
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
-}
-.field input:hover, .field select:hover, .field textarea:hover { border-color: var(--mist); }
-.field input:focus, .field select:focus, .field textarea:focus, .status-select:focus-visible {
-  outline: none; border-color: transparent; box-shadow: 0 0 0 2px var(--spark-deep), var(--spark-glow);
-}
-.field input::placeholder, .field textarea::placeholder { color: var(--pewter); }
-.field input[type="date"], .field input[type="time"] { font-variant-numeric: tabular-nums; }
-
-.editor-title input {
-  width: 100%; padding: 0;
-  font-size: var(--t-body); font-weight: 600; color: var(--ink);
-  border: none; background: none;
-}
-.editor-title input:focus { outline: none; box-shadow: none; }
+.field { display: block; }
 
 .editor-actions { display: flex; align-items: center; gap: var(--s-2); margin-top: var(--s-4); }
 .editor-actions .spacer { flex: 1; }
+
+/* ---------- drafted inputs: a settei sheet ---------- */
+
+/* Every place Oscar writes is drafted like the model sheets 90s anime was
+   drawn from: a thin rule in drafting blue over faint graph paper, a
+   registration cross at each corner, a leader line to a caption in
+   condensed caps, and the field in use re-marked in red pencil. By night
+   the paper is the sheet's cyanotype. The blue and the red are the
+   contract's hues 6 and 8; the caption face is a self-hosted subset
+   (scripts/fetch-label-fonts.py). */
+
+@font-face {
+  font-family: "Barlow Condensed"; font-weight: 600; font-style: normal; font-display: swap;
+  src: url("fonts/barlow-condensed-600.woff2") format("woff2");
+}
+
+:root {
+  --font-label: "Barlow Condensed", var(--font-sans);
+  /* softened by day so a resting field blends in, still 3:1 as a field's edge */
+  --draft-rule: color-mix(in srgb, var(--hue-6) 78%, var(--paper));
+  --draft-pencil: var(--hue-8);
+  /* red pencil as text and as a fill under paper-coloured text: deepened by day for 4.5:1 */
+  --draft-pencil-ink: color-mix(in srgb, var(--hue-8) 72%, var(--ink));
+  --draft-pencil-fill: color-mix(in srgb, var(--hue-8) 80%, var(--ink));
+  --draft-paper: color-mix(in srgb, var(--hue-6) 4%, var(--paper));
+  --draft-grid: color-mix(in srgb, var(--hue-6) 9%, transparent);
+}
+:root[data-theme="dark"] {
+  --draft-rule: color-mix(in srgb, var(--hue-6) 55%, var(--ink));
+  --draft-pencil-ink: var(--hue-8);
+  --draft-pencil-fill: var(--hue-8);
+  --draft-paper: color-mix(in srgb, var(--hue-6) 16%, var(--paper));
+  --draft-grid: color-mix(in srgb, var(--hue-6) 15%, transparent);
+}
+:root {
+  --draft-sheet:
+    linear-gradient(var(--draft-grid) 1px, transparent 1px) 0 0 / 100% 16px,
+    linear-gradient(90deg, var(--draft-grid) 1px, transparent 1px) 0 0 / 16px 100%,
+    var(--draft-paper);
+  /* the field in use: its rule, a gap of paper, and the red pencil line around it */
+  --draft-marked: inset 0 0 0 1px var(--draft-rule), 0 0 0 2px var(--draft-paper), 0 0 0 3px var(--draft-pencil);
+}
+
+/* the caption: a leader line, then the words in condensed caps */
+.draft-label {
+  position: relative; display: flex; align-items: baseline; gap: 6px;
+  margin: 0 0 7px; padding-left: 16px;
+  font: 600 11px/1 var(--font-label); letter-spacing: 0.18em; text-transform: uppercase; color: var(--graphite);
+  transition: color var(--dur) var(--ease);
+}
+.draft-label::before { content: ""; position: absolute; left: 0; top: 50%; width: 11px; height: 1px; background: var(--draft-rule); }
+.draft-label .when-writing, .draft-slot:has(.task-sheet.composing) .draft-label .when-rest { display: none; }
+.draft-slot:has(.task-sheet.composing) .draft-label .when-writing { display: contents; }
+/* the caption of the field in use is marked with it */
+:is(.field, .draft-slot, .sheet-item, .nb-draft, .nb-reflection):focus-within > .draft-label { color: var(--draft-pencil-ink); }
+:is(.field, .draft-slot, .sheet-item, .nb-draft, .nb-reflection):focus-within > .draft-label::before { background: var(--draft-pencil); }
+
+/* the plate: a ruled field on graph paper, crossed at the corners */
+.plate, .task-sheet {
+  position: relative; display: block; border-radius: 0;
+  background: var(--draft-sheet);
+  box-shadow: inset 0 0 0 1px var(--draft-rule);
+  transition: box-shadow var(--dur) var(--ease);
+}
+.task-sheet { display: flex; }
+.plate::before, .task-sheet::before {
+  --cross: var(--draft-rule);
+  content: ""; position: absolute; inset: -5px; pointer-events: none; opacity: 0.85;
+  background:
+    linear-gradient(var(--cross), var(--cross)) 0 5px / 11px 1px no-repeat,
+    linear-gradient(var(--cross), var(--cross)) 5px 0 / 1px 11px no-repeat,
+    linear-gradient(var(--cross), var(--cross)) 100% 5px / 11px 1px no-repeat,
+    linear-gradient(var(--cross), var(--cross)) calc(100% - 5px) 0 / 1px 11px no-repeat,
+    linear-gradient(var(--cross), var(--cross)) 0 calc(100% - 5px) / 11px 1px no-repeat,
+    linear-gradient(var(--cross), var(--cross)) 5px 100% / 1px 11px no-repeat,
+    linear-gradient(var(--cross), var(--cross)) 100% calc(100% - 5px) / 11px 1px no-repeat,
+    linear-gradient(var(--cross), var(--cross)) calc(100% - 5px) 100% / 1px 11px no-repeat;
+}
+.plate:focus-within, .task-sheet:focus-within, .task-sheet[data-sheet="edit"] { box-shadow: var(--draft-marked); }
+.plate:focus-within::before, .task-sheet:focus-within::before, .task-sheet[data-sheet="edit"]::before { --cross: var(--draft-pencil); opacity: 1; }
+
+/* what is written in a plate is the plate's; it draws no box of its own */
+.plate > [hidden] { display: none; }
+.plate > :is(input, select, textarea):not([hidden]) {
+  display: block; width: 100%; margin: 0; padding: 9px 12px;
+  font-size: var(--t-body); color: var(--ink);
+  background: transparent; border: none; border-radius: 0; appearance: none;
+}
+.plate > :is(input, select, textarea):focus, .plate > :is(input, select, textarea):focus-visible { outline: none; box-shadow: none; }
+.plate > :is(input, textarea)::placeholder { color: var(--pewter); }
+.plate > input:is([type="date"], [type="time"]) { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.plate > input::-webkit-calendar-picker-indicator { opacity: 0.55; cursor: pointer; }
+:root[data-theme="dark"] .plate > input::-webkit-calendar-picker-indicator { filter: invert(1); }
+.plate > :is(input, select) { height: 40px; }
+.plate > textarea { resize: vertical; line-height: 1.5; }
+.plate > select:not([hidden]) {
+  padding-right: 32px; cursor: pointer;
+  --chevron: transparent calc(50% - 0.75px), var(--draft-rule) calc(50% - 0.75px) calc(50% + 0.75px), transparent calc(50% + 0.75px);
+  background:
+    linear-gradient(45deg, var(--chevron)) no-repeat calc(100% - 18px) 50% / 5px 5px,
+    linear-gradient(-45deg, var(--chevron)) no-repeat calc(100% - 13px) 50% / 5px 5px;
+}
+.plate > select option { color: var(--ink); background: var(--paper); }
+/* the crosses sit just outside a plate: whatever holds one leaves them room */
+.draft-slot { padding: var(--s-4) var(--s-4) var(--s-4); }
+
+/* a set field is written in red pencil */
+.task-sheet .prop.is-set .prop-value { color: var(--draft-pencil-ink); }
+.task-sheet .prop.is-set svg { stroke: var(--draft-rule); }
+.task-sheet .sheet-more { margin-top: var(--s-2); }
+.task-sheet .notes-field { padding-top: var(--s-2); border-top: 1px dashed color-mix(in srgb, var(--draft-rule) 45%, transparent); }
+
+/* the buttons that finish writing are drafted too: squared, captioned */
+:is(.task-sheet, .inline-form, .project-editor) .btn {
+  height: 34px; padding: 0 14px; gap: 6px; border: none; border-radius: 0;
+  font: 600 12px/1 var(--font-label); letter-spacing: 0.16em; text-transform: uppercase;
+}
+:is(.task-sheet, .inline-form, .project-editor) .btn.quiet { color: var(--ink); background: transparent; box-shadow: inset 0 0 0 1px var(--draft-rule); }
+:is(.task-sheet, .inline-form, .project-editor) .btn.quiet:hover { background: var(--draft-paper); }
+:is(.task-sheet, .inline-form, .project-editor) .btn.primary { color: var(--paper); background: var(--draft-pencil-fill); box-shadow: none; }
+:is(.task-sheet, .inline-form, .project-editor) .btn.primary:hover { background: var(--draft-pencil-ink); }
+:is(.task-sheet, .inline-form, .project-editor) .btn:focus-visible { border-radius: 0; box-shadow: 0 0 0 2px var(--paper), 0 0 0 3px var(--draft-pencil); }
 
 /* ---------- buttons: one Primary per region ---------- */
 
@@ -668,14 +768,17 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .status-select {
   width: auto; appearance: none; cursor: pointer;
   padding: 6px 30px 6px var(--s-3);
-  font-size: var(--t-body-sm); font-weight: 500;
-  --chevron: transparent calc(50% - 0.75px), var(--steel) calc(50% - 0.75px) calc(50% + 0.75px), transparent calc(50% + 0.75px);
+  font: 600 12px/1.2 var(--font-label); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink);
+  border: none; border-radius: 0;
+  --chevron: transparent calc(50% - 0.75px), var(--draft-rule) calc(50% - 0.75px) calc(50% + 0.75px), transparent calc(50% + 0.75px);
   background:
     linear-gradient(45deg, var(--chevron)) no-repeat calc(100% - 17px) 50% / 5px 5px,
     linear-gradient(-45deg, var(--chevron)) no-repeat calc(100% - 12px) 50% / 5px 5px,
-    var(--glass-btn);
+    var(--draft-sheet);
+  box-shadow: inset 0 0 0 1px var(--draft-rule);
+  transition: box-shadow var(--dur) var(--ease);
 }
-.status-select:hover { border-color: var(--mist); background-color: var(--fog); }
+.status-select:focus-visible { outline: none; border-radius: 0; box-shadow: var(--draft-marked); }
 .card-edit-btn {
   display: grid; place-content: center; width: 32px; height: 32px;
   border-radius: var(--r-ctl); color: var(--steel);
@@ -719,7 +822,6 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .project-card > .expander { border-top: 1px solid var(--hairline-on-glass); padding: 2px var(--s-4); }
 
 .project-editor { padding: var(--s-4); }
-.project-editor .editor-title input { font-size: var(--t-sub); }
 .project-editor .field { margin-top: var(--s-3); }
 .project-editor textarea { resize: vertical; line-height: 1.5; }
 
@@ -745,8 +847,11 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .expander summary::before { content: "+"; display: inline-block; width: var(--s-3); margin-right: var(--s-1); }
 .expander[open] summary::before { content: "−"; }
 
-.inline-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); padding: var(--s-2) 0; }
-.inline-form input { flex: 1; min-width: 10rem; }
+.inline-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s-3); padding: var(--s-2) 0 var(--s-3); }
+.inline-form .field { flex: 1; min-width: 10rem; }
+.inline-form .check-label { min-height: 40px; }
+.inline-form .field:has(select) { flex: 0 1 auto; min-width: 11.5rem; }
+.inline-form .btn { height: 40px; }
 
 /* ---------- nudges ---------- */
 
@@ -979,26 +1084,26 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 /* The empty line kept around a box folds away until the caret goes there. */
 .notebook > .nb-text:not(:last-child):has(.nb-prose.is-empty:not(:focus)) { height: 0; overflow: hidden; }
 
-.nb-task, .nb-draft, .nb-reflection, .nb-gone {
+.nb-task, .nb-gone {
   margin: var(--s-2) calc(-1 * var(--s-3));
   border: 1px solid var(--hairline-on-glass-strong); border-radius: var(--r-ctl);
-  transition: border-color var(--dur) var(--ease);
 }
+/* the boxes being written are drafted plates (below), their labels above them */
+.nb-draft, .nb-reflection { margin: var(--s-3) calc(-1 * var(--s-3)); }
 .nb-task { overflow: clip; }
 .nb-task .task-row, .nb-task .task-sheet[data-sheet="edit"] { padding: 10px 11px; border-bottom: none; }
-.nb-task .sheet-item { border-bottom: none; }
-/* the box being written, and a reflection being written, take the focus colour */
-.nb-draft { background: var(--glass-row-hover); }
-.nb-draft:focus-within, .nb-reflection:focus-within { border-color: var(--spark-deep); }
+/* a notebook task opened for editing becomes a plate in the box's place */
+.nb-task:has(.sheet-item) { margin-block: var(--s-3); border-color: transparent; overflow: visible; }
+.nb-task .sheet-item { padding: 0; border-bottom: none; }
 .nb-draft .task-sheet { padding: 10px 11px; }
 .nb-hint { margin: var(--s-2) 0 0; font-size: var(--t-caption); color: var(--pewter); }
 .nb-hint .hint { font-size: inherit; color: inherit; }
 .nb-reflection:not(:focus-within) .nb-hint { display: none; }
 @media (hover: none) { .nb-hint { display: none; } }
 
-.nb-reflection { padding: 10px 11px; }
-.nb-reflection-head { margin-bottom: 2px; font-size: var(--t-caption); font-weight: 600; color: var(--graphite); }
+.nb-reflection > .plate { padding: 10px 11px; }
 .nb-reflection .nb-prose { min-height: 1lh; }
+.nb-reflection > .nb-hint { margin-top: var(--s-1); padding-left: 12px; }
 
 /* a task deleted since: a ghost of it, like a missed block's */
 .nb-gone { display: flex; align-items: center; gap: var(--s-2); padding: 6px 11px; border-style: dashed; border-color: var(--mist); }
@@ -1117,17 +1222,11 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .plan-day:hover .plan-add summary, .plan-add summary:focus-visible, .plan-add[open] summary { opacity: 1; }
 .plan-add form {
   position: absolute; z-index: 20; top: 32px; left: var(--s-1);
-  width: 240px; padding: 6px;
+  width: 240px; padding: var(--s-3);
   background: var(--paper); border: 1px solid var(--hairline); border-radius: var(--r-ctl);
   box-shadow: var(--shadow-dropdown);
 }
-.plan-add input {
-  width: 100%; padding: var(--s-2) var(--s-3);
-  font-size: var(--t-body-sm); color: var(--ink);
-  background: var(--fog); border: 1px solid transparent; border-radius: var(--r-ctl);
-}
-.plan-add input::placeholder { color: var(--pewter); }
-.plan-add input:focus { outline: none; box-shadow: 0 0 0 2px var(--spark-deep), var(--spark-glow); }
+.plan-add .plate > input { padding: 7px 10px; font-size: var(--t-body-sm); }
 @media (hover: none) { .plan-add summary { opacity: 1; } }
 
 /* grid layout: Brasa's month calendar */

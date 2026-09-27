@@ -49,7 +49,7 @@ With no saved choice, `shell.js` keeps following the system live.
   Without the inversion, dark-mode blocks sat at almost the same grey as work meetings.
 - **Status pairs:** `--ok-*`, `--warn-*`, `--err-*`, `--neutral-*`, rendered on glass through the `--badge-*-glass` fills.
 - **Canvas and glass:** `--canvas` (fixed to the viewport), `--chrome-flank` (the matte sidebar), `--glass-card`, `--glass-border`, `--glass-input`, `--glass-btn`, `--glass-hover`, `--glass-row-hover`, and ink-alpha hairlines `--hairline-on-glass(-strong)`; `--ink-tint-faint` tints weekends.
-- **Hues:** the contract's `--hue-1` to `--hue-8` are installed but not used yet.
+- **Hues:** two of the contract's hues draw the inputs (see Inputs): `--hue-6` is the drafting blue of their rules, `--hue-8` the red pencil of the field in use; the other six are installed but not used yet.
 
 ## Type
 
@@ -58,6 +58,7 @@ Neon Signage uses one face, Inter variable, installed in `app/static/design/font
 Titles (page, card, week and dialog titles, and the wordmark) use `--font-display` and figures (times, counts, targets, busy hours) use `--font-num`; in Neon Signage both are Inter, so these hooks matter only when another system is installed.
 Every font size is a scale token: `--t-caption` 12px, `--t-body-sm` 14px (the default UI size), `--t-body` 16px (inputs, card titles), `--t-sub` 20px (project titles), `--t-h-sm` 24px (page titles).
 Dates, times, counts and busy hours are `tabular-nums`.
+Input captions and the buttons that finish writing are set in Barlow Condensed 600 (`--font-label`), uppercase with 0.16 to 0.18em tracking: the one face beside Inter, self-hosted as a Latin subset in `app/static/fonts/` (OFL) by `scripts/fetch-label-fonts.py`.
 
 ## Shape, space, elevation
 
@@ -106,7 +107,7 @@ It is the one handler behind every `hx-confirm` that carries `data-confirm-*` at
 Each opening hears only its own answer: a dialog's close arrives a moment after it closes, and an Esc followed at once by another Delete must not hand the new question the old one's cancel.
 
 **Task sheet.** Adding a task and editing one are the same sheet, written like a document rather than filled in like a form.
-It is shaped like the row it becomes: the row's box (or, to add, a steel plus), then the title in 14px/500 ink, which wraps as a line of text.
+It is a drafted plate (see Inputs) under its caption, shaped inside like the row it becomes: the row's box (or, to add, a plus in the rule's blue, red once writing), then the title in 14px/500 ink, which wraps as a line of text.
 The do-date, time, due and repeat fields trail the title's last word as small icons in `--steel`, 14px, with the value beside the icon in 12px graphite once set ("tomorrow", "15:00–16:00", "Fri 2 Oct"); repeat stays an icon, its rule in the tooltip.
 The gaps before and between them are the line's own spaces, widened, so when they wrap they start flush with the title's text.
 Each is a 24px target that opens a small menu on paper with the dropdown shadow: Today, Tomorrow, Next week, Pick a date (the native picker) and No date; for the time, Pick a time, then Change the start, Change the end and No time (native pickers, 15-minute steps; a new start keeps the length); or the repeat presets.
@@ -120,7 +121,7 @@ History opens under the end line, above a hairline: each change newest first, a 
 Project and milestone live only there, since the list a task is written in already says which project it belongs to.
 
 To add, each list card ends in the sheet's plus and a pewter placeholder, filed by the card it sits in (a project card's is in that project); on Today, tasks are written in the notebook instead.
-Typing a title opens the icons and the description (focus alone does not, so a composer that folds away never shifts the page under a click), with a pewter "Ctrl+Enter to add" hint (hidden on touch), a secondary Cancel and the spark "Add task".
+Typing a title opens the icons and the description (focus alone does not, so a composer that folds away never shifts the page under a click), with a pewter "Ctrl+Enter to add" hint (hidden on touch), a drafted Cancel and the red-pencil "Add task".
 Enter in the title moves to the description, and Ctrl+Enter adds the task and returns to an empty title for the next one.
 A task dated away from the list it was written in does not join it; the page regroups instead.
 
@@ -142,8 +143,8 @@ The header is the day's name at 24px ("Today" on today's), a pair of 32px chevro
 The page is one glass card, 24px in, written at 16px ink with 1.6 line height, since the words are Oscar's; a blank page alone carries the pewter prompt ("Write about the day. Start a line with - for a task, or / for more.").
 Boxes sit in the text's flow with 8px above and below: a 1px hairline border and the control radius, outset 12px so what is inside starts exactly where the text does.
 A task is its row, as in any list (box, title, meta, bin), whatever day it is for, and re-reads itself whenever the plan changes; it is also a drag source for the timeline.
-A task being written is the task sheet in the box, on the row hover fill, its border `--spark-deep` while the caret is in it, with a pewter "Ctrl+Enter to close the task" under it (hidden on touch).
-A reflection is a box with a 12px graphite "Reflection" caption over its text, the border spark while it is written, and the same hint.
+A task being written is the task sheet as a plate (see Inputs) under its New task caption, with a pewter "Ctrl+Enter to close the task" inside it (hidden on touch); a task opened for editing on the page becomes a plate in its box's place.
+A reflection is a plate under a Reflection caption, with the same hint under it while it is written.
 A task deleted since it was written keeps its place as a ghost, as a missed block does: a dashed mist border, its title pewter and struck through, "deleted", and a steel × that takes it off the page.
 The line kept around each box for the caret folds to nothing while empty and unfocused, so boxes stack with their own spacing.
 "/" at a line's start opens the commands on the sheet menus' paper, under the caret: Reflection and Task, each with a pewter aside; the highlighted one takes the fog fill and the spark bar.
@@ -178,8 +179,17 @@ Esc closes it and keeps a half-written draft for the next time.
 **Buttons.** `.btn.primary` is the spark primary, glowing at night, `.btn.quiet` the glass secondary, `.btn.danger-quiet` the destructive secondary with an err border.
 Week navigation and nudge actions are secondary-style controls.
 
-**Inputs.** 16px text, a 12px radius and a hairline border on glass; focus clears the border and draws Brasa's 2px ring, glowing at night.
-Every focus ring is `--spark-deep`, not `--spark`: accent text holds 4.5:1 on every surface, where the bright spark can sink into a glow of its own colour (Brasa's ember aurora).
+**Inputs: drafted, like a settei sheet** (Oscar's pick, 2026-09-27, from three 90s-anime directions in `tracker/prototypes/input-boxes.html`).
+Every place Oscar writes is drawn like the model sheets anime of the 90s was animated from: a *plate*.
+A plate is square, ruled with a 1px line in drafting blue (`--draft-rule`: `--hue-6`, softened toward paper by day so a resting field blends in while its edge holds 3:1, and lifted toward ink by night), filled with faint graph paper (16px squares in `--draft-grid` over `--draft-paper`, a hint of blue in paper by day, the sheet's cyanotype by night), with a registration cross just outside each corner.
+Above it, a caption: an 11px leader line in the rule's blue, then the field's name in 11px Barlow Condensed caps, graphite.
+The field in use is re-marked in red pencil (`--hue-8`): its rule gains a 1px paper gap and a 1px red line around it, its crosses turn red, and its caption turns red with them.
+Inside a plate, controls draw nothing of their own: 16px ink text, 40px tall, pewter placeholders, date and time in `--font-num`, a select's chevron drawn in the rule's blue.
+Plates are the task sheet (composer, edit, and the notebook's task box, captioned Add a task, then New task once writing; Edit task), the notebook's reflection, the event, milestone and new-project forms, the project editor, Weeks' quick add, and, rule only, Projects' status select.
+In a task sheet a set field's value is written in red pencil, and a dashed blue rule divides the title line from the description.
+The buttons that finish writing (the sheet's, and those of the inline forms and the project editor) are drafted too: square, 34px (40px beside a form's fields), captions in Barlow Condensed caps; the secondary is a blue-ruled outline, the primary a red-pencil fill with paper-coloured text (deepened by day for 4.5:1).
+Everything that holds a plate leaves the 5px its crosses need.
+Focus elsewhere in the app is unchanged: every other focus ring is `--spark-deep`, not `--spark`, since accent text holds 4.5:1 on every surface where the bright spark can sink into a glow of its own colour.
 
 **Time grid** (Calendar's week and Today's one-day timeline, one partial).
 Day heads are 12px pewter over a 14px/600 number, with today in `--spark-deep`, glowing at night.

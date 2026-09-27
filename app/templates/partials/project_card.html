@@ -40,12 +40,14 @@
           hx-post="/ui/projects/{{ p.id }}/milestones"
           hx-target="#milestone-groups-{{ p.id }}" hx-swap="beforeend"
           hx-on::after-request="if (event.detail.successful) { this.reset(); this.closest('details').open = false; }">
-      <div class="field" style="flex: 2;">
-        <input name="name" placeholder="Milestone name" aria-label="Milestone name" required>
-      </div>
-      <div class="field">
-        <input type="date" name="target_date" aria-label="Target date">
-      </div>
+      <label class="field" style="flex: 2;">
+        <span class="draft-label">Milestone</span>
+        <span class="plate"><input name="name" placeholder="Milestone name" required></span>
+      </label>
+      <label class="field">
+        <span class="draft-label">Target</span>
+        <span class="plate"><input type="date" name="target_date"></span>
+      </label>
       <button type="submit" class="btn quiet">Add</button>
     </form>
   </details>

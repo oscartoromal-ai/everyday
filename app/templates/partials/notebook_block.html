@@ -29,8 +29,8 @@
 </div>
 {% elif block.kind == "reflection" %}
 <section class="nb-reflection" data-block="reflection" aria-label="Reflection">
-  <header class="nb-reflection-head">Reflection</header>
-  <div data-notes-field>
+  <p class="draft-label">Reflection</p>
+  <div class="plate" data-notes-field>
     <textarea hidden tabindex="-1" aria-hidden="true">{{ block.text }}</textarea>
     <div class="notes-editor nb-prose" contenteditable="true" role="textbox" aria-multiline="true"
          aria-label="Reflection" data-notes-editor="prose" spellcheck="true"

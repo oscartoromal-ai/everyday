@@ -25,26 +25,31 @@
     <form class="inline-form"
           hx-post="/ui/events" hx-swap="none"
           hx-on::after-request="if (event.detail.successful) { this.reset(); this.closest('details').open = false; }">
-      <div class="field" style="flex: 2;">
-        <input name="title" placeholder="Event title" aria-label="Event title" required>
-      </div>
-      <div class="field">
-        <input type="date" name="day" value="{{ today.isoformat() }}" aria-label="Date" required>
-      </div>
-      <div class="field">
-        <input type="time" name="start_time" aria-label="Starts at">
-      </div>
-      <div class="field">
-        <input type="time" name="end_time" aria-label="Ends at">
-      </div>
+      <label class="field" style="flex: 2;">
+        <span class="draft-label">Event</span>
+        <span class="plate"><input name="title" placeholder="Event title" required></span>
+      </label>
+      <label class="field">
+        <span class="draft-label">Date</span>
+        <span class="plate"><input type="date" name="day" value="{{ today.isoformat() }}" required></span>
+      </label>
+      <label class="field">
+        <span class="draft-label">Starts</span>
+        <span class="plate"><input type="time" name="start_time"></span>
+      </label>
+      <label class="field">
+        <span class="draft-label">Ends</span>
+        <span class="plate"><input type="time" name="end_time"></span>
+      </label>
       <label class="check-label"><input type="checkbox" name="all_day"> All day</label>
-      <div class="field">
-        <select name="repeat" aria-label="Repeat">
+      <label class="field">
+        <span class="draft-label">Repeat</span>
+        <span class="plate"><select name="repeat">
           {% for value, label in [("none", "Does not repeat"), ("daily", "Daily"), ("weekdays", "Weekdays"), ("weekly", "Weekly"), ("monthly", "Monthly")] %}
           <option value="{{ value }}">{{ label }}</option>
           {% endfor %}
-        </select>
-      </div>
+        </select></span>
+      </label>
       <button type="submit" class="btn primary">Add</button>
     </form>
   </details>
