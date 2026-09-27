@@ -42,7 +42,9 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Triage by keyboard**: on Tasks, arrow keys move a row cursor and single keys act on it (T today, M tomorrow, D pick a day, X done, E edit), the cursor moving on to the next row as each one is dated or finished.
 - **Filing by drag**: in By project (and on Projects) a task is dragged onto a milestone, another project, or No project to file it there.
 - **Today is a notepad beside the day's timeline** (Oscar's call on 2026-09-27, "for now"): the whole left column is one plain notepad for the day, the right the day's timeline.
-  The notes are plain text, saved as they are written; nothing in them becomes a task.
+  The notes are plain text, saved as they are written.
+  A task is written in them: "- [ ] " at a row's start opens one, and the rows it covers are marked until it is closed; its first row is its title, the rows added under it its description ("- " rows its sub-tasks).
+  Ctrl+Enter closes it and goes on to the next row, Esc closes it where it is; closing adds the task for that day, and its words stay in the notes as written.
   Every day has its notepad: Left and Right (outside the text) go a day back or on, and past days stay editable.
   N writes a new task from Today in the capture window, as on Calendar and Weeks; the day's tasks are worked from Tasks, and the nudge center now opens Tasks.
   It replaces [the notebook](#the-notebook-decided-2026-09-26), where lines became tasks and reflections, and the storyboard sheet that followed it; both are in git history.

@@ -21,12 +21,14 @@
         </nav>
       </div>
       <div class="rest">{% if is_today %}{{ day.strftime("%A") }} {% endif %}{{ day.day }} {{ day.strftime("%B %Y") }}</div>
-      <p class="keys-hint"><kbd>N</kbd> new task · <kbd>←</kbd><kbd>→</kbd> days · <kbd>?</kbd> all keys</p>
+      <p class="keys-hint"><kbd>- [ ]</kbd> task · <kbd>Ctrl</kbd><kbd>Enter</kbd> close it · <kbd>←</kbd><kbd>→</kbd> days · <kbd>?</kbd> all keys</p>
     </header>
 
     <section class="notepad-card">
       {# Row numbers, like a spreadsheet's row headers (notepad.js numbers them). #}
       <div class="pad-rows" aria-hidden="true"><div class="pad-rows-inner"></div></div>
+      {# The rows of the task being written, marked until it is closed (notepad.js). #}
+      <div class="pad-task-mark" aria-hidden="true" hidden></div>
       <textarea class="notepad" id="notepad" data-day="{{ day.isoformat() }}" data-version="{{ notepad.version }}"
                 wrap="off" spellcheck="true" aria-label="Notes" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
     </section>

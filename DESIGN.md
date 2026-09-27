@@ -259,6 +259,7 @@ It writes the same plain text the server stores into a hidden `notes` textarea, 
 The confirm dialog answers the row it was asked about even when a late list refresh swapped that row while it was open: focus goes back to the row's live twin, and a confirmed delete is sent from it rather than silently dropped with the detached one.
 
 **Notepad** (`app/static/notepad.js`, vanilla).
+"- [ ] " at a row's start opens a task: the rows it covers are marked in `--spark-tint` inside a 1px `--spark-deep` line, their row numbers in spark-deep 600 on the tint, and the mark grows as rows are added under it; Ctrl+Enter closes it onto a fresh row, Esc where it is, and a toast says "Task added: <title>".
 The notes save as a whole 600ms after a change, when the tab is hidden, and when the page is left.
 A save names the version it was made from; refused (another window saved since), the page stops saving and asks; returning to the tab shows a newer version when nothing here is unsaved.
 Esc steps out of the text; Left and Right, outside it, go a day back or on.

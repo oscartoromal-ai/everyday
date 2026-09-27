@@ -64,3 +64,38 @@ def test_notes_changed_in_another_window_ask_which_to_keep(page, live, app_db) -
     page.locator("[data-pad-keep]").click()
     saved_as(app_db, [{"kind": "text", "text": "Mine. More."}])
     assert page.locator("#pad-stale").is_hidden()
+
+
+def test_a_task_is_written_in_the_notes(page, live, app_db) -> None:
+    from app.services import tasks as tasks_svc
+
+    page.goto(f"{live}/today")
+    page.locator("#notepad").click()
+    page.keyboard.type("Morning.")
+    page.keyboard.press("Enter")
+
+    # "- [ ] " opens a task: its rows are marked, and grow as it is written.
+    page.keyboard.type("- [ ] Call the dentist")
+    mark = page.locator(".pad-task-mark")
+    assert mark.is_visible()
+    page.keyboard.press("Enter")
+    page.keyboard.type("- ask about the crown")
+    assert page.locator(".pad-rows-inner > div.task").all_inner_texts() == ["2", "3"]
+
+    # Ctrl+Enter closes it (the task is added) and goes on to the next row.
+    page.keyboard.press("Control+Enter")
+    page.locator(".cal-toast.show", has_text="Task added: Call the dentist").wait_for()
+    assert mark.is_hidden()
+    page.keyboard.type("After.")
+    saved_as(app_db, [{"kind": "text", "text": "Morning.\n- [ ] Call the dentist\n- ask about the crown\nAfter."}])
+    with app_db() as db:
+        [task] = tasks_svc.list_tasks(db)
+        assert (task.title, task.notes, task.planned_for) == ("Call the dentist", "- ask about the crown", TODAY)
+
+    # Esc closes one where it is.
+    page.keyboard.press("Enter")
+    page.keyboard.type("- [ ] Water the plants")
+    page.keyboard.press("Escape")
+    page.locator(".cal-toast.show", has_text="Task added: Water the plants").wait_for()
+    with app_db() as db:
+        assert sorted(t.title for t in tasks_svc.list_tasks(db)) == ["Call the dentist", "Water the plants"]
