@@ -35,7 +35,32 @@ def test_a_page_written_with_tasks_reads_back_as_text(client, db) -> None:
         version=0,
     )
     pad = client.get("/today").text.split('id="notepad"')[1].split("</textarea>")[0]
-    assert "Morning.\n- Call the dentist" in pad
+    # Its task row shows without its "- [ ] ": the page draws the checkbox.
+    assert ">Morning.\nCall the dentist" in pad
+    assert f"""data-task-rows='[{{"done": false, "id": {task.id}, "row": 1}}]'""" in pad
+
+
+def test_task_rows_follow_their_tasks(client, db) -> None:
+    from app.models import TaskStatus
+    from app.services import notebook as notebook_svc
+
+    task = tasks_svc.create_task(db, title="Call the dentist")
+    notebook_svc.save_page(
+        db,
+        TODAY,
+        [{"kind": "text", "text": "\n\nMorning.\n- [ ] Call the dentist\n- [ ] just a thought",
+          "links": {"3": task.id}}],
+        version=0,
+    )
+    # The blank lines trimmed from the top take the link along with its row.
+    assert notebook_svc.get_page(db, TODAY).blocks[0]["links"] == {"1": task.id}
+    tasks_svc.set_status(db, task.id, TaskStatus.done)
+
+    pad = client.get("/today").text.split('id="notepad"')[1].split("</textarea>")[0]
+    assert ">Morning.\nCall the dentist\njust a thought" in pad
+    # Ticked elsewhere: its row reads done. A row that made no task stays a row.
+    assert f'{{"done": true, "id": {task.id}, "row": 1}}' in pad
+    assert '{"done": false, "id": null, "row": 2}' in pad
 
 
 def test_app_opens_on_tasks_grouped_by_do_date(client, db) -> None:

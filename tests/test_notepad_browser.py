@@ -67,38 +67,56 @@ def test_notes_changed_in_another_window_ask_which_to_keep(page, live, app_db) -
 
 
 def test_a_task_is_written_in_the_notes(page, live, app_db) -> None:
+    from app.models import TaskStatus
     from app.services import tasks as tasks_svc
 
     page.goto(f"{live}/today")
-    page.locator("#notepad").click()
+    pad = page.locator("#notepad")
+    pad.click()
     page.keyboard.type("Morning.")
     page.keyboard.press("Enter")
 
-    # "- [ ] " opens a task: its rows are marked, and grow as it is written.
+    # "- [ ] " makes the row a task: the marker leaves the text for the row's
+    # checkbox, and the rows the task covers are bracketed as it grows.
     page.keyboard.type("- [ ] Call the dentist")
-    mark = page.locator(".pad-task-mark")
-    assert mark.is_visible()
+    kinds = page.locator(".pad-rows-inner > div")
+    assert kinds.nth(1).locator(".pad-check").is_visible()
+    assert kinds.nth(1).locator(".pad-kind-name").inner_text() == "Task"
+    assert page.locator(".pad-task-mark").is_visible()
     page.keyboard.press("Enter")
     page.keyboard.type("- ask about the crown")
-    assert page.locator(".pad-rows-inner > div.task").all_inner_texts() == ["2", "3"]
+    assert page.locator(".pad-rows-inner > div.task .pad-n").all_inner_texts() == ["2", "3"]
 
     # Ctrl+Enter closes it (the task is added) and goes on to the next row.
     page.keyboard.press("Control+Enter")
     page.locator(".cal-toast.show", has_text="Task added: Call the dentist").wait_for()
-    assert mark.is_hidden()
+    assert page.locator(".pad-task-mark").is_hidden()
     page.keyboard.type("After.")
-    notes = "Morning.\n- [ ] Call the dentist\n- ask about the crown\nAfter."
-    saved_as(app_db, [{"kind": "text", "text": notes}])
+    assert pad.input_value() == "Morning.\nCall the dentist\n- ask about the crown\nAfter."
     with app_db() as db:
         [task] = tasks_svc.list_tasks(db)
         assert task.title == "Call the dentist"
         assert (task.notes, task.planned_for) == ("- ask about the crown", TODAY)
+        task_id = task.id
+    notes = "Morning.\n- [ ] Call the dentist\n- ask about the crown\nAfter."
+    saved_as(app_db, [{"kind": "text", "text": notes, "links": {"1": task_id}}])
 
-    # Esc closes one where it is.
-    page.keyboard.press("Enter")
-    page.keyboard.type("- [ ] Water the plants")
-    page.keyboard.press("Escape")
-    page.locator(".cal-toast.show", has_text="Task added: Water the plants").wait_for()
+    # Its box ticks the task; the row keeps its kind after a reload.
+    kinds.nth(1).locator(".pad-check").click()
+    kinds.nth(1).locator(".pad-check[aria-checked=true]").wait_for()
+    ticked = notes.replace("- [ ] ", "- [x] ")
+    saved_as(app_db, [{"kind": "text", "text": ticked, "links": {"1": task_id}}])
     with app_db() as db:
-        titles = sorted(t.title for t in tasks_svc.list_tasks(db))
-        assert titles == ["Call the dentist", "Water the plants"]
+        assert tasks_svc.get_task(db, task_id).status == TaskStatus.done
+    page.reload()
+    assert pad.input_value().startswith("Morning.\nCall the dentist\n")
+    assert kinds.nth(1).locator(".pad-check").get_attribute("aria-checked") == "true"
+
+    # Backspace at a task row's start makes it a plain row again.
+    pad.click()
+    page.keyboard.press("Control+Home")
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("Home")
+    page.keyboard.press("Backspace")
+    assert kinds.nth(1).locator(".pad-check").count() == 0
+    saved_as(app_db, [{"kind": "text", "text": ticked.replace("- [x] ", "")}])

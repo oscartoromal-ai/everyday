@@ -15,7 +15,6 @@ on it, after what was written.
 
 from __future__ import annotations
 
-import re
 from datetime import date, datetime
 from typing import Any
 
@@ -31,7 +30,6 @@ class StalePage(DomainError):
 
 
 KINDS = ("text", "task", "reflection")
-_EDGE_BLANKS = re.compile(r"\A(?:[ \t]*\n)+|(?:\n[ \t]*)+\Z")
 
 
 def get_page(db: Session, day: date) -> NotebookPage | None:
@@ -53,14 +51,28 @@ def _known_task_ids(db: Session, ids: set[int]) -> set[int]:
     return live | gone
 
 
+def _links(block: dict[str, Any]) -> dict[Any, Any]:
+    links = block.get("links") or {}
+    if not isinstance(links, dict):
+        raise DomainError("A text block's links map its rows to tasks")
+    return links
+
+
 def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
     """Blocks as the page stores them: known shapes only, prose that says
-    something, adjacent prose joined, each task once."""
+    something, adjacent prose joined, each task once.
+
+    A text block may carry `links`, {row: task id}, naming the rows that
+    are tasks (the notepad's "- [ ] " rows); they follow the text as its
+    blank edge lines are trimmed, and only known tasks are kept."""
     if not isinstance(blocks, list):
         raise DomainError("A page is a list of blocks")
     task_ids = {
         b.get("id") for b in blocks if isinstance(b, dict) and b.get("kind") == "task"
     }
+    for b in blocks:
+        if isinstance(b, dict) and b.get("kind") == "text":
+            task_ids |= set(_links(b).values())
     known = _known_task_ids(db, {i for i in task_ids if isinstance(i, int)})
     out: list[dict[str, Any]] = []
     seen: set[int] = set()
@@ -75,13 +87,36 @@ def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
                 out.append({"kind": "task", "id": task_id})
             continue
         # Blank lines at a block's edges only space it from the next box.
-        text = _EDGE_BLANKS.sub("", _clean_text(block.get("text", "")))
+        lines = _clean_text(block.get("text", "")).split("\n")
+        lead = 0
+        while lead < len(lines) and not lines[lead].strip():
+            lead += 1
+        end = len(lines)
+        while end > lead and not lines[end - 1].strip():
+            end -= 1
+        text = "\n".join(lines[lead:end])
         if not text.strip():
             continue
+        links: dict[int, int] = {}
+        if kind == "text":
+            for row, task_id in _links(block).items():
+                try:
+                    at = int(row) - lead
+                except (TypeError, ValueError) as exc:
+                    raise DomainError(f"Not a row: {row!r}") from exc
+                if task_id in known and 0 <= at < end - lead:
+                    links[at] = task_id
         if kind == "text" and out and out[-1]["kind"] == "text":
+            shift = out[-1]["text"].count("\n") + 1
             out[-1]["text"] += "\n" + text
+            merged = {int(r): t for r, t in out[-1].get("links", {}).items()}
+            merged |= {r + shift: t for r, t in links.items()}
+            if merged:
+                out[-1]["links"] = {str(r): t for r, t in sorted(merged.items())}
         else:
             out.append({"kind": kind, "text": text})
+            if links:
+                out[-1]["links"] = {str(r): t for r, t in sorted(links.items())}
     return out
 
 

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
 from app import checklist
@@ -387,20 +389,51 @@ def projects_list_ctx(db: Session, now: datetime) -> dict[str, Any]:
     return cards
 
 
+TASK_ROW = re.compile(r"^- \[[ xX]\] ")
+
+
 def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
-    """A day's notepad: its page as one plain text, and the page's version.
-    A page written when it still held tasks and reflections reads back as
-    text: a task as the "- " line it was written as."""
+    """A day's notepad as the page shows it: the text with each task row's
+    "- [ ] " taken off (the page draws a checkbox for it, outside the text),
+    the task rows ([{row, done, id}], id when the row made a task, done as
+    that task stands now, wherever it was ticked), and the page's version.
+    A page written when it still held task boxes reads back with them as
+    task rows."""
     lines: list[str] = []
+    links: dict[int, int] = {}
     for block in notebook_svc.blocks_of(db, day):
         if block["kind"] == "task":
             task = block["task"]
             title = task.title if task else block["last_known"].get("title", "")
             if title:
-                lines.append(f"- {title}")
-        else:
-            lines.append(block["text"])
-    return {"text": "\n".join(lines), "version": notebook_svc.version_of(db, day)}
+                if task:
+                    links[len(lines)] = task.id
+                lines.append(f"- [ ] {title}")
+            continue
+        start = len(lines)
+        lines.extend(block["text"].split("\n"))
+        for row, task_id in (block.get("links") or {}).items():
+            links[start + int(row)] = task_id
+    tasks = {t.id: t for t in db.scalars(select(Task).where(Task.id.in_(links.values())))}
+    for row, task_id in list(links.items()):
+        task = tasks.get(task_id)
+        if task is None or not TASK_ROW.match(lines[row]):
+            del links[row]
+            continue
+    task_rows = []
+    for row, line in enumerate(lines):
+        mark = TASK_ROW.match(line)
+        if not mark:
+            continue
+        task = tasks.get(links.get(row))
+        done = task.status == TaskStatus.done if task else mark[0][3] in "xX"
+        task_rows.append({"row": row, "done": done, "id": task.id if task else None})
+        lines[row] = line[mark.end():]
+    return {
+        "text": "\n".join(lines),
+        "task_rows": task_rows,
+        "version": notebook_svc.version_of(db, day),
+    }
 
 
 def day_page_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
