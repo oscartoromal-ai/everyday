@@ -50,6 +50,28 @@ def test_a_page_written_with_tasks_reads_back_as_text(client, db) -> None:
     assert row["fields"]["status"] == "todo" and row["fields"]["planned_for"] == ""
 
 
+def test_a_reflection_reads_back_as_its_rows(client, db) -> None:
+    from app.services import notebook as notebook_svc
+
+    task = tasks_svc.create_task(db, title="Call the dentist")
+    notebook_svc.save_page(
+        db,
+        TODAY,
+        [
+            {"kind": "text", "text": "Morning.\n"},
+            {"kind": "reflection", "text": "Calmer than yesterday.\nSlept well."},
+            {"kind": "text", "text": "- [ ] Call the dentist", "links": {"0": task.id}},
+        ],
+        version=0,
+    )
+    pad = client.get("/today").text.split('id="notepad"')[1].split("</textarea>")[0]
+    text = "Morning.\n\n/reflection Calmer than yesterday.\n\tSlept well.\n- [ ] Call the dentist"
+    assert f">{text}<" in pad + "<"
+    # A task after it keeps its row.
+    [row] = task_rows_of(pad)
+    assert (row["row"], row["id"]) == (4, task.id)
+
+
 def test_task_rows_follow_their_tasks(client, db) -> None:
     from app.models import TaskStatus
     from app.services import notebook as notebook_svc

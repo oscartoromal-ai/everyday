@@ -276,3 +276,52 @@ def test_a_task_row_is_deleted_from_its_controls(page, live, app_db) -> None:
     with app_db() as db:
         assert tasks_svc.list_tasks(db) == []
     saved_as(app_db, [{"kind": "text", "text": "Morning.\nAfter."}])
+
+
+def test_a_reflection_is_written_in_the_notes(page, live, app_db) -> None:
+    page.goto(f"{live}/today")
+    write_in(page)
+    page.keyboard.type("Morning.")
+    page.keyboard.press("Enter")
+
+    # "/reflection" at a row's start makes the row a reflection: the word
+    # Reflection in its indent, its rows bracketed in light blue.
+    page.keyboard.type("/reflection Calmer than yesterday.")
+    reflection = page.locator(".pad-editor .cm-line.pad-reflection")
+    assert reflection.count() == 1
+    assert reflection.first.locator(".pad-reflection-name").inner_text() == "Reflection"
+    # Enter goes on to its next row, tabbed in under it; Ctrl+Enter out of it.
+    page.keyboard.press("Enter")
+    page.keyboard.type("Slept well.")
+    assert reflection.count() == 2
+    page.keyboard.press("Control+Enter")
+    page.keyboard.type("After.")
+    assert reflection.count() == 2
+    written = "Morning.\n/reflection Calmer than yesterday.\n\tSlept well.\nAfter."
+    assert page.evaluate("Notepad.text()") == written
+
+    # Saved as a reflection between the text around it, and read back as written.
+    saved_as(app_db, [
+        {"kind": "text", "text": "Morning."},
+        {"kind": "reflection", "text": "Calmer than yesterday.\nSlept well."},
+        {"kind": "text", "text": "After."},
+    ])
+    page.reload()
+    assert page.evaluate("Notepad.text()") == written
+    assert reflection.count() == 2
+
+    # Backspace at its first word takes the label away: a plain row again.
+    write_in(page)
+    page.keyboard.press("Control+Home")
+    page.keyboard.press("ArrowDown")
+    # Home there stays at its first word; Left goes on to the row above.
+    head = "Notepad.view.state.selection.main.head"
+    page.keyboard.press("Home")
+    assert page.evaluate(head) == len("Morning.\n/reflection ")
+    page.keyboard.press("ArrowLeft")
+    assert page.evaluate(head) == len("Morning.")
+    page.keyboard.press("ArrowRight")
+    assert page.evaluate(head) == len("Morning.\n/reflection ")
+    page.keyboard.press("Backspace")
+    assert page.evaluate("Notepad.text()").startswith("Morning.\nCalmer than yesterday.\n")
+    assert page.locator(".pad-editor .cm-line.pad-reflection").count() == 0

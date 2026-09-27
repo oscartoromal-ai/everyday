@@ -1121,6 +1121,11 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .pad-editor .cm-gutterElement.pad-first { box-shadow: inset 0 2px 0 var(--bracket); }
 .pad-editor .cm-gutterElement.pad-last { box-shadow: inset 0 -2px 0 var(--bracket); }
 .pad-editor .cm-gutterElement.pad-first.pad-last { box-shadow: inset 0 2px 0 var(--bracket), inset 0 -2px 0 var(--bracket); }
+/* a reflection: the same rules in light blue, the signal's cyan let out
+   toward the paper; the one the caret is in, the signal itself */
+.pad-editor .pad-reflection { --bracket: color-mix(in srgb, var(--signal) 45%, var(--paper)); }
+.pad-editor .pad-reflection.pad-current { --bracket: var(--signal); }
+.pad-kind.pad-reflection-name { font-size: var(--t-caption); color: var(--signal-deep); }
 /* the caret's row, and the rows of the task it is in: numbers in ink */
 .pad-editor .cm-gutterElement:is(.here, .pad-current) { color: var(--ink); font-weight: 600; }
 

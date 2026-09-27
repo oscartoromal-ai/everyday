@@ -399,6 +399,9 @@ def projects_list_ctx(db: Session, now: datetime) -> dict[str, Any]:
 
 
 TASK_ROW = re.compile(r"^- \[[ xX]\] ")
+# What starts a reflection's row in the notepad (the notepad saves it as a
+# reflection block).
+REFLECTION = "/reflection"
 # A task's fields as the sheet posts them (fragments.save_task).
 TASK_FIELDS = (
     "planned_for", "time", "due", "repeat", "project_id", "milestone_id", "status", "owner",
@@ -422,6 +425,12 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
                 if task:
                     links[len(lines)] = task.id
                 lines.append(f"- [ ] {title}")
+            continue
+        if block["kind"] == "reflection":
+            # Written as it was: its "/reflection" row, its other rows tabbed in.
+            first, *rest = block["text"].split("\n")
+            lines.append(f"{REFLECTION} {first}")
+            lines.extend(f"\t{line}" for line in rest)
             continue
         start = len(lines)
         lines.extend(block["text"].split("\n"))

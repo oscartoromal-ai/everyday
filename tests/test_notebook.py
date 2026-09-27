@@ -24,11 +24,27 @@ def test_a_page_keeps_what_was_written_in_order(db) -> None:
         version=0,
     )
     assert page.version == 1
+    # Blank lines are trimmed from the page's top and a reflection's edges;
+    # between blocks they are the notes' spacing, kept.
     assert page.blocks == [
-        {"kind": "text", "text": "Slow morning.\nCoffee first."},
+        {"kind": "text", "text": "Slow morning.\nCoffee first.\n  \n"},
         {"kind": "task", "id": task.id},
+        {"kind": "text", "text": "   "},
         {"kind": "reflection", "text": "Calmer than yesterday."},
         {"kind": "text", "text": "Evening."},
+    ]
+
+
+def test_a_reflection_keeps_the_blank_lines_around_it(db) -> None:
+    blocks = [
+        {"kind": "text", "text": "\nMorning.\n"},
+        {"kind": "reflection", "text": "\nCalmer.\nSlept well.\n\n"},
+        {"kind": "text", "text": "\nAfter.\n\n"},
+    ]
+    assert notebook.normalize(db, blocks) == [
+        {"kind": "text", "text": "Morning.\n"},
+        {"kind": "reflection", "text": "Calmer.\nSlept well."},
+        {"kind": "text", "text": "\nAfter."},
     ]
 
 

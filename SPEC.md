@@ -49,6 +49,8 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   At the right of a task's title come its controls, the task sheet's icons: do date, time, due, repeat and project, set before the task is added or changed on it after; on the title's last line when they fit there, else on a line of their own under it, within the same row.
   Delete, the last of them, takes the task's rows out of the notes, and deletes a task already added, once confirmed.
   Ticking the box ticks the task, and the box shows the task as it stands, wherever it was ticked; the notes keep the row as "- [ ] " or "- [x] " text, and the page remembers which task each row made.
+  A reflection is written in them too: "/reflection" at a row's start makes the row a reflection, free text, its rows under it indented as a task's and the whole bracketed in light blue; Ctrl+Enter goes on to a plain row after it.
+  The day's page stores it as a reflection block between the text around it, which Claude reads as such (`get_notebook`).
   Every day has its notepad: Left and Right (outside the text) go a day back or on, and past days stay editable.
   N writes a new task from Today in the capture window, as on Calendar and Weeks; the day's tasks are worked from Tasks, and the nudge center now opens Tasks.
   It replaces [the notebook](#the-notebook-decided-2026-09-26), where lines became tasks and reflections, and the storyboard sheet that followed it; both are in git history.

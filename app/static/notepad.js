@@ -23,6 +23,12 @@
    Delete takes its rows out of the notes, and an added task, once
    confirmed, out of the plan.
 
+   "/reflection" at a row's start makes the row a reflection, free text:
+   its "/reflection" drawn as the word Reflection in the indent, its rows
+   under it tabbed in as a task's are, the whole bracketed in light blue.
+   Ctrl+Enter goes on to a plain row after it. The notes save it as a
+   reflection block, between the text around it.
+
    The notes are saved as text, the task each row made by row (links), a
    moment after each change, when the tab is hidden, and when the page is
    left. A save names the version it was made from; one refused because
@@ -42,7 +48,8 @@
   const RETRY_AFTER_MS = 4000;
   const TASK = /^- \[([ xX])\] /; // a task row's box
   const BOX = 6; // its length
-  const TAB = "\t"; // a task's other rows start with one
+  const TAB = "\t"; // a task's or reflection's other rows start with one
+  const REFLECTION = /^\/reflection(?: |$)/; // a reflection's first row, and its lead
 
   const source = () => document.getElementById("notepad");
   let view = null;
@@ -61,6 +68,7 @@
   const newTask = () => ({ id: null, saved: null, fields: newFields() });
 
   const isTask = (line) => TASK.test(line.text);
+  const isReflection = (line) => REFLECTION.test(line.text);
   const setTasks = StateEffect.define();
   // Tasks an edit took away, back with the undo that brings their rows back.
   const restoreTasks = StateEffect.define({
@@ -121,9 +129,26 @@
     });
   };
   const blocks = () => blocksOf(view.state);
+  // A reflection: its first row and the tabbed rows under it.
+  const reflectionsOf = (state) => {
+    const doc = state.doc;
+    const out = [];
+    for (let n = 1; n <= doc.lines; n++) {
+      if (!isReflection(doc.line(n))) continue;
+      let last = n;
+      while (last < doc.lines) {
+        const next = doc.line(last + 1);
+        if (!next.text.startsWith(TAB) || isTask(next)) break;
+        last++;
+      }
+      out.push({ first: n, last, reflection: true });
+    }
+    return out;
+  };
+  // The task or reflection the caret is in.
   const blockAt = (state) => {
     const n = state.doc.lineAt(state.selection.main.head).number;
-    return blocksOf(state).find((b) => n >= b.first && n <= b.last) || null;
+    return [...blocksOf(state), ...reflectionsOf(state)].find((b) => n >= b.first && n <= b.last) || null;
   };
   const contentOf = (block) => {
     const doc = view.state.doc;
@@ -157,6 +182,20 @@
       return true;
     }
   }
+
+  // In a reflection's first row, for its "/reflection": the word Reflection.
+  class ReflectionLabel extends WidgetType {
+    eq() {
+      return true;
+    }
+    toDOM() {
+      const label = document.createElement("span");
+      label.className = "pad-kind pad-reflection-name";
+      label.textContent = "Reflection";
+      return label;
+    }
+  }
+  const REFLECTION_LABEL = new ReflectionLabel();
 
   // A task's other rows' tab: the same indent.
   class Indent extends WidgetType {
@@ -313,10 +352,11 @@
 
   // Each row as it reads: a task's rows bracketed (the one the caret is in,
   // in ink), its title in ink with its box and controls, its other rows
-  // indented; the row numbers alike, the caret's in ink.
+  // indented; a reflection's rows bracketed in light blue, its first with
+  // the word Reflection; the row numbers alike, the caret's in ink.
   const draw = (state) => {
     const doc = state.doc;
-    const all = blocksOf(state);
+    const all = [...blocksOf(state), ...reflectionsOf(state)];
     const focused = state.field(focusField);
     const here = doc.lineAt(state.selection.main.head).number;
     const current = focused ? all.find((b) => here >= b.first && here <= b.last) : null;
@@ -328,19 +368,27 @@
     for (let n = 1; n <= doc.lines; n++) {
       const line = doc.line(n);
       const b = of.get(n);
-      const task = b?.first === n;
-      const tabbed = !task && line.text.startsWith(TAB);
+      const head = b?.first === n;
+      const task = head && !b.reflection;
+      const reflection = head && b.reflection;
+      const tabbed = !head && line.text.startsWith(TAB);
       const kinds = [];
       if (b) {
-        if (task) kinds.push("pad-first");
+        if (head) kinds.push("pad-first");
         if (b.last === n) kinds.push("pad-last");
         if (b === current) kinds.push("pad-current");
+        if (b.reflection) kinds.push("pad-reflection");
       }
       const row = [...kinds];
       if (task) row.push("pad-title");
-      else if (tabbed) row.push("pad-body");
+      else if (reflection || tabbed) row.push("pad-body");
       if (row.length) decos.push(Decoration.line({ class: row.join(" ") }).range(line.from));
-      if (task) {
+      if (reflection) {
+        const lead = REFLECTION.exec(line.text)[0].length;
+        const label = Decoration.replace({ widget: REFLECTION_LABEL });
+        decos.push(label.range(line.from, line.from + lead));
+        atomic.push(label.range(line.from, line.from + lead));
+      } else if (task) {
         const box = Decoration.replace({ widget: new Kind(TASK.exec(line.text)[1] !== " ") });
         decos.push(box.range(line.from, line.from + BOX));
         atomic.push(box.range(line.from, line.from + BOX));
@@ -369,9 +417,14 @@
 
   /* ---- the caret: never inside a box or a tab ---- */
 
-  const leadOf = (line) => (isTask(line) ? BOX : line.text.startsWith(TAB) ? 1 : 0);
-  // A caret landing at a boxed or tabbed row's very start goes to its first
-  // word; Left from that word goes on to the row above.
+  const leadOf = (line) => {
+    if (isTask(line)) return BOX;
+    const reflection = REFLECTION.exec(line.text);
+    if (reflection) return reflection[0].length;
+    return line.text.startsWith(TAB) ? 1 : 0;
+  };
+  // A caret landing at a boxed, labelled or tabbed row's very start goes to
+  // its first word (Home too, from anywhere in the row).
   const offTheLead = EditorState.transactionFilter.of((tr) => {
     if (!tr.selection) return tr;
     const { doc, selection } = tr.state;
@@ -388,8 +441,7 @@
         return EditorSelection.range(r.anchor, line.from + lead);
       }
       moved = true;
-      const left = !tr.docChanged && line.number > 1 && tr.startState.selection.main.head === line.from + lead;
-      return EditorSelection.cursor(left ? line.from - 1 : line.from + lead);
+      return EditorSelection.cursor(line.from + lead);
     });
     if (!moved) return tr;
     return [tr, { selection: EditorSelection.create(ranges, selection.mainIndex), sequential: true }];
@@ -402,16 +454,18 @@
     if (state.selection.ranges.length > 1) return false;
     const range = state.selection.main;
     const line = state.doc.lineAt(range.head);
-    if (isTask(line)) {
-      if (range.empty && range.head === line.from + BOX && line.length > BOX) {
-        // At a title's first word: a plain row above it, the task moving down with its words.
+    if (isTask(line) || isReflection(line)) {
+      const lead = leadOf(line);
+      if (range.empty && range.head === line.from + lead && line.length > lead) {
+        // At a first row's first word: a plain row above it, the task (or
+        // reflection) moving down with its words.
         v.dispatch({ changes: { from: line.from, insert: "\n" }, selection: { anchor: range.head + 1 }, scrollIntoView: true, userEvent: "input" });
         return true;
       }
     } else if (!line.text.startsWith(TAB)) {
       return false;
     } else if (line.text === TAB && range.empty) {
-      // An empty row of a task: out of it, to a plain row.
+      // An empty row of a task or reflection: out of it, to a plain row.
       v.dispatch({ changes: { from: line.from, to: line.to }, userEvent: "delete" });
       return true;
     }
@@ -421,28 +475,42 @@
 
   const keys = Prec.high(keymap.of([
     {
-      // In a task: save it, and go on to a fresh plain row after it.
+      // In a task: save it, and go on to a fresh plain row after it. In a
+      // reflection: on to a plain row after it.
       key: "Mod-Enter",
       run: (v) => {
         const block = blockAt(v.state);
         if (!block) return false;
-        saveTask(block);
+        if (!block.reflection) saveTask(block);
         const end = v.state.doc.line(block.last).to;
         v.dispatch({ changes: { from: end, insert: "\n" }, selection: { anchor: end + 1 }, scrollIntoView: true, userEvent: "input" });
         return true;
       },
     },
     {
-      // In a task: save it. Outside one: out of the text.
+      // In a task: save it. Elsewhere: out of the text.
       key: "Escape",
       run: (v) => {
         const block = blockAt(v.state);
-        if (block) saveTask(block);
+        if (block && !block.reflection) saveTask(block);
         else v.contentDOM.blur();
         return true;
       },
     },
     { key: "Enter", run: enter },
+    {
+      // Left from a boxed, labelled or tabbed row's first word goes on to the
+      // row above (past the box, not into it).
+      key: "ArrowLeft",
+      run: (v) => {
+        const range = v.state.selection.main;
+        const line = v.state.doc.lineAt(range.head);
+        const lead = leadOf(line);
+        if (!range.empty || !lead || range.head !== line.from + lead || line.number === 1) return false;
+        v.dispatch({ selection: { anchor: line.from - 1 }, scrollIntoView: true, userEvent: "select" });
+        return true;
+      },
+    },
   ]));
 
   /* ---- saving the notes ---- */
@@ -456,11 +524,39 @@
   let theirs = 0;
   const loading = Annotation.define(); // the notes being taken up, not written
 
+  // The notes as the page's blocks: the text between reflections (each
+  // with the rows that made tasks, by row), and each reflection's words.
   const serialize = () => {
-    const doc = view.state.doc;
-    const links = {};
-    for (const { pos, m } of view.state.field(tasksField)) if (m.id) links[doc.lineAt(pos).number - 1] = m.id;
-    return { text: doc.toString(), links };
+    const { state } = view;
+    const doc = state.doc;
+    const tasks = new Map(state.field(tasksField).map(({ pos, m }) => [pos, m]));
+    const reflections = new Map(reflectionsOf(state).map((r) => [r.first, r]));
+    const out = [];
+    let text = null;
+    const endText = () => {
+      if (!text) return;
+      out.push(Object.keys(text.links).length ? text : { kind: "text", text: text.text });
+      text = null;
+    };
+    for (let n = 1; n <= doc.lines; n++) {
+      const line = doc.line(n);
+      const reflection = reflections.get(n);
+      if (reflection) {
+        endText();
+        const words = [line.text.slice(leadOf(line))];
+        for (let k = n + 1; k <= reflection.last; k++) words.push(doc.line(k).text.slice(1));
+        out.push({ kind: "reflection", text: words.join("\n") });
+        n = reflection.last;
+        continue;
+      }
+      if (!text) text = { kind: "text", text: null, links: {}, rows: [] };
+      const m = tasks.get(line.from);
+      if (m?.id) text.links[text.rows.length] = m.id;
+      text.rows.push(line.text);
+      text.text = text.rows.join("\n");
+    }
+    endText();
+    return out.map(({ rows, ...block }) => block);
   };
   const snapshot = () => JSON.stringify(serialize());
   const pending = () => !!view && snapshot() !== saved;
@@ -481,10 +577,7 @@
     const request = fetch(`/ui/notebook/${day}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-CSRF": window.csrfToken() },
-      body: JSON.stringify({
-        version,
-        blocks: page.text.trim() ? [{ kind: "text", text: page.text, links: page.links }] : [],
-      }),
+      body: JSON.stringify({ version, blocks: page }),
       keepalive: leaving,
     });
     if (leaving) return;

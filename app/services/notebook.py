@@ -59,12 +59,14 @@ def _links(block: dict[str, Any]) -> dict[Any, Any]:
 
 
 def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
-    """Blocks as the page stores them: known shapes only, prose that says
-    something, adjacent prose joined, each task once.
+    """Blocks as the page stores them: known shapes only, prose as written
+    (blank lines kept between other blocks, not at the page's top or
+    bottom), reflections without blank edges, adjacent prose joined, each
+    task once.
 
     A text block may carry `links`, {row: task id}, naming the rows that
-    are tasks (the notepad's "- [ ] " rows); they follow the text as its
-    blank edge lines are trimmed, and only known tasks are kept."""
+    are tasks (the notepad's "- [ ] " rows); they follow the text as the
+    page's blank top lines are trimmed, and only known tasks are kept."""
     if not isinstance(blocks, list):
         raise DomainError("A page is a list of blocks")
     task_ids = {
@@ -76,7 +78,7 @@ def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
     known = _known_task_ids(db, {i for i in task_ids if isinstance(i, int)})
     out: list[dict[str, Any]] = []
     seen: set[int] = set()
-    for block in blocks:
+    for index, block in enumerate(blocks):
         if not isinstance(block, dict) or block.get("kind") not in KINDS:
             raise DomainError(f"Unknown block: {block!r}")
         kind = block["kind"]
@@ -86,16 +88,21 @@ def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
                 seen.add(task_id)
                 out.append({"kind": "task", "id": task_id})
             continue
-        # Blank lines at a block's edges only space it from the next box.
+        # A reflection is its words, without blank lines around them. Prose
+        # keeps its blank lines (the notes' spacing, around a reflection
+        # too), except at the page's top and bottom.
         lines = _clean_text(block.get("text", "")).split("\n")
+        edges = kind == "reflection"
         lead = 0
-        while lead < len(lines) and not lines[lead].strip():
-            lead += 1
+        if edges or not out:
+            while lead < len(lines) and not lines[lead].strip():
+                lead += 1
         end = len(lines)
-        while end > lead and not lines[end - 1].strip():
-            end -= 1
+        if edges or index == len(blocks) - 1:
+            while end > lead and not lines[end - 1].strip():
+                end -= 1
         text = "\n".join(lines[lead:end])
-        if not text.strip():
+        if not text.strip() and (edges or not out or index == len(blocks) - 1):
             continue
         links: dict[int, int] = {}
         if kind == "text":
