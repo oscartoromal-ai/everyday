@@ -1068,43 +1068,57 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .today-pad { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-6)); }
 .today-pad .day-header { margin-bottom: var(--s-4); }
 /* Ruled like a spreadsheet: every line of text is a row, 36px tall with the
-   text in its middle, on its own rule. Down the left run two columns behind
-   rules of their own: the rows' numbers (their headers), and each row's
-   kind, where a task row shows its checkbox and the word Task (neither is
-   text: notepad.js draws them). Every row's text starts in the same place.
-   A line does not wrap: like a cell, it runs on to the right. Rules, numbers
-   and kinds scroll with the text. */
+   text in its middle, on its own rule, the rows numbered down the left (their
+   headers). Plain rows start right after the numbers; only a task's rows are
+   tabbed in, and in a task row's tab the page draws its checkbox and the word
+   Task (notepad.js; neither is text). A line does not wrap: like a cell, it
+   runs on to the right. Rules, numbers and marks scroll with the text. */
 .notepad-card {
   --pad-line: 36px;
-  --pad-num: 40px;
-  --pad-kind: 76px;
-  --pad-rows: calc(var(--pad-num) + var(--pad-kind));
+  --pad-rows: 44px;
+  --pad-gap: var(--s-3);
+  --pad-tab: 76px;
   position: relative; display: flex; flex: 1; overflow: hidden;
   background: color-mix(in srgb, var(--paper) 35%, transparent);
   border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
 }
 .notepad {
-  flex: 1; min-height: 420px; padding: 0 var(--s-4) 0 calc(var(--pad-rows) + var(--s-3));
+  position: relative; z-index: 1;
+  flex: 1; min-height: 420px; padding: 0 var(--s-4) 0 calc(var(--pad-rows) + var(--pad-gap));
   font: inherit; font-size: var(--t-body); line-height: var(--pad-line); color: var(--ink);
+  tab-size: var(--pad-tab);
   background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--pad-line) - 1px), var(--hairline) calc(var(--pad-line) - 1px) var(--pad-line));
   background-attachment: local;
   border: none; resize: none; white-space: pre; overflow: auto;
 }
+.notepad::placeholder { color: var(--pewter); }
+.notepad:focus, .notepad:focus-visible { outline: none; box-shadow: none; }
 .pad-rows {
   position: absolute; z-index: 3; top: 0; bottom: 0; left: 0; width: var(--pad-rows); overflow: hidden;
   background: color-mix(in srgb, var(--fog) 70%, transparent);
   border-right: 1px solid var(--hairline); pointer-events: none;
 }
 .pad-rows-inner > div {
-  display: flex; height: var(--pad-line); border-bottom: 1px solid var(--hairline);
-  font-size: var(--t-caption); line-height: calc(var(--pad-line) - 1px);
+  height: var(--pad-line); padding-right: var(--s-2); border-bottom: 1px solid var(--hairline);
+  font-size: var(--t-caption); line-height: calc(var(--pad-line) - 1px); text-align: right;
+  color: var(--pewter); font-variant-numeric: tabular-nums;
 }
-.pad-n { width: var(--pad-num); padding-right: var(--s-2); text-align: right; color: var(--pewter); font-variant-numeric: tabular-nums; }
+/* the row the caret is in, and the rows of the task it is in: numbers in ink */
+.pad-rows-inner > div.here, .pad-rows-inner > div.task { color: var(--ink); font-weight: 600; }
+
+/* every task: a graphite rule above its title and below its last row,
+   nothing filled; the one the caret is in, the same rules in ink */
+.pad-marks { position: absolute; z-index: 4; inset: 0; overflow: hidden; pointer-events: none; }
+.pad-task-mark {
+  position: absolute; left: 0; right: 0;
+  border-top: 2px solid var(--graphite); border-bottom: 2px solid var(--graphite);
+}
+.pad-task-mark.current { border-color: var(--ink); }
+/* in a task row's tab: its box and the word Task, not text */
 .pad-kind {
-  display: flex; align-items: center; gap: 6px; width: var(--pad-kind); padding-left: var(--s-2);
-  border-left: 1px solid var(--hairline); color: var(--graphite);
+  position: absolute; top: 0; left: calc(var(--pad-rows) + var(--pad-gap)); height: calc(var(--pad-line) - 2px);
+  display: flex; align-items: center; gap: 6px; color: var(--graphite);
 }
-/* a task row's box: square, like every box in the app, ink once ticked */
 .pad-check {
   flex: none; display: grid; place-content: center; width: 14px; height: 14px;
   border: 1.5px solid var(--graphite); background: transparent; pointer-events: auto; cursor: pointer;
@@ -1115,22 +1129,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   border: solid var(--paper); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg);
 }
 .pad-kind-name { font-size: var(--t-caption); color: var(--graphite); }
-.pad-rows-inner > div.done .pad-kind-name { color: var(--pewter); text-decoration: line-through; }
-/* the row the caret is in: its number in ink */
-.pad-rows-inner > div.here .pad-n { color: var(--ink); font-weight: 600; }
-/* a task being written ("- [ ] " at a row's start): the rows it covers are
-   bracketed by a graphite rule above and below, nothing filled, their
-   numbers in ink, until it is closed */
-.notepad { position: relative; z-index: 1; }
-.pad-task-mark {
-  position: absolute; z-index: 4; left: 0; right: 0;
-  border-top: 2px solid var(--graphite); border-bottom: 2px solid var(--graphite);
-  pointer-events: none;
-}
-.pad-task-mark[hidden] { display: none; }
-.pad-rows-inner > div.task .pad-n { color: var(--ink); font-weight: 600; }
-.notepad::placeholder { color: var(--pewter); }
-.notepad:focus, .notepad:focus-visible { outline: none; box-shadow: none; }
+.pad-kind.done .pad-kind-name { color: var(--pewter); text-decoration: line-through; }
 
 .pad-stale { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-3); font-size: var(--t-body-sm); color: var(--ink); }
 .pad-stale[hidden] { display: none; }
@@ -1153,7 +1152,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   .today-timeline .calendar-grid { max-height: none; }
 }
 @media (max-width: 720px) {
-  .notepad-card { --pad-num: 30px; --pad-kind: 64px; }
+  .notepad-card { --pad-rows: 34px; --pad-gap: var(--s-2); --pad-tab: 70px; }
   .notepad { padding-right: var(--s-3); }
 }
 

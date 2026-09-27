@@ -43,10 +43,9 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Filing by drag**: in By project (and on Projects) a task is dragged onto a milestone, another project, or No project to file it there.
 - **Today is a notepad beside the day's timeline** (Oscar's call on 2026-09-27, "for now"): the whole left column is one plain notepad for the day, the right the day's timeline.
   The notes are plain text, saved as they are written.
-  A task is written in them: "- [ ] " at a row's start makes the row a task and opens it, and the rows it covers are marked until it is closed; its first row is its title, the rows added under it its description ("- " rows its sub-tasks).
-  A task row shows a checkbox and "Task" in a column of its own beside the text, not in it; ticking the box ticks the task, and the box shows the task as it stands, wherever it was ticked.
-  The notes keep the row as "- [ ] " or "- [x] " text, and the page remembers which task each row made.
-  Ctrl+Enter closes it and goes on to the next row, Esc closes it where it is; closing adds the task for that day, and its words stay in the notes as written.
+  A task is written in them: "- [ ] " at a row's start makes the row a task, tabbed in with a checkbox and "Task" beside it (not text); the rows added under it with Enter are tabbed in the same way and are its description ("- " rows its sub-tasks); plain rows stay at the left.
+  Every task stays bracketed by a rule above and below its rows; Ctrl+Enter or Esc in a task saves it (added for that day, or the task it made updated), Ctrl+Enter then going on to a plain row.
+  Ticking the box ticks the task, and the box shows the task as it stands, wherever it was ticked; the notes keep the row as "- [ ] " or "- [x] " text, and the page remembers which task each row made.
   Every day has its notepad: Left and Right (outside the text) go a day back or on, and past days stay editable.
   N writes a new task from Today in the capture window, as on Calendar and Weeks; the day's tasks are worked from Tasks, and the nudge center now opens Tasks.
   It replaces [the notebook](#the-notebook-decided-2026-09-26), where lines became tasks and reflections, and the storyboard sheet that followed it; both are in git history.

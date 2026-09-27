@@ -35,8 +35,8 @@ def test_a_page_written_with_tasks_reads_back_as_text(client, db) -> None:
         version=0,
     )
     pad = client.get("/today").text.split('id="notepad"')[1].split("</textarea>")[0]
-    # Its task row shows without its "- [ ] ": the page draws the checkbox.
-    assert ">Morning.\nCall the dentist" in pad
+    # Its task row shows its "- [ ] " as a tab: the page draws the checkbox there.
+    assert ">Morning.\n\tCall the dentist" in pad
     assert f"""data-task-rows='[{{"done": false, "id": {task.id}, "row": 1}}]'""" in pad
 
 
@@ -57,7 +57,7 @@ def test_task_rows_follow_their_tasks(client, db) -> None:
     tasks_svc.set_status(db, task.id, TaskStatus.done)
 
     pad = client.get("/today").text.split('id="notepad"')[1].split("</textarea>")[0]
-    assert ">Morning.\nCall the dentist\njust a thought" in pad
+    assert ">Morning.\n\tCall the dentist\n\tjust a thought" in pad
     # Ticked elsewhere: its row reads done. A row that made no task stays a row.
     assert f'{{"done": true, "id": {task.id}, "row": 1}}' in pad
     assert '{"done": false, "id": null, "row": 2}' in pad

@@ -394,7 +394,8 @@ TASK_ROW = re.compile(r"^- \[[ xX]\] ")
 
 def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
     """A day's notepad as the page shows it: the text with each task row's
-    "- [ ] " taken off (the page draws a checkbox for it, outside the text),
+    "- [ ] " made a tab (the page draws its checkbox in the gap, outside
+    the text; the task's other rows are tabbed in the same way),
     the task rows ([{row, done, id}], id when the row made a task, done as
     that task stands now, wherever it was ticked), and the page's version.
     A page written when it still held task boxes reads back with them as
@@ -428,7 +429,7 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
         task = tasks.get(links.get(row))
         done = task.status == TaskStatus.done if task else mark[0][3] in "xX"
         task_rows.append({"row": row, "done": done, "id": task.id if task else None})
-        lines[row] = line[mark.end():]
+        lines[row] = "\t" + line[mark.end():]
     return {
         "text": "\n".join(lines),
         "task_rows": task_rows,

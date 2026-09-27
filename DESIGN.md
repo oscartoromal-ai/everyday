@@ -140,9 +140,12 @@ Esc steps away but keeps a written draft open; Cancel clears it.
 The empty-list note hides once the list has a row.
 
 **Notepad.** Today, and every day's page (`/day/2026-09-25`), is a notepad beside the day's timeline.
-The header is the day's name at 24px ("Today" on today's), a pair of 32px chevrons for the day before and after, and on any other day a pill back to Today; the line under it gives the date, and the key line names N, the arrows and "? all keys".
-The rest of the left column is one glass card (as list cards are), as tall as the window allows (at least 420px; 55vh once the timeline stacks under it), holding a plain textarea ruled like a spreadsheet: every line of text is a 36px row with the text in its middle, on its own `--hairline` rule from the box's very top, and down the left run two columns on a fog wash, each behind a hairline, like a spreadsheet's row headers: the rows' numbers (40px; 12px pewter, tabular, the caret's row in ink 600) and each row's kind (76px), where a task row shows a square 14px graphite-ruled checkbox (ink with a paper tick once done) and "Task" in 12px graphite (struck through in pewter once done), neither of them text nor editable, so every row's text starts in the same place (30px and 64px on phones); a line does not wrap but runs on to the right, as a cell does, and rules and numbers scroll with the text; no border, no focus ring and no resize handle, the pewter placeholder "Anything on your mind today."
-When the notes were saved in another window, a line under the plate says so, with Show that version and Keep mine as secondary buttons.
+The header is the day's name at 24px ("Today" on today's), a pair of 32px chevrons for the day before and after, and on any other day a pill back to Today; the line under it gives the date, and the key line names - [ ], Ctrl+Enter, the arrows and "? all keys".
+The rest of the left column is one card, the paper at 35% (see-through, as every input), as tall as the window allows (at least 420px; 55vh once the timeline stacks under it), holding a plain textarea ruled like a spreadsheet: every line is a 36px row with its text in the middle, on its own `--hairline` rule from the box's very top, and a 44px column of row numbers (12px pewter, tabular) runs down the left on a fog wash behind a hairline, like a spreadsheet's row headers (34px on phones).
+Plain rows start right after the numbers; only a task's rows are tabbed in, by a tab 76px wide (70px on phones), and in a task row's tab the page draws the task's box (square, 14px, graphite-ruled, ink with a paper tick once done) and "Task" in 12px graphite (struck through in pewter once done), neither of them text nor editable.
+Every task is bracketed by a 2px graphite rule above its title and below its last row, always; the task the caret is in has its rules and row numbers in ink, as has the caret's row.
+A line does not wrap but runs on to the right, as a cell does; rules, numbers and marks scroll with the text; no border, no focus ring and no resize handle, the pewter placeholder "Anything on your mind today."
+When the notes were saved in another window, a line under the card says so, with Show that version and Keep mine as secondary buttons.
 
 **Tasks.** A page header ("Tasks", the open and undated counts, and a By date / By project segmented control on the right), the composer alone in its own card, then the tasks.
 By date is one list card per do-date group; By project is Projects' cards (without their status control, which moves cards between Projects' shelves, and with a neutral badge on a parked project that still holds open work), then a No project card in the same form, its empty edit slot keeping the counts in line.
@@ -259,10 +262,14 @@ It writes the same plain text the server stores into a hidden `notes` textarea, 
 The confirm dialog answers the row it was asked about even when a late list refresh swapped that row while it was open: focus goes back to the row's live twin, and a confirmed delete is sent from it rather than silently dropped with the detached one.
 
 **Notepad** (`app/static/notepad.js`, vanilla).
-"- [ ] " at a row's start makes the row a task (the marker leaves the text for the kind column's checkbox; Backspace at the row's start makes it plain again) and opens it: the rows it covers are bracketed by a 2px `--graphite` rule above and below, across the row numbers too, with nothing filled, their numbers in ink 600, and the bracket grows as rows are added under it; Ctrl+Enter closes it onto a fresh row, Esc where it is, and a toast says "Task added: <title>".
-The notes save as a whole 600ms after a change, when the tab is hidden, and when the page is left.
+"- [ ] " at a row's start makes the row a task: the marker becomes a tab (typed through the browser's own editing, so undo keeps it), and Enter in a task starts its next row tabbed in the same way, under its title ("- " rows its sub-tasks); Enter on an empty tabbed row steps back out to a plain row.
+Home on a tabbed row goes to its first word, and Backspace there takes its tab away, so a task row, or a row of one, is plain again.
+Ctrl+Enter or Esc in a task saves it: added for the day ("Task added: <title>"), or its title and description written to the task it made ("Task saved: <title>"); Ctrl+Enter then goes on to a fresh plain row.
+Ticking a task's box ticks its task; the box shows the task as it stands, wherever it was ticked.
+The notes save as a whole 600ms after a change, when the tab is hidden, and when the page is left (with every task written or changed since its last save); a task row saves as "- [ ] " or "- [x] " and the task it made by row (a text block's `links`).
+Rows keep their kind through edits by the exact span each edit replaced, read against its selection: clearing the whole page leaves plain rows, and Enter at a task row's start moves the task down with its words.
 A save names the version it was made from; refused (another window saved since), the page stops saving and asks; returning to the tab shows a newer version when nothing here is unsaved.
-Esc steps out of the text; Left and Right, outside it, go a day back or on.
+Esc outside a task steps out of the text; Left and Right, outside it, go a day back or on.
 
 **Assets.** Static URLs go through `asset()`, which appends the file's mtime (`?v=`), so a browser never pairs new templates with a stale stylesheet.
 The favicon is the Today icon in ink on a white tile, its dot the spark (Neon Signage's day pink, `#e5006e`).

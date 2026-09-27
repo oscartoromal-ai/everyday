@@ -76,47 +76,60 @@ def test_a_task_is_written_in_the_notes(page, live, app_db) -> None:
     page.keyboard.type("Morning.")
     page.keyboard.press("Enter")
 
-    # "- [ ] " makes the row a task: the marker leaves the text for the row's
-    # checkbox, and the rows the task covers are bracketed as it grows.
+    # "- [ ] " makes the row a task: the marker becomes a tab, and in the gap
+    # the task's box and the word Task (only a task's rows are tabbed in).
     page.keyboard.type("- [ ] Call the dentist")
-    kinds = page.locator(".pad-rows-inner > div")
-    assert kinds.nth(1).locator(".pad-check").is_visible()
-    assert kinds.nth(1).locator(".pad-kind-name").inner_text() == "Task"
-    assert page.locator(".pad-task-mark").is_visible()
+    marks = page.locator(".pad-marks .pad-task-mark")
+    assert marks.count() == 1
+    assert marks.first.locator(".pad-check").is_visible()
+    assert marks.first.locator(".pad-kind-name").inner_text() == "Task"
+    # Enter goes on to the task's next row, tabbed in under its title.
     page.keyboard.press("Enter")
     page.keyboard.type("- ask about the crown")
-    assert page.locator(".pad-rows-inner > div.task .pad-n").all_inner_texts() == ["2", "3"]
+    assert page.locator(".pad-rows-inner > div.task").all_inner_texts() == ["2", "3"]
+    assert pad.input_value() == "Morning.\n\tCall the dentist\n\t- ask about the crown"
 
-    # Ctrl+Enter closes it (the task is added) and goes on to the next row.
+    # Ctrl+Enter saves it (the task is added) and goes on to a plain row;
+    # the task stays bracketed.
     page.keyboard.press("Control+Enter")
     page.locator(".cal-toast.show", has_text="Task added: Call the dentist").wait_for()
-    assert page.locator(".pad-task-mark").is_hidden()
     page.keyboard.type("After.")
-    assert pad.input_value() == "Morning.\nCall the dentist\n- ask about the crown\nAfter."
+    assert pad.input_value() == "Morning.\n\tCall the dentist\n\t- ask about the crown\nAfter."
+    assert marks.count() == 1
     with app_db() as db:
         [task] = tasks_svc.list_tasks(db)
         assert task.title == "Call the dentist"
         assert (task.notes, task.planned_for) == ("- ask about the crown", TODAY)
         task_id = task.id
-    notes = "Morning.\n- [ ] Call the dentist\n- ask about the crown\nAfter."
+    notes = "Morning.\n- [ ] Call the dentist\n\t- ask about the crown\nAfter."
     saved_as(app_db, [{"kind": "text", "text": notes, "links": {"1": task_id}}])
 
+    # Going back into it and saving again writes the change to the task.
+    page.keyboard.press("ArrowUp")
+    page.keyboard.press("End")
+    page.keyboard.type(" and the cleaning")
+    page.keyboard.press("Escape")
+    page.locator(".cal-toast.show", has_text="Task saved: Call the dentist").wait_for()
+    with app_db() as db:
+        assert tasks_svc.get_task(db, task_id).notes == "- ask about the crown and the cleaning"
+
     # Its box ticks the task; the row keeps its kind after a reload.
-    kinds.nth(1).locator(".pad-check").click()
-    kinds.nth(1).locator(".pad-check[aria-checked=true]").wait_for()
-    ticked = notes.replace("- [ ] ", "- [x] ")
+    marks.first.locator(".pad-check").click()
+    marks.first.locator(".pad-check[aria-checked=true]").wait_for()
+    ticked = "Morning.\n- [x] Call the dentist\n\t- ask about the crown and the cleaning\nAfter."
     saved_as(app_db, [{"kind": "text", "text": ticked, "links": {"1": task_id}}])
     with app_db() as db:
         assert tasks_svc.get_task(db, task_id).status == TaskStatus.done
     page.reload()
-    assert pad.input_value().startswith("Morning.\nCall the dentist\n")
-    assert kinds.nth(1).locator(".pad-check").get_attribute("aria-checked") == "true"
+    assert pad.input_value().startswith("Morning.\n\tCall the dentist\n")
+    assert marks.first.locator(".pad-check").get_attribute("aria-checked") == "true"
 
-    # Backspace at a task row's start makes it a plain row again.
+    # Backspace at a task row's start takes its tab away: a plain row again.
     pad.click()
     page.keyboard.press("Control+Home")
     page.keyboard.press("ArrowDown")
     page.keyboard.press("Home")
     page.keyboard.press("Backspace")
-    assert kinds.nth(1).locator(".pad-check").count() == 0
-    saved_as(app_db, [{"kind": "text", "text": ticked.replace("- [x] ", "")}])
+    assert marks.count() == 0
+    plain = "Morning.\nCall the dentist\n\t- ask about the crown and the cleaning\nAfter."
+    saved_as(app_db, [{"kind": "text", "text": plain}])

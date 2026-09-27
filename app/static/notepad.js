@@ -1,41 +1,53 @@
-/* A day's notepad (today.html): plain text in rows, like a spreadsheet.
+/* A day's notepad (today.html): plain text in rows, like a spreadsheet,
+   the rows numbered down the left.
 
-   Down the left run two columns: the rows' numbers, and each row's kind,
-   where a task row shows its checkbox and the word Task. Neither is part of
-   the text, so neither can be typed over; every row's text starts in the
-   same place.
+   A task is written in the notes. "- [ ] " at a row's start makes the row a
+   task: the marker becomes a tab, and in the gap the page draws the task's
+   checkbox and the word Task (not text, so neither can be typed over). Enter
+   in a task starts its next row tabbed in the same way, so its description
+   lines up under its title ("- " rows its sub-tasks); Enter on an empty
+   tabbed row steps back out to a plain row. Backspace at a tabbed row's start
+   takes its tab away, and a task row, or a row of one, is plain again. Plain
+   rows stay at the left: only a task's rows are tabbed in.
 
-   A task is written in the notes: "- [ ] " at a row's start makes the row a
-   task (the marker leaves the text for the checkbox) and opens it, and the
-   rows it covers are bracketed until it is closed. Its row is the title;
-   rows added under it with Enter are its description ("- " rows its
-   sub-tasks). Ctrl+Enter closes it and goes on to the next row, Esc closes
-   it where it is; closing adds the task for the day. Ticking a task row's
-   box ticks its task. Backspace at the start of a task row makes it a plain
-   row again.
+   Every task is bracketed by a rule above its title and below its last row,
+   always; the task the caret is in has its row numbers in ink. Ctrl+Enter or
+   Esc in a task saves it (adds it for the day, or writes its title and
+   description to the task it made), Ctrl+Enter then going on to a fresh
+   plain row. Ticking a task's box ticks its task.
 
-   The notes are saved as text, a task row as "- [ ] " or "- [x] " and its
-   task by row (links), a moment after each change, when the tab is hidden,
-   and when the page is left. A save names the version it was made from;
-   one refused because another window saved since stops the saving and asks
-   which to keep. Coming back to the tab shows a newer version, when nothing
-   here is still to be saved. Left and Right, outside the text, go a day
-   back or on. */
+   The notes are saved as text, a task row as "- [ ] " or "- [x] " and the
+   task it made by row (links), a moment after each change, when the tab is
+   hidden, and when the page is left. A save names the version it was made
+   from; one refused because another window saved since stops the saving and
+   asks which to keep. Coming back to the tab shows a newer version, when
+   nothing here is still to be saved. Left and Right, outside the text, go a
+   day back or on. */
 
 (() => {
   const SAVE_AFTER_MS = 600;
   const RETRY_AFTER_MS = 4000;
   const OPENS = "- [ ] ";
+  const TAB = "\t";
 
   const pad = () => document.getElementById("notepad");
   const staleBar = () => document.getElementById("pad-stale");
   const linesOf = () => pad().value.split("\n");
   const rowAt = (offset) => pad().value.slice(0, offset).split("\n").length - 1;
   const rowStart = (lines, row) => lines.slice(0, row).reduce((n, line) => n + line.length + 1, 0);
+  const caret = () => {
+    const el = pad();
+    const lines = linesOf();
+    const row = rowAt(el.selectionStart);
+    return { row, col: el.selectionStart - rowStart(lines, row), lines };
+  };
+  // Typed as if by hand, so the browser's own undo keeps it.
+  const type = (text) => document.execCommand("insertText", false, text);
 
   /* ---- rows: which are tasks ---- */
 
-  // One entry per row: null for text, {done, id} for a task (id once it is added).
+  // One entry per row: null, or {done, id, saved} for a task row (id once it
+  // is added; saved: its title and description as last written to it).
   let meta = [];
   // The text and selection as they stood before the edit being followed.
   let lastValue = "";
@@ -46,7 +58,7 @@
     const rows = lines.map(() => null);
     let marks = [];
     try { marks = JSON.parse(el.dataset.taskRows || "[]"); } catch { /* none */ }
-    for (const { row, done, id } of marks) if (row < rows.length) rows[row] = { done, id };
+    for (const { row, done, id } of marks) if (row < rows.length) rows[row] = { done, id, saved: null };
     return rows;
   };
 
@@ -60,13 +72,14 @@
   }, true);
 
   // After an edit, rows keep their kind. The edit is the span of the old
-  // text it replaced (read against the selection it was made from, so a run
-  // of repeated characters or blank rows is never misread). Rows wholly
-  // before or after that span keep their kind; a row the span starts inside
-  // keeps its kind if words of it stand before the span; the row where the
-  // old row the span ends in carries on keeps that row's kind if its words
-  // after the span remain (Enter at a task row's start moves the task down
-  // with its words). Rows the span swallowed are gone, and new rows are text.
+  // text it replaced (read against the selection it was made from, so runs
+  // of repeated characters or blank rows are never misread). Rows wholly
+  // before or after it keep their kind; an edit within one row keeps it;
+  // otherwise a row the span starts inside keeps its kind if words of it
+  // stand before the span, and the row the old row where the span ends
+  // carries on as keeps that row's kind if its words after the span remain.
+  // Clearing the whole text leaves no tasks. A task row that has lost its
+  // tab is plain.
   const followRows = () => {
     const value = pad().value;
     const old = lastValue;
@@ -86,16 +99,39 @@
     const added = inserted.split("\n").length - 1;
     const mid = Array.from({ length: added + 1 }, () => null);
     if (head === 0 && cutEnd === old.length && old.length) {
-      // The whole text replaced: what is left is text, not the task it was.
+      // The whole text replaced: nothing of it is a task any more.
     } else if (added === 0 && r1 === r2) {
-      mid[0] = meta[r1] ?? null; // an edit within one row keeps it
+      mid[0] = meta[r1] ?? null;
     } else {
       if (restOfR2.trim()) mid[added] = meta[r2] ?? null;
       if (c1 > 0) mid[0] = meta[r1] ?? null;
     }
     meta = [...meta.slice(0, r1), ...mid, ...meta.slice(r2 + 1)];
+    const lines = value.split("\n");
+    meta = meta.map((m, row) => (m && lines[row]?.startsWith(TAB) ? m : null));
     lastValue = value;
     lastSel = [pad().selectionStart, pad().selectionEnd];
+  };
+
+  // A task: its row and the tabbed rows under it that are not tasks themselves.
+  const blocks = () => {
+    const lines = linesOf();
+    const out = [];
+    meta.forEach((m, row) => {
+      if (!m) return;
+      let end = row;
+      while (end + 1 < lines.length && !meta[end + 1] && lines[end + 1].startsWith(TAB)) end++;
+      out.push({ row, end, m });
+    });
+    return out;
+  };
+  const blockAt = (row) => blocks().find((b) => row >= b.row && row <= b.end) || null;
+  const contentOf = (block) => {
+    const lines = linesOf();
+    return {
+      title: lines[block.row].slice(1).trim(),
+      notes: lines.slice(block.row + 1, block.end + 1).map((line) => line.slice(1)).join("\n"),
+    };
   };
 
   const serialize = () => {
@@ -105,12 +141,12 @@
       const m = meta[row];
       if (!m) return line;
       if (m.id) links[row] = m.id;
-      return `- [${m.done ? "x" : " "}] ${line}`;
+      return `- [${m.done ? "x" : " "}] ${line.slice(1)}`;
     }).join("\n");
     return { text, links };
   };
 
-  /* ---- saving ---- */
+  /* ---- saving the notes ---- */
 
   let version = 0;
   let saved = "";
@@ -188,7 +224,7 @@
   // Back to notes written elsewhere since (the phone, another window).
   const refresh = async () => {
     const el = pad();
-    if (!el || stale || pending() || task || document.activeElement === el) return;
+    if (!el || stale || pending() || document.activeElement === el) return;
     const res = await fetch(`/ui/notebook/${el.dataset.day}/version`).catch(() => null);
     const answer = res?.ok ? await res.json() : null;
     if (!answer || answer.version <= version) return;
@@ -203,136 +239,101 @@
     else refresh();
   });
 
-  /* ---- the task being written ---- */
+  /* ---- saving a task ---- */
 
-  let task = null; // {row: its row's entry in meta, extra: rows under it}
+  const post = (url, body, keepalive = false) =>
+    fetch(url, { method: "POST", headers: { "X-CSRF": window.csrfToken() }, body, keepalive });
 
-  const taskRange = () => {
-    if (!task) return null;
-    const start = meta.indexOf(task.row);
-    return start < 0 ? null : { start, end: start + task.extra };
-  };
-
-  const openTaskIfTyped = () => {
-    const el = pad();
-    if (el.selectionStart !== el.selectionEnd) return;
-    const lines = linesOf();
-    const row = rowAt(el.selectionStart);
-    const at = rowStart(lines, row);
-    if (meta[row] || !lines[row].startsWith(OPENS) || el.selectionStart !== at + OPENS.length) return;
-    // Inside an open task, rows are its description, not tasks of their own.
-    const range = taskRange();
-    if (range && row >= range.start && row <= range.end + 1) return;
-    // The marker leaves the text: the row's kind column draws the checkbox.
-    el.setRangeText("", at, at + OPENS.length, "start");
-    remember();
-    meta[row] = { done: false, id: null };
-    if (!task) task = { row: meta[row], extra: 0 };
-  };
-
-  // Rows added or taken away inside the open task change what it covers.
-  const followTask = (before, after) => {
-    if (!task) return;
-    const range = taskRange();
-    if (!range) {
-      task = null;
+  async function saveTask(block, { leaving = false } = {}) {
+    const { title, notes } = contentOf(block);
+    const m = block.m;
+    if (!title || (m.saved && m.saved.title === title && m.saved.notes === notes)) return;
+    const day = pad().dataset.day;
+    if (m.id) {
+      const res = await fetch(`/api/tasks/${m.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "X-CSRF": window.csrfToken() },
+        body: JSON.stringify({ title, notes }),
+        keepalive: leaving,
+      }).catch(() => null);
+      if (leaving) return;
+      if (!res?.ok) {
+        window.toast("Could not save that task. Its words are still in the notes.");
+        return;
+      }
+      m.saved = { title, notes };
+      window.toast(`Task saved: ${title}`);
       return;
     }
-    const delta = after - before;
-    const row = rowAt(pad().selectionStart);
-    if (delta && row >= range.start && row - Math.max(delta, 0) <= range.end) {
-      task.extra = Math.max(0, task.extra + delta);
-    }
-  };
-
-  const addTask = async (row, title, notes) => {
-    const day = pad().dataset.day;
-    const res = await fetch("/ui/tasks/quick-add", {
-      method: "POST",
-      headers: { "X-CSRF": window.csrfToken() },
-      body: new URLSearchParams({ title, notes, planned_for: day, list_day: day }),
-    }).catch(() => null);
+    const body = new URLSearchParams({ title, notes, planned_for: day, list_day: day });
+    const res = await post("/ui/tasks/quick-add", body, leaving).catch(() => null);
+    if (leaving) return;
     const html = res?.ok ? await res.text() : "";
-    const id = Number(/id="task-(\d+)"/.exec(html)?.[1]) || null;
     if (!res?.ok) {
       window.toast("Could not add that task. Its words are still in the notes.");
       return;
     }
-    row.id = id;
+    m.id = Number(/id="task-(\d+)"/.exec(html)?.[1]) || null;
+    m.saved = { title, notes };
     window.toast(`Task added: ${title}`);
     htmx.trigger(document.body, "calendar:refresh");
     schedule();
-  };
-
-  function closeTask({ nextRow }) {
-    const el = pad();
-    const range = taskRange();
-    const row = task?.row;
-    task = null;
-    if (!range) return;
-    const lines = linesOf();
-    const title = lines[range.start].trim();
-    const notes = lines.slice(range.start + 1, range.end + 1).join("\n");
-    if (nextRow) {
-      // On to a fresh row under the task.
-      const at = rowStart(lines, range.end) + lines[range.end].length;
-      el.setSelectionRange(at, at);
-      remember();
-      el.setRangeText("\n", at, at, "end");
-      followRows();
-    }
-    draw();
-    schedule();
-    if (title && !row.id) addTask(row, title, notes);
   }
 
-  /* ---- the columns down the left: numbers, and each row's kind ---- */
+  /* ---- the columns and marks drawn beside the text ---- */
 
   const rowsOf = () => document.querySelector(".pad-rows-inner");
+  const marksOf = () => document.querySelector(".pad-marks");
   const lineHeight = () => parseFloat(getComputedStyle(pad()).lineHeight) || 36;
-  const TASK_KIND = '<button type="button" class="pad-check" role="checkbox"></button><span class="pad-kind-name">Task</span>';
 
   function draw() {
     const el = pad();
     const rows = rowsOf();
-    if (!el || !rows) return;
+    const marks = marksOf();
+    if (!el || !rows || !marks) return;
+    const h = lineHeight();
     const written = meta.length;
-    const shown = Math.ceil(el.clientHeight / lineHeight()) + 1;
-    const count = Math.max(written, shown) + Math.ceil(el.scrollTop / lineHeight());
+    const count = Math.max(written, Math.ceil(el.clientHeight / h) + 1) + Math.ceil(el.scrollTop / h);
     while (rows.childElementCount < count) {
       const row = document.createElement("div");
-      row.innerHTML = `<span class="pad-n">${rows.childElementCount + 1}</span><span class="pad-kind"></span>`;
+      row.textContent = String(rows.childElementCount + 1);
       rows.append(row);
     }
     while (rows.childElementCount > count) rows.lastElementChild.remove();
     rows.style.transform = `translateY(${-el.scrollTop}px)`;
-    const here = rowAt(el.selectionStart);
-    const range = taskRange();
+
+    const { row: here } = caret();
+    const focused = document.activeElement === el;
+    const all = blocks();
+    const current = focused ? all.find((b) => here >= b.row && here <= b.end) : null;
     [...rows.children].forEach((row, i) => {
-      const m = meta[i];
-      const kind = row.lastElementChild;
-      if (!!m !== !!kind.firstElementChild) kind.innerHTML = m ? TASK_KIND : "";
-      if (m) {
-        const box = kind.firstElementChild;
-        box.setAttribute("aria-checked", String(m.done));
-        box.setAttribute("aria-label", `${m.done ? "Not done" : "Done"}: ${linesOf()[i] || "task"}`);
-        box.dataset.row = String(i);
-      }
-      row.classList.toggle("done", !!m?.done);
-      row.classList.toggle("here", i === here && document.activeElement === el);
-      row.classList.toggle("task", !!range && i >= range.start && i <= range.end);
+      row.classList.toggle("here", focused && i === here);
+      row.classList.toggle("task", !!current && i >= current.row && i <= current.end);
     });
-    const mark = document.querySelector(".pad-task-mark");
-    if (mark) {
-      mark.hidden = !range;
-      if (range) {
-        mark.style.top = `${range.start * lineHeight() - el.scrollTop}px`;
-        mark.style.height = `${(range.end - range.start + 1) * lineHeight()}px`;
-      }
-    }
+
+    // Every task bracketed; in each task's tab, its box and the word Task.
+    const lines = linesOf();
+    marks.replaceChildren(...all.map((b) => {
+      const mark = document.createElement("div");
+      mark.className = "pad-task-mark";
+      mark.classList.toggle("current", b === current);
+      mark.style.top = `${b.row * h - el.scrollTop}px`;
+      mark.style.height = `${(b.end - b.row + 1) * h}px`;
+      const kind = document.createElement("div");
+      kind.className = "pad-kind";
+      kind.classList.toggle("done", !!b.m.done);
+      kind.style.transform = `translateX(${-el.scrollLeft}px)`;
+      kind.innerHTML = '<button type="button" class="pad-check" role="checkbox"></button><span class="pad-kind-name">Task</span>';
+      const box = kind.firstElementChild;
+      box.dataset.row = String(b.row);
+      box.setAttribute("aria-checked", String(!!b.m.done));
+      box.setAttribute("aria-label", `${b.m.done ? "Not done" : "Done"}: ${lines[b.row].slice(1) || "task"}`);
+      mark.append(kind);
+      return mark;
+    }));
   }
 
-  // Ticking a task row's box ticks its task (and the row, in the notes).
+  // Ticking a task's box ticks its task (and its row, in the notes).
   document.addEventListener("pointerdown", (e) => {
     if (e.target.closest?.(".pad-check")) e.preventDefault(); // the caret stays where it was
   });
@@ -345,9 +346,7 @@
     draw();
     schedule();
     if (!m.id) return;
-    const res = await fetch(`/ui/tasks/${m.id}/toggle`, {
-      method: "POST", headers: { "X-CSRF": window.csrfToken() },
-    }).catch(() => null);
+    const res = await post(`/ui/tasks/${m.id}/toggle`).catch(() => null);
     if (!res?.ok) {
       m.done = !m.done;
       draw();
@@ -360,18 +359,36 @@
 
   /* ---- typing ---- */
 
+  // "- [ ] " at a row's start: the row becomes a task, its marker a tab.
+  const makeTaskIfTyped = () => {
+    const el = pad();
+    if (el.selectionStart !== el.selectionEnd) return;
+    const { row, col, lines } = caret();
+    if (meta[row] || col !== OPENS.length || !lines[row].startsWith(OPENS)) return;
+    const at = rowStart(lines, row);
+    el.setSelectionRange(at, at + OPENS.length);
+    type(TAB);
+    meta[row] = { done: false, id: null, saved: null };
+  };
+
   document.addEventListener("input", (e) => {
     if (e.target !== pad()) return;
-    const before = meta.length;
     followRows();
-    openTaskIfTyped();
-    followTask(before, meta.length);
+    makeTaskIfTyped();
     draw();
     schedule();
   });
 
-  ["scroll", "keyup", "click", "focus", "blur"].forEach((type) => {
-    document.addEventListener(type, (e) => {
+  // The caret never stands before a tabbed row's tab: its words start after it.
+  document.addEventListener("selectionchange", () => {
+    const el = pad();
+    if (!el || document.activeElement !== el || el.selectionStart !== el.selectionEnd) return;
+    const { col, row, lines } = caret();
+    if (col === 0 && lines[row].startsWith(TAB)) el.setSelectionRange(el.selectionStart + 1, el.selectionStart + 1);
+  });
+
+  ["scroll", "keyup", "click", "focus", "blur"].forEach((kind) => {
+    document.addEventListener(kind, (e) => {
       if (e.target === pad()) draw();
     }, true);
   });
@@ -379,24 +396,58 @@
 
   document.addEventListener("keydown", (e) => {
     const el = pad();
-    if (e.target === el && task && (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey)))) {
-      e.preventDefault();
-      closeTask({ nextRow: e.key === "Enter" });
-      return;
-    }
-    if (e.target === el && e.key === "Escape") {
-      el.blur();
-      return;
-    }
-    // Backspace at a task row's start makes it a plain row again.
-    if (e.target === el && e.key === "Backspace" && el.selectionStart === el.selectionEnd) {
-      const row = rowAt(el.selectionStart);
-      if (meta[row] && el.selectionStart === rowStart(linesOf(), row)) {
+    if (e.target === el && !e.isComposing) {
+      const { row, col, lines } = caret();
+      const block = blockAt(row);
+      const plainKeys = !e.ctrlKey && !e.metaKey && !e.altKey;
+
+      // Ctrl+Enter or Esc in a task saves it; Ctrl+Enter goes on to a fresh plain row.
+      if (block && (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey)))) {
         e.preventDefault();
-        if (task?.row === meta[row]) task = null;
-        meta[row] = null;
-        draw();
-        schedule();
+        saveTask(block);
+        if (e.key === "Enter") {
+          const at = rowStart(lines, block.end) + lines[block.end].length;
+          el.setSelectionRange(at, at);
+          type("\n");
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        el.blur();
+        return;
+      }
+      if (e.key === "Enter" && plainKeys && !e.shiftKey && lines[row].startsWith(TAB)) {
+        e.preventDefault();
+        if (lines[row] === TAB && !meta[row]) {
+          // An empty row of a task: out of it, to a plain row.
+          el.setSelectionRange(el.selectionStart - 1, el.selectionStart);
+          type("");
+        } else {
+          type(`\n${TAB}`); // the task's next row, lined up under its title
+        }
+        return;
+      }
+      // A tabbed row's words start after its tab: Home goes there, and
+      // Backspace there takes the tab away (the row is plain again).
+      if (lines[row].startsWith(TAB) && plainKeys && el.selectionStart === el.selectionEnd) {
+        const at = rowStart(lines, row);
+        if (e.key === "Home" && !e.shiftKey) {
+          e.preventDefault();
+          el.setSelectionRange(at + 1, at + 1);
+          return;
+        }
+        if (e.key === "Backspace" && col <= 1) {
+          e.preventDefault();
+          el.setSelectionRange(at, at + 1);
+          type("");
+          return;
+        }
+      }
+      // Left at a tabbed row's first word goes on to the row above, past the tab.
+      if (e.key === "ArrowLeft" && plainKeys && !e.shiftKey && col === 1 && lines[row].startsWith(TAB) && row > 0) {
+        e.preventDefault();
+        const at = rowStart(lines, row) - 1;
+        el.setSelectionRange(at, at);
         return;
       }
     }
@@ -411,24 +462,9 @@
     link.click();
   });
 
-  // Leaving the page: what is written goes, a task still open with it.
+  // Leaving the page: what is written goes, and every task written or changed with it.
   window.addEventListener("pagehide", () => {
-    const range = taskRange();
-    if (range && !task.row.id) {
-      const lines = linesOf();
-      const title = lines[range.start].trim();
-      const day = pad().dataset.day;
-      if (title) {
-        fetch("/ui/tasks/quick-add", {
-          method: "POST",
-          headers: { "X-CSRF": window.csrfToken() },
-          body: new URLSearchParams({
-            title, notes: lines.slice(range.start + 1, range.end + 1).join("\n"), planned_for: day, list_day: day,
-          }),
-          keepalive: true,
-        });
-      }
-    }
+    for (const block of blocks()) saveTask(block, { leaving: true });
     if (pending()) flush({ leaving: true });
   });
 
@@ -444,6 +480,8 @@
     lastValue = target.value;
     lastSel = [target.selectionStart, target.selectionEnd];
     version = Number(source.dataset.version) || 0;
+    // What the notes say of each task now is what was last written to it.
+    for (const block of blocks()) block.m.saved = contentOf(block);
     saved = snapshot();
     draw();
   }
