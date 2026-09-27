@@ -10,6 +10,11 @@
 
 /* ---------- base ---------- */
 
+/* Every corner in the app is square (Oscar's call, 2026-09-27): the
+   system's three radii are set to none here, after design.css, and no rule
+   below rounds a corner of its own. */
+:root { --r-tag: 0; --r-ctl: 0; --r-pill: 0; }
+
 *, *::before, *::after { box-sizing: border-box; }
 
 html {
@@ -118,7 +123,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 .nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
 .nav a[aria-current="page"]::before {
   content: ""; position: absolute; left: -8px; top: 8px; bottom: 8px;
-  width: 3px; border-radius: 2px; background: var(--spark); box-shadow: var(--spark-glow);
+  width: 3px; border-radius: 0; background: var(--spark); box-shadow: var(--spark-glow);
 }
 
 /* foot: Brasa's shipped light/dark toggle, bottom left */
@@ -238,7 +243,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 .task-row[tabindex]:focus-visible { border-radius: 0; box-shadow: none; background: var(--glass-row-hover); }
 .task-row[tabindex]:focus-visible::before, .done-fold > summary:focus-visible::before, .sheet-menu [role="menuitemradio"]:focus-visible::before {
   content: ""; position: absolute; left: 0; top: 8px; bottom: 8px;
-  width: 3px; border-radius: 0 2px 2px 0;
+  width: 3px; border-radius: 0;
   background: var(--spark); box-shadow: var(--spark-glow);
 }
 .task-row[tabindex]:focus-visible .plan-btn { color: var(--graphite); }
@@ -250,7 +255,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
   appearance: none;
   flex: none; width: 18px; height: 18px; margin: 1px 0 0;
   border: 1.5px solid var(--steel); border-radius: var(--r-tag);
-  background: var(--glass-input);
+  background: transparent;
   display: grid; place-content: center;
   cursor: pointer;
   transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
@@ -331,8 +336,8 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .subtask-check {
   appearance: none;
   flex: none; width: 14px; height: 14px; margin: 3px 0 0;
-  border: 1.5px solid var(--steel); border-radius: 4px;
-  background: var(--glass-input);
+  border: 1.5px solid var(--steel); border-radius: 0;
+  background: transparent;
   display: grid; place-content: center;
   cursor: pointer;
   transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
@@ -364,7 +369,7 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 }
 .chip.queued { color: var(--neutral-fg); background: var(--badge-neutral-glass); }
 .chip.running { color: var(--ok-fg); background: var(--badge-ok-glass); }
-.chip.running .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.chip.running .dot { width: 6px; height: 6px; border-radius: 0; background: currentColor; }
 .chip.needs_review { color: var(--warn-fg); background: var(--badge-warn-glass); }
 .chip.blocked { color: var(--err-fg); background: var(--badge-err-glass); }
 .chip.in_progress { color: var(--ok-fg); background: var(--badge-ok-glass); }
@@ -542,7 +547,7 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .notes-editor .ln[data-kind="item"]::before {
   content: ""; position: absolute; left: calc(var(--depth, 0) * 22px); top: calc(0.5lh - 7px);
   width: 14px; height: 14px; box-sizing: border-box;
-  border: 1.5px solid var(--steel); border-radius: 4px; background: var(--glass-input);
+  border: 1.5px solid var(--steel); border-radius: 0; background: transparent;
   cursor: pointer;
   transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
@@ -597,12 +602,14 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   --draft-grid: color-mix(in srgb, var(--hue-6) 15%, transparent);
 }
 :root {
+  /* inputs are see-through: their paper is a wash the page shows through */
+  --draft-fill: color-mix(in srgb, var(--draft-paper) 40%, transparent);
   --draft-sheet:
     linear-gradient(var(--draft-grid) 1px, transparent 1px) 0 0 / 100% 16px,
     linear-gradient(90deg, var(--draft-grid) 1px, transparent 1px) 0 0 / 16px 100%,
-    var(--draft-paper);
+    var(--draft-fill);
   /* the field in use: its rule, a gap of paper, and the red pencil line around it */
-  --draft-marked: inset 0 0 0 1px var(--draft-rule), 0 0 0 2px var(--draft-paper), 0 0 0 3px var(--draft-pencil);
+  --draft-marked: inset 0 0 0 1px var(--draft-rule);
 }
 
 /* the caption: a leader line, then the words in condensed caps */
@@ -640,7 +647,9 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
     linear-gradient(var(--cross), var(--cross)) 100% calc(100% - 5px) / 11px 1px no-repeat,
     linear-gradient(var(--cross), var(--cross)) calc(100% - 5px) 100% / 1px 11px no-repeat;
 }
-.plate:focus-within, .task-sheet:focus-within, .task-sheet[data-sheet="edit"] { box-shadow: var(--draft-marked); }
+.plate:focus-within, .task-sheet:focus-within, .task-sheet[data-sheet="edit"] {
+  box-shadow: var(--draft-marked); outline: 1px solid var(--draft-pencil); outline-offset: 2px;
+}
 .plate:focus-within::before, .task-sheet:focus-within::before, .task-sheet[data-sheet="edit"]::before { --cross: var(--draft-pencil); opacity: 1; }
 
 /* what is written in a plate is the plate's; it draws no box of its own */
@@ -680,7 +689,7 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   font: 600 12px/1 var(--font-label); letter-spacing: 0.16em; text-transform: uppercase;
 }
 :is(.task-sheet, .inline-form, .project-editor) .btn.quiet { color: var(--ink); background: transparent; box-shadow: inset 0 0 0 1px var(--draft-rule); }
-:is(.task-sheet, .inline-form, .project-editor) .btn.quiet:hover { background: var(--draft-paper); }
+:is(.task-sheet, .inline-form, .project-editor) .btn.quiet:hover { background: var(--draft-fill); }
 :is(.task-sheet, .inline-form, .project-editor) .btn.primary { color: var(--paper); background: var(--draft-pencil-fill); box-shadow: none; }
 :is(.task-sheet, .inline-form, .project-editor) .btn.primary:hover { background: var(--draft-pencil-ink); }
 :is(.task-sheet, .inline-form, .project-editor) .btn:focus-visible { border-radius: 0; box-shadow: 0 0 0 2px var(--paper), 0 0 0 3px var(--draft-pencil); }
@@ -778,7 +787,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   box-shadow: inset 0 0 0 1px var(--draft-rule);
   transition: box-shadow var(--dur) var(--ease);
 }
-.status-select:focus-visible { outline: none; border-radius: 0; box-shadow: var(--draft-marked); }
+.status-select:focus-visible { border-radius: 0; box-shadow: var(--draft-marked); outline: 1px solid var(--draft-pencil); outline-offset: 2px; }
 .card-edit-btn {
   display: grid; place-content: center; width: 32px; height: 32px;
   border-radius: var(--r-ctl); color: var(--steel);
@@ -797,7 +806,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   border-top: 1px solid var(--hairline-on-glass);
   font-size: var(--t-body-sm);
 }
-.milestone button { display: grid; place-content: center; width: 24px; height: 24px; margin: -4px; border-radius: 50%; }
+.milestone button { display: grid; place-content: center; width: 24px; height: 24px; margin: -4px; border-radius: 0; }
 .milestone svg { flex: none; stroke: var(--steel); }
 .milestone.reached svg { stroke: var(--ink); }
 .milestone .name { flex: 1; font-weight: 600; }
@@ -944,7 +953,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: var(--hairline-on-glass); pointer-events: none; }
 /* the grid's one light: now, in the signal (the spark itself in a one-light system) */
 .now-line { position: absolute; left: 0; right: 0; z-index: 1; height: 2px; background: var(--signal); box-shadow: var(--signal-glow); pointer-events: none; }
-.now-line::before { content: ""; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--signal); box-shadow: var(--signal-glow); }
+.now-line::before { content: ""; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 0; background: var(--signal); box-shadow: var(--signal-glow); }
 
 .cal-item {
   position: absolute; z-index: 2; overflow: hidden;
@@ -975,7 +984,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .resize-handle { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; cursor: ns-resize; }
 .resize-handle::after {
   content: ""; position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%);
-  width: 20px; height: 2px; border-radius: 1px; background: var(--solid-handle);
+  width: 20px; height: 2px; border-radius: 0; background: var(--solid-handle);
 }
 
 /* tray: tasks waiting for a slot or a day */
@@ -1060,7 +1069,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .today-pad .day-header { margin-bottom: var(--s-4); }
 .notepad-card {
   display: flex; flex: 1;
-  background: var(--glass-card); backdrop-filter: blur(20px) saturate(1.1);
+  background: color-mix(in srgb, var(--paper) 35%, transparent);
   border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
 }
 .notepad {
@@ -1128,7 +1137,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .plan-entry.dragging, .tray-task.dragging { opacity: 0.4; }
 
 .plan-entry.task { color: var(--ink); font-weight: 500; }
-.plan-entry.task .box { flex: none; width: 10px; height: 10px; border: 1.5px solid var(--steel); border-radius: 3px; }
+.plan-entry.task .box { flex: none; width: 10px; height: 10px; border: 1.5px solid var(--steel); border-radius: 0; }
 .plan-entry.task.done { color: var(--pewter); }
 .plan-entry.task.done .box { background: var(--ink); border-color: var(--ink); }
 .plan-entry.task.done .label { text-decoration: line-through; }
@@ -1137,7 +1146,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .plan-entry.flag { color: var(--ink); font-weight: 600; }
 .plan-entry.flag svg { flex: none; stroke: currentColor; }
 .plan-entry.event { color: var(--graphite); }
-.plan-entry.event::before { content: ""; flex: none; width: 6px; height: 6px; margin: 0 2px; border-radius: 50%; background: var(--steel); }
+.plan-entry.event::before { content: ""; flex: none; width: 6px; height: 6px; margin: 0 2px; border-radius: 0; background: var(--steel); }
 .plan-entry.all-day { background: var(--glass-card); border: 1px solid var(--hairline-on-glass-strong); font-weight: 500; }
 .plan-entry.all-day.work { background: var(--ink-tint-tag); border-color: transparent; color: var(--graphite); }
 
@@ -1197,7 +1206,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .today-dot {
   display: inline-grid; place-content: center;
   width: 24px; height: 24px; margin-left: -2px;
-  border: 2px solid var(--spark); border-radius: 50%;
+  border: 2px solid var(--spark); border-radius: 0;
   box-shadow: var(--spark-glow);
   font-weight: 600;
 }

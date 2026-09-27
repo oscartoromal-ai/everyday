@@ -62,7 +62,8 @@ Input captions and the buttons that finish writing are set in Barlow Condensed 6
 
 ## Shape, space, elevation
 
-- **Radii:** only `--r-tag` 6px (badges, checkboxes, calendar items), `--r-ctl` 12px (buttons, inputs, cards, nav items) and `--r-pill` (status badges, the segmented control).
+- **Radii:** none. Every corner in the app is square (Oscar's call, 2026-09-27): `app.css` sets the system's `--r-tag`, `--r-ctl` and `--r-pill` to 0 after `design.css` loads, and no rule rounds a corner of its own, dots and the now mark included.
+- **Inputs are see-through:** every place Oscar writes lets the page show through: drafted plates fill with `--draft-fill` (their paper at 40%) under the graph grid, Today's notepad card is the paper at 35%, and checkboxes are unfilled until ticked. The field in use takes its red pencil as a 1px outline 2px clear of its rule, so the gap between them is see-through too.
 - **Spacing:** the `--s-*` scale (4, 8, 12, 16, 24, 32, 48).
 - **Elevation:** resting glass has no shadow; only the block menu, the add-a-task popover, the task sheet's menus and the toast float, on opaque paper with `--shadow-dropdown`.
   There is one toast, `window.toast` in `shell.js`, for every page; a newer message gets its own full moment.
