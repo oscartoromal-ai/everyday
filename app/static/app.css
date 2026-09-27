@@ -1072,10 +1072,15 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   background: color-mix(in srgb, var(--paper) 35%, transparent);
   border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
 }
+/* ruled like a notepad: every line of text sits on its own rule, from the
+   box's very top, and the rules scroll with the text */
 .notepad {
-  flex: 1; min-height: 420px; padding: var(--s-4) var(--s-6);
-  font: inherit; font-size: var(--t-body); line-height: 1.7; color: var(--ink);
-  background: transparent; border: none; resize: none;
+  --pad-line: 28px;
+  flex: 1; min-height: 420px; padding: 0 var(--s-6);
+  font: inherit; font-size: var(--t-body); line-height: var(--pad-line); color: var(--ink);
+  background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--pad-line) - 1px), var(--hairline) calc(var(--pad-line) - 1px) var(--pad-line));
+  background-attachment: local;
+  border: none; resize: none;
 }
 .notepad::placeholder { color: var(--pewter); }
 .notepad:focus, .notepad:focus-visible { outline: none; box-shadow: none; }
@@ -1101,7 +1106,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   .today-timeline .calendar-grid { max-height: none; }
 }
 @media (max-width: 720px) {
-  .notepad { padding: var(--s-3) var(--s-4); }
+  .notepad { padding: 0 var(--s-4); }
 }
 
 /* ---------- weeks: several weeks at a glance, as a grid or as rows ---------- */

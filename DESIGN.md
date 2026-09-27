@@ -141,7 +141,7 @@ The empty-list note hides once the list has a row.
 
 **Notepad.** Today, and every day's page (`/day/2026-09-25`), is a notepad beside the day's timeline.
 The header is the day's name at 24px ("Today" on today's), a pair of 32px chevrons for the day before and after, and on any other day a pill back to Today; the line under it gives the date, and the key line names N, the arrows and "? all keys".
-The rest of the left column is one glass card (as list cards are), as tall as the window allows (at least 420px; 55vh once the timeline stacks under it), holding a plain textarea: 16px ink at 1.7 line height, 16px by 24px in, no border, no focus ring and no resize handle, the pewter placeholder "Anything on your mind today."
+The rest of the left column is one glass card (as list cards are), as tall as the window allows (at least 420px; 55vh once the timeline stacks under it), holding a plain textarea ruled like a notepad: 16px ink on 28px lines, each line on its own `--hairline` rule, from the box's very top (no top margin) and 24px in at the sides, the rules scrolling with the text; no border, no focus ring and no resize handle, the pewter placeholder "Anything on your mind today."
 When the notes were saved in another window, a line under the plate says so, with Show that version and Keep mine as secondary buttons.
 
 **Tasks.** A page header ("Tasks", the open and undated counts, and a By date / By project segmented control on the right), the composer alone in its own card, then the tasks.
