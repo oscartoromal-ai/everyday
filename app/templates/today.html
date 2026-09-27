@@ -25,16 +25,11 @@
     </header>
 
     <section class="notepad-card">
-      {# Row numbers, like a spreadsheet's row headers (notepad.js numbers them). #}
-      <div class="pad-rows" aria-hidden="true"><div class="pad-rows-inner"></div></div>
-      {# The text as it reads, drawn under the textarea's own (invisible) letters,
-         so a task's first line can be darker than the rest (notepad.js). #}
-      <div class="pad-mirror" aria-hidden="true"><div class="pad-mirror-inner"></div></div>
-      {# Every task bracketed, its box and the word Task in its tab (notepad.js). #}
-      <div class="pad-marks"></div>
+      {# The notes as the server has them; notepad.js puts its editor in their
+         place (rows numbered, tasks drawn with their box and controls). #}
       <textarea class="notepad" id="notepad" data-day="{{ day.isoformat() }}" data-version="{{ notepad.version }}"
                 data-task-rows='{{ notepad.task_rows | tojson }}'
-                wrap="off" spellcheck="true" aria-label="Notes" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
+                spellcheck="true" aria-label="Notes" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
     </section>
     {# A task row's controls, after its title (notepad.js clones one
        per task): the task sheet's icons and menus alone (task-sheet.js,
@@ -84,5 +79,6 @@
   </section>
 </div>
 <script src="{{ asset('calendar.js') }}" defer></script>
+<script src="{{ asset('vendor/codemirror.js') }}" defer></script>
 <script src="{{ asset('notepad.js') }}" defer></script>
 {% endblock %}

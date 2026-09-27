@@ -43,9 +43,10 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Filing by drag**: in By project (and on Projects) a task is dragged onto a milestone, another project, or No project to file it there.
 - **Today is a notepad beside the day's timeline** (Oscar's call on 2026-09-27, "for now"): the whole left column is one plain notepad for the day, the right the day's timeline.
   The notes are plain text, saved as they are written.
-  A task is written in them: "- [ ] " at a row's start makes the row a task, tabbed in with a checkbox and "Task" beside it (not text); the rows added under it with Enter are tabbed in the same way and are its description ("- " rows its sub-tasks); plain rows stay at the left.
+  A row too long for the box wraps inside its row; nothing scrolls sideways.
+  A task is written in them: "- [ ] " at a row's start makes the row a task, drawn indented as a checkbox and "Task" (not text); the rows added under it with Enter are indented the same way and are its description ("- " rows its sub-tasks); plain rows stay at the left.
   Every task stays bracketed by a rule above and below its rows; Ctrl+Enter or Esc in a task saves it (added for that day, or the task it made updated), Ctrl+Enter then going on to a plain row.
-  After a task's title come its controls, the task sheet's icons: do date, time, due, repeat and project, set before the task is added or changed on it after.
+  At the right of a task's title come its controls, the task sheet's icons: do date, time, due, repeat and project, set before the task is added or changed on it after; on the title's last line when they fit there, else on a line of their own under it, within the same row.
   Delete, the last of them, takes the task's rows out of the notes, and deletes a task already added, once confirmed.
   Ticking the box ticks the task, and the box shows the task as it stands, wherever it was ticked; the notes keep the row as "- [ ] " or "- [x] " text, and the page remembers which task each row made.
   Every day has its notepad: Left and Right (outside the text) go a day back or on, and past days stay editable.

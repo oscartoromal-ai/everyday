@@ -1067,83 +1067,77 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
    window allows, for plain text at reading size. */
 .today-pad { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-6)); }
 .today-pad .day-header { margin-bottom: var(--s-4); }
-/* Ruled like a spreadsheet: every line of text is a row, 36px tall with the
-   text in its middle, on its own rule, the rows numbered down the left (their
-   headers). Plain rows start right after the numbers; only a task's rows are
-   tabbed in, and in a task row's tab the page draws its checkbox and the word
-   Task (notepad.js; neither is text). A line does not wrap: like a cell, it
-   runs on to the right. Rules, numbers and marks scroll with the text. */
+/* Ruled like a spreadsheet: every row is 36px tall with its text in the
+   middle, on its own rule, the rows numbered down the left (their headers),
+   empty numbered rows to the box's bottom. A row too long for the box wraps
+   inside it, its lines 22px apart, and the row grows (its number stays at
+   its top). Plain rows start right after the numbers; a task's rows start
+   after its box and the word Task, its title in ink, the body a grey darker
+   than the Task label (notepad.js, a CodeMirror editor; its own metrics are
+   set there, from these). */
 .notepad-card {
   --pad-line: 36px;
+  --pad-text: 22px;
+  --pad-above: 7px;
+  --pad-below: 6px;
   --pad-rows: 44px;
   --pad-gap: var(--s-3);
   --pad-tab: 76px;
-  position: relative; display: flex; flex: 1; overflow: hidden;
+  --bracket: var(--graphite);
+  position: relative; display: flex; flex: 1; min-height: 420px; overflow: hidden;
   background: color-mix(in srgb, var(--paper) 35%, transparent);
   border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
 }
-/* The textarea holds the text and the caret; its own letters are clear, and
-   the mirror under it draws them, row by row, in the same place: the body in
-   a grey darker than the Task label, a task's first line in ink. The two
-   share every metric (font, size, padding, tab, line), so they never drift. */
-.notepad, .pad-mirror-inner {
-  padding: 0 var(--s-4) 0 calc(var(--pad-rows) + var(--pad-gap));
-  font: inherit; font-size: var(--t-body-sm); line-height: var(--pad-line); letter-spacing: -0.01em;
-  tab-size: var(--pad-tab); white-space: pre;
-}
+/* the notes before the editor takes them up (and without it) */
 .notepad {
-  position: relative; z-index: 1;
-  flex: 1; min-height: 420px;
-  color: transparent; caret-color: var(--ink);
-  background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--pad-line) - 1px), var(--hairline) calc(var(--pad-line) - 1px) var(--pad-line));
-  background-attachment: local;
-  border: none; resize: none; overflow: auto;
+  flex: 1; padding: var(--s-2) var(--s-4);
+  font: inherit; font-size: var(--t-body-sm); line-height: var(--pad-text); color: var(--ink);
+  background: transparent; border: none; resize: none;
 }
-.notepad::selection { color: transparent; background: color-mix(in srgb, var(--spark) 22%, transparent); }
-.notepad::placeholder { color: var(--pewter); }
-/* scrolled sideways, the text goes under the row numbers, not through them */
-.pad-mirror { position: absolute; z-index: 2; inset: 0; overflow: hidden; pointer-events: none; clip-path: inset(0 0 0 var(--pad-rows)); }
-.pad-mirror-inner > div { height: var(--pad-line); color: color-mix(in srgb, var(--ink) 55%, var(--graphite)); }
-.pad-mirror-inner > div.title { color: var(--ink); }
-/* a title's words, measured, and faded out under its controls when it runs on */
-.pad-mirror-inner > div.title > span { display: inline-block; }
 .notepad:focus, .notepad:focus-visible { outline: none; box-shadow: none; }
-.pad-rows {
-  position: absolute; z-index: 3; top: 0; bottom: 0; left: 0; width: var(--pad-rows); overflow: hidden;
-  background: color-mix(in srgb, var(--fog) 70%, transparent);
-  border-right: 1px solid var(--hairline); pointer-events: none;
+/* the editor fills the card and scrolls inside it: the card's size is the
+   page's to give, never the text's */
+.pad-editor { position: absolute; inset: 0; }
+.pad-editor .cm-editor { height: 100%; }
+.pad-editor .cm-content:is(:focus, :focus-visible) { outline: none; box-shadow: none; }
+
+/* a task's rows: its box and every other row's tab one indent wide, and a
+   wrapped line lined up under the words, not the box */
+.pad-editor .cm-line:is(.pad-title, .pad-body) {
+  padding-left: calc(var(--pad-gap) + var(--pad-tab)); text-indent: calc(-1 * var(--pad-tab));
 }
-.pad-rows-inner > div {
-  height: var(--pad-line); padding-right: var(--s-2); border-bottom: 1px solid var(--hairline);
-  font-size: var(--t-caption); line-height: calc(var(--pad-line) - 1px); text-align: right;
-  color: var(--pewter); font-variant-numeric: tabular-nums;
-}
-/* the row the caret is in, and the rows of the task it is in: numbers in ink */
-.pad-rows-inner > div.here, .pad-rows-inner > div.task { color: var(--ink); font-weight: 600; }
+.pad-editor .cm-line.pad-title { display: flow-root; color: var(--ink); }
+.pad-indent { display: inline-block; width: var(--pad-tab); }
+/* the box, the word Task and the icons are not text: never selected as it */
+.pad-editor :is(.pad-kind, .pad-props) { user-select: none; }
 
 /* every task: a graphite rule above its title and below its last row,
-   nothing filled; the one the caret is in, the same rules in ink */
-.pad-marks { position: absolute; z-index: 4; inset: 0; overflow: hidden; pointer-events: none; }
-.pad-task-mark {
-  position: absolute; left: 0; right: 0;
-  border-top: 2px solid var(--graphite); border-bottom: 2px solid var(--graphite);
-}
-.pad-task-mark.current { border-color: var(--ink); }
-/* in a task row's tab: its box and the word Task, not text */
-/* a task's title row, to the right of the row numbers: what is in it moves
-   with the text (--pad-x, its sideways scroll) and is clipped where the
-   text is */
-.pad-task-line {
-  position: absolute; top: 0; left: var(--pad-rows); right: 0; height: calc(var(--pad-line) - 2px);
-  overflow: clip;
-}
+   across the row numbers too, nothing filled; the one the caret is in,
+   the same rules in ink */
+.pad-editor .pad-current { --bracket: var(--ink); }
+.pad-editor .cm-line.pad-first { box-shadow: inset 0 2px 0 var(--bracket); }
+.pad-editor .cm-line.pad-last { border-bottom-color: var(--bracket); box-shadow: inset 0 -1px 0 var(--bracket); }
+.pad-editor .cm-line.pad-first.pad-last { box-shadow: inset 0 2px 0 var(--bracket), inset 0 -1px 0 var(--bracket); }
+.pad-editor .cm-gutterElement.pad-first { box-shadow: inset 0 2px 0 var(--bracket); }
+.pad-editor .cm-gutterElement.pad-last { box-shadow: inset 0 -2px 0 var(--bracket); }
+.pad-editor .cm-gutterElement.pad-first.pad-last { box-shadow: inset 0 2px 0 var(--bracket), inset 0 -2px 0 var(--bracket); }
+/* the caret's row, and the rows of the task it is in: numbers in ink */
+.pad-editor .cm-gutterElement:is(.here, .pad-current) { color: var(--ink); font-weight: 600; }
+
+/* the empty rows under the last, and their numbers */
+.pad-filler { overflow: hidden; }
+.pad-filler > div { height: var(--pad-line); border-bottom: 1px solid var(--hairline); }
+.pad-editor .cm-lineNumbers .cm-gutterElement.pad-filler-numbers { padding: 0; background: none; overflow: hidden; }
+.pad-filler-numbers > div { height: var(--pad-line); padding-right: var(--s-2); border-bottom: 1px solid var(--hairline); }
+
+/* in a task row's box: its checkbox and the word Task, not text */
 .pad-kind {
-  position: absolute; top: 0; left: calc(var(--pad-gap) + var(--pad-x, 0px)); height: 100%;
-  display: flex; align-items: center; gap: 6px; color: var(--graphite);
+  display: inline-flex; align-items: center; gap: 6px; width: var(--pad-tab); height: var(--pad-text);
+  vertical-align: top; text-indent: 0; color: var(--graphite);
 }
 .pad-check {
   flex: none; display: grid; place-content: center; width: 14px; height: 14px;
-  border: 1.5px solid var(--graphite); background: transparent; pointer-events: auto; cursor: pointer;
+  border: 1.5px solid var(--graphite); background: transparent; cursor: pointer;
 }
 .pad-check[aria-checked="true"] { background: var(--ink); border-color: var(--ink); }
 .pad-check[aria-checked="true"]::after {
@@ -1152,20 +1146,21 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 }
 .pad-kind-name { font-size: var(--t-caption); color: var(--graphite); }
 .pad-kind.done .pad-kind-name { color: var(--pewter); text-decoration: line-through; }
-/* after a task's title's last word, its controls: the task sheet's icons,
-   as they trail a title in the sheet; at the box's right edge when the
-   title runs on past it (notepad.js places them). Not a plate: no sheet, no
-   crosses, a set value in graphite. */
+/* at the right of a task's title, after its last word: its controls, the
+   task sheet's icons and the rows' bin. On the title's last line when they
+   fit there, else on a line of their own under it (a float: the row grows,
+   no row is added). Not a plate: no sheet, no crosses, a set value in
+   graphite. */
 .task-sheet.pad-props {
-  position: absolute; top: 0; height: 100%;
-  display: flex; align-items: center; gap: var(--s-2); padding: 0;
-  background: none; box-shadow: none; outline: none; pointer-events: auto;
+  float: right; display: flex; align-items: center; gap: var(--s-2);
+  height: var(--pad-text); margin-left: var(--s-3); padding: 0; text-indent: 0;
+  background: none; box-shadow: none; outline: none;
 }
 .task-sheet.pad-props::before { content: none; }
-.task-sheet.pad-props .prop { margin: 0; }
+.task-sheet.pad-props .prop { min-height: var(--pad-text); margin: 0; }
 .task-sheet.pad-props .prop.is-set .prop-value { color: var(--graphite); }
 .task-sheet.pad-props .prop.is-set svg { stroke: var(--graphite); }
-.task-sheet.pad-props .task-delete { margin: 0; opacity: 1; }
+.task-sheet.pad-props .task-delete { width: 24px; height: var(--pad-text); margin: 0; opacity: 1; }
 
 .pad-stale { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-3); font-size: var(--t-body-sm); color: var(--ink); }
 .pad-stale[hidden] { display: none; }
@@ -1183,16 +1178,12 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 @media (max-width: 1100px) {
   .today-page { grid-template-columns: minmax(0, 1fr); gap: var(--s-6); }
   .today-pad { min-height: 0; }
-  .notepad { min-height: 55vh; }
+  .notepad-card { min-height: 55vh; }
   .today-timeline { position: static; }
   .today-timeline .calendar-grid { max-height: none; }
 }
 @media (max-width: 720px) {
   .notepad-card { --pad-rows: 34px; --pad-gap: var(--s-2); --pad-tab: 70px; }
-  .notepad { padding-right: var(--s-3); }
-  /* too narrow for every icon on every task: the task whose title the caret
-     is on shows them all, the others only the fields they have */
-  .pad-task-mark:not(.in-use) .pad-props :is(.prop:not(.is-set), .task-delete) { display: none; }
 }
 
 /* ---------- weeks: several weeks at a glance, as a grid or as rows ---------- */

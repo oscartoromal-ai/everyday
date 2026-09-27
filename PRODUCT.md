@@ -36,5 +36,6 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 ## Constraints
 
 - Server-rendered Jinja + HTMX; no build step; the only real client JS is a few small islands: the calendar drag (week grid and Today's timeline), the Weeks drag-to-replan, the task composer and description editor, and Today's notepad.
+  The notepad's editor is CodeMirror 6, one committed file (`app/static/vendor/codemirror.js`) built from `scripts/vendor/codemirror`, as htmx is one committed file; the app still builds nothing.
 - Works on desktop and phone widths; phone gets the full UI, not a cut-down version.
 - No login screens, no marketing surfaces; the app opens straight into Tasks, where the day's plan is made.

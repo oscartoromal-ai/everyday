@@ -406,13 +406,12 @@ TASK_FIELDS = (
 
 
 def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
-    """A day's notepad as the page shows it: the text with each task row's
-    "- [ ] " made a tab (the page draws its checkbox in the gap, outside
-    the text; the task's other rows are tabbed in the same way),
-    the task rows ([{row, done, id}], id when the row made a task, done as
-    that task stands now, wherever it was ticked), and the page's version.
-    A page written when it still held task boxes reads back with them as
-    task rows."""
+    """A day's notepad as the page shows it: the text, each task row's box
+    ("- [ ] " or "- [x] ") as its task stands now, wherever it was ticked;
+    the task rows ([{row, done, id, fields}], id and fields when the row made
+    a task); the projects its controls offer; and the page's version. A page
+    written when it still held task boxes reads back with them as task
+    rows."""
     lines: list[str] = []
     links: dict[int, int] = {}
     for block in notebook_svc.blocks_of(db, day):
@@ -449,7 +448,7 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
         task_rows.append(
             {"row": row, "done": done, "id": task.id if task else None, "fields": fields}
         )
-        lines[row] = "\t" + line[mark.end():]
+        lines[row] = f"- [{'x' if done else ' '}] " + line[mark.end():]
     return {
         "text": "\n".join(lines),
         "task_rows": task_rows,

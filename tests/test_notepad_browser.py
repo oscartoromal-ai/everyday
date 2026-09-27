@@ -31,9 +31,19 @@ def saved_as(app_db, expected: list[dict], timeout: float = 5) -> None:
     assert stored(app_db) == expected
 
 
+def text_of(page) -> str:
+    """The notes as written in the page's editor."""
+    return page.evaluate("Notepad.text()")
+
+
+def write_in(page) -> None:
+    """Into the notes, as a click on them does."""
+    page.locator(".pad-editor .cm-content").click()
+
+
 def test_notes_save_as_they_are_written(page, live, app_db) -> None:
     page.goto(f"{live}/today")
-    page.locator("#notepad").click()
+    write_in(page)
     page.keyboard.type("Slow morning.")
     page.keyboard.press("Enter")
     page.keyboard.type("- call the dentist")
@@ -41,7 +51,7 @@ def test_notes_save_as_they_are_written(page, live, app_db) -> None:
 
     # Just text: a "- " line stays a line, and no task is made of it.
     page.reload()
-    assert page.locator("#notepad").input_value() == "Slow morning.\n- call the dentist"
+    assert text_of(page) == "Slow morning.\n- call the dentist"
     from app.services import tasks as tasks_svc
 
     with app_db() as db:
@@ -50,7 +60,7 @@ def test_notes_save_as_they_are_written(page, live, app_db) -> None:
 
 def test_notes_changed_in_another_window_ask_which_to_keep(page, live, app_db) -> None:
     page.goto(f"{live}/today")
-    page.locator("#notepad").click()
+    write_in(page)
     page.keyboard.type("Mine.")
     saved_as(app_db, [{"kind": "text", "text": "Mine."}])
 
@@ -71,37 +81,36 @@ def test_a_task_is_written_in_the_notes(page, live, app_db) -> None:
     from app.services import tasks as tasks_svc
 
     page.goto(f"{live}/today")
-    pad = page.locator("#notepad")
-    pad.click()
+    write_in(page)
     page.keyboard.type("Morning.")
     page.keyboard.press("Enter")
 
-    # "- [ ] " makes the row a task: the marker becomes a tab, and in the gap
-    # the task's box and the word Task (only a task's rows are tabbed in).
+    # "- [ ] " makes the row a task: drawn as its box and the word Task.
     page.keyboard.type("- [ ] Call the dentist")
-    marks = page.locator(".pad-marks .pad-task-mark")
-    assert marks.count() == 1
-    assert marks.first.locator(".pad-check").is_visible()
-    assert marks.first.locator(".pad-kind-name").inner_text() == "Task"
+    titles = page.locator(".pad-editor .cm-line.pad-title")
+    assert titles.count() == 1
+    assert titles.first.locator(".pad-check").is_visible()
+    assert titles.first.locator(".pad-kind-name").inner_text() == "Task"
     # Enter goes on to the task's next row, tabbed in under its title.
     page.keyboard.press("Enter")
     page.keyboard.type("- ask about the crown")
-    assert page.locator(".pad-rows-inner > div.task").all_inner_texts() == ["2", "3"]
-    assert pad.input_value() == "Morning.\n\tCall the dentist\n\t- ask about the crown"
+    current = page.locator(".cm-lineNumbers .cm-gutterElement.pad-current")
+    assert current.all_inner_texts() == ["2", "3"]
+    assert text_of(page) == "Morning.\n- [ ] Call the dentist\n\t- ask about the crown"
 
     # Ctrl+Enter saves it (the task is added) and goes on to a plain row;
     # the task stays bracketed.
     page.keyboard.press("Control+Enter")
     page.locator(".cal-toast.show", has_text="Task added: Call the dentist").wait_for()
     page.keyboard.type("After.")
-    assert pad.input_value() == "Morning.\n\tCall the dentist\n\t- ask about the crown\nAfter."
-    assert marks.count() == 1
+    notes = "Morning.\n- [ ] Call the dentist\n\t- ask about the crown\nAfter."
+    assert text_of(page) == notes
+    assert page.locator(".pad-editor .cm-line.pad-last").count() == 1
     with app_db() as db:
         [task] = tasks_svc.list_tasks(db)
         assert task.title == "Call the dentist"
         assert (task.notes, task.planned_for) == ("- ask about the crown", TODAY)
         task_id = task.id
-    notes = "Morning.\n- [ ] Call the dentist\n\t- ask about the crown\nAfter."
     saved_as(app_db, [{"kind": "text", "text": notes, "links": {"1": task_id}}])
 
     # Going back into it and saving again writes the change to the task.
@@ -113,26 +122,61 @@ def test_a_task_is_written_in_the_notes(page, live, app_db) -> None:
     with app_db() as db:
         assert tasks_svc.get_task(db, task_id).notes == "- ask about the crown and the cleaning"
 
-    # Its box ticks the task; the row keeps its kind after a reload.
-    marks.first.locator(".pad-check").click()
-    marks.first.locator(".pad-check[aria-checked=true]").wait_for()
+    # Its box ticks the task; the row keeps its task after a reload.
+    titles.first.locator(".pad-check").click()
+    titles.first.locator(".pad-check[aria-checked=true]").wait_for()
     ticked = "Morning.\n- [x] Call the dentist\n\t- ask about the crown and the cleaning\nAfter."
     saved_as(app_db, [{"kind": "text", "text": ticked, "links": {"1": task_id}}])
     with app_db() as db:
         assert tasks_svc.get_task(db, task_id).status == TaskStatus.done
     page.reload()
-    assert pad.input_value().startswith("Morning.\n\tCall the dentist\n")
-    assert marks.first.locator(".pad-check").get_attribute("aria-checked") == "true"
+    assert text_of(page).startswith("Morning.\n- [x] Call the dentist\n")
+    assert titles.first.locator(".pad-check").get_attribute("aria-checked") == "true"
 
-    # Backspace at a task row's start takes its tab away: a plain row again.
-    pad.click()
+    # The caret never stands in the box: Home goes to the title's first word,
+    # and Backspace there takes the box away, a plain row again.
+    write_in(page)
     page.keyboard.press("Control+Home")
     page.keyboard.press("ArrowDown")
+    page.keyboard.press("End")
     page.keyboard.press("Home")
     page.keyboard.press("Backspace")
-    assert marks.count() == 0
+    assert titles.count() == 0
     plain = "Morning.\nCall the dentist\n\t- ask about the crown and the cleaning\nAfter."
     saved_as(app_db, [{"kind": "text", "text": plain}])
+
+
+def test_a_long_row_wraps_and_the_icons_keep_to_its_end(page, live) -> None:
+    page.goto(f"{live}/today")
+    write_in(page)
+    page.keyboard.type("- [ ] Short")
+    page.keyboard.press("Enter")
+    page.keyboard.press("Enter")  # out of the task
+    long = "a title long enough to run past the width of the box " * 3
+    page.keyboard.type(f"- [ ] {long.strip()}")
+    titles = page.locator(".pad-editor .cm-line.pad-title")
+    short, wrapped = titles.nth(0), titles.nth(1)
+    box = page.locator(".pad-editor .cm-content").bounding_box()
+
+    def props_of(title):
+        return title.locator(".pad-props").bounding_box()
+
+    # A short title: its icons at the row's right, on its line.
+    row = short.bounding_box()
+    icons = props_of(short)
+    assert row["height"] == 36
+    assert abs(icons["y"] - (row["y"] + 7)) <= 1
+    # A long one wraps inside its row (no scrolling sideways), and its icons
+    # go under its last line, still at the right: the row grows, no row is added.
+    row = wrapped.bounding_box()
+    icons = props_of(wrapped)
+    assert row["height"] > 36 * 2
+    assert page.evaluate("Notepad.view.scrollDOM.scrollWidth <= Notepad.view.scrollDOM.clientWidth")
+    assert icons["y"] + icons["height"] >= row["y"] + row["height"] - 7 - 1
+    right = props_of(short)["x"] + props_of(short)["width"]
+    assert abs((icons["x"] + icons["width"]) - right) <= 1
+    assert icons["x"] + icons["width"] <= box["x"] + box["width"]
+    assert text_of(page).count("\n") == 1  # one row each
 
 
 def test_a_task_row_sets_its_fields_from_its_controls(page, live, app_db) -> None:
@@ -147,19 +191,18 @@ def test_a_task_row_sets_its_fields_from_its_controls(page, live, app_db) -> Non
         db.commit()
     tomorrow = TODAY + timedelta(days=1)
     page.goto(f"{live}/today")
-    pad = page.locator("#notepad")
-    pad.click()
+    write_in(page)
     page.keyboard.type("- [ ] Mow the lawn")
 
     # At the title's right, the task sheet's icons; what they set before the
     # task is added goes with it when it is.
-    props = page.locator(".pad-task-mark .pad-props[data-ready]")
+    props = page.locator(".pad-editor .pad-props[data-ready]")
     props.locator(".prop[data-prop=planned_for]").click()
     # By name, exactly: on a Sunday, Next week's aside also reads "tomorrow".
     page.locator(".sheet-menu").get_by_role("menuitemradio", name="Tomorrow", exact=True).click()
     assert props.locator(".prop[data-prop=planned_for] .prop-value").inner_text() == "tomorrow"
     # The caret is back in the notes, where writing carries on.
-    assert page.evaluate("document.activeElement.id") == "notepad"
+    assert page.evaluate("document.activeElement.classList.contains('cm-content')")
     page.keyboard.type(" today")
     page.keyboard.press("Control+Enter")
     page.locator(".cal-toast.show", has_text="Task added: Mow the lawn today").wait_for()
@@ -196,21 +239,20 @@ def test_a_task_row_is_deleted_from_its_controls(page, live, app_db) -> None:
     from app.services import tasks as tasks_svc
 
     page.goto(f"{live}/today")
-    pad = page.locator("#notepad")
-    pad.click()
+    write_in(page)
     page.keyboard.type("Morning.")
     page.keyboard.press("Enter")
     page.keyboard.type("- [ ] Not this one")
     page.keyboard.press("Enter")
     page.keyboard.type("- or this")
-    marks = page.locator(".pad-marks .pad-task-mark")
+    titles = page.locator(".pad-editor .cm-line.pad-title")
 
     # Not added yet: its rows go, with no question, and undo brings them back.
-    marks.first.locator("[data-pad-remove]").click()
-    assert pad.input_value() == "Morning."
-    assert marks.count() == 0
+    titles.first.locator("[data-pad-remove]").click()
+    assert text_of(page) == "Morning."
+    assert titles.count() == 0
     page.keyboard.press("Control+z")
-    assert pad.input_value() == "Morning.\n\tNot this one\n\t- or this"
+    assert text_of(page) == "Morning.\n- [ ] Not this one\n\t- or this"
     page.keyboard.press("Control+a")
     page.keyboard.type("Morning.\n- [ ] Call the dentist")
     page.keyboard.press("Control+Enter")
@@ -218,19 +260,19 @@ def test_a_task_row_is_deleted_from_its_controls(page, live, app_db) -> None:
     page.keyboard.type("After.")
 
     # Added: the app's own question first; kept, nothing changes.
-    marks.first.locator("[data-pad-remove]").click()
+    titles.first.locator("[data-pad-remove]").click()
     dialog = page.locator("#confirm-dialog")
     dialog.get_by_role("button", name="Cancel").click()
-    assert pad.input_value() == "Morning.\n\tCall the dentist\nAfter."
+    assert text_of(page) == "Morning.\n- [ ] Call the dentist\nAfter."
     with app_db() as db:
         assert len(tasks_svc.list_tasks(db)) == 1
 
     # Confirmed: the task goes from the plan and its row from the notes.
-    marks.first.locator("[data-pad-remove]").click()
+    titles.first.locator("[data-pad-remove]").click()
     dialog.get_by_role("button", name="Delete").click()
     page.locator(".cal-toast.show", has_text="Task deleted: Call the dentist").wait_for()
-    assert pad.input_value() == "Morning.\nAfter."
-    assert marks.count() == 0
+    assert text_of(page) == "Morning.\nAfter."
+    assert titles.count() == 0
     with app_db() as db:
         assert tasks_svc.list_tasks(db) == []
     saved_as(app_db, [{"kind": "text", "text": "Morning.\nAfter."}])

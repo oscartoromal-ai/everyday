@@ -20,3 +20,6 @@ __pycache__/
 # Agent skills: .agents/skills/ and skills-lock.json are the committed source;
 # .claude/skills/ holds the installer's machine-local junctions into it.
 .claude/skills/
+
+# The CodeMirror build's packages (scripts/vendor/codemirror; its output is committed).
+node_modules/
