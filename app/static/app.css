@@ -1067,21 +1067,36 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
    window allows, for plain text at reading size. */
 .today-pad { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-6)); }
 .today-pad .day-header { margin-bottom: var(--s-4); }
+/* Ruled like a spreadsheet: every line of text is a row, 36px tall with the
+   text in its middle, on its own rule; a column of row numbers (the rows'
+   headers) runs down the left behind a rule of its own. A line does not wrap:
+   like a cell, it runs on to the right. Rules and numbers scroll with the text. */
 .notepad-card {
-  display: flex; flex: 1;
+  --pad-line: 36px;
+  --pad-rows: 48px;
+  position: relative; display: flex; flex: 1; overflow: hidden;
   background: color-mix(in srgb, var(--paper) 35%, transparent);
   border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
 }
-/* ruled like a notepad: every line of text sits on its own rule, from the
-   box's very top, and the rules scroll with the text */
 .notepad {
-  --pad-line: 28px;
-  flex: 1; min-height: 420px; padding: 0 var(--s-6);
+  flex: 1; min-height: 420px; padding: 0 var(--s-4) 0 calc(var(--pad-rows) + var(--s-3));
   font: inherit; font-size: var(--t-body); line-height: var(--pad-line); color: var(--ink);
   background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--pad-line) - 1px), var(--hairline) calc(var(--pad-line) - 1px) var(--pad-line));
   background-attachment: local;
-  border: none; resize: none;
+  border: none; resize: none; white-space: pre; overflow: auto;
 }
+.pad-rows {
+  position: absolute; z-index: 1; top: 0; bottom: 0; left: 0; width: var(--pad-rows); overflow: hidden;
+  background: color-mix(in srgb, var(--fog) 70%, transparent);
+  border-right: 1px solid var(--hairline); pointer-events: none;
+}
+.pad-rows-inner > div {
+  height: var(--pad-line); padding-right: var(--s-2); border-bottom: 1px solid var(--hairline);
+  font-size: var(--t-caption); line-height: calc(var(--pad-line) - 1px); text-align: right;
+  color: var(--pewter); font-variant-numeric: tabular-nums;
+}
+/* the row the caret is in: its number in ink */
+.pad-rows-inner > div.here { color: var(--ink); font-weight: 600; }
 .notepad::placeholder { color: var(--pewter); }
 .notepad:focus, .notepad:focus-visible { outline: none; box-shadow: none; }
 
@@ -1106,7 +1121,8 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   .today-timeline .calendar-grid { max-height: none; }
 }
 @media (max-width: 720px) {
-  .notepad { padding: 0 var(--s-4); }
+  .notepad-card { --pad-rows: 36px; }
+  .notepad { padding-right: var(--s-3); }
 }
 
 /* ---------- weeks: several weeks at a glance, as a grid or as rows ---------- */

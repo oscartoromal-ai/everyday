@@ -25,8 +25,10 @@
     </header>
 
     <section class="notepad-card">
+      {# Row numbers, like a spreadsheet's row headers (notepad.js numbers them). #}
+      <div class="pad-rows" aria-hidden="true"><div class="pad-rows-inner"></div></div>
       <textarea class="notepad" id="notepad" data-day="{{ day.isoformat() }}" data-version="{{ notepad.version }}"
-                spellcheck="true" aria-label="Notes" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
+                wrap="off" spellcheck="true" aria-label="Notes" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
     </section>
     <div class="pad-stale" id="pad-stale" role="alert" hidden>
       <span>These notes were changed in another window.</span>

@@ -5,7 +5,8 @@
    version it was made from; one refused because another window saved
    since stops the saving and asks which to keep. Coming back to the tab
    shows a newer version, when nothing here is still to be saved.
-   Left and Right, outside the text, go a day back or on. */
+   Left and Right, outside the text, go a day back or on. Rows are numbered
+   down the left, as in a spreadsheet, the caret's row in ink. */
 
 (() => {
   const SAVE_AFTER_MS = 600;
@@ -125,9 +126,39 @@
     link.click();
   });
 
+  /* ---- row numbers, down the left like a spreadsheet's ---- */
+
+  const rowsOf = () => document.querySelector(".pad-rows-inner");
+  const lineHeight = () => parseFloat(getComputedStyle(pad()).lineHeight) || 36;
+  const numberRows = () => {
+    const el = pad();
+    const rows = rowsOf();
+    if (!el || !rows) return;
+    const written = el.value.split("\n").length;
+    const shown = Math.ceil(el.clientHeight / lineHeight()) + 1;
+    const count = Math.max(written, shown) + Math.ceil(el.scrollTop / lineHeight());
+    if (rows.childElementCount !== count) {
+      rows.replaceChildren(...Array.from({ length: count }, (_, i) => {
+        const row = document.createElement("div");
+        row.textContent = String(i + 1);
+        return row;
+      }));
+    }
+    rows.style.transform = `translateY(${-el.scrollTop}px)`;
+    const here = el.value.slice(0, el.selectionStart).split("\n").length - 1;
+    [...rows.children].forEach((row, i) => row.classList.toggle("here", i === here && document.activeElement === el));
+  };
+  ["input", "scroll", "keyup", "click", "focus", "blur"].forEach((type) => {
+    document.addEventListener(type, (e) => {
+      if (e.target === pad()) numberRows();
+    }, true);
+  });
+  window.addEventListener("resize", numberRows);
+
   const el = pad();
   if (el) {
     version = Number(el.dataset.version) || 0;
     saved = el.value;
+    numberRows();
   }
 })();
