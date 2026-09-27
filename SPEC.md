@@ -41,19 +41,19 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Sub-tasks and the calendar**: sub-tasks have no blocks of their own; a task's block is the time its checklist is worked, and the block's menu on the calendar lists the sub-tasks so they tick off there. Milestones likewise attach to tasks, never sub-tasks.
 - **Triage by keyboard**: on Tasks, arrow keys move a row cursor and single keys act on it (T today, M tomorrow, D pick a day, X done, E edit), the cursor moving on to the next row as each one is dated or finished.
 - **Filing by drag**: in By project (and on Projects) a task is dragged onto a milestone, another project, or No project to file it there.
-- **Today is a notebook**, per [the notebook decision](#the-notebook-decided-2026-09-26): a page per day, written like a document beside the day's timeline, not a view of the database.
-  What Oscar writes stays where he wrote it; some of it are commands the page sends to the database.
-  A line started with "- " is a task, written as the task sheet is (its words become its do-date, time, due and repeat), and closed with Ctrl+Enter or Esc; the task keeps its place on the page whatever day it is for, and shows as it stands now.
-  "/" at a line's start offers the other commands: "/reflection" writes a reflection, free text in a box of its own.
-  Under the notebook, the day's other tasks: those planned for it but written elsewhere (on another day's page, on Tasks, by Claude), each with its description and a link to the page it was written on; on today's page also what is overdue, and Claude's work.
-  Only tasks with a time show on the timeline; dragging a task onto the timeline still gives it one.
-  Every day has its page: Left and Right (outside the text) go a day back or on, and past pages stay editable.
+- **Today is a notepad beside the day's timeline** (Oscar's call on 2026-09-27, "for now"): the whole left column is one plain notepad for the day, the right the day's timeline.
+  The notes are plain text, saved as they are written; nothing in them becomes a task.
+  Every day has its notepad: Left and Right (outside the text) go a day back or on, and past days stay editable.
+  N writes a new task from Today in the capture window, as on Calendar and Weeks; the day's tasks are worked from Tasks, and the nudge center now opens Tasks.
+  It replaces [the notebook](#the-notebook-decided-2026-09-26), where lines became tasks and reflections, and the storyboard sheet that followed it; both are in git history.
 - **Weeks** is the planning-ahead surface: six weeks at a glance, as a month-style grid or as one ruled row per day, Oscar's choice and remembered.
   Each day shows its planned tasks, deadlines, milestones, and personal events; the work calendar is condensed to a load figure (meetings and busy hours) rather than listed.
   Dragging a task between days replans it (sets planned_for); an Unplanned tray holds tasks with no do-date, and dragging back to it unplans.
   It supersedes the earlier seven-day next-days list.
 
-### The notebook (decided 2026-09-26)
+### The notebook (decided 2026-09-26, set aside 2026-09-27)
+
+Set aside for the notepad above; the storage, history and MCP reading it brought stay.
 
 Oscar's own words, from the session that decided it: Today will be kind of a notebook, written naturally; treat Today not as the database but as a notebook that sends commands to the database.
 The problem it solves: a task added on Today but dated another day used to vanish from the page it was written on.
@@ -99,7 +99,7 @@ A task's time is a block on its do-date: giving a task a time (in the sheet, or 
 Recorded by the ORM on every flush that touches a task, whatever path made the change, and kept after the task is deleted; the history started on 2026-09-26 with a baseline of every task as it stood.
 It is shown under the task's sheet and read by Claude through `get_task_history`.
 
-**NotebookPage**: one per day; its blocks in the order they were written (prose, task references by id, reflections) and a version.
+**NotebookPage**: one per day; its blocks in the order they were written and a version. Today's notepad writes it as one text block; a page written in the notebook's time (with task references and reflections) reads back as text.
 A save names the version it was made from, and a save from an older copy is refused, so two windows never silently overwrite each other; the page asks which to keep.
 
 **Event**: title, start, end, all-day flag, source (local / work), read-only flag, external id.
@@ -163,7 +163,7 @@ Hook commands need a short HTTP timeout so a down app never delays sessions.
 
 ### Notebook and history
 
-- `get_notebook(start, days)` reads Oscar's notebook pages: prose, the tasks he wrote there as they stand now, and reflections.
+- `get_notebook(start, days)` reads Oscar's notes for each day (his notepad; pages from the notebook's time also carry the tasks he wrote there and his reflections).
   `get_agenda` carries each day's page in brief too, so planning with Claude starts from what Oscar wrote.
   The notebook is read-only to Claude: it is Oscar's own writing.
 - `get_task_history(task_id)` reads how a task changed and who changed it; Claude's own changes are named as Claude's.

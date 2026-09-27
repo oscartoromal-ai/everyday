@@ -616,8 +616,8 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .draft-label .when-writing, .draft-slot:has(.task-sheet.composing) .draft-label .when-rest { display: none; }
 .draft-slot:has(.task-sheet.composing) .draft-label .when-writing { display: contents; }
 /* the caption of the field in use is marked with it */
-:is(.field, .draft-slot, .sheet-item, .nb-draft, .nb-reflection):focus-within > .draft-label { color: var(--draft-pencil-ink); }
-:is(.field, .draft-slot, .sheet-item, .nb-draft, .nb-reflection):focus-within > .draft-label::before { background: var(--draft-pencil); }
+:is(.field, .draft-slot, .sheet-item):focus-within > .draft-label { color: var(--draft-pencil-ink); }
+:is(.field, .draft-slot, .sheet-item):focus-within > .draft-label::before { background: var(--draft-pencil); }
 
 /* the plate: a ruled field on graph paper, crossed at the corners */
 .plate, .task-sheet {
@@ -1028,26 +1028,16 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   .tray { position: static; }
 }
 
-/* ---------- today: the lists beside the day's timeline ---------- */
+/* ---------- a day's page: a notepad beside the day's timeline (notepad.js) ---------- */
 
 .today-page { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--s-8); align-items: start; }
 .today-timeline { position: sticky; top: var(--s-6); }
 .timeline-header { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); margin: 6px 0 var(--s-4); }
 .timeline-header h2 { font-size: var(--t-body); }
-.timeline-header .hint { font-size: var(--t-caption); color: var(--pewter); }
 .today-timeline .calendar-grid { max-height: calc(100vh - 110px); overflow-y: auto; overscroll-behavior: contain; }
 .today-timeline .grid-allday { position: sticky; top: 0; z-index: 7; background: var(--paper); }
 .task-row[draggable="true"] { cursor: grab; }
 .task-row[draggable="true"] :is(button, input) { cursor: pointer; }
-
-@media (max-width: 1100px) {
-  .today-page { grid-template-columns: minmax(0, 1fr); gap: var(--s-2); }
-  .today-timeline { position: static; }
-  .today-timeline .calendar-grid { max-height: none; }
-  .timeline-header .hint { display: none; }
-}
-
-/* ---------- a day's page: the day's header, and its notebook (notebook.js) ---------- */
 
 .day-title { display: flex; align-items: center; gap: var(--s-3); }
 .day-nav { display: flex; align-items: center; gap: var(--s-1); }
@@ -1064,83 +1054,25 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 }
 .day-today:hover { background: var(--glass-hover); }
 
-/* The page is a document: the words are Oscar's, so they are ink at reading
-   size. Boxes (tasks, reflections) sit in its flow, their contents aligned
-   with the text: a box's 12px outset is its 1px border and 11px padding. */
-.notebook-card {
-  margin-bottom: var(--s-6);
-  background: var(--glass-card); backdrop-filter: blur(20px) saturate(1.1);
-  border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
+/* The notepad: the whole left column, one drafted plate (see drafted
+   inputs) as tall as the window allows, for plain text at reading size. */
+.today-pad { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-6)); }
+.today-pad .day-header { margin-bottom: var(--s-4); }
+.notepad-field { display: flex; flex: 1; flex-direction: column; margin: 5px; }
+.notepad-plate { display: flex; flex: 1; }
+.plate > textarea.notepad {
+  flex: 1; min-height: 420px; padding: var(--s-4) var(--s-6);
+  font-size: var(--t-body); line-height: 1.7; color: var(--ink);
+  resize: none;
 }
-.notebook { padding: var(--s-4) var(--s-6) var(--s-6); min-height: 240px; cursor: text; }
-.notebook .nb-prose {
-  font-size: var(--t-body); line-height: 1.6; color: var(--ink);
-  caret-color: var(--spark);
-}
-.notebook .nb-prose:focus, .notebook .nb-prose:focus-visible { outline: none; box-shadow: none; }
-/* Only a blank page says what it is for. */
-.notebook .nb-text .nb-prose.is-empty::before { content: none; }
-.notebook > .nb-text:only-child .nb-prose.is-empty::before { content: attr(data-placeholder); }
-/* The empty line kept around a box folds away until the caret goes there. */
-.notebook > .nb-text:not(:last-child):has(.nb-prose.is-empty:not(:focus)) { height: 0; overflow: hidden; }
+/* the notes are written all day: the plate keeps its blue rule while in
+   use, and only its crosses and caption take the red pencil */
+.notepad-plate:focus-within { box-shadow: inset 0 0 0 1px var(--draft-rule); }
 
-.nb-task, .nb-gone {
-  margin: var(--s-2) calc(-1 * var(--s-3));
-  border: 1px solid var(--hairline-on-glass-strong); border-radius: var(--r-ctl);
-}
-/* the boxes being written are drafted plates (below), their labels above them */
-.nb-draft, .nb-reflection { margin: var(--s-3) calc(-1 * var(--s-3)); }
-.nb-task { overflow: clip; }
-.nb-task .task-row, .nb-task .task-sheet[data-sheet="edit"] { padding: 10px 11px; border-bottom: none; }
-/* a notebook task opened for editing becomes a plate in the box's place */
-.nb-task:has(.sheet-item) { margin-block: var(--s-3); border-color: transparent; overflow: visible; }
-.nb-task .sheet-item { padding: 0; border-bottom: none; }
-.nb-draft .task-sheet { padding: 10px 11px; }
-.nb-hint { margin: var(--s-2) 0 0; font-size: var(--t-caption); color: var(--pewter); }
-.nb-hint .hint { font-size: inherit; color: inherit; }
-.nb-reflection:not(:focus-within) .nb-hint { display: none; }
-@media (hover: none) { .nb-hint { display: none; } }
-
-.nb-reflection > .plate { padding: 10px 11px; }
-.nb-reflection .nb-prose { min-height: 1lh; }
-.nb-reflection > .nb-hint { margin-top: var(--s-1); padding-left: 12px; }
-
-/* a task deleted since: a ghost of it, like a missed block's */
-.nb-gone { display: flex; align-items: center; gap: var(--s-2); padding: 6px 11px; border-style: dashed; border-color: var(--mist); }
-.nb-gone-title { color: var(--pewter); text-decoration: line-through; text-decoration-thickness: 1px; overflow-wrap: anywhere; }
-.nb-gone-note { font-size: var(--t-caption); color: var(--pewter); }
-.nb-gone-remove {
-  display: grid; place-items: center; width: 24px; height: 24px; margin-left: auto; border-radius: var(--r-tag);
-  color: var(--steel);
-}
-.nb-gone-remove svg { stroke: currentColor; }
-.nb-gone-remove:hover { color: var(--ink); background: var(--fog); }
-
-.nb-stale {
-  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3);
-  padding: var(--s-3) var(--s-6); border-top: 1px solid var(--hairline-on-glass-strong);
-  font-size: var(--t-body-sm); color: var(--ink);
-}
-.nb-stale[hidden] { display: none; }
-.nb-stale span { margin-right: auto; }
-.nb-stale .btn { padding: 6px 14px; }
-
-/* "/": the commands, on the sheet's menu paper */
-.nb-slash { min-width: 240px; }
-.nb-slash-item {
-  position: relative; display: flex; align-items: center; gap: var(--s-3);
-  min-height: 32px; padding: 6px 10px; border-radius: var(--r-tag); cursor: pointer;
-}
-.nb-slash-item .label { color: var(--ink); font-weight: 500; }
-.nb-slash-item[aria-selected="true"] { background: var(--fog); }
-.nb-slash-item[aria-selected="true"]::before {
-  content: ""; position: absolute; left: 0; top: 7px; bottom: 7px;
-  width: 3px; border-radius: 0 2px 2px 0; background: var(--spark); box-shadow: var(--spark-glow);
-}
-
-/* written on another day's page: the way back to it */
-.task-meta .origin { color: var(--pewter); text-decoration: none; }
-.task-meta .origin:hover { color: var(--ink); text-decoration: underline; }
+.pad-stale { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-3); font-size: var(--t-body-sm); color: var(--ink); }
+.pad-stale[hidden] { display: none; }
+.pad-stale span { margin-right: auto; }
+.pad-stale .btn { padding: 6px 14px; }
 
 /* a task's history, under its sheet */
 .sheet-history { margin-top: var(--s-2); padding-top: var(--s-2); border-top: 1px solid var(--hairline-on-glass); }
@@ -1150,9 +1082,15 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .history-line { font-size: var(--t-caption); color: var(--graphite); overflow-wrap: anywhere; }
 .history-empty { margin: 0; font-size: var(--t-caption); color: var(--pewter); }
 
+@media (max-width: 1100px) {
+  .today-page { grid-template-columns: minmax(0, 1fr); gap: var(--s-6); }
+  .today-pad { min-height: 0; }
+  .plate > textarea.notepad { min-height: 55vh; }
+  .today-timeline { position: static; }
+  .today-timeline .calendar-grid { max-height: none; }
+}
 @media (max-width: 720px) {
-  .notebook { padding: var(--s-3) var(--s-4) var(--s-4); }
-  .nb-stale { padding-inline: var(--s-4); }
+  .plate > textarea.notepad { padding: var(--s-3) var(--s-4); }
 }
 
 /* ---------- weeks: several weeks at a glance, as a grid or as rows ---------- */

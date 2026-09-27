@@ -228,13 +228,6 @@ def row_ctx(
         ),
         "chip_class": CHIPS[task.status][1] if task.status in CHIPS else "",
         "due_label": f"due {short_date(task.due, today)}" if task.due else None,
-        # Written on another day's page: where to read what was written around it.
-        "written_on": task.written_on if task.written_on and task.written_on != day else None,
-        "written_label": (
-            f"from {short_date(task.written_on, today)}"
-            if task.written_on and task.written_on != day
-            else None
-        ),
         "due_soon": bool(task.due and task.due <= today + timedelta(days=DUE_SOON_DAYS)),
         "project_name": task.project.name if task.project else None,
     }
@@ -394,86 +387,30 @@ def projects_list_ctx(db: Session, now: datetime) -> dict[str, Any]:
     return cards
 
 
-def notebook_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
-    """A day's notebook page as it renders: its blocks with every task as a
-    row, and a line to write on around every box, so there is always
-    somewhere to put the caret before, between and after them."""
-    rendered: list[dict[str, Any]] = []
+def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
+    """A day's notepad: its page as one plain text, and the page's version.
+    A page written when it still held tasks and reflections reads back as
+    text: a task as the "- " line it was written as."""
+    lines: list[str] = []
     for block in notebook_svc.blocks_of(db, day):
         if block["kind"] == "task":
             task = block["task"]
-            rendered.append(
-                {
-                    "kind": "task",
-                    "id": block["id"],
-                    "row": row_ctx(task, now, day=day) if task else None,
-                    "gone_title": None if task else block["last_known"].get("title", "A task"),
-                }
-            )
+            title = task.title if task else block["last_known"].get("title", "")
+            if title:
+                lines.append(f"- {title}")
         else:
-            rendered.append(block)
-    spaced: list[dict[str, Any]] = []
-    for block in rendered:
-        if block["kind"] != "text" and (not spaced or spaced[-1]["kind"] != "text"):
-            spaced.append({"kind": "text", "text": ""})
-        spaced.append(block)
-    if not spaced or spaced[-1]["kind"] != "text":
-        spaced.append({"kind": "text", "text": ""})
-    return {
-        "day": day,
-        "version": notebook_svc.version_of(db, day),
-        "blocks": spaced,
-    }
+            lines.append(block["text"])
+    return {"text": "\n".join(lines), "version": notebook_svc.version_of(db, day)}
 
 
 def day_page_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
-    """A day's page: its notebook, then what else is on for the day (tasks
-    planned for it that were written elsewhere), and on today's, what is
-    overdue and Claude's work.
-
-    Overdue: open tasks planned before today, and tasks whose time passed
-    unworked on another day (the missed marker) and are not replanned onto
-    today. What the notebook holds is never listed again under it."""
-    today = now.date()
-    notebook = notebook_ctx(db, day, now)
-    on_page = {b["id"] for b in notebook["blocks"] if b["kind"] == "task"}
-
-    def mine(tasks: list[Task]) -> list[Task]:
-        return [t for t in tasks if t.owner == TaskOwner.oscar and t.id not in on_page]
-
-    also = mine(tasks_svc.daily_list(db, day))
-    overdue: list[Task] = []
-    delegated: list[Task] = []
-    if day == today:
-        overdue = mine(
-            [
-                t
-                for t in tasks_svc.list_tasks(db)
-                if t.status in tasks_svc.OPEN_STATUSES
-                and t.planned_for != today
-                and (
-                    (t.planned_for is not None and t.planned_for < today)
-                    or tasks_svc.has_missed_marker(t, now)
-                )
-            ]
-        )
-        overdue.sort(key=lambda t: (t.planned_for or today, t.created_at))
-        delegated = tasks_svc.delegated(db)
-    also_rows = [row_ctx(t, now, day=day) for t in also]
-    page_tasks = [b["row"] for b in notebook["blocks"] if b["kind"] == "task" and b["row"]]
-    open_count = sum(1 for r in page_tasks + also_rows if not r["done"])
+    """A day's page: its notepad beside its timeline."""
     return {
         "day": day,
-        "is_today": day == today,
+        "is_today": day == now.date(),
         "prev_day": day - timedelta(days=1),
         "next_day": day + timedelta(days=1),
-        "notebook": notebook,
-        # Finished work folds away under the list instead of lingering in it.
-        "rows": [r for r in also_rows if not r["done"]],
-        "done_rows": [r for r in also_rows if r["done"]],
-        "overdue": [row_ctx(t, now, day=day) for t in overdue],
-        "delegated": [row_ctx(t, now, day=day) for t in delegated],
-        "open_count": open_count,
+        "notepad": notepad_ctx(db, day),
     }
 
 

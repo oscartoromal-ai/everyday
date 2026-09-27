@@ -34,10 +34,18 @@ def tasks_page(request: Request, db: DbSession, view: str | None = None):
     # The app opens here: planning (giving tasks days) comes before doing.
     chosen = view or request.cookies.get(TASKS_VIEW_COOKIE)
     view = chosen if chosen in TASKS_VIEWS else TASKS_VIEWS[0]
+    from app.services import nudges as nudges_svc
+
+    now = datetime.now()
     response = templates.TemplateResponse(
         request,
         "tasks.html",
-        {**_base(request, "tasks"), **tasks_page_ctx(db, datetime.now(), view)},
+        {
+            **_base(request, "tasks"),
+            **tasks_page_ctx(db, now, view),
+            # The nudge center opens the app, where the day's plan is made.
+            "nudges": nudges_svc.active_nudges(db, now),
+        },
     )
     response.set_cookie(TASKS_VIEW_COOKIE, view, max_age=60 * 60 * 24 * 365, samesite="strict")
     return response
@@ -56,9 +64,7 @@ def day_page(request: Request, db: DbSession, day: date):
 
 
 def _day_page(request: Request, db: DbSession, day: date):
-    """A day's page: its notebook beside its timeline. Today's is /today."""
-    from app.services import nudges as nudges_svc
-
+    """A day's page: its notepad beside its timeline. Today's is /today."""
     now = datetime.now()
     return templates.TemplateResponse(
         request,
@@ -66,7 +72,6 @@ def _day_page(request: Request, db: DbSession, day: date):
         {
             **_base(request, "today"),
             **day_page_ctx(db, day, now),
-            "nudges": nudges_svc.active_nudges(db, now) if day == now.date() else [],
             "grid": grid_ctx(db, day, now, day_count=1),
         },
     )

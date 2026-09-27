@@ -94,17 +94,15 @@ def quick_add(
     repeat: Annotated[str, Form()] = "none",
     project_id: Annotated[str, Form()] = "",
     list_day: Annotated[str, Form()] = "",
-    written_on: Annotated[str, Form()] = "",
 ):
     title = title.strip()
     if not title:
         return HTMLResponse("")
-    page_day = date.fromisoformat(written_on) if written_on else None
     start, end = _time_range(time_range)
     day = date.fromisoformat(planned_for) if planned_for else None
     if start is not None and day is None:
-        # A time needs a day: the day it was written in, else today.
-        day = page_day or (date.fromisoformat(list_day) if list_day else date.today())
+        # A time needs a day: the list's, else today.
+        day = date.fromisoformat(list_day) if list_day else date.today()
     task = tasks_svc.create_task(
         db,
         title=title,
@@ -112,24 +110,12 @@ def quick_add(
         planned_for=day,
         due=date.fromisoformat(due) if due else None,
         project_id=int(project_id) if project_id else None,
-        written_on=page_day,
     )
     _apply_task_repeat(db, task, repeat)
     if start is not None:
         blocks_svc.set_day_time(db, task, day, start, end)
     db.commit()
     triggers = ["calendar:refresh"] if start is not None else []
-    if page_day is not None:
-        # Written in a notebook: the task takes the box's place on the page,
-        # whatever day it is for.
-        now = datetime.now()
-        block = {"kind": "task", "id": task.id, "row": row_ctx(task, now, day=page_day)}
-        response = templates.TemplateResponse(
-            request, "partials/notebook_block.html", {"request": request, "block": block}
-        )
-        if triggers:
-            response.headers["HX-Trigger"] = ", ".join(triggers)
-        return response
     if list_day and day != date.fromisoformat(list_day):
         # Dated away from the list it was written in: it does not join that
         # list, and the page regroups; tasks.js carries the composer.
@@ -503,7 +489,7 @@ def toggle_milestone(request: Request, db: DbSession, milestone_id: int):
 
 @router.post("/notebook/{day}")
 async def save_notebook(request: Request, db: DbSession, day: date):
-    """Save a day's page (notebook.js): {"version": the copy's version,
+    """Save a day's page (notepad.js): {"version": the copy's version,
     "blocks": [...]}. Answers the new version, or 409 with the page's
     current one when it was saved elsewhere since."""
     from app.services import notebook as notebook_svc

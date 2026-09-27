@@ -8,11 +8,7 @@
    restyle a line is cancelled in beforeinput and redone on the line model,
    then re-rendered. The browser only ever edits text inside one line. That
    also means the browser's undo stack cannot be trusted, so the editor
-   keeps its own.
-
-   In prose mode (data-notes-editor="prose", the notebook's text and
-   reflections) every line is plain text: no sub-tasks, no nesting, and Tab
-   moves on. notebook.js drives it through window.NotesEditor. */
+   keeps its own. */
 
 (() => {
   const ITEM = /^([ \t]*)([-*])[ \t]+(?:\[([ xX])\][ \t]+)?(\S.*)$/;
@@ -26,9 +22,8 @@
 
   const width = (indent) => indent.replace(/\t/g, "    ").length;
 
-  const parse = (notes, prose = false) =>
+  const parse = (notes) =>
     notes.replace(/\r\n?/g, "\n").split("\n").map((raw) => {
-      if (prose) return { kind: "text", depth: 0, checked: false, text: raw };
       const m = ITEM.exec(raw);
       if (m) {
         return {
@@ -56,8 +51,6 @@
   /* ---- the DOM: one div.ln per line ---- */
 
   const lines = (root) => [...root.children];
-  const isProse = (root) => root.dataset.notesEditor === "prose";
-  const parseFor = (root, text) => parse(text, isProse(root));
   const field = (root) => root.closest("[data-notes-field]").querySelector("textarea");
   const textOf = (el) => el.textContent.replace(/ /g, " ").replace(/\n/g, " ");
 
@@ -86,13 +79,10 @@
     const model = read(root);
     field(root).value = serialize(model);
     root.classList.toggle("is-empty", model.length === 1 && model[0].kind === "text" && !model[0].text);
-    // Structural edits never raise "input" (they are cancelled and redone):
-    // this is the one signal that the text changed, however it did.
-    root.dispatchEvent(new CustomEvent("notes:change", { bubbles: true }));
   };
 
   const render = (root, model) => {
-    root.replaceChildren(...(model.length ? model : parseFor(root, "")).map(lineEl));
+    root.replaceChildren(...(model.length ? model : parse("")).map(lineEl));
     sync(root);
   };
 
@@ -203,11 +193,6 @@
     const { model, i, o } = cut(read(root), sel);
     const b = model[i];
 
-    if (isProse(root)) {
-      model.splice(i, 1, { ...b, text: b.text.slice(0, o) }, { ...b, text: b.text.slice(o) });
-      return commit(root, model, i + 1, 0);
-    }
-
     if (soft) {
       // Shift+Enter: a plain line; under a sub-task it is that sub-task's note.
       const depth = Math.min(MAX_DEPTH, b.kind === "item" ? b.depth + 1 : b.depth);
@@ -293,9 +278,9 @@
     }
     // The first pasted line joins the current one; the rest arrive as lines
     // of their own, "- " ones as sub-tasks.
-    const first = parseFor(root, pasted[0])[0];
+    const first = parse(pasted[0])[0];
     model[i] = !before && b.kind === "text" ? { ...first, depth: first.depth + b.depth } : { ...b, text: before + pasted[0] };
-    const rest = parseFor(root, pasted.slice(1).join("\n"));
+    const rest = parse(pasted.slice(1).join("\n"));
     const last = rest[rest.length - 1];
     const caret = last.text.length;
     last.text += after;
@@ -376,7 +361,7 @@
       const model = [...root.childNodes].flatMap((n) =>
         n.nodeType === 1 && n.classList.contains("ln")
           ? [readLine(n)]
-          : parseFor(root, n.textContent || ""),
+          : parse(n.textContent || ""),
       );
       render(root, model);
       if (sel) place(root, Math.min(sel.start.i, lines(root).length - 1), sel.start.o);
@@ -419,7 +404,7 @@
       enter(root, sel, true);
       return;
     }
-    if (e.key === "Tab" && !mod && !e.altKey && !isProse(root)) {
+    if (e.key === "Tab" && !mod && !e.altKey) {
       const sel = selectionIn(root);
       if (!sel) return;
       const model = read(root);
@@ -463,7 +448,7 @@
   const init = (root) => {
     if (root.dataset.ready) return;
     root.dataset.ready = "";
-    render(root, parseFor(root, field(root).value));
+    render(root, parse(field(root).value));
   };
   document.addEventListener("htmx:load", (e) => {
     const elt = e.detail.elt;
@@ -475,7 +460,7 @@
   document.addEventListener("reset", (e) => {
     e.target.querySelectorAll?.("[data-notes-editor]").forEach((root) => {
       setTimeout(() => {
-        render(root, parseFor(root, field(root).value));
+        render(root, parse(field(root).value));
         histories.delete(root);
       });
     });
@@ -484,37 +469,13 @@
   window.NotesEditor = {
     // Re-read the field after something else set it (a carried-over draft).
     reload(root) {
-      render(root, parseFor(root, field(root).value));
+      render(root, parse(field(root).value));
       histories.delete(root);
     },
     focusEnd(root) {
       root.focus();
       const last = lines(root).length - 1;
       place(root, last, textOf(lines(root)[last]).length);
-    },
-
-    /* ---- for notebook.js, on prose editors ---- */
-
-    init,
-    // The caret as {i: line, o: offset}, or null when it is not in `root`.
-    caret(root) {
-      return selectionIn(root)?.start ?? null;
-    },
-    // The editor's lines, as text.
-    texts(root) {
-      return read(root).map((b) => b.text);
-    },
-    // Replace the lines (a split or a join made by the page), caret at (i, o).
-    set(root, texts, i = null, o = 0) {
-      render(root, texts.map((text) => ({ kind: "text", depth: 0, checked: false, text })));
-      histories.delete(root);
-      if (i !== null) this.place(root, i, o);
-    },
-    place(root, i, o) {
-      root.focus();
-      const all = lines(root);
-      const at = Math.max(0, Math.min(i, all.length - 1));
-      place(root, at, Math.min(o, textOf(all[at]).length));
     },
   };
 })();

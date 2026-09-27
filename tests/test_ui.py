@@ -8,15 +8,34 @@ from app.ui.views import design_system
 TODAY = date.today()
 
 
-def test_today_page_shows_planned_and_delegated(client, db) -> None:
+def test_today_is_a_notepad_beside_the_timeline(client, db) -> None:
+    from app.services import notebook as notebook_svc
+
     tasks_svc.create_task(db, title="write the plan", planned_for=TODAY)
-    claude_task = tasks_svc.create_task(db, title="review PR", owner=TaskOwner.claude)
-    tasks_svc.set_status(db, claude_task.id, TaskStatus.needs_review)
+    notebook_svc.save_page(db, TODAY, [{"kind": "text", "text": "Slow morning."}], version=0)
 
     page = client.get("/today").text
-    assert "write the plan" in page
-    assert "Delegated to Claude" in page
-    assert "Needs review" in page
+    pad = page.split('id="notepad"')[1].split("</textarea>")[0]
+    assert 'data-version="1"' in pad and ">Slow morning." in pad
+    assert 'class="today-timeline"' in page
+    # Just the notes: the day's tasks live on Tasks and on the timeline.
+    assert "write the plan" not in page.split('class="today-timeline"')[0]
+    # N writes a task in the capture window here, as on Calendar and Weeks.
+    assert 'id="capture-dialog"' in page
+
+
+def test_a_page_written_with_tasks_reads_back_as_text(client, db) -> None:
+    from app.services import notebook as notebook_svc
+
+    task = tasks_svc.create_task(db, title="Call the dentist")
+    notebook_svc.save_page(
+        db,
+        TODAY,
+        [{"kind": "text", "text": "Morning."}, {"kind": "task", "id": task.id}],
+        version=0,
+    )
+    pad = client.get("/today").text.split('id="notepad"')[1].split("</textarea>")[0]
+    assert "Morning.\n- Call the dentist" in pad
 
 
 def test_app_opens_on_tasks_grouped_by_do_date(client, db) -> None:
@@ -79,7 +98,7 @@ def test_tasks_by_project_shows_cards_then_no_project(client, db) -> None:
     assert 'aria-current="true">By project' in client.get("/").text
 
 
-def test_done_work_folds_away_on_tasks_and_today(client, db) -> None:
+def test_done_work_folds_away_on_tasks(client, db) -> None:
     finished = tasks_svc.create_task(db, title="finished it", planned_for=TODAY)
     tasks_svc.create_task(db, title="still going", planned_for=TODAY)
     tasks_svc.set_status(db, finished.id, TaskStatus.done)
@@ -89,11 +108,6 @@ def test_done_work_folds_away_on_tasks_and_today(client, db) -> None:
     assert "finished it" not in groups and "finished it" in fold
     assert "last 14 days" in fold
 
-    today = client.get("/today").text
-    also = today.split('id="also-list"')[1].split("</ul>")[0]
-    assert "still going" in also and "finished it" not in also
-    assert "finished it" in today.split('id="day-done"')[1]
-    assert "1 task open" in today
 
 
 def test_projects_show_one_occurrence_of_a_repeating_task(client, db) -> None:
@@ -161,9 +175,6 @@ def test_today_page_has_timeline_with_events_and_blocks(client, db) -> None:
     timeline = page.split('class="today-timeline"')[1]
     assert 'data-days="1"' in timeline
     assert "standup" in timeline and "focus" in timeline
-    # The list row carries the block's time; the notebook's rows are drag sources.
-    assert "11:00–12:00" in page.split('id="also-list"')[1]
-    assert 'id="notebook" data-notebook data-drag-to-grid' in page
 
 
 def test_grid_fragment_refreshes_one_day_and_a_week(client) -> None:
@@ -411,13 +422,6 @@ def test_a_task_dated_away_from_todays_list_regroups_instead(client, db) -> None
     assert task.planned_for == TODAY + timedelta(days=1)
 
 
-def test_todays_notebook_boxes_are_written_on_today(client) -> None:
-    page = client.get("/today").text
-    box = page.split('id="nb-draft-template"')[1].split("</form>")[0]
-    assert f'name="planned_for" value="{TODAY.isoformat()}"' in box
-    assert f'name="written_on" value="{TODAY.isoformat()}"' in box
-    assert "list_day" not in box
-    assert '<span class="prop-value">today</span>' in box
 
 
 def test_calendar_page_renders_grid_and_tray(client, db) -> None:
@@ -455,13 +459,14 @@ def test_nudge_banner_and_dismiss(client, db) -> None:
     blocks_svc.mark_missed_blocks(db, now)
     [nudge] = nudges_svc.evaluate(db, now)
 
-    page = client.get("/today").text
+    # The nudge center opens the app, on Tasks.
+    page = client.get("/").text
     assert "nudge-center" in page
     assert "missed its block" in page
     assert "Replan" in page
 
     assert client.post(f"/ui/nudges/{nudge.id}/dismiss").status_code == 200
-    assert "nudge-center" not in client.get("/today").text
+    assert "nudge-center" not in client.get("/").text
 
 
 def test_repeat_from_editor_materializes_series(client, db) -> None:
@@ -588,7 +593,7 @@ def test_projects_page_and_milestone_toggle(client, db) -> None:
 
 def test_task_rows_carry_a_delete_bin(client, db) -> None:
     task = tasks_svc.create_task(db, title="bin me", planned_for=TODAY)
-    row = client.get("/today").text.split(f'id="task-{task.id}"')[1].split("</li>")[0]
+    row = client.get("/").text.split(f'id="task-{task.id}"')[1].split("</li>")[0]
     assert f'hx-post="/ui/tasks/{task.id}/delete"' in row
     assert 'data-confirm-name="bin me"' in row
 

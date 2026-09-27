@@ -21,11 +21,7 @@ def test_planning_rows_take_keyboard_focus_and_name_their_actions(client, db) ->
     assert 'tabindex="-1"' in row
     buttons = _row(client.get("/").text, task.id)
     assert 'data-plan="today"' in buttons and 'data-plan="tomorrow"' in buttons
-    # Today's and Projects' rows are cursor stops too, inside their pages' cursor areas.
-    tasks_svc.update_task(db, task.id, planned_for=TODAY)
-    today = client.get("/today").text
-    assert 'tabindex="-1"' in today.split(f'id="task-{task.id}"')[1].split(">")[0]
-    assert 'class="today-lists" data-cursor' in today
+    # Projects' rows are cursor stops too, inside the page's cursor area.
     assert 'id="projects" data-cursor' in client.get("/projects").text
 
 

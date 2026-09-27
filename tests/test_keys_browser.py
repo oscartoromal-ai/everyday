@@ -6,7 +6,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.models import ProjectStatus, TaskOwner, TaskStatus
+from app.models import ProjectStatus, TaskStatus
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
@@ -199,24 +199,17 @@ def fixed_clock(monkeypatch, hour: int) -> None:
     monkeypatch.setattr(fragments, "datetime", Fixed)
 
 
-def test_today_from_the_keyboard(page, live, app_db, monkeypatch) -> None:
+def test_booking_from_the_keyboard(page, live, app_db, monkeypatch) -> None:
     fixed_clock(monkeypatch, 10)
     with app_db() as db:
         first = tasks_svc.create_task(db, title="Golf", planned_for=TODAY)
         tasks_svc.create_task(db, title="Hotel", planned_for=TODAY)
-        claude = tasks_svc.create_task(db, title="India", planned_for=TODAY, owner=TaskOwner.claude)
         db.commit()
-        first_id, claude_id = first.id, claude.id
-    page.goto(f"{live}/today")
+        first_id = first.id
+    page.goto(live)
 
-    # The cursor runs through Today's list into Claude's section.
+    # B: the next free hour today, and on to the next row.
     press(page, "j")
-    cursor_on(page, "Golf")
-    press(page, "End")
-    cursor_on(page, "India")
-
-    # B: the next free hour, and on to the next row.
-    press(page, "Home")
     cursor_on(page, "Golf")
     press(page, "b")
     page.locator(".cal-toast.show", has_text="Booked 10:00–11:00: Golf").wait_for()
@@ -225,17 +218,25 @@ def test_today_from_the_keyboard(page, live, app_db, monkeypatch) -> None:
         blocks = tasks_svc.get_task(db, first_id).blocks
         assert [(b.start.hour, b.end.hour) for b in blocks] == [(10, 11)]
 
-    # M moves Claude's task to tomorrow from here too (no do-date buttons on Today).
-    press(page, "End", "m")
-    page.wait_for_function(f"{CURSOR} !== 'India'", timeout=5000)
-    with app_db() as db:
-        assert tasks_svc.get_task(db, claude_id).planned_for == TODAY + timedelta(days=1)
 
-    # N writes at the end of Today's notebook.
+def test_today_from_the_keyboard(page, live, app_db) -> None:
+    page.goto(f"{live}/today")
+
+    # N writes a task in the capture window: Today has only its notes.
     press(page, "n")
+    page.locator("#capture-dialog[open]").wait_for()
     page.keyboard.type("Juliet")
     press(page, "Control+Enter")
-    page.locator("#notebook .task-row", has_text="Juliet").wait_for()
+    page.locator(".cal-toast.show", has_text="Juliet").wait_for()
+    press(page, "Escape")
+    with app_db() as db:
+        assert [t.title for t in tasks_svc.list_tasks(db)] == ["Juliet"]
+
+    # Left and Right, outside the notes, go a day back or on.
+    press(page, "ArrowLeft")
+    page.wait_for_url(f"**/day/{(TODAY - timedelta(days=1)).isoformat()}")
+    press(page, "ArrowRight")
+    page.wait_for_url("**/today")
 
 
 def test_projects_from_the_keyboard(page, live, app_db) -> None:
@@ -317,18 +318,18 @@ def test_shift_n_writes_a_new_task_from_any_page(page, live, app_db, tasks) -> N
 
 def test_an_add_racing_a_list_refresh_lands_once(page, live, app_db) -> None:
     """A refresh fetched just before an add lands just after it: the new task
-    shows once, in the notebook it was written in, and nowhere else."""
-    page.goto(f"{live}/today")
+    still shows, and its words do not come back as a draft to add again."""
+    page.goto(live)
     press(page, "n")
     page.keyboard.type("Kilo")
     # The refresh goes out first, then the add, in one tick.
     page.evaluate("""() => {
       htmx.trigger(document.body, 'tasks:changed');
-      document.querySelector('#notebook .nb-draft .task-sheet').requestSubmit();
+      document.querySelector('.capture .task-sheet').requestSubmit();
     }""")
-    page.locator("#notebook .task-row", has_text="Kilo").wait_for(timeout=5000)
+    page.locator("#nodate-list .task-row", has_text="Kilo").wait_for(timeout=5000)
     page.wait_for_timeout(300)  # any second refresh has landed too
-    assert page.locator(".task-row", has_text="Kilo").count() == 1
-    assert page.locator("#notebook .nb-draft").count() == 0
+    assert page.locator("#nodate-list .task-row", has_text="Kilo").count() == 1
+    assert page.locator(".capture .task-sheet .sheet-title").text_content() == ""
     with app_db() as db:
         assert [t.title for t in tasks_svc.list_tasks(db)].count("Kilo") == 1

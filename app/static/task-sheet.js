@@ -13,9 +13,6 @@
    Compose adds with Ctrl+Enter or Add task. Edit has no Save: the sheet
    saves when focus leaves it (a click elsewhere, Tab away, Esc or
    Ctrl+Enter), and goes back to its row untouched when nothing changed.
-   A notebook's box (compose, data-notebook) is written down the same way,
-   when it is closed (Ctrl+Enter, Esc) or focus leaves it; an empty one is
-   handed back to the page (notebook:discard), which takes the box away.
    The description is notes-editor.js. Listeners sit on document, so they
    survive htmx swaps. */
 
@@ -23,7 +20,6 @@
   const SUBMIT = (e) => e.key === "Enter" && (e.ctrlKey || e.metaKey);
 
   const sheetOf = (el) => el?.closest?.(".task-sheet");
-  const isNotebook = (form) => form.dataset.notebook != null;
   const titleOf = (form) => form.querySelector(".sheet-title");
   const notesEditorOf = (form) => form.querySelector("[data-notes-editor]");
   const isEdit = (form) => form.dataset.sheet === "edit";
@@ -576,12 +572,6 @@
     }
     if (inTitle && e.key !== "Shift") converted = e.key === "Backspace" ? converted : null;
 
-    if ((SUBMIT(e) || e.key === "Escape") && isNotebook(form)) {
-      e.preventDefault();
-      writeDown(form);
-      return;
-    }
-
     if (SUBMIT(e)) {
       e.preventDefault();
       if (isEdit(form)) save(form, { keyboard: true });
@@ -602,6 +592,9 @@
       const dialog = form.closest("dialog");
       if (dialog) {
         dialog.close();
+        // Focus can stay on the closed window's title, where the page's keys
+        // would read every key as typing: it goes back to the page.
+        if (dialog.contains(document.activeElement)) document.activeElement.blur();
         return;
       }
       if (!window.TaskCursor?.restore()) e.target.blur();
@@ -692,7 +685,6 @@
   const added = (form, e) => {
     const row = /id="(task-\d+)"/.exec(e.detail.xhr.responseText);
     if (row) window.TaskCursor?.remember(row[1]);
-    if (isNotebook(form)) return; // it took the box's place; notebook.js moves on
     if (form.closest("dialog")) {
       // Written away from any list: say where it went, and let the page's
       // own views of tasks catch up (Weeks' Unplanned tray, say).
@@ -708,21 +700,6 @@
     if (!form.isConnected) return; // its twin took the focus, and no draft
     resetComposer(form);
     placeCaret(titleOf(form), 0); // ready for the next one
-  };
-
-  /* ---- a notebook's box: written down when it closes ---- */
-
-  // The task is added (and takes the box's place), or, with no title, the
-  // page takes the empty box away. Once only: a box being added is done.
-  const writeDown = (form) => {
-    if (!form.isConnected || form.dataset.sending != null || form.dataset.closing != null) return;
-    closeMenu(false);
-    if (titleText(form)) {
-      form.requestSubmit();
-      return;
-    }
-    form.dataset.closing = "";
-    form.dispatchEvent(new CustomEvent("notebook:discard", { bubbles: true }));
   };
 
   /* ---- edit: saves when focus leaves the sheet ---- */
@@ -755,18 +732,13 @@
     document.querySelectorAll(".task-sheet[data-sheet='edit']").forEach((form) => {
       if (outside(form, e.target)) save(form);
     });
-    document.querySelectorAll(".task-sheet[data-notebook]").forEach((form) => {
-      if (outside(form, e.target)) writeDown(form);
-    });
   }, true);
 
   // Focus lost to nothing (the window, the browser's own controls) is not
   // leaving the sheet; see Tab below for the page's last control.
   document.addEventListener("focusout", (e) => {
     const form = sheetOf(e.target);
-    if (!form || !outside(form, e.relatedTarget)) return;
-    if (isEdit(form)) save(form);
-    else if (isNotebook(form)) writeDown(form);
+    if (form && isEdit(form) && outside(form, e.relatedTarget)) save(form);
   });
 
   // Tab past a sheet's last control leaves it, even where nothing on the
@@ -775,12 +747,11 @@
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Tab" || e.shiftKey || e.defaultPrevented) return;
     const form = sheetOf(e.target);
-    if (!form || (!isEdit(form) && !isNotebook(form))) return;
+    if (!form || !isEdit(form)) return;
     const stops = [...form.querySelectorAll(TABBABLE)].filter((el) => el.tabIndex >= 0 && el.checkVisibility());
     if (e.target !== stops[stops.length - 1]) return;
     e.preventDefault();
-    if (isEdit(form)) save(form, { keyboard: true });
-    else writeDown(form);
+    save(form, { keyboard: true });
   });
 
   // A task's history, under its sheet: loaded once (hx-trigger), then shown and hidden.
@@ -837,8 +808,6 @@
       pending = { id: row.id, field, landOnChange };
       row.querySelector(".task-title-btn").click();
     },
-    // Take up a sheet made by the page (a notebook's box, from its template).
-    init,
     // Start writing in a composer (N).
     compose(form) {
       if (!form) return;

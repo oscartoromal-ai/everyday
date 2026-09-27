@@ -76,7 +76,7 @@ def test_editing_saves_when_focus_leaves_the_sheet(page, live, app_db) -> None:
         task = tasks_svc.create_task(db, title="Mow", planned_for=date.today(), notes="- oil")
         db.commit()
         task_id = task.id
-    page.goto(f"{live}/today")
+    page.goto(f"{live}/")
 
     # Opened and left untouched: back to the row, with nothing posted.
     posts: list[str] = []
