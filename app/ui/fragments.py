@@ -516,6 +516,18 @@ def notebook_version(db: DbSession, day: date):
     return JSONResponse({"version": notebook_svc.version_of(db, day)})
 
 
+@router.post("/habits/{slug}")
+def set_habit_days(db: DbSession, slug: str, days: Annotated[str, Form()] = ""):
+    """A habit's days, from its repeat icon (notepad.js): the weekdays it is
+    due, Monday 0 to Sunday 6, or "" for any day. A habit not yet written
+    anywhere begins here."""
+    from app.services import habits as habits_svc
+
+    habit = habits_svc.set_days(db, slug, days)
+    db.commit()
+    return JSONResponse({"slug": habit.slug, "days": habit.days})
+
+
 @router.get("/tasks/{task_id}/history")
 def task_history(request: Request, db: DbSession, task_id: int):
     """How the task changed, newest first, for its sheet."""

@@ -21,7 +21,7 @@
         </nav>
       </div>
       <div class="rest">{% if is_today %}{{ day.strftime("%A") }} {% endif %}{{ day.day }} {{ day.strftime("%B %Y") }}</div>
-      <p class="keys-hint"><kbd>- [ ]</kbd> task · <kbd>/reflection</kbd> · <kbd>Ctrl</kbd><kbd>Enter</kbd> close it · <kbd>←</kbd><kbd>→</kbd> days · <kbd>?</kbd> all keys</p>
+      <p class="keys-hint"><kbd>- [ ]</kbd> task · <kbd>/reflection</kbd> · <kbd>/habit</kbd> · <kbd>Ctrl</kbd><kbd>Enter</kbd> close it · <kbd>←</kbd><kbd>→</kbd> days · <kbd>?</kbd> all keys</p>
     </header>
 
     <section class="notepad-card">
@@ -29,6 +29,7 @@
          place (rows numbered, tasks drawn with their box and controls). #}
       <textarea class="notepad" id="notepad" data-day="{{ day.isoformat() }}" data-version="{{ notepad.version }}"
                 data-task-rows='{{ notepad.task_rows | tojson }}'
+                data-habits='{{ notepad.habits | tojson }}'
                 spellcheck="true" aria-label="Notes" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
     </section>
     {# A task row's controls, after its title (notepad.js clones one
@@ -64,6 +65,24 @@
         <script type="application/json" data-sheet-projects>{{ notepad.projects | tojson }}</script>
       </form>
     </template>
+    {# A habit's controls (notepad.js clones one per habit, for its row and
+       its place in the strip): its days, with the task sheet's repeat icon
+       (task-sheet.js, data-sheet="props"). #}
+    <template id="pad-habit-template">
+      <form class="task-sheet pad-props" data-sheet="props" onsubmit="return false">
+        <input type="hidden" name="days" value="">
+        <button type="button" class="prop" data-prop="days" aria-haspopup="menu" title="Days">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 9.5V8a3 3 0 0 1 3-3h10l-2.5-2.5"/><path d="M16.5 10.5V12a3 3 0 0 1-3 3h-10l2.5 2.5"/></svg>
+          <span class="prop-value"></span>
+        </button>
+      </form>
+    </template>
+    {# The habits due this day not yet written in the notes: a name writes its
+       row, its icon sets its days (notepad.js). #}
+    <div class="pad-habits" id="pad-habits" hidden>
+      <span class="pad-habits-label">Habits not yet written</span>
+      <ul class="pad-habits-list"></ul>
+    </div>
     <div class="pad-stale" id="pad-stale" role="alert" hidden>
       <span>These notes were changed in another window.</span>
       <button type="button" class="btn quiet" data-pad-reload>Show that version</button>

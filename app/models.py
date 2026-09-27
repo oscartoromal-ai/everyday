@@ -268,3 +268,43 @@ class NotebookPage(Base):
     # Bumped by every save; a save made from an older copy is refused.
     version: Mapped[int] = mapped_column(Integer, default=0)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class Habit(Base):
+    """Something Oscar tracks doing, day by day (morning skin care,
+    exercise): written in a day's notes as "/habit morning-skin-care", which
+    checks it for that day. Its days say when it is meant to happen: the
+    weekdays it is due, Monday 0 to Sunday 6 ("0123456" every day, "1" only
+    Tuesdays), or "" for any day; a due day with no check is a miss."""
+
+    __tablename__ = "habits"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(80), unique=True)
+    days: Mapped[str] = mapped_column(String(7), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    checks: Mapped[list[HabitCheck]] = relationship(
+        back_populates="habit", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class HabitCheck(Base):
+    """A habit on a day: done, or skipped (its box unticked), with what Oscar
+    wrote about it. Kept by the day's notebook page, which is where it is
+    written: one per habit per day."""
+
+    __tablename__ = "habit_checks"
+    __table_args__ = (
+        UniqueConstraint("habit_id", "day"),
+        Index("ix_habit_checks_day", "day"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    habit_id: Mapped[int] = mapped_column(ForeignKey("habits.id", ondelete="CASCADE"))
+    day: Mapped[date] = mapped_column(Date)
+    done: Mapped[bool] = mapped_column(Boolean, default=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    habit: Mapped[Habit] = relationship(back_populates="checks")

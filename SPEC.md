@@ -18,10 +18,10 @@ Per [v1 phasing](tracker/tickets/002-v1-phasing.md):
 - **v1**: the hybrid planner: calendar (events plus chosen task blocks), todos, projects with milestones, manual entry, recurrence for both events and tasks, the work-calendar ICS feed, the MCP planner interface, nudges (three of four triggers), Tailscale phone access.
 - **v2**: automatic capture of Claude Code session work (MCP plan tools as the semantic channel, lifecycle hooks as the deterministic trace); enables the fourth nudge trigger.
 - **v3**: goals, which projects roll up into.
-- **v4**: habits and routines, building on recurrence instance history.
+- **v4**: habits and routines. Habits came early (Oscar's call on 2026-09-27): written in the notepad as "/habit name" (see Today), kept as their own entity rather than recurring tasks, so they never crowd the task lists; a table of when each was done and missed is next.
 - **v5**: reviews and reflection flows.
 
-Habit mechanics and review flows are deliberately unspecified here; they sharpen as their phase nears (see the map's Not yet specified section).
+Review flows are deliberately unspecified here; they sharpen as their phase nears (see the map's Not yet specified section).
 
 ## 3. Planning interaction model
 
@@ -51,6 +51,10 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   Ticking the box ticks the task, and the box shows the task as it stands, wherever it was ticked; the notes keep the row as "- [ ] " or "- [x] " text, and the page remembers which task each row made.
   A reflection is written in them too: "/reflection" at a row's start makes the row a reflection, free text, its rows under it indented as a task's and the whole bracketed in light blue; Ctrl+Enter goes on to a plain row after it.
   The day's page stores it as a reflection block between the text around it, which Claude reads as such (`get_notebook`).
+  A habit is checked in them: "/habit morning-skin-care" at a row's start checks the habit for that day, drawn as a ticked box and "Habit", then its name, what follows (and the rows under it) its note, bracketed in green; unticked, the habit was skipped that day.
+  After "/" at a row's start the commands are offered, and after "/habit " the names already used, so one habit keeps one name.
+  Each habit has its days (any day, every day, weekdays, or chosen weekdays), set from the repeat icon at its row's right; under the notes, the habits due that day not yet written are listed, each name writing its row and each icon setting its days.
+  A due day with nothing written is a miss (a habit for any day is never missed); Claude reads the day-by-day record through `get_habits`.
   Every day has its notepad: Left and Right (outside the text) go a day back or on, and past days stay editable.
   N writes a new task from Today in the capture window, as on Calendar and Weeks; the day's tasks are worked from Tasks, and the nudge center now opens Tasks.
   It replaces [the notebook](#the-notebook-decided-2026-09-26), where lines became tasks and reflections, and the storyboard sheet that followed it; both are in git history.
@@ -117,7 +121,12 @@ One calendar query, one rendering path; removing the integration deletes rows by
 **RecurrenceTemplate**: a rule (frequency, interval, weekday selectors) attached to a task template or a local event template.
 A daily generator job materializes real instance rows over a rolling horizon of about 8 weeks.
 Each occurrence is its own task/event row, individually checkable and editable, carrying its template reference and occurrence date.
-v4 habits build streaks by querying instance history; no new recurrence machinery needed.
+Habits do not use it (see Habit).
+
+**Habit**: a name (lower case, hyphens: `morning-skin-care`) and its days, the weekdays it is due (Monday 0 to Sunday 6; "" for any day).
+**HabitCheck**: a habit on a day, done or skipped, with its note; one per habit per day.
+A day's checks are its notebook page's: each save of the page writes them from its habit blocks and removes those no longer on it, and a habit left with no checks and no days of its own (a name typed on the way to another) goes too.
+A day is missed when it is one of the habit's days, since the habit began, the day is past, and nothing was written.
 
 **SessionActivity** (v2): session id, project, started/ended timestamps.
 The deterministic "session happened in project X" trace from the hooks layer.
@@ -171,7 +180,8 @@ Hook commands need a short HTTP timeout so a down app never delays sessions.
 
 ### Notebook and history
 
-- `get_notebook(start, days)` reads Oscar's notes for each day (his notepad; pages from the notebook's time also carry the tasks he wrote there and his reflections).
+- `get_notebook(start, days)` reads Oscar's notes for each day (his notepad: prose, the tasks he wrote there, reflections and the habits he checked).
+- `get_habits(start, days)` reads each habit day by day: done, skipped, missed, or nothing (not due, or today still open), with his note.
   `get_agenda` carries each day's page in brief too, so planning with Claude starts from what Oscar wrote.
   The notebook is read-only to Claude: it is Oscar's own writing.
 - `get_task_history(task_id)` reads how a task changed and who changed it; Claude's own changes are named as Claude's.

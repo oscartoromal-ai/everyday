@@ -8,3 +8,4 @@ export {
   keymap, lineNumberWidgetMarker, lineNumbers, placeholder,
 } from "@codemirror/view";
 export { defaultKeymap, history, historyKeymap, invertedEffects, isolateHistory } from "@codemirror/commands";
+export { autocompletion, completionStatus, startCompletion } from "@codemirror/autocomplete";

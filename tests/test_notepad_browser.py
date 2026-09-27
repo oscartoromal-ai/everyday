@@ -325,3 +325,78 @@ def test_a_reflection_is_written_in_the_notes(page, live, app_db) -> None:
     page.keyboard.press("Backspace")
     assert page.evaluate("Notepad.text()").startswith("Morning.\nCalmer than yesterday.\n")
     assert page.locator(".pad-editor .cm-line.pad-reflection").count() == 0
+
+
+def test_a_habit_is_checked_from_the_notes(page, live, app_db) -> None:
+    from app.models import Habit, HabitCheck
+    from app.services import habits as habits_svc
+
+    today = str(TODAY.weekday())
+    other = str((TODAY.weekday() + 1) % 7)
+    with app_db() as db:
+        habits_svc.set_days(db, "stretch", "")  # any day: due today
+        habits_svc.set_days(db, "evening-skin-care", other)  # not today
+        db.commit()
+
+    def checks() -> dict[str, tuple[bool, str]]:
+        with app_db() as db:
+            return {c.habit.slug: (c.done, c.note) for c in db.query(HabitCheck).all()}
+
+    page.goto(f"{live}/today")
+    # Under the notes, the habits due today not yet written.
+    strip = page.locator("#pad-habits")
+    assert strip.locator(".pad-habit-write").all_inner_texts() == ["stretch"]
+
+    # "/" offers the commands; "/habit " the names.
+    write_in(page)
+    page.keyboard.type("/ha")
+    page.locator(".cm-tooltip-autocomplete li", has_text="/habit").wait_for()
+    # Enter picks from what is offered once it has been on screen a moment
+    # (CodeMirror's interactionDelay: a key pressed at once still types).
+    page.wait_for_timeout(150)
+    page.keyboard.press("Enter")
+    page.locator(".cm-tooltip-autocomplete li", has_text="evening-skin-care").wait_for()
+    page.keyboard.type("morning-skin-care new serum")
+    # Past its name nothing is offered, and Ctrl+Enter goes on to a plain row.
+    assert page.locator(".cm-tooltip-autocomplete").count() == 0
+    habit = page.locator(".pad-editor .cm-line.pad-habit")
+    assert habit.first.locator(".pad-kind-name").inner_text() == "Habit"
+    assert habit.first.locator(".pad-check").get_attribute("aria-checked") == "true"
+    page.keyboard.press("Control+Enter")
+    assert page.evaluate("Notepad.text()") == "/habit morning-skin-care new serum\n"
+
+    # A name in the strip writes its row.
+    strip.locator(".pad-habit-write", has_text="stretch").click()
+    assert page.evaluate("Notepad.text()") == "/habit morning-skin-care new serum\n/habit stretch"
+    assert strip.is_hidden()
+    page.keyboard.type(" ten minutes")
+    end = time.monotonic() + 5
+    while checks() != {"morning-skin-care": (True, "new serum"), "stretch": (True, "ten minutes")}:
+        assert time.monotonic() < end, checks()
+        time.sleep(0.1)
+
+    # Unticked, it is skipped that day, and reads back so.
+    habit.first.locator(".pad-check").click()
+    assert page.evaluate("Notepad.text()").startswith("/habit [ ] morning-skin-care new serum\n")
+    end = time.monotonic() + 5
+    while checks().get("morning-skin-care") != (False, "new serum"):
+        assert time.monotonic() < end, checks()
+        time.sleep(0.1)
+    page.reload()
+    assert habit.first.locator(".pad-check").get_attribute("aria-checked") == "false"
+
+    # Its icon sets its days: not due today, it leaves the strip.
+    habit.nth(1).locator(".prop[data-prop=days]").click()
+    page.locator(".sheet-menu [role=menuitemcheckbox]", has_text=[
+        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+    ][int(other)]).click()
+    page.keyboard.press("Escape")
+    assert habit.nth(1).locator(".prop[data-prop=days] .prop-value").inner_text() != ""
+    end = time.monotonic() + 5
+    while True:
+        with app_db() as db:
+            if db.query(Habit).filter_by(slug="stretch").one().days == other:
+                break
+        assert time.monotonic() < end
+        time.sleep(0.1)
+    assert today != other

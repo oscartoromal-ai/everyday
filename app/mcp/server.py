@@ -20,6 +20,7 @@ from app.models import ProjectStatus, TaskOwner, TaskStatus
 from app.services import DomainError
 from app.services import blocks as blocks_svc
 from app.services import events as events_svc
+from app.services import habits as habits_svc
 from app.services import history as history_svc
 from app.services import notebook as notebook_svc
 from app.services import projects as projects_svc
@@ -34,7 +35,8 @@ mcp = FastMCP(
         "A task's notes are its free-form description: lines starting with '- ' are "
         "its sub-tasks ('- [x] ' once done), and other lines are context around them. "
         "Each day has a notebook page Oscar writes in: prose, the tasks he wrote there "
-        "(as they stand now), and reflections; read it for context with get_notebook."
+        "(as they stand now), reflections, and the habits he checked that day; read it "
+        "for context with get_notebook. How consistent he is with each habit: get_habits."
     ),
 )
 
@@ -194,7 +196,10 @@ def _notebook_payload(db, day: date, *, brief: bool = False) -> list[dict[str, A
     each task as it stands now (brief: its id, title and status only)."""
     out: list[dict[str, Any]] = []
     for block in notebook_svc.blocks_of(db, day):
-        if block["kind"] != "task":
+        if block["kind"] == "habit":
+            out.append({"kind": "habit", "habit": block["slug"], "done": block["done"],
+                        "note": block["text"].strip()})
+        elif block["kind"] != "task":
             out.append({"kind": block["kind"], "text": block["text"]})
         elif block["task"] is None:
             out.append({"kind": "task", "task_id": block["id"], "deleted": True,
@@ -220,6 +225,22 @@ def get_notebook(start: date | None = None, days: int = 1) -> dict[str, Any]:
             str(first + timedelta(days=i)): _notebook_payload(db, first + timedelta(days=i))
             for i in range(days)
         }
+
+
+@mcp.tool
+def get_habits(start: date | None = None, days: int = 14) -> list[dict[str, Any]]:
+    """Oscar's habits over `days` days from `start` (default: the 14 days up to
+    today), day by day: "done", "skipped" (written, its box unticked),
+    "missed" (one of its days, not written, the day past) or null (not due,
+    or today still open), with his note. A habit's `days` are the weekdays it
+    is due, Monday 0 to Sunday 6, or "" for any day (never missed).
+    Read-only: habits are checked in his notes."""
+    with session_scope("claude") as db:
+        first = start or date.today() - timedelta(days=days - 1)
+        return [
+            {**row, "checks": [{**c, "day": c["day"].isoformat()} for c in row["checks"]]}
+            for row in habits_svc.grid(db, first, days)
+        ]
 
 
 @mcp.tool

@@ -12,7 +12,8 @@
 
    A sheet of controls only (data-sheet="props", a task row's in Today's
    notepad) is the icons and their menus alone: each change it makes is
-   announced (sheet:field) for the page to keep.
+   announced (sheet:field) for the page to keep. A habit's has one field,
+   its days (the weekdays it is due), with the repeat icon.
 
    Compose adds with Ctrl+Enter or Add task. Edit has no Save: the sheet
    saves when focus leaves it (a click elsewhere, Tab away, Esc or
@@ -198,6 +199,15 @@
     needs_review: "Needs review", done: "Done", cancelled: "Cancelled",
   };
   const OWNER_LABELS = { oscar: "Oscar", claude: "Claude" };
+  // A habit's days: Monday 0 to Sunday 6, "" for any day.
+  const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const DAY_PRESETS = [["Any day", ""], ["Every day", "0123456"], ["Weekdays", "01234"]];
+  const daysLabel = (days) => {
+    if (days === "0123456") return "Every day";
+    if (days === "01234") return "Weekdays";
+    if (days === "56") return "Weekends";
+    return [...days].map((d) => WEEKDAY_NAMES[d].slice(0, 3)).join(", ");
+  };
 
   const projectsOf = (form) => {
     const data = form.querySelector("[data-sheet-projects]");
@@ -244,6 +254,12 @@
         text = set ? OWNER_LABELS[value] : "";
         spoken = `Owner: ${OWNER_LABELS[value]}`;
         button.title = set ? "Claude's task" : "Your task. Hand it to Claude?";
+      } else if (name === "days") {
+        const value = valueOf(form, "days");
+        set = value !== "";
+        text = daysLabel(value);
+        spoken = set ? `Days: ${text}` : "Days: any day";
+        button.title = set ? `On ${text}` : "Any day. Set its days?";
       } else if (name === "status") {
         const value = valueOf(form, "status");
         // Only Claude's work, or a status beyond the checkbox, needs saying.
@@ -317,13 +333,14 @@
   let menu = null; // {form, button, el, returnTo, range}
 
   const CHECK = '<svg class="tick" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.5 3.5 7.5-8"/></svg>';
+  const ITEMS = "[role='menuitemradio'], [role='menuitemcheckbox']";
 
   // Items are buttons, except one that holds the date picker's input (a
   // button may not contain an input); the menu's keys press either.
-  const item = (label, { checked = false, aside = "", indent = false, pick, tag = "button" } = {}) => {
+  const item = (label, { checked = false, aside = "", indent = false, pick, tag = "button", role = "menuitemradio" } = {}) => {
     const el = document.createElement(tag);
     if (tag === "button") el.type = "button";
-    el.setAttribute("role", "menuitemradio");
+    el.setAttribute("role", role);
     el.setAttribute("aria-checked", String(checked));
     el.tabIndex = -1;
     if (indent) el.classList.add("indent");
@@ -332,6 +349,12 @@
     if (aside) el.querySelector(".aside").textContent = aside;
     el._pick = pick;
     return el;
+  };
+  // An item's tick, redrawn in a menu that stays open.
+  const tick = (el, checked) => {
+    el.setAttribute("aria-checked", String(checked));
+    el.querySelector(".tick")?.remove();
+    if (checked) el.insertAdjacentHTML("beforeend", CHECK);
   };
 
   const dateItems = (form, name) => {
@@ -426,6 +449,37 @@
       const current = valueOf(form, "repeat") || "none";
       return Object.entries(REPEAT_LABELS).map(([value, label]) =>
         item(label, { checked: current === value, pick: () => setField(form, "repeat", value) }));
+    }
+    if (name === "days") {
+      // One of the usual sets, or its weekdays one by one (the menu stays
+      // open for more).
+      const redraw = (el) => {
+        const days = valueOf(form, "days");
+        for (const other of el.parentElement.children) if (other._checks) tick(other, other._checks(days));
+      };
+      const items = DAY_PRESETS.map(([label, value]) => {
+        const el = item(label, { checked: valueOf(form, "days") === value, pick: () => setField(form, "days", value) });
+        el._checks = (days) => days === value;
+        return el;
+      });
+      WEEKDAY_NAMES.forEach((label, d) => {
+        const day = String(d);
+        const el = item(label, {
+          role: "menuitemcheckbox",
+          checked: valueOf(form, "days").includes(day),
+          pick: () => {
+            const days = valueOf(form, "days");
+            const next = days.includes(day) ? days.replace(day, "") : [...days, day].sort().join("");
+            setField(form, "days", next);
+            redraw(el);
+            return "keep";
+          },
+        });
+        el._checks = (days) => days.includes(day);
+        if (d === 0) el.classList.add("sep");
+        items.push(el);
+      });
+      return items;
     }
     if (name === "owner") {
       const current = valueOf(form, "owner");
@@ -527,7 +581,7 @@
       if (!open) openMenu(sheetOf(button), button);
       return;
     }
-    const chosen = e.target.closest?.(".sheet-menu [role='menuitemradio']");
+    const chosen = e.target.closest?.(`.sheet-menu :is(${ITEMS})`);
     if (chosen && menu) {
       if (chosen._pick?.() !== "keep") closeMenu();
       return;
@@ -537,8 +591,8 @@
 
   document.addEventListener("keydown", (e) => {
     if (!menu || !menu.el.contains(e.target)) return;
-    const items = [...menu.el.querySelectorAll("[role='menuitemradio']")];
-    const at = items.indexOf(e.target.closest("[role='menuitemradio']"));
+    const items = [...menu.el.querySelectorAll(ITEMS)];
+    const at = items.indexOf(e.target.closest(ITEMS));
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       const step = e.key === "ArrowDown" ? 1 : -1;
@@ -819,6 +873,11 @@
 
   let pending = null; // {id, field, landOnChange}: an edit to open on one field's menu
   window.TaskSheet = {
+    // Redraw a sheet's icons from its fields, set from outside (a habit's
+    // days, changed from its other place on the page).
+    refresh(form) {
+      draw(form);
+    },
     // Edit a row's task with one field's menu open; choosing (or Esc) saves.
     edit(row, field, landOnChange) {
       pending = { id: row.id, field, landOnChange };

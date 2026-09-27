@@ -26,6 +26,7 @@ from app.models import (
     TaskStatus,
 )
 from app.services import blocks as blocks_svc
+from app.services import habits as habits_svc
 from app.services import notebook as notebook_svc
 from app.services import projects as projects_svc
 from app.services import recurrence as recurrence_svc
@@ -402,6 +403,9 @@ TASK_ROW = re.compile(r"^- \[[ xX]\] ")
 # What starts a reflection's row in the notepad (the notepad saves it as a
 # reflection block).
 REFLECTION = "/reflection"
+# What starts a habit's row: "/habit name" when done, "/habit [ ] name" when
+# its box is unticked (the notepad saves it as a habit block).
+HABIT = "/habit"
 # A task's fields as the sheet posts them (fragments.save_task).
 TASK_FIELDS = (
     "planned_for", "time", "due", "repeat", "project_id", "milestone_id", "status", "owner",
@@ -430,6 +434,13 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
             # Written as it was: its "/reflection" row, its other rows tabbed in.
             first, *rest = block["text"].split("\n")
             lines.append(f"{REFLECTION} {first}")
+            lines.extend(f"\t{line}" for line in rest)
+            continue
+        if block["kind"] == "habit":
+            # Its row, its box as written, its name, then its note.
+            first, *rest = block["text"].split("\n")
+            box = "" if block["done"] else "[ ] "
+            lines.append(f"{HABIT} {box}{block['slug']} {first}".rstrip(" "))
             lines.extend(f"\t{line}" for line in rest)
             continue
         start = len(lines)
@@ -462,6 +473,9 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
         "text": "\n".join(lines),
         "task_rows": task_rows,
         "projects": project_choices(db),
+        # Every habit and its days: for the strip of those not yet written,
+        # and the names offered after "/habit ".
+        "habits": [{"slug": h.slug, "days": h.days} for h in habits_svc.list_habits(db)],
         "version": notebook_svc.version_of(db, day),
     }
 

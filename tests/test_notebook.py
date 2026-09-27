@@ -41,9 +41,10 @@ def test_a_reflection_keeps_the_blank_lines_around_it(db) -> None:
         {"kind": "reflection", "text": "\nCalmer.\nSlept well.\n\n"},
         {"kind": "text", "text": "\nAfter.\n\n"},
     ]
+    # Its words keep their blank first line (written under its first row).
     assert notebook.normalize(db, blocks) == [
         {"kind": "text", "text": "Morning.\n"},
-        {"kind": "reflection", "text": "Calmer.\nSlept well."},
+        {"kind": "reflection", "text": "\nCalmer.\nSlept well."},
         {"kind": "text", "text": "\nAfter."},
     ]
 

@@ -5,6 +5,8 @@ A page is its blocks, in the order they were written:
     {"kind": "text", "text": "Slow morning.\\nCalled Ana."}   prose, as written
     {"kind": "task", "id": 42}                              a task, by reference
     {"kind": "reflection", "text": "..."}                   a reflection, free text
+    {"kind": "habit", "habit": 3, "done": true, "text": ""} a habit checked that day,
+                                                            with a note (app.services.habits)
 
 Tasks are only referenced: the page shows each as it stands now, wherever it
 was changed since, and a task deleted since shows as its last known title.
@@ -21,15 +23,16 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import NotebookPage, Task, TaskRevision
+from app.models import Habit, NotebookPage, Task, TaskRevision
 from app.services import DomainError
+from app.services import habits as habits_svc
 
 
 class StalePage(DomainError):
     """The page was saved elsewhere since this copy was read."""
 
 
-KINDS = ("text", "task", "reflection")
+KINDS = ("text", "task", "reflection", "habit")
 
 
 def get_page(db: Session, day: date) -> NotebookPage | None:
@@ -88,21 +91,34 @@ def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
                 seen.add(task_id)
                 out.append({"kind": "task", "id": task_id})
             continue
-        # A reflection is its words, without blank lines around them. Prose
-        # keeps its blank lines (the notes' spacing, around a reflection
-        # too), except at the page's top and bottom.
+        # Prose keeps its blank lines (the notes' spacing), except at the
+        # page's top and bottom. A reflection's or habit's words keep a blank
+        # first line (written under its first row, not on it) but none after.
         lines = _clean_text(block.get("text", "")).split("\n")
-        edges = kind == "reflection"
+        last = index == len(blocks) - 1
         lead = 0
-        if edges or not out:
+        if kind == "text" and not out:
             while lead < len(lines) and not lines[lead].strip():
                 lead += 1
         end = len(lines)
-        if edges or index == len(blocks) - 1:
+        if kind != "text" or last:
             while end > lead and not lines[end - 1].strip():
                 end -= 1
         text = "\n".join(lines[lead:end])
-        if not text.strip() and (edges or not out or index == len(blocks) - 1):
+        if kind == "habit":
+            # By name as written (or its id, as a page keeps it).
+            ref = block.get("habit")
+            if isinstance(ref, int):
+                habit = db.get(Habit, ref)
+                if habit is None:
+                    continue
+                slug = habit.slug
+            else:
+                slug = habits_svc.clean_slug(ref)
+            done = block.get("done", True) is not False
+            out.append({"kind": "habit", "habit": slug, "done": done, "text": text})
+            continue
+        if not text.strip() and (kind == "reflection" or not out or last):
             continue
         links: dict[int, int] = {}
         if kind == "text":
@@ -139,7 +155,12 @@ def save_page(
     if page is None:
         page = NotebookPage(day=day, blocks=[], version=0)
         db.add(page)
-    page.blocks = normalize(db, blocks)
+    blocks = normalize(db, blocks)
+    # The day's habit checks are the page's; the page keeps each by id.
+    ids = habits_svc.sync_day(db, day, [b for b in blocks if b["kind"] == "habit"])
+    page.blocks = [
+        {**b, "habit": ids[b["habit"]]} if b["kind"] == "habit" else b for b in blocks
+    ]
     page.version = current + 1
     page.updated_at = datetime.now()
     db.flush()
@@ -172,6 +193,10 @@ def blocks_of(db: Session, day: date) -> list[dict[str, Any]]:
                 "task": task,
                 "last_known": None if task else gone.get(block["id"], {}),
             })
+        elif block["kind"] == "habit":
+            habit = db.get(Habit, block["habit"])
+            if habit is not None:
+                out.append({**block, "slug": habit.slug})
         else:
             out.append(dict(block))
     return out

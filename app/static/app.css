@@ -241,7 +241,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 .task-row[tabindex]:focus { outline: none; }
 .task-row[tabindex] { position: relative; }
 .task-row[tabindex]:focus-visible { border-radius: 0; box-shadow: none; background: var(--glass-row-hover); }
-.task-row[tabindex]:focus-visible::before, .done-fold > summary:focus-visible::before, .sheet-menu [role="menuitemradio"]:focus-visible::before {
+.task-row[tabindex]:focus-visible::before, .done-fold > summary:focus-visible::before, .sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"]):focus-visible::before {
   content: ""; position: absolute; left: 0; top: 8px; bottom: 8px;
   width: 3px; border-radius: 0;
   background: var(--spark); box-shadow: var(--spark-glow);
@@ -506,20 +506,22 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   box-shadow: var(--shadow-dropdown);
   font-size: var(--t-body-sm);
 }
-.sheet-menu [role="menuitemradio"] {
+.sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"]) {
   position: relative; display: flex; align-items: center; gap: var(--s-2);
   width: 100%; min-height: 32px; padding: 6px 10px; border-radius: var(--r-tag);
   color: var(--ink); text-align: left; cursor: pointer;
 }
-.sheet-menu [role="menuitemradio"].indent { padding-left: 26px; color: var(--graphite); }
+.sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"]).indent { padding-left: 26px; color: var(--graphite); }
 /* --fog, not a glass tint: the menu is opaque paper. The keyboard's item
    also takes the rows' spark bar, the one cursor the app draws. */
-.sheet-menu [role="menuitemradio"]:hover, .sheet-menu [role="menuitemradio"]:focus-visible {
+.sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"]):hover, .sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"]):focus-visible {
   outline: none; box-shadow: none; background: var(--fog);
 }
-.sheet-menu [role="menuitemradio"]:focus-visible::before { top: 7px; bottom: 7px; }
-.sheet-menu [role="menuitemradio"]:focus { outline: none; }
+.sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"]):focus-visible::before { top: 7px; bottom: 7px; }
+.sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"]):focus { outline: none; }
 .sheet-menu [aria-checked="true"] { font-weight: 600; }
+/* a menu's second part (a habit's weekdays, after its usual sets) */
+.sheet-menu .sep { margin-top: 5px; box-shadow: 0 -5px 0 -4px var(--hairline); }
 .sheet-menu .label { min-width: 0; overflow-wrap: anywhere; }
 .sheet-menu .aside { margin-left: auto; font-size: var(--t-caption); font-weight: 500; color: var(--pewter); font-variant-numeric: tabular-nums; }
 .sheet-menu .tick {
@@ -1126,6 +1128,19 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .pad-editor .pad-reflection { --bracket: color-mix(in srgb, var(--signal) 45%, var(--paper)); }
 .pad-editor .pad-reflection.pad-current { --bracket: var(--signal); }
 .pad-kind.pad-reflection-name { font-size: var(--t-caption); color: var(--signal-deep); }
+/* a habit: the same rules in green (growth), let out toward the paper; the
+   one the caret is in, the green itself. Its box is ticked by default (it
+   was done); "Habit" in green, pewter once unticked (skipped); its name in
+   ink, underlined in red when it cannot be one. */
+.pad-editor .pad-habit { --bracket: color-mix(in srgb, var(--hue-4) 45%, var(--paper)); --habit: color-mix(in srgb, var(--hue-4) 85%, var(--ink)); }
+.pad-editor .pad-habit.pad-current { --bracket: var(--hue-4); }
+.pad-editor .cm-line.pad-head { display: flow-root; }
+.pad-habit .pad-kind.done .pad-kind-name { color: var(--habit); text-decoration: none; }
+.pad-habit .pad-kind:not(.done) .pad-kind-name { color: var(--pewter); }
+.pad-habit .pad-check[aria-checked="true"] { background: var(--habit); border-color: var(--habit); }
+.pad-habit-name { color: var(--ink); font-weight: 500; }
+.pad-habit-name.wrong { text-decoration: underline wavy var(--hue-8); text-underline-offset: 3px; }
+.pad-habit .pad-kind:not(.done) ~ .pad-habit-name { color: var(--pewter); }
 /* the caret's row, and the rows of the task it is in: numbers in ink */
 .pad-editor .cm-gutterElement:is(.here, .pad-current) { color: var(--ink); font-weight: 600; }
 
@@ -1167,6 +1182,22 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .task-sheet.pad-props .prop.is-set svg { stroke: var(--graphite); }
 .task-sheet.pad-props .task-delete { width: 24px; height: var(--pad-text); margin: 0; opacity: 1; }
 
+/* under the notes: the habits due this day not yet written, each a name
+   (writes its row) and its days' icon */
+.pad-habits { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-3); }
+.pad-habits[hidden] { display: none; }
+.pad-habits-label { font-size: var(--t-caption); color: var(--pewter); }
+.pad-habits-list { display: flex; flex-wrap: wrap; gap: var(--s-2); margin: 0; padding: 0; list-style: none; }
+.pad-habits-list > li {
+  display: flex; align-items: center; gap: 2px; padding: 0 4px 0 0;
+  background: color-mix(in srgb, var(--paper) 35%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue-4) 45%, var(--paper));
+}
+.pad-habit-write {
+  padding: 5px 4px 5px 10px; font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); cursor: pointer;
+}
+.pad-habit-write:hover { color: color-mix(in srgb, var(--hue-4) 85%, var(--ink)); }
+.pad-habits .task-sheet.pad-props { float: none; margin-left: 0; }
 .pad-stale { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-3); font-size: var(--t-body-sm); color: var(--ink); }
 .pad-stale[hidden] { display: none; }
 .pad-stale span { margin-right: auto; }

@@ -29,6 +29,15 @@
    Ctrl+Enter goes on to a plain row after it. The notes save it as a
    reflection block, between the text around it.
 
+   "/habit morning-skin-care" checks a habit for the day: drawn as a ticked
+   box and the word Habit, then its name, what follows on the row and the
+   tabbed rows under it its note, bracketed in green, with its days' icon
+   at the right. Unticked, it reads "/habit [ ] name": skipped that day.
+   The notes save it as a habit block, which checks it (or not) for the
+   day. Under the notes, the habits due that day not yet written: a name
+   writes its row, its icon sets its days. After "/" at a row's start the
+   commands are offered, and after "/habit " the habits' names.
+
    The notes are saved as text, the task each row made by row (links), a
    moment after each change, when the tab is hidden, and when the page is
    left. A save names the version it was made from; one refused because
@@ -41,7 +50,7 @@
     Annotation, EditorSelection, EditorState, MapMode, Prec, RangeSetBuilder, StateEffect, StateField,
     Transaction, Decoration, EditorView, GutterMarker, ViewPlugin, WidgetType, drawSelection,
     gutterLineClass, keymap, lineNumberWidgetMarker, lineNumbers, placeholder, defaultKeymap, history,
-    historyKeymap, invertedEffects, isolateHistory,
+    historyKeymap, invertedEffects, isolateHistory, autocompletion, completionStatus, startCompletion,
   } = window.CM;
 
   const SAVE_AFTER_MS = 600;
@@ -50,6 +59,8 @@
   const BOX = 6; // its length
   const TAB = "\t"; // a task's or reflection's other rows start with one
   const REFLECTION = /^\/reflection(?: |$)/; // a reflection's first row, and its lead
+  const HABIT = /^\/habit (?:\[([ xX])\] )?/; // a habit's first row, and its lead
+  const HABIT_NAME = /^[a-z0-9][a-z0-9-]{0,79}$/; // as the server keeps them
 
   const source = () => document.getElementById("notepad");
   let view = null;
@@ -69,6 +80,22 @@
 
   const isTask = (line) => TASK.test(line.text);
   const isReflection = (line) => REFLECTION.test(line.text);
+  const isHabit = (line) => HABIT.test(line.text);
+  // A habit's row read: its lead, done or skipped, its name as written and
+  // as kept, and the rest of the row (its note's first line).
+  const habitOf = (line) => {
+    const lead = HABIT.exec(line.text);
+    const rest = line.text.slice(lead[0].length);
+    const name = /^\S*/.exec(rest)[0];
+    const slug = name.toLowerCase();
+    return {
+      lead: lead[0].length, done: lead[1] !== " ", name, slug, valid: HABIT_NAME.test(slug),
+      note: rest.slice(name.length).replace(/^ /, ""),
+    };
+  };
+
+  // Every habit and its days (Monday 0 to Sunday 6, "" any day).
+  const habits = new Map();
   const setTasks = StateEffect.define();
   // Tasks an edit took away, back with the undo that brings their rows back.
   const restoreTasks = StateEffect.define({
@@ -125,31 +152,37 @@
         if (!next.text.startsWith(TAB) || isTask(next)) break;
         last++;
       }
-      return { first, last, m };
+      return { first, last, m, kind: "task" };
     });
   };
   const blocks = () => blocksOf(view.state);
-  // A reflection: its first row and the tabbed rows under it.
-  const reflectionsOf = (state) => {
+  // A reflection or a habit: its first row and the tabbed rows under it.
+  const writtenOf = (state) => {
     const doc = state.doc;
     const out = [];
     for (let n = 1; n <= doc.lines; n++) {
-      if (!isReflection(doc.line(n))) continue;
+      const line = doc.line(n);
+      const kind = isReflection(line) ? "reflection" : isHabit(line) ? "habit" : null;
+      if (!kind) continue;
       let last = n;
       while (last < doc.lines) {
         const next = doc.line(last + 1);
         if (!next.text.startsWith(TAB) || isTask(next)) break;
         last++;
       }
-      out.push({ first: n, last, reflection: true });
+      out.push({ first: n, last, kind });
     }
     return out;
   };
-  // The task or reflection the caret is in.
+  // The task, reflection or habit the caret is in.
   const blockAt = (state) => {
     const n = state.doc.lineAt(state.selection.main.head).number;
-    return [...blocksOf(state), ...reflectionsOf(state)].find((b) => n >= b.first && n <= b.last) || null;
+    return [...blocksOf(state), ...writtenOf(state)].find((b) => n >= b.first && n <= b.last) || null;
   };
+  // The habits a page has written (by name as kept).
+  const writtenHabits = (state) => new Set(
+    writtenOf(state).filter((b) => b.kind === "habit").map((b) => habitOf(state.doc.line(b.first)).slug),
+  );
   const contentOf = (block) => {
     const doc = view.state.doc;
     const notes = [];
@@ -160,19 +193,21 @@
 
   /* ---- how the rows are drawn ---- */
 
-  // In a task row's box: its checkbox and the word Task.
+  // In a task's (or habit's) row: its checkbox and the word Task (Habit).
   class Kind extends WidgetType {
-    constructor(done) {
+    constructor(done, name = "Task") {
       super();
       this.done = done;
+      this.name = name;
     }
     eq(other) {
-      return other.done === this.done;
+      return other.done === this.done && other.name === this.name;
     }
     toDOM() {
       const kind = document.createElement("span");
       kind.className = this.done ? "pad-kind done" : "pad-kind";
-      kind.innerHTML = '<button type="button" class="pad-check" role="checkbox"></button><span class="pad-kind-name">Task</span>';
+      kind.innerHTML = '<button type="button" class="pad-check" role="checkbox"></button><span class="pad-kind-name"></span>';
+      kind.lastElementChild.textContent = this.name;
       const box = kind.firstElementChild;
       box.setAttribute("aria-checked", String(this.done));
       box.setAttribute("aria-label", "Done");
@@ -234,6 +269,50 @@
     }
     toDOM() {
       return controlsOf(this.m);
+    }
+    ignoreEvent() {
+      return true;
+    }
+  }
+
+  // A habit's controls: its days, with the task sheet's repeat icon; one
+  // at its row's right and one in the strip under the notes, each change
+  // written to the habit and shown in both.
+  const daysTimers = new Map(); // name -> timer
+  const habitControls = (slug) => {
+    const form = document.getElementById("pad-habit-template").content.firstElementChild.cloneNode(true);
+    form.elements.days.value = habits.get(slug) ?? "";
+    form._habit = slug;
+    // Heard on the form: the strip may redraw while its menu is open.
+    form.addEventListener("sheet:field", (e) => {
+      const days = e.detail.value;
+      habits.set(slug, days);
+      for (const other of document.querySelectorAll(".pad-props")) {
+        if (other._habit !== slug || other === form) continue;
+        other.elements.days.value = days;
+        window.TaskSheet.refresh(other);
+      }
+      clearTimeout(daysTimers.get(slug));
+      daysTimers.set(slug, setTimeout(async () => {
+        const body = new URLSearchParams({ days: habits.get(slug) });
+        const res = await post(`/ui/habits/${encodeURIComponent(slug)}`, body).catch(() => null);
+        if (!res?.ok) window.toast("Could not set that habit's days.");
+      }, 300));
+      drawStrip();
+    });
+    document.dispatchEvent(new CustomEvent("htmx:load", { detail: { elt: form } }));
+    return form;
+  };
+  class HabitControls extends WidgetType {
+    constructor(slug) {
+      super();
+      this.slug = slug;
+    }
+    eq(other) {
+      return other.slug === this.slug;
+    }
+    toDOM() {
+      return habitControls(this.slug);
     }
     ignoreEvent() {
       return true;
@@ -353,10 +432,12 @@
   // Each row as it reads: a task's rows bracketed (the one the caret is in,
   // in ink), its title in ink with its box and controls, its other rows
   // indented; a reflection's rows bracketed in light blue, its first with
-  // the word Reflection; the row numbers alike, the caret's in ink.
+  // the word Reflection; a habit's in green, its first with its box, the
+  // word Habit, its name and its days' icon; the row numbers alike, the
+  // caret's in ink.
   const draw = (state) => {
     const doc = state.doc;
-    const all = [...blocksOf(state), ...reflectionsOf(state)];
+    const all = [...blocksOf(state), ...writtenOf(state)];
     const focused = state.field(focusField);
     const here = doc.lineAt(state.selection.main.head).number;
     const current = focused ? all.find((b) => here >= b.first && here <= b.last) : null;
@@ -369,21 +450,36 @@
       const line = doc.line(n);
       const b = of.get(n);
       const head = b?.first === n;
-      const task = head && !b.reflection;
-      const reflection = head && b.reflection;
+      const task = head && b.kind === "task";
+      const reflection = head && b.kind === "reflection";
+      const habit = head && b.kind === "habit";
       const tabbed = !head && line.text.startsWith(TAB);
       const kinds = [];
       if (b) {
         if (head) kinds.push("pad-first");
         if (b.last === n) kinds.push("pad-last");
         if (b === current) kinds.push("pad-current");
-        if (b.reflection) kinds.push("pad-reflection");
+        if (b.kind !== "task") kinds.push(`pad-${b.kind}`);
       }
       const row = [...kinds];
       if (task) row.push("pad-title");
+      else if (habit) row.push("pad-body", "pad-head");
       else if (reflection || tabbed) row.push("pad-body");
       if (row.length) decos.push(Decoration.line({ class: row.join(" ") }).range(line.from));
-      if (reflection) {
+      if (habit) {
+        const h = habitOf(line);
+        const box = Decoration.replace({ widget: new Kind(h.done, "Habit") });
+        decos.push(box.range(line.from, line.from + h.lead));
+        atomic.push(box.range(line.from, line.from + h.lead));
+        if (h.name) {
+          const name = Decoration.mark({
+            class: h.valid ? "pad-habit-name" : "pad-habit-name wrong",
+            attributes: h.valid ? {} : { title: "A habit's name is letters, digits and hyphens" },
+          });
+          decos.push(name.range(line.from + h.lead, line.from + h.lead + h.name.length));
+        }
+        if (h.valid) decos.push(Decoration.widget({ widget: new HabitControls(h.slug), side: 1 }).range(line.to));
+      } else if (reflection) {
         const lead = REFLECTION.exec(line.text)[0].length;
         const label = Decoration.replace({ widget: REFLECTION_LABEL });
         decos.push(label.range(line.from, line.from + lead));
@@ -421,6 +517,8 @@
     if (isTask(line)) return BOX;
     const reflection = REFLECTION.exec(line.text);
     if (reflection) return reflection[0].length;
+    const habit = HABIT.exec(line.text);
+    if (habit) return habit[0].length;
     return line.text.startsWith(TAB) ? 1 : 0;
   };
   // A caret landing at a boxed, labelled or tabbed row's very start goes to
@@ -454,18 +552,18 @@
     if (state.selection.ranges.length > 1) return false;
     const range = state.selection.main;
     const line = state.doc.lineAt(range.head);
-    if (isTask(line) || isReflection(line)) {
+    if (isTask(line) || isReflection(line) || isHabit(line)) {
       const lead = leadOf(line);
       if (range.empty && range.head === line.from + lead && line.length > lead) {
         // At a first row's first word: a plain row above it, the task (or
-        // reflection) moving down with its words.
+        // reflection, or habit) moving down with its words.
         v.dispatch({ changes: { from: line.from, insert: "\n" }, selection: { anchor: range.head + 1 }, scrollIntoView: true, userEvent: "input" });
         return true;
       }
     } else if (!line.text.startsWith(TAB)) {
       return false;
     } else if (line.text === TAB && range.empty) {
-      // An empty row of a task or reflection: out of it, to a plain row.
+      // An empty row of a task, reflection or habit: out of it, to a plain row.
       v.dispatch({ changes: { from: line.from, to: line.to }, userEvent: "delete" });
       return true;
     }
@@ -473,27 +571,32 @@
     return true;
   };
 
+  // Esc: in a task, save it; elsewhere, out of the text. Ahead of what is
+  // offered while writing, which takes Esc even while it is only looking
+  // (just after a key), and would lose a task's save: it has Esc only while
+  // an offer is on screen, to close it.
+  const escape = Prec.highest(keymap.of([{
+    key: "Escape",
+    run: (v) => {
+      if (completionStatus(v.state) === "active") return false;
+      const block = blockAt(v.state);
+      if (block?.kind === "task") saveTask(block);
+      else v.contentDOM.blur();
+      return true;
+    },
+  }]));
+
   const keys = Prec.high(keymap.of([
     {
       // In a task: save it, and go on to a fresh plain row after it. In a
-      // reflection: on to a plain row after it.
+      // reflection or habit: on to a plain row after it.
       key: "Mod-Enter",
       run: (v) => {
         const block = blockAt(v.state);
         if (!block) return false;
-        if (!block.reflection) saveTask(block);
+        if (block.kind === "task") saveTask(block);
         const end = v.state.doc.line(block.last).to;
         v.dispatch({ changes: { from: end, insert: "\n" }, selection: { anchor: end + 1 }, scrollIntoView: true, userEvent: "input" });
-        return true;
-      },
-    },
-    {
-      // In a task: save it. Elsewhere: out of the text.
-      key: "Escape",
-      run: (v) => {
-        const block = blockAt(v.state);
-        if (block && !block.reflection) saveTask(block);
-        else v.contentDOM.blur();
         return true;
       },
     },
@@ -524,13 +627,15 @@
   let theirs = 0;
   const loading = Annotation.define(); // the notes being taken up, not written
 
-  // The notes as the page's blocks: the text between reflections (each
-  // with the rows that made tasks, by row), and each reflection's words.
+  // The notes as the page's blocks: the text between reflections and
+  // habits (each with the rows that made tasks, by row), each reflection's
+  // words, and each habit (by name, done or not, its note). A habit row
+  // whose name is not one (empty, or with other signs) stays text.
   const serialize = () => {
     const { state } = view;
     const doc = state.doc;
     const tasks = new Map(state.field(tasksField).map(({ pos, m }) => [pos, m]));
-    const reflections = new Map(reflectionsOf(state).map((r) => [r.first, r]));
+    const written = new Map(writtenOf(state).map((r) => [r.first, r]));
     const out = [];
     let text = null;
     const endText = () => {
@@ -540,13 +645,16 @@
     };
     for (let n = 1; n <= doc.lines; n++) {
       const line = doc.line(n);
-      const reflection = reflections.get(n);
-      if (reflection) {
+      const block = written.get(n);
+      const habit = block?.kind === "habit" && habitOf(line);
+      if (block && (!habit || habit.valid)) {
         endText();
-        const words = [line.text.slice(leadOf(line))];
-        for (let k = n + 1; k <= reflection.last; k++) words.push(doc.line(k).text.slice(1));
-        out.push({ kind: "reflection", text: words.join("\n") });
-        n = reflection.last;
+        const words = [habit ? habit.note : line.text.slice(leadOf(line))];
+        for (let k = n + 1; k <= block.last; k++) words.push(doc.line(k).text.slice(1));
+        out.push(habit
+          ? { kind: "habit", habit: habit.slug, done: habit.done, text: words.join("\n") }
+          : { kind: "reflection", text: words.join("\n") });
+        n = block.last;
         continue;
       }
       if (!text) text = { kind: "text", text: null, links: {}, rows: [] };
@@ -722,10 +830,18 @@
     view.dispatch({ changes: { from: at, to: at + 1, insert: done ? "x" : " " }, annotations: Transaction.addToHistory.of(false) });
   };
 
-  // Ticking a task's box ticks its task (and its row, in the notes).
+  // Ticking a task's box ticks its task (and its row, in the notes); a
+  // habit's box is its row's own: unticked, the habit is skipped that day.
   document.addEventListener("click", async (e) => {
     const box = e.target.closest?.(".pad-check");
     if (!box || !view?.dom.contains(box)) return;
+    const line = view.state.doc.lineAt(view.posAtDOM(box));
+    if (isHabit(line)) {
+      const { lead, done } = habitOf(line);
+      const insert = done ? "/habit [ ] " : "/habit ";
+      view.dispatch({ changes: { from: line.from, to: line.from + lead, insert }, userEvent: "input" });
+      return;
+    }
     const m = taskOfBox(box);
     const block = m && blocks().find((b) => b.m === m);
     if (!block) return;
@@ -808,6 +924,92 @@
     if (pending()) flush({ leaving: true });
   });
 
+  /* ---- habits not yet written ---- */
+
+  // Under the notes: each habit due this day (any day's, or one of its
+  // weekdays) not yet written, its name writing its row, its icon its days.
+  const weekday = () => {
+    const [y, m, d] = day.split("-").map(Number);
+    return String((new Date(y, m - 1, d).getDay() + 6) % 7);
+  };
+  let stripShows = null;
+  function drawStrip() {
+    const strip = document.getElementById("pad-habits");
+    if (!strip || !view) return;
+    const written = writtenHabits(view.state);
+    const due = [...habits.keys()].sort().filter((slug) => {
+      const days = habits.get(slug);
+      return !written.has(slug) && (!days || days.includes(weekday()));
+    });
+    const shows = due.join(" ");
+    if (shows === stripShows) return;
+    stripShows = shows;
+    strip.hidden = !due.length;
+    strip.querySelector(".pad-habits-list").replaceChildren(...due.map((slug) => {
+      const item = document.createElement("li");
+      const write = document.createElement("button");
+      write.type = "button";
+      write.className = "pad-habit-write";
+      write.dataset.habit = slug;
+      write.textContent = slug;
+      write.title = `Write it: /habit ${slug}`;
+      item.append(write, habitControls(slug));
+      return item;
+    }));
+  }
+
+  // A habit's row, written at the end of the notes (on its last row, when
+  // that is empty), the caret after its name for a note.
+  document.addEventListener("click", (e) => {
+    const write = e.target.closest?.(".pad-habit-write");
+    if (!write || !view) return;
+    const doc = view.state.doc;
+    const last = doc.line(doc.lines);
+    const row = `/habit ${write.dataset.habit}`;
+    const from = last.text.trim() ? last.to : last.from;
+    const insert = last.text.trim() ? `\n${row}` : row;
+    view.focus();
+    view.dispatch({ changes: { from, to: last.to, insert }, selection: { anchor: from + insert.length }, scrollIntoView: true, userEvent: "input" });
+  });
+
+  // Offered while writing: the commands, after "/" at a row's start, and
+  // the habits' names (and those this page has), after "/habit ".
+  const COMMANDS = [
+    { label: "/habit", apply: "/habit ", detail: "a habit, checked this day" },
+    { label: "/reflection", apply: "/reflection ", detail: "free text" },
+  ];
+  const offer = (context) => {
+    const line = context.state.doc.lineAt(context.pos);
+    const before = line.text.slice(0, context.pos - line.from);
+    if (/^\/[a-z]*$/.test(before)) {
+      return {
+        from: line.from,
+        options: COMMANDS.map((c) => ({
+          ...c,
+          // Choosing /habit goes straight on to the names.
+          apply: (v, completion, from, to) => {
+            v.dispatch({ changes: { from, to, insert: c.apply }, selection: { anchor: from + c.apply.length }, userEvent: "input.complete" });
+            // Once the pick is done: the offer closes as part of it.
+            if (c.label === "/habit") setTimeout(() => startCompletion(v));
+          },
+        })),
+        validFor: /^\/[a-z]*$/,
+      };
+    }
+    const lead = HABIT.exec(line.text);
+    if (!lead || context.pos < line.from + lead[0].length) return null;
+    const typed = before.slice(lead[0].length);
+    if (/\s/.test(typed)) return null; // past the name
+    const names = new Set([...habits.keys(), ...writtenHabits(context.state)]);
+    names.delete(typed.toLowerCase());
+    if (!names.size) return null;
+    return {
+      from: line.from + lead[0].length,
+      options: [...names].sort().map((slug) => ({ label: slug })),
+      validFor: /^[\w-]*$/,
+    };
+  };
+
   /* ---- start ---- */
 
   const theme = EditorView.theme({
@@ -840,6 +1042,22 @@
       fontVariantNumeric: "tabular-nums",
     },
     ".cm-placeholder": { color: "var(--pewter)" },
+    // What is offered while writing: drawn as the icons' menus are.
+    ".cm-tooltip.cm-tooltip-autocomplete": {
+      padding: "var(--s-1)",
+      background: "var(--paper)",
+      border: "1px solid var(--hairline)",
+      borderRadius: "var(--r-ctl)",
+      boxShadow: "var(--shadow-dropdown)",
+    },
+    ".cm-tooltip.cm-tooltip-autocomplete > ul": { fontFamily: "inherit", fontSize: "var(--t-body-sm)", maxHeight: "min(280px, 50vh)" },
+    ".cm-tooltip.cm-tooltip-autocomplete > ul > li": {
+      display: "flex", alignItems: "baseline", gap: "var(--s-2)",
+      minHeight: "32px", padding: "6px 10px", lineHeight: "20px", color: "var(--ink)",
+    },
+    ".cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]": { background: "var(--fog)", color: "var(--ink)" },
+    ".cm-completionMatchedText": { textDecoration: "none", fontWeight: "600" },
+    ".cm-completionDetail": { marginLeft: "auto", fontStyle: "normal", fontSize: "var(--t-caption)", color: "var(--pewter)" },
   });
 
   const extensions = () => [
@@ -853,10 +1071,13 @@
     EditorView.lineWrapping,
     placeholder("Anything on your mind today."),
     EditorView.contentAttributes.of({ "aria-label": "Notes", spellcheck: "true" }),
+    escape,
     keys,
     keymap.of([...defaultKeymap, ...historyKeymap]),
+    autocompletion({ override: [offer], icons: false }),
     EditorView.updateListener.of((u) => {
       if (u.docChanged && !u.transactions.some((tr) => tr.annotation(loading))) schedule();
+      if (u.docChanged) drawStrip();
     }),
     theme,
   ];
@@ -868,6 +1089,10 @@
     const text = src.value;
     let rows = [];
     try { rows = JSON.parse(src.dataset.taskRows || "[]"); } catch { /* none */ }
+    let known = [];
+    try { known = JSON.parse(src.dataset.habits || "[]"); } catch { /* none */ }
+    habits.clear();
+    for (const { slug, days } of known) habits.set(slug, days);
     const starts = [0];
     for (let i = 0; i < text.length; i++) if (text[i] === "\n") starts.push(i + 1);
     const tasks = rows.filter(({ row }) => row < starts.length).map(({ row, id, fields }) => {
@@ -888,6 +1113,7 @@
     // What the notes say of each task now is what was last written to it.
     for (const block of blocks()) block.m.saved = contentOf(block);
     saved = snapshot();
+    drawStrip();
   }
 
   const el = source();
