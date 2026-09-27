@@ -181,6 +181,15 @@
       return;
     }
     if (!row) return;
+    // A key for a row while its list is being re-rendered waits for the new
+    // list, and acts on the row there: the row it was pressed on is about to
+    // be replaced (a change often re-renders a list twice, for the task and
+    // for the calendar).
+    if (ROW_KEYS.has(key) && listBusy()) {
+      e.preventDefault();
+      waiting = { id: row.id, key, shiftKey: e.shiftKey };
+      return;
+    }
 
     const click = (selector) => {
       const target = row.querySelector(selector);
@@ -254,6 +263,21 @@
     }
   }
   document.addEventListener("htmx:afterSettle", settled);
+
+  // A row's key pressed while its list was re-rendering, done once it has
+  // settled, on the row as it is now.
+  const ROW_KEYS = new Set(["t", "m", "b", "r", "d", "p", "x", "e", "Enter", " ", "Delete", "Backspace"]);
+  const listBusy = () => !!document.querySelector("[hx-trigger*='tasks:changed'].htmx-request");
+  let waiting = null; // {id, key, shiftKey}
+  document.addEventListener("htmx:afterSettle", () => {
+    if (!waiting || listBusy()) return;
+    const { id, key, shiftKey } = waiting;
+    waiting = null;
+    const row = byId(id);
+    if (!row) return;
+    focusStop(row);
+    row.dispatchEvent(new KeyboardEvent("keydown", { key, shiftKey, bubbles: true, cancelable: true }));
+  });
 
   // After V's reload, the cursor comes back to the task it was on.
   const carried = (() => {

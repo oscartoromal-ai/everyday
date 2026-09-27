@@ -871,7 +871,7 @@
 
   /* ---- for tasks.js: the keyboard's ways in ---- */
 
-  let pending = null; // {id, field, landOnChange}: an edit to open on one field's menu
+  let pending = null; // {id, field, landOnChange, row}: an edit to open on one field's menu
   window.TaskSheet = {
     // Redraw a sheet's icons from its fields, set from outside (a habit's
     // days, changed from its other place on the page).
@@ -880,7 +880,7 @@
     },
     // Edit a row's task with one field's menu open; choosing (or Esc) saves.
     edit(row, field, landOnChange) {
-      pending = { id: row.id, field, landOnChange };
+      pending = { id: row.id, field, landOnChange, row };
       row.querySelector(".task-title-btn").click();
     },
     // Start writing in a composer (N).
@@ -891,6 +891,16 @@
       placeCaret(title, title.textContent.length);
     },
   };
+  // A list re-rendered while such an edit was on its way (D, then P at
+  // once): the row it was opened from is gone, and its sheet would land in
+  // that row, unseen. It opens again on the row's live twin.
+  document.addEventListener("htmx:afterSettle", () => {
+    if (!pending?.row || pending.row.isConnected) return;
+    const twin = document.getElementById(pending.id);
+    if (!twin || twin.querySelector(".task-sheet")) return;
+    pending.row = twin;
+    twin.querySelector(".task-title-btn")?.click();
+  });
   document.addEventListener("htmx:load", (e) => {
     const elt = e.detail.elt;
     if (elt.matches?.(".task-sheet")) init(elt);

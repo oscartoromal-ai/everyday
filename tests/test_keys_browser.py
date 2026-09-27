@@ -60,8 +60,13 @@ def press(page, *keys: str) -> None:
         page.keyboard.press(key)
 
 
+# A list being re-rendered: the page's keys wait for it, and so do these
+# tests before reading its rows (a change re-renders a list twice).
+BUSY = "!!document.querySelector(\"[hx-trigger*='tasks:changed'].htmx-request\")"
+
+
 def cursor_on(page, title: str) -> None:
-    page.wait_for_function(f"{CURSOR} === {title!r}", timeout=5000)
+    page.wait_for_function(f"{CURSOR} === {title!r} && !{BUSY}", timeout=5000)
 
 
 def cursor(page) -> str:

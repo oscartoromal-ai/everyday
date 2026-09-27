@@ -1124,6 +1124,9 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   padding-left: calc(var(--pad-gap) + var(--pad-tab)); text-indent: calc(-1 * var(--pad-tab));
 }
 .pad-editor .cm-line.pad-title { display: flow-root; color: var(--ink); }
+/* a ticked task, title and rows, and a ticked sub-task: crossed out in
+   pewter (its box, the word Task and its icons stand apart, not struck) */
+.pad-editor .cm-line.pad-struck { color: var(--pewter); text-decoration: line-through; text-decoration-color: var(--pewter); }
 .pad-indent { display: inline-block; width: var(--pad-tab); }
 /* the box, the word Task and the icons are not text: never selected as it */
 .pad-editor :is(.pad-kind, .pad-props) { user-select: none; }

@@ -498,3 +498,56 @@ def test_a_task_folds_to_its_title(page, live, app_db) -> None:
     text = page.evaluate("Notepad.text()")
     task = "- [ ] Call the dentist soon\n\t- ask about the crown\n\t- and the cleaning\n"
     assert text.startswith(task + "\n")
+
+
+def test_a_task_has_sub_tasks(page, live, app_db) -> None:
+    from app.models import TaskStatus
+    from app.services import tasks as tasks_svc
+
+    page.goto(f"{live}/today")
+    write_in(page)
+    # "- [ ] " on a task's row makes it a sub-task; Enter goes on to the next,
+    # and on an empty one back to a plain row.
+    page.keyboard.type("- [ ] Pack")
+    page.keyboard.press("Enter")
+    page.keyboard.type("- [ ] passport")
+    page.keyboard.press("Enter")
+    page.keyboard.type("charger")
+    page.keyboard.press("Enter")
+    page.keyboard.press("Enter")
+    page.keyboard.type("small bag")
+    written = "- [ ] Pack\n\t- [ ] passport\n\t- [ ] charger\n\tsmall bag"
+    assert page.evaluate("Notepad.text()") == written
+    subs = page.locator(".pad-editor .cm-line.pad-sub")
+    assert subs.count() == 2
+    page.keyboard.press("Control+Enter")
+    page.locator(".cal-toast.show", has_text="Task added: Pack").wait_for()
+    with app_db() as db:
+        [task] = tasks_svc.list_tasks(db)
+        task_id = task.id
+
+    def notes() -> str:
+        with app_db() as db:
+            return tasks_svc.get_task(db, task_id).notes
+
+    # Ticked, a sub-task is crossed out, and the task's description says so at once.
+    subs.first.locator(".pad-check").click()
+    assert "pad-struck" in subs.first.get_attribute("class")
+    assert "pad-struck" not in subs.nth(1).get_attribute("class")
+    end = time.monotonic() + 5
+    while notes() != "- [x] passport\n- [ ] charger\nsmall bag":
+        assert time.monotonic() < end, notes()
+        time.sleep(0.1)
+
+    # Ticked, the task is crossed out, title and rows.
+    title = page.locator(".pad-editor .cm-line.pad-title")
+    title.locator(".pad-check").first.click()
+    rows = page.locator(".pad-editor .cm-line")
+    for i in range(4):
+        assert "pad-struck" in rows.nth(i).get_attribute("class")
+    with app_db() as db:
+        end = time.monotonic() + 5
+        while tasks_svc.get_task(db, task_id).status != TaskStatus.done:
+            assert time.monotonic() < end
+            time.sleep(0.1)
+            db.expire_all()

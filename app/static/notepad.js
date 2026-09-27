@@ -10,8 +10,11 @@
    repeat, project) and Delete, on the title's last line when they fit there
    and on a line of their own under it when not. Enter in a task starts its
    next row with a tab, drawn as the same indent, so its description lines
-   up under its title ("- " rows its sub-tasks); Enter on an empty tabbed row
-   steps back out to a plain row. Backspace at a row's first word takes its
+   up under its title; Enter on an empty tabbed row steps back out to a
+   plain row. "- [ ] " on a task's row makes it a sub-task, with its box
+   (the task's description keeps it as "- [ ] " or "- [x] "); Enter on one
+   starts the next, on an empty one steps back to a plain row. A ticked
+   sub-task is crossed out, and a ticked task, title and rows. Backspace at a row's first word takes its
    box or tab away, and the row is plain again.
 
    Every task is bracketed by a rule above its title and below its last row,
@@ -205,6 +208,11 @@
   const inStay = (state, line) =>
     writtenOf(state).some((b) => b.kind === "stay" && line.number > b.first && line.number <= b.last);
   const isItem = (state, line) => ITEM.test(line.text) && inStay(state, line);
+  // A task's sub-task: a "- [ ] " (or "- [x] ") row under its title.
+  const SUB = /^\t- \[([ xX])\] /;
+  const taskOfRow = (state, line) =>
+    blocksOf(state).find((b) => line.number > b.first && line.number <= b.last) || null;
+  const isSub = (state, line) => SUB.test(line.text) && !!taskOfRow(state, line);
 
   // The habits a page has written (by name as kept).
   const writtenHabits = (state) => new Set(
@@ -281,12 +289,13 @@
 
   // In a stay's item, for its "- [ ] ": its box, ticked once it is sorted.
   class ItemBox extends WidgetType {
-    constructor(done) {
+    constructor(done, label = "Sorted") {
       super();
       this.done = done;
+      this.label = label;
     }
     eq(other) {
-      return other.done === this.done;
+      return other.done === this.done && other.label === this.label;
     }
     toDOM() {
       const box = document.createElement("button");
@@ -294,7 +303,7 @@
       box.className = "pad-check pad-item-check";
       box.setAttribute("role", "checkbox");
       box.setAttribute("aria-checked", String(this.done));
-      box.setAttribute("aria-label", "Sorted");
+      box.setAttribute("aria-label", this.label);
       return box;
     }
     ignoreEvent() {
@@ -547,6 +556,9 @@
       const stay = head && b.kind === "stay";
       const tabbed = !head && line.text.startsWith(TAB);
       const item = tabbed && b?.kind === "stay" && ITEM.exec(line.text);
+      const sub = tabbed && b?.kind === "task" && SUB.exec(line.text);
+      // A ticked task is crossed out, title and rows; a ticked sub-task, its row.
+      const struck = (b?.kind === "task" && TASK.exec(doc.line(b.first).text)[1] !== " ") || (sub && sub[1] !== " ");
       const kinds = [];
       if (b) {
         // Right under another, it shares that one's rule: its own is not drawn,
@@ -564,6 +576,8 @@
       else if (habit) row.push("pad-body", "pad-head");
       else if (reflection || stay || tabbed) row.push("pad-body");
       if (item) row.push(item[1] === " " ? "pad-item open" : "pad-item");
+      if (sub) row.push("pad-sub");
+      if (struck) row.push("pad-struck");
       if (row.length) decos.push(Decoration.line({ class: row.join(" ") }).range(line.from));
       if (habit) {
         const h = habitOf(line);
@@ -601,6 +615,11 @@
         const tab = Decoration.replace({ widget: INDENT });
         decos.push(tab.range(line.from, line.from + 1));
         atomic.push(tab.range(line.from, line.from + 1));
+        if (sub) {
+          const box = Decoration.replace({ widget: new ItemBox(sub[1] !== " ", "Done") });
+          decos.push(box.range(line.from + 1, line.from + ITEM_LEAD));
+          atomic.push(box.range(line.from + 1, line.from + ITEM_LEAD));
+        }
         if (item) {
           // Its box, then its name (up to its colon) set as a label.
           const box = Decoration.replace({ widget: new ItemBox(item[1] !== " ") });
@@ -634,7 +653,7 @@
     if (isTask(line)) return BOX;
     const lead = REFLECTION.exec(line.text) || HABIT.exec(line.text) || STAY.exec(line.text);
     if (lead) return lead[0].length;
-    if (state && isItem(state, line)) return ITEM_LEAD;
+    if (state && (isItem(state, line) || isSub(state, line))) return ITEM_LEAD;
     return line.text.startsWith(TAB) ? 1 : 0;
   };
   // A caret landing at a boxed, labelled or tabbed row's very start goes to
@@ -735,9 +754,9 @@
       }
     } else if (!line.text.startsWith(TAB)) {
       return false;
-    } else if (isItem(state, line)) {
+    } else if (isItem(state, line) || isSub(state, line)) {
       if (range.empty && /^\t- \[[ xX]\] $/.test(line.text)) {
-        // An empty item: a plain tabbed row (Enter again steps out).
+        // An empty item (or sub-task): a plain tabbed row (Enter again steps out).
         v.dispatch({ changes: { from: line.from + 1, to: line.to }, userEvent: "delete" });
         return true;
       }
@@ -1022,10 +1041,13 @@
     const box = e.target.closest?.(".pad-check");
     if (!box || !view?.dom.contains(box)) return;
     const line = view.state.doc.lineAt(view.posAtDOM(box));
-    if (isItem(view.state, line)) {
-      // A stay's item: sorted, or not yet.
+    if (isItem(view.state, line) || isSub(view.state, line)) {
+      // A stay's item: sorted, or not yet. A sub-task: done, or not; an
+      // added task has its description written at once.
       const at = line.from + 4;
       view.dispatch({ changes: { from: at, to: at + 1, insert: line.text[4] === " " ? "x" : " " }, userEvent: "input" });
+      const task = taskOfRow(view.state, view.state.doc.lineAt(at));
+      if (task?.m.id && !(await writeTask(task))) window.toast("Could not save that to the task.");
       return;
     }
     if (isHabit(line)) {

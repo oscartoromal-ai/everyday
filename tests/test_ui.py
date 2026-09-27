@@ -487,14 +487,16 @@ def test_calendar_page_renders_grid_and_tray(client, db) -> None:
 
     from app.services import blocks as blocks_svc
 
-    task = tasks_svc.create_task(db, title="deep work", planned_for=TODAY)
-    tasks_svc.create_task(db, title="loose end", planned_for=TODAY)
-    now = datetime.now()
-    blocks_svc.schedule_block(
-        db, task_id=task.id, start=now + timedelta(hours=1), end=now + timedelta(hours=2)
-    )
+    # Tomorrow at 10, and that day's week: always ahead (a block already past
+    # is missed, and offered again), and on the grid shown (an hour from now
+    # can fall past midnight, and on a Sunday into next week).
+    day = TODAY + timedelta(days=1)
+    task = tasks_svc.create_task(db, title="deep work", planned_for=day)
+    tasks_svc.create_task(db, title="loose end", planned_for=day)
+    start = datetime.combine(day, datetime.min.time()) + timedelta(hours=10)
+    blocks_svc.schedule_block(db, task_id=task.id, start=start, end=start + timedelta(hours=1))
 
-    page = client.get("/calendar").text
+    page = client.get(f"/calendar?week={day.isoformat()}").text
     assert "calendar-grid" in page
     assert "deep work" in page  # rendered as a block on the grid
     assert "loose end" in page  # waiting in the tray
