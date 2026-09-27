@@ -43,7 +43,7 @@ a { color: var(--ink); text-decoration: underline; text-decoration-thickness: 1p
 h1, h2, h3 { font-weight: 600; margin: 0; }
 
 /* faces by role: titles and figures follow the system (one face in most) */
-.page-header h1, .day-header .weekday, .list-section > h2, .project-card > header h2, .week-section > h2, .confirm-title,
+.page-header h1, .list-section > h2, .project-card > header h2, .week-section > h2, .confirm-title,
 .timeline-header h2, .tray h2 {
   font-family: var(--font-display);
 }
@@ -185,15 +185,14 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 
 /* ---------- page headers ---------- */
 
-.page-header, .day-header {
+.page-header {
   display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-4);
   margin-bottom: var(--s-6);
 }
-.day-header { display: block; }
-.page-header h1, .day-header .weekday {
+.page-header h1 {
   font-size: var(--t-h-sm); line-height: 1.33; font-weight: 600; letter-spacing: -0.015em;
 }
-.day-header .rest, .page-header .rest { margin-top: var(--s-1); font-size: var(--t-body-sm); color: var(--graphite); }
+.page-header .rest { margin-top: var(--s-1); font-size: var(--t-body-sm); color: var(--graphite); }
 .page-header .segmented { flex: none; margin: var(--s-1) 0 0; white-space: nowrap; }
 
 /* ---------- glass cards (resting surfaces: no shadow) ---------- */
@@ -590,11 +589,16 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   --draft-grid: color-mix(in srgb, var(--hue-6) 9%, transparent);
 }
 :root[data-theme="dark"] {
-  --draft-rule: color-mix(in srgb, var(--hue-6) 55%, var(--ink));
-  --draft-pencil-ink: var(--hue-8);
-  --draft-pencil-fill: var(--hue-8);
-  --draft-paper: color-mix(in srgb, var(--hue-6) 16%, var(--paper));
-  --draft-grid: color-mix(in srgb, var(--hue-6) 15%, transparent);
+  /* by night the sheet is its cyanotype: Prussian blue paper (the drafting
+     blue turned toward cyan, sunk into the night's paper), pale cyan rules,
+     and a vermilion pencil, not the system's pink */
+  --draft-cyan: color-mix(in srgb, var(--hue-6) 78%, var(--hue-1));
+  --draft-rule: color-mix(in srgb, var(--draft-cyan) 45%, var(--ink));
+  --draft-pencil: color-mix(in srgb, var(--hue-8) 55%, var(--hue-3));
+  --draft-pencil-ink: var(--draft-pencil);
+  --draft-pencil-fill: var(--draft-pencil);
+  --draft-paper: color-mix(in srgb, var(--draft-cyan) 36%, var(--paper));
+  --draft-grid: color-mix(in srgb, var(--draft-cyan) 16%, transparent);
 }
 :root {
   --draft-sheet:
@@ -879,7 +883,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 
 /* ---------- calendar (week grid and Today's timeline) ---------- */
 
-.main:has(.calendar-page), .main:has(.weeks-page), .main:has(.today-page) { max-width: 1200px; }
+.main:has(.calendar-page), .main:has(.weeks-page), .main:has(.day-sheet) { max-width: 1200px; }
 .calendar-header h1 { font-variant-numeric: tabular-nums; }
 .week-today { white-space: nowrap; }
 @media (max-width: 540px) {
@@ -1028,117 +1032,267 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   .tray { position: static; }
 }
 
-/* ---------- today: the lists beside the day's timeline ---------- */
+/* ---------- a day's page: the day sheet, a storyboard (today.html, notebook.js) ---------- */
 
-.today-page { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--s-8); align-items: start; }
-.today-timeline { position: sticky; top: var(--s-6); }
-.timeline-header { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); margin: 6px 0 var(--s-4); }
-.timeline-header h2 { font-size: var(--t-body); }
-.timeline-header .hint { font-size: var(--t-caption); color: var(--pewter); }
-.today-timeline .calendar-grid { max-height: calc(100vh - 110px); overflow-y: auto; overscroll-behavior: contain; }
-.today-timeline .grid-allday { position: sticky; top: 0; z-index: 7; background: var(--paper); }
+/* The whole page is one drafted sheet, like an anime storyboard: graph
+   paper inside a double ruled frame with registration crosses at its
+   corners; a title block; the day's time as a scale; then what was written
+   as numbered cuts in four ruled columns, CUT, CONTENT, RECORD and TIME,
+   and the day's other tasks as the scenes that follow. The row being
+   written, and what the planner recorded, are in red pencil. */
+
 .task-row[draggable="true"] { cursor: grab; }
 .task-row[draggable="true"] :is(button, input) { cursor: pointer; }
 
-@media (max-width: 1100px) {
-  .today-page { grid-template-columns: minmax(0, 1fr); gap: var(--s-2); }
-  .today-timeline { position: static; }
-  .today-timeline .calendar-grid { max-height: none; }
-  .timeline-header .hint { display: none; }
+.day-sheet {
+  --cut-w: 56px;
+  --rec-w: 212px;
+  --time-w: 104px;
+  --sb-cols: var(--cut-w) minmax(0, 1fr) var(--rec-w) var(--time-w);
+  --sb-rule: color-mix(in srgb, var(--draft-rule) 38%, transparent);
+  --sb-ink: color-mix(in srgb, var(--hue-6) 70%, var(--ink));
+  position: relative; margin: 6px 6px 0; padding: var(--s-6) var(--s-8) var(--s-12);
+  background: var(--draft-sheet);
+  box-shadow: inset 0 0 0 1px var(--draft-rule), inset 0 0 0 5px var(--draft-paper),
+    inset 0 0 0 6px color-mix(in srgb, var(--draft-rule) 45%, transparent);
+}
+:root[data-theme="dark"] .day-sheet { --sb-ink: color-mix(in srgb, var(--hue-6) 45%, var(--ink)); }
+/* registration crosses at the sheet's four corners */
+.day-sheet::before {
+  --c: var(--draft-rule);
+  content: ""; position: absolute; inset: -8px; pointer-events: none;
+  background:
+    linear-gradient(var(--c), var(--c)) 0 8px / 17px 1px no-repeat, linear-gradient(var(--c), var(--c)) 8px 0 / 1px 17px no-repeat,
+    linear-gradient(var(--c), var(--c)) 100% 8px / 17px 1px no-repeat, linear-gradient(var(--c), var(--c)) calc(100% - 8px) 0 / 1px 17px no-repeat,
+    linear-gradient(var(--c), var(--c)) 0 calc(100% - 8px) / 17px 1px no-repeat, linear-gradient(var(--c), var(--c)) 8px 100% / 1px 17px no-repeat,
+    linear-gradient(var(--c), var(--c)) 100% calc(100% - 8px) / 17px 1px no-repeat, linear-gradient(var(--c), var(--c)) calc(100% - 8px) 100% / 1px 17px no-repeat;
 }
 
-/* ---------- a day's page: the day's header, and its notebook (notebook.js) ---------- */
+/* caps: the sheet's own lettering */
+.day-sheet :is(.sb-head, .cut, .rec-no, .rec-line, .scene-mark, .strip-label, .strip-hour, .title-block dt) {
+  font-family: var(--font-label); font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em;
+}
 
-.day-title { display: flex; align-items: center; gap: var(--s-3); }
+.day-sheet ::selection { background: color-mix(in srgb, var(--draft-rule) 28%, transparent); color: var(--ink); }
+.day-sheet .keys-hint kbd { border-radius: 0; border-color: var(--sb-rule); }
+
+/* ---- the title block ---- */
+
+.sheet-title { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: var(--s-3) var(--s-6); }
+.sheet-name { display: flex; align-items: center; gap: var(--s-3); }
+.sheet-name .weekday {
+  margin: 0; font: 600 34px/1 var(--font-label); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink);
+}
 .day-nav { display: flex; align-items: center; gap: var(--s-1); }
 .day-step {
-  display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--r-ctl);
-  color: var(--graphite);
+  display: grid; place-items: center; width: 32px; height: 32px;
+  color: var(--sb-ink); box-shadow: inset 0 0 0 1px var(--sb-rule);
   transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
 .day-step svg { stroke: currentColor; }
-.day-step:hover { color: var(--ink); background: var(--glass-hover); }
+.day-step:hover { color: var(--ink); background: var(--draft-paper); box-shadow: inset 0 0 0 1px var(--draft-rule); }
+.day-step:focus-visible, .day-today:focus-visible { border-radius: 0; box-shadow: 0 0 0 1px var(--draft-paper), 0 0 0 2px var(--draft-pencil); }
 .day-today {
-  padding: 5px var(--s-3); border: 1px solid var(--hairline); border-radius: var(--r-pill);
-  background: var(--glass-btn); font-size: var(--t-caption); font-weight: 500; color: var(--ink); text-decoration: none;
+  display: inline-grid; place-items: center; height: 32px; padding: 0 var(--s-3);
+  font: 600 12px/1 var(--font-label); letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink); text-decoration: none; box-shadow: inset 0 0 0 1px var(--draft-rule);
 }
-.day-today:hover { background: var(--glass-hover); }
+.day-today:hover { background: var(--draft-paper); }
+.title-block { display: grid; grid-template-columns: repeat(4, auto); margin: 0; box-shadow: inset 0 0 0 1px var(--draft-rule); }
+.title-block > div { padding: 6px 14px 7px; }
+.title-block > div + div { border-left: 1px solid var(--draft-rule); }
+.title-block dt { font-size: 10px; color: var(--graphite); }
+.title-block dd { margin: 3px 0 0; font-size: var(--t-body-sm); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sheet-title .keys-hint { grid-column: 1 / -1; margin: 0; }
 
-/* The page is a document: the words are Oscar's, so they are ink at reading
-   size. Boxes (tasks, reflections) sit in its flow, their contents aligned
-   with the text: a box's 12px outset is its 1px border and 11px padding. */
-.notebook-card {
-  margin-bottom: var(--s-6);
-  background: var(--glass-card); backdrop-filter: blur(20px) saturate(1.1);
-  border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
+.day-sheet #nudges-slot:not(:empty) { margin-top: var(--s-4); }
+.day-sheet .nudge-center { margin: 0; background: var(--draft-paper); backdrop-filter: none; border: none; border-radius: 0; box-shadow: inset 0 0 0 1px var(--draft-rule); }
+
+/* ---- the day's time: a drafted scale ---- */
+
+.day-strip { margin-top: var(--s-6); }
+.strip-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-2) var(--s-3); margin-bottom: 6px; }
+.strip-label { font-size: 11px; color: var(--graphite); }
+.strip-allday { padding: 2px 8px; font-size: var(--t-caption); color: var(--ink); box-shadow: inset 0 0 0 1px var(--draft-rule); }
+.strip-allday.work { background: repeating-linear-gradient(135deg, var(--sb-rule) 0 1px, transparent 1px 6px); }
+.strip-hint { margin-left: auto; font-size: var(--t-caption); color: var(--pewter); }
+@media (hover: none) { .strip-hint { display: none; } }
+.strip-scale {
+  --lane-h: 24px;
+  position: relative; height: calc(20px + var(--lanes, 1) * (var(--lane-h) + 4px) + 6px);
+  border-block: 1px solid var(--draft-rule);
+  /* a half-hour tick at the top of every half hour, drawn in a tile */
+  background: linear-gradient(90deg, var(--sb-rule) 1px, transparent 1px) 0 0 / calc(100% / 32) 6px repeat-x;
 }
-.notebook { padding: var(--s-4) var(--s-6) var(--s-6); min-height: 240px; cursor: text; }
-.notebook .nb-prose {
-  font-size: var(--t-body); line-height: 1.6; color: var(--ink);
-  caret-color: var(--spark);
+.strip-hour { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--sb-rule); }
+.strip-hour > span { position: absolute; top: 3px; left: 4px; font-size: 10px; letter-spacing: 0.08em; color: var(--graphite); font-variant-numeric: tabular-nums; }
+.strip-hour.first { background: none; }
+.strip-hour.last > span { left: auto; right: 4px; }
+.strip-lanes { position: absolute; inset: 20px 0 6px; }
+.strip-item {
+  position: absolute; top: calc(var(--lane) * (var(--lane-h) + 4px)); height: var(--lane-h);
+  display: flex; align-items: center; gap: 6px; min-width: 6px; padding: 0 6px; overflow: hidden;
+  font-size: var(--t-caption); white-space: nowrap; color: var(--ink);
+  background: var(--draft-paper); box-shadow: inset 0 0 0 1px var(--draft-rule);
+  transition: box-shadow var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
+.strip-item.event.work { color: var(--graphite); background: repeating-linear-gradient(135deg, var(--sb-rule) 0 1px, var(--draft-paper) 1px 6px); box-shadow: inset 0 0 0 1px var(--sb-rule); }
+.strip-item.block { color: var(--draft-paper); background: var(--sb-ink); box-shadow: none; cursor: pointer; }
+.strip-item.block.completed { color: var(--pewter); background: var(--draft-paper); box-shadow: inset 0 0 0 1px var(--sb-rule); text-decoration: line-through; }
+.strip-item.ghost { color: var(--pewter); background: transparent; box-shadow: none; outline: 1px dashed var(--draft-pencil); outline-offset: -1px; }
+.strip-item.is-linked { box-shadow: 0 0 0 1px var(--draft-paper), 0 0 0 2px var(--draft-pencil); }
+.strip-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* the now mark starts under the hour labels, so it never strikes one through */
+.strip-now { position: absolute; top: 18px; bottom: -4px; width: 1px; background: var(--draft-pencil); pointer-events: none; }
+.strip-now > span {
+  position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
+  font: 600 10px/1 var(--font-label); letter-spacing: 0.08em; color: var(--draft-pencil-ink); font-variant-numeric: tabular-nums;
+}
+/* phones: the scale is too narrow to name a block, so a legend under it does */
+.strip-legend { display: none; }
+.strip-preview {
+  position: absolute; top: 20px; height: var(--lane-h); padding: 0 6px; display: flex; align-items: center;
+  font: 600 10px/1 var(--font-label); letter-spacing: 0.08em; color: var(--draft-pencil-ink);
+  background: color-mix(in srgb, var(--draft-pencil) 10%, transparent); outline: 1px dashed var(--draft-pencil); outline-offset: -1px;
+  pointer-events: none;
+}
+
+/* ---- the storyboard: four ruled columns ---- */
+
+.storyboard { margin-top: var(--s-8); }
+.storyboard > .scene-head { margin-bottom: 0; border-bottom: none; }
+.sb-row { display: grid; grid-template-columns: var(--sb-cols); }
+.sb-row > .cut, .sb-row > .cell, .nb-task::before { padding: 10px 12px; }
+.sb-row > .cell, .day-row > .cell { border-left: 1px solid var(--sb-rule); }
+.sb-head { border-block: 1px solid var(--draft-rule); font-size: 11px; color: var(--graphite); }
+.sb-head > * { padding-block: 7px !important; }
+.sb-head > .cell { border-left-color: var(--draft-rule); }
+.notebook { counter-reset: cut; cursor: text; }
+.notebook > .sb-row { border-bottom: 1px solid var(--sb-rule); }
+/* every block but an empty line is a cut, numbered in order; the last
+   line, where writing goes on, is the next cut, pencilled faintly */
+.notebook > .sb-row:not(.nb-text:has(.nb-prose.is-empty)), .notebook > .nb-text:last-child { counter-increment: cut; }
+.notebook > .sb-row > .cut::before, .nb-task::before { content: counter(cut, decimal-leading-zero); }
+.notebook > .nb-text:has(.nb-prose.is-empty) > .cut::before { content: ""; }
+.notebook > .nb-text:last-child:has(.nb-prose.is-empty) > .cut::before { content: counter(cut, decimal-leading-zero); opacity: 0.45; }
+.notebook > .nb-text:last-child:not(:only-child) .nb-prose.is-empty::before { content: attr(data-next); color: var(--pewter); }
+.sb-blank { height: 46px; border-bottom: 1px solid var(--sb-rule); cursor: text; }
+.sb-blank > span + span { border-left: 1px solid var(--sb-rule); }
+.cut, .nb-task::before { font-size: 13px; color: var(--sb-ink); font-variant-numeric: tabular-nums; }
+.nb-task::before { font-family: var(--font-label); font-weight: 600; letter-spacing: 0.14em; }
+/* the empty line kept around a box folds away until the caret goes there */
+.notebook > .nb-text:not(:last-child):has(.nb-prose.is-empty:not(:focus)) { height: 0; overflow: hidden; border-bottom: none; }
+
+/* what Oscar writes: ink at reading size, markdown in live preview */
+.notebook .nb-prose { font-size: var(--t-body); line-height: 1.6; color: var(--ink); caret-color: var(--draft-pencil); }
 .notebook .nb-prose:focus, .notebook .nb-prose:focus-visible { outline: none; box-shadow: none; }
-/* Only a blank page says what it is for. */
 .notebook .nb-text .nb-prose.is-empty::before { content: none; }
-.notebook > .nb-text:only-child .nb-prose.is-empty::before { content: attr(data-placeholder); }
-/* The empty line kept around a box folds away until the caret goes there. */
-.notebook > .nb-text:not(:last-child):has(.nb-prose.is-empty:not(:focus)) { height: 0; overflow: hidden; }
+.notebook > .nb-text:only-child .nb-prose.is-empty::before { content: attr(data-placeholder); color: var(--pewter); }
+.nb-prose .md-mark { color: var(--pewter); font-weight: 400; font-style: normal; text-decoration: none; }
+.nb-prose .md-strong { font-weight: 600; }
+.nb-prose .md-em { font-style: italic; }
+.nb-prose .md-strike { color: var(--graphite); text-decoration: line-through; }
+.nb-prose .md-code { padding: 0 3px; font-family: var(--font-num); font-size: 0.92em; background: color-mix(in srgb, var(--draft-rule) 12%, transparent); }
+.nb-prose .ln[data-h="1"] { font-size: var(--t-sub); font-weight: 600; line-height: 1.5; }
+.nb-prose .ln[data-h="2"] { font-size: 18px; font-weight: 600; }
+.nb-prose .ln[data-h="3"] { font: 600 14px/1.9 var(--font-label); letter-spacing: 0.14em; text-transform: uppercase; }
+.nb-prose .ln[data-h] .md-mark { font-size: 0.8em; }
 
-.nb-task, .nb-gone {
-  margin: var(--s-2) calc(-1 * var(--s-3));
-  border: 1px solid var(--hairline-on-glass-strong); border-radius: var(--r-ctl);
+/* a task: its row across CONTENT, RECORD and TIME */
+.nb-task { margin: 0; }
+.nb-task > li { grid-column: 2 / -1; }
+.day-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) var(--rec-w) var(--time-w);
+  gap: 0; padding: 0; border-bottom: none; align-items: stretch;
 }
-/* the boxes being written are drafted plates (below), their labels above them */
-.nb-draft, .nb-reflection { margin: var(--s-3) calc(-1 * var(--s-3)); }
-.nb-task { overflow: clip; }
-.nb-task .task-row, .nb-task .task-sheet[data-sheet="edit"] { padding: 10px 11px; border-bottom: none; }
-/* a notebook task opened for editing becomes a plate in the box's place */
-.nb-task:has(.sheet-item) { margin-block: var(--s-3); border-color: transparent; overflow: visible; }
-.nb-task .sheet-item { padding: 0; border-bottom: none; }
-.nb-draft .task-sheet { padding: 10px 11px; }
+.day-row > .cell { padding: 10px 12px; }
+.day-row > .cell-content { display: flex; align-items: flex-start; gap: var(--s-3); border-left: none; }
+.nb-task > .day-row > .cell-content { border-left: 1px solid var(--sb-rule); }
+.day-row .task-body { flex: 1; min-width: 0; }
+.day-row .task-title { font-size: var(--t-body-sm); }
+.day-row .notes-toggle { margin-top: 2px; }
+.day-row .task-check { border-radius: 0; border-color: var(--draft-rule); }
+.day-row.done .task-check { background: var(--sb-ink); border-color: var(--sb-ink); }
+.day-row:hover { background: color-mix(in srgb, var(--draft-rule) 7%, transparent); }
+.day-row.is-linked { background: color-mix(in srgb, var(--draft-pencil) 8%, transparent); }
+.day-sheet .task-row[tabindex]:focus-visible { background: color-mix(in srgb, var(--draft-pencil) 8%, transparent); }
+.day-sheet .task-row[tabindex]:focus-visible::before { background: var(--draft-pencil); box-shadow: none; }
+.nb-task:has(> .task-row:focus-visible)::before { color: var(--draft-pencil-ink); }
+.cell-record { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+/* what the planner recorded is written in red pencil beside Oscar's ink */
+.rec-no { font-size: 12px; color: var(--draft-pencil-ink); }
+.rec-line { font-size: 11px; color: var(--graphite); overflow-wrap: anywhere; }
+.rec-line.planned, .rec-line.due { color: var(--draft-pencil-ink); }
+.rec-line.due.soon { padding: 1px 5px; color: var(--warn-fg); background: var(--badge-warn-glass); }
+.rec-line.origin { text-decoration: none; }
+.rec-line.origin:hover { color: var(--ink); text-decoration: underline; }
+.cell-record .missed { padding: 1px 5px; font: 600 11px/1.3 var(--font-label); letter-spacing: 0.1em; text-transform: uppercase; color: var(--err-fg); background: var(--badge-err-glass); }
+.cell-record .replan-btn { font-size: var(--t-caption); color: var(--graphite); text-decoration: underline; text-underline-offset: 2px; }
+.cell-record .replan-btn:hover { color: var(--ink); }
+.cell-record .chip { border-radius: 0; }
+.cell-time { display: flex; flex-direction: column; gap: 1px; font-variant-numeric: tabular-nums; }
+.cell-time .when { font-size: var(--t-body-sm); font-weight: 600; color: var(--draft-pencil-ink); }
+.cell-time .until { font-size: var(--t-caption); color: var(--graphite); }
+.day-row.done .cell-time .when { color: var(--pewter); }
+/* a task opened for editing: its sheet, a plate, across the row */
+.nb-task > .sheet-item { grid-column: 2 / -1; padding: 10px 12px 12px; border-left: 1px solid var(--sb-rule); border-bottom: none; }
+
+/* the row being written: marked in red pencil, its record under way */
+.nb-draft { box-shadow: inset 0 0 0 1px var(--draft-pencil); background: color-mix(in srgb, var(--draft-pencil) 5%, transparent); }
+.nb-draft > .cut::before { color: var(--draft-pencil-ink); }
+.nb-draft .rec-no { color: var(--draft-pencil-ink); }
+.nb-draft .task-sheet, .nb-draft .task-sheet:focus-within { padding: 0; background: none; box-shadow: none; }
+.nb-draft .task-sheet::before { content: none; }
 .nb-hint { margin: var(--s-2) 0 0; font-size: var(--t-caption); color: var(--pewter); }
 .nb-hint .hint { font-size: inherit; color: inherit; }
 .nb-reflection:not(:focus-within) .nb-hint { display: none; }
 @media (hover: none) { .nb-hint { display: none; } }
 
-.nb-reflection > .plate { padding: 10px 11px; }
-.nb-reflection .nb-prose { min-height: 1lh; }
-.nb-reflection > .nb-hint { margin-top: var(--s-1); padding-left: 12px; }
+/* a reflection: a cut of its own, written in italics */
+.nb-reflection .nb-prose { min-height: 1lh; font-style: italic; }
+.nb-reflection:focus-within { box-shadow: inset 0 0 0 1px var(--draft-pencil); }
+.nb-reflection:focus-within > .cut::before { color: var(--draft-pencil-ink); }
 
-/* a task deleted since: a ghost of it, like a missed block's */
-.nb-gone { display: flex; align-items: center; gap: var(--s-2); padding: 6px 11px; border-style: dashed; border-color: var(--mist); }
+/* a task deleted since: struck through where it was written */
+.nb-gone > .cell-content { display: flex; align-items: center; gap: var(--s-2); }
 .nb-gone-title { color: var(--pewter); text-decoration: line-through; text-decoration-thickness: 1px; overflow-wrap: anywhere; }
-.nb-gone-note { font-size: var(--t-caption); color: var(--pewter); }
-.nb-gone-remove {
-  display: grid; place-items: center; width: 24px; height: 24px; margin-left: auto; border-radius: var(--r-tag);
-  color: var(--steel);
-}
+.nb-gone-remove { display: grid; place-items: center; width: 24px; height: 24px; margin-left: auto; color: var(--steel); }
 .nb-gone-remove svg { stroke: currentColor; }
-.nb-gone-remove:hover { color: var(--ink); background: var(--fog); }
+.nb-gone-remove:hover { color: var(--ink); background: var(--draft-paper); }
+.nb-gone .cell-record, .nb-gone .cut::before { color: var(--pewter); }
 
-.nb-stale {
-  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3);
-  padding: var(--s-3) var(--s-6); border-top: 1px solid var(--hairline-on-glass-strong);
-  font-size: var(--t-body-sm); color: var(--ink);
-}
+.nb-stale { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); padding: var(--s-3) 12px; border-bottom: 1px solid var(--draft-rule); font-size: var(--t-body-sm); color: var(--ink); background: color-mix(in srgb, var(--draft-pencil) 6%, transparent); }
 .nb-stale[hidden] { display: none; }
 .nb-stale span { margin-right: auto; }
-.nb-stale .btn { padding: 6px 14px; }
+.nb-stale .btn { height: 32px; padding: 0 14px; border: none; border-radius: 0; font: 600 12px/1 var(--font-label); letter-spacing: 0.14em; text-transform: uppercase; box-shadow: inset 0 0 0 1px var(--draft-rule); background: transparent; }
 
-/* "/": the commands, on the sheet's menu paper */
-.nb-slash { min-width: 240px; }
+/* ---- the next scenes: the day's other tasks ---- */
+
+.scene { margin-top: var(--s-8); }
+.scene-head { display: flex; align-items: baseline; gap: var(--s-3); padding-bottom: 7px; border-bottom: 1px solid var(--draft-rule); font-size: var(--t-body); font-weight: 600; }
+.scene-mark { padding: 3px 7px; font-size: 11px; font-weight: 600; color: var(--sb-ink); box-shadow: inset 0 0 0 1px var(--draft-rule); }
+.scene-head .count { font-size: var(--t-caption); color: var(--pewter); }
+.scene .task-list > .day-row, .scene .done-fold .day-row { margin-left: var(--cut-w); border-bottom: 1px solid var(--sb-rule); }
+.scene .task-list > .day-row > .cell-content { border-left: 1px solid var(--sb-rule); }
+.scene .empty { margin-left: var(--cut-w); padding: var(--s-3) 12px; }
+.scene .done-fold { margin-left: var(--cut-w); border-top: none; }
+.scene .done-fold > summary { padding-inline: 12px; font: 600 11px/1 var(--font-label); letter-spacing: 0.14em; text-transform: uppercase; }
+.scene .done-fold .task-list { border-top: 1px solid var(--sb-rule); }
+.scene .done-fold .day-row { margin-left: 0; }
+
+/* ---- "/": the commands, a drafted slip on the sheet's paper ---- */
+
+.nb-slash { min-width: 240px; border-radius: 0; background: var(--draft-sheet); border-color: var(--draft-rule); }
 .nb-slash-item {
   position: relative; display: flex; align-items: center; gap: var(--s-3);
-  min-height: 32px; padding: 6px 10px; border-radius: var(--r-tag); cursor: pointer;
+  min-height: 32px; padding: 6px 10px; cursor: pointer;
 }
 .nb-slash-item .label { color: var(--ink); font-weight: 500; }
-.nb-slash-item[aria-selected="true"] { background: var(--fog); }
-.nb-slash-item[aria-selected="true"]::before {
-  content: ""; position: absolute; left: 0; top: 7px; bottom: 7px;
-  width: 3px; border-radius: 0 2px 2px 0; background: var(--spark); box-shadow: var(--spark-glow);
-}
+/* the highlighted command, marked in red pencil */
+.nb-slash-item[aria-selected="true"] { box-shadow: inset 0 0 0 1px var(--draft-pencil); background: color-mix(in srgb, var(--draft-pencil) 7%, transparent); }
+.nb-slash-item[aria-selected="true"] .label { color: var(--draft-pencil-ink); }
 
-/* written on another day's page: the way back to it */
+/* written on another day's page: the way back to it (rows elsewhere) */
 .task-meta .origin { color: var(--pewter); text-decoration: none; }
 .task-meta .origin:hover { color: var(--ink); text-decoration: underline; }
 
@@ -1150,9 +1304,37 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .history-line { font-size: var(--t-caption); color: var(--graphite); overflow-wrap: anywhere; }
 .history-empty { margin: 0; font-size: var(--t-caption); color: var(--pewter); }
 
+/* ---- phones: two columns; RECORD and TIME ride under the words ---- */
+
+@media (max-width: 900px) {
+  .day-sheet { --rec-w: 168px; --time-w: 88px; padding-inline: var(--s-6); }
+}
 @media (max-width: 720px) {
-  .notebook { padding: var(--s-3) var(--s-4) var(--s-4); }
-  .nb-stale { padding-inline: var(--s-4); }
+  .day-sheet { --cut-w: 34px; margin: 4px; padding: var(--s-4) var(--s-4) var(--s-8); }
+  .sheet-title { grid-template-columns: 1fr; }
+  .sheet-name .weekday { font-size: 28px; }
+  .title-block { grid-template-columns: repeat(4, 1fr); }
+  .title-block > div { padding-inline: 8px; }
+  .strip-hour.odd > span { display: none; }
+  .strip-item .strip-title { display: none; }
+  .strip-legend { display: grid; gap: 2px; margin: 26px 0 0; padding: 0; list-style: none; font-size: var(--t-caption); color: var(--ink); }
+  .strip-legend li { display: flex; gap: 8px; }
+  .strip-legend .t { font-weight: 600; color: var(--draft-pencil-ink); font-variant-numeric: tabular-nums; }
+  .sb-blank > span:nth-child(n+3) { display: none; }
+  .strip-item { padding: 0 3px; }
+  .sb-row { grid-template-columns: var(--cut-w) minmax(0, 1fr); }
+  .sb-row > .cut, .sb-row > .cell, .nb-task::before { padding: 8px 8px; }
+  .sb-head > .cell:nth-child(n+3), .sb-row > .cell-record:empty, .sb-row > .cell-time:empty { display: none; }
+  /* one rule only, after the cut; RECORD and TIME ride under the words */
+  .sb-row > .cell, .day-row > .cell, .nb-task > .day-row > .cell-content,
+  .scene .task-list > .day-row > .cell-content, .nb-task > .sheet-item { border-left: none; }
+  .sb-row > .cut, .nb-task::before { border-right: 1px solid var(--sb-rule); }
+  .scene .task-list > .day-row, .scene .done-fold .task-list { border-left: 1px solid var(--sb-rule); }
+  .sb-row > .cell-record, .sb-row > .cell-time { grid-column: 2; padding-top: 0; }
+  .day-row { grid-template-columns: minmax(0, 1fr); }
+  .day-row > .cell-record { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 0 8px 8px 38px; }
+  .day-row > .cell-time { flex-direction: row; align-items: baseline; gap: 6px; padding: 0 8px 8px 38px; }
+  .day-row > .cell-time:empty { display: none; }
 }
 
 /* ---------- weeks: several weeks at a glance, as a grid or as rows ---------- */

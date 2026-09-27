@@ -30,6 +30,7 @@ Operate. Every surface is task completion: scan today, check things off, replan,
   Pink and cyan neon over black glass by night, the same signs unlit and printed on a pale sky by day; ink draws the interface; pink is you, cyan is time; Inter only.
 - The app consumes the system only through the repo's token contract, so switching to another of Oscar's systems (Brasa v2, Tokyo Night, Sumi & Neon) is one command.
 - Inputs (user-pinned 2026-09-27): drafted like a 90s anime settei sheet, a future Japan where the tech is blended in but subtle; ruled plates on graph paper with registration crosses, captions in condensed caps, the field in use marked in red pencil; a cyanotype by night. English only, no Japanese text.
+- The whole app moves to that settei world, Today first (user-pinned 2026-09-27): Today is an anime storyboard sheet, markdown written in live preview in its CONTENT column, what the planner recorded beside it in RECORD and TIME; the other pages follow in later passes.
 - Theme: Day and Night, following the system theme until the user picks one.
 - Pixel-perfection matters; quality over development cost (SPEC.md section 10).
 

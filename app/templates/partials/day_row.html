@@ -1,0 +1,86 @@
+{#
+  A task as a day page's storyboard row (the day sheet, today.html): what
+  was written in CONTENT, what the planner recorded in RECORD, and its time
+  in TIME. The row's controls are a task row's (tasks.js, task-sheet.js
+  and the keys hold on to these classes), laid out in the sheet's columns.
+#}
+{% set t = row.task %}
+<li class="task-row day-row{% if row.done %} done{% endif %}" id="task-{{ t.id }}"
+    data-task-id="{{ t.id }}" data-task-title="{{ t.title }}" tabindex="-1">
+  <div class="cell cell-content">
+    <input type="checkbox" class="task-check" {% if row.done %}checked{% endif %}
+           hx-post="/ui/tasks/{{ t.id }}/toggle"
+           hx-target="#task-{{ t.id }}" hx-swap="outerHTML"
+           aria-label="Mark “{{ t.title }}” {% if row.done %}not done{% else %}done{% endif %}">
+    <div class="task-body">
+      <button type="button" class="task-title-btn"
+              hx-get="/ui/tasks/{{ t.id }}/edit"
+              hx-target="#task-{{ t.id }}" hx-swap="outerHTML">
+        <span class="task-title">{{ t.title }}</span>
+      </button>
+      {% if row.description %}
+      <button type="button" class="notes-toggle"
+              aria-expanded="{{ 'true' if expanded else 'false' }}" aria-controls="notes-{{ t.id }}"
+              {% if row.subtasks_total %}aria-label="{{ row.subtasks_done }} of {{ row.subtasks_total }} sub-tasks done"{% endif %}>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>
+        {% if row.subtasks_total %}<span class="progress">{{ row.subtasks_done }}/{{ row.subtasks_total }}</span>{% else %}Notes{% endif %}
+      </button>
+      <div class="task-notes" id="notes-{{ t.id }}"{% if not expanded %} hidden{% endif %}>
+        {% for block in row.description %}
+        {% if block.kind == "text" %}
+        <p>{{ block.lines | join("\n") }}</p>
+        {% elif block.kind == "list" %}
+        <ul class="subtasks">
+          {% for entry in block.entries %}{% set item = entry.item %}
+          <li class="subtask{% if item.checked %} done{% endif %}"{% if item.depth %} style="--depth: {{ item.depth }}"{% endif %}>
+            <label>
+              <input type="checkbox" class="subtask-check" {% if item.checked %}checked{% endif %}
+                     hx-post="/ui/tasks/{{ t.id }}/subtasks/{{ item.index }}/toggle"
+                     hx-vals='{{ {"text": item.text} | tojson }}'
+                     hx-target="#task-{{ t.id }}" hx-swap="outerHTML">
+              <span>{{ item.text }}</span>
+            </label>
+            {% if entry.notes %}<p class="subtask-note">{{ entry.notes | join("\n") }}</p>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="gap"></div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <button type="button" class="task-delete" title="Delete task"
+            aria-label="Delete “{{ t.title }}”"
+            hx-post="/ui/tasks/{{ t.id }}/delete"
+            hx-target="#task-{{ t.id }}" hx-swap="outerHTML"
+            hx-confirm="Delete task?"
+            data-confirm-title="Delete task?"
+            data-confirm-name="{{ t.title }}"
+            data-confirm-detail="will be deleted, along with any time blocked for it on the calendar. This can't be undone."
+            data-confirm-action="Delete">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>
+    </button>
+  </div>
+
+  <div class="cell cell-record">
+    <span class="rec-no">{% if t.owner.value == "claude" %}Claude{% else %}Task{% endif %} {{ row.record_no }}</span>
+    {% if row.done %}<span class="rec-line">Done</span>{% endif %}
+    {% if row.chip %}<span class="chip {{ row.chip_class }}">{% if row.chip_class == "running" %}<span class="dot"></span>{% endif %}{{ row.chip }}</span>{% endif %}
+    {% if row.planned_label %}<span class="rec-line planned">{{ row.planned_label }}</span>{% endif %}
+    {% if row.due_label %}<span class="rec-line due{% if row.due_soon %} soon{% endif %}">{{ row.due_label }}</span>{% endif %}
+    {% if row.project_name %}<span class="rec-line project">{{ row.project_name }}</span>{% endif %}
+    {% if row.written_label %}<a class="rec-line origin" href="/day/{{ row.written_on.isoformat() }}" title="Read the page it was written on">{{ row.written_label }}</a>{% endif %}
+    {% if row.missed %}<span class="missed">{{ row.missed_label }}</span>
+    <button type="button" class="replan-btn"
+            hx-post="/ui/tasks/{{ t.id }}/replan"
+            hx-target="#task-{{ t.id }}" hx-swap="outerHTML">
+      {%- if row.replan_at %}Replan at {{ row.replan_at }}{% else %}Move to tomorrow{% endif -%}
+    </button>{% endif %}
+  </div>
+
+  <div class="cell cell-time">
+    {% if row.block_label %}{% set span = row.block_label.split("–") %}<span class="when">{{ span[0] }}</span><span class="until">{{ span[1] }}</span>{% endif %}
+  </div>
+</li>

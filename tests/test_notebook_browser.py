@@ -93,15 +93,18 @@ def test_a_day_written_as_one_document(page, live, app_db) -> None:
         "reflection:Calmer than yesterday.",
         "text:Evening.",
     ]
+    # RECORD names it and its day; TIME holds its hour.
     row = page.locator("#notebook .task-row")
-    assert "tomorrow" in row.inner_text() and "15:00–16:00" in row.inner_text()
+    assert row.locator(".rec-no").inner_text().lower() == "task " + f"{task_id:03d}"
+    assert row.locator(".rec-line.planned").inner_text().lower() == "tomorrow"
+    assert row.locator(".cell-time").inner_text().split() == ["15:00", "16:00"]
     assert page.locator("#day-lists .task-row").count() == 0
 
     # Tomorrow's page lists it, with the way back to where it was written.
     page.keyboard.press("ArrowRight")
     page.wait_for_url(f"**/day/{TOMORROW.isoformat()}")
     origin = page.locator("#also-list .task-row .origin")
-    assert origin.inner_text() == "from today"
+    assert origin.inner_text().lower() == "from today"  # set in caps by the sheet
     assert origin.get_attribute("href") == f"/day/{TODAY.isoformat()}"
 
 
