@@ -69,6 +69,20 @@ def _links(block: dict[str, Any]) -> dict[Any, Any]:
     return links
 
 
+def _folded(block: dict[str, Any]) -> list[Any]:
+    folded = block.get("folded") or []
+    if not isinstance(folded, list):
+        raise DomainError("A text block's folded rows are a list")
+    return folded
+
+
+def _row(row: Any) -> int:
+    try:
+        return int(row)
+    except (TypeError, ValueError) as exc:
+        raise DomainError(f"Not a row: {row!r}") from exc
+
+
 def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
     """Blocks as the page stores them: known shapes only, prose as written
     (blank lines kept between other blocks, not at the page's top or
@@ -76,8 +90,9 @@ def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
     task once.
 
     A text block may carry `links`, {row: task id}, naming the rows that
-    are tasks (the notepad's "- [ ] " rows); they follow the text as the
-    page's blank top lines are trimmed, and only known tasks are kept."""
+    are tasks (the notepad's "- [ ] " rows), and `folded`, the task rows
+    shown folded to their title; they follow the text as the page's blank
+    top lines are trimmed, and only known tasks are kept."""
     if not isinstance(blocks, list):
         raise DomainError("A page is a list of blocks")
     task_ids = {
@@ -129,14 +144,16 @@ def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
         if not text.strip() and (kind in ("reflection", "stay") or not out or last):
             continue
         links: dict[int, int] = {}
+        folded: set[int] = set()
         if kind == "text":
             for row, task_id in _links(block).items():
-                try:
-                    at = int(row) - lead
-                except (TypeError, ValueError) as exc:
-                    raise DomainError(f"Not a row: {row!r}") from exc
+                at = _row(row) - lead
                 if task_id in known and 0 <= at < end - lead:
                     links[at] = task_id
+            for row in _folded(block):
+                at = _row(row) - lead
+                if 0 <= at < end - lead:
+                    folded.add(at)
         if kind == "text" and out and out[-1]["kind"] == "text":
             shift = out[-1]["text"].count("\n") + 1
             out[-1]["text"] += "\n" + text
@@ -144,10 +161,15 @@ def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
             merged |= {r + shift: t for r, t in links.items()}
             if merged:
                 out[-1]["links"] = {str(r): t for r, t in sorted(merged.items())}
+            joined = set(out[-1].get("folded", [])) | {r + shift for r in folded}
+            if joined:
+                out[-1]["folded"] = sorted(joined)
         else:
             out.append({"kind": kind, "text": text})
             if links:
                 out[-1]["links"] = {str(r): t for r, t in sorted(links.items())}
+            if folded:
+                out[-1]["folded"] = sorted(folded)
     return out
 
 

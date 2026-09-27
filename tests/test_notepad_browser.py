@@ -442,3 +442,59 @@ def test_a_stay_is_written_in_the_notes(page, live, app_db) -> None:
     page.reload()
     assert page.evaluate("Notepad.text()") == written.replace("[ ] place", "[x] place")
     assert line.count() == 3
+
+
+def test_a_task_folds_to_its_title(page, live, app_db) -> None:
+    page.goto(f"{live}/today")
+    write_in(page)
+    page.keyboard.type("- [ ] Call the dentist")
+    page.keyboard.press("Enter")
+    page.keyboard.type("- ask about the crown")
+    page.keyboard.press("Enter")
+    page.keyboard.type("- and the cleaning")
+    page.keyboard.press("Control+Enter")
+    page.keyboard.type("- [ ] Pick up the parcel")
+    written = page.evaluate("Notepad.text()")
+
+    # Right under another task, a task draws no rule of its own above it.
+    titles = page.locator(".pad-editor .cm-line.pad-title")
+    assert "pad-joined" in titles.nth(1).get_attribute("class")
+    assert "pad-joined" not in titles.nth(0).get_attribute("class")
+
+    # Its chevron folds it to its title, its rows counted; the notes are unchanged.
+    titles.first.locator(".pad-fold").click()
+    assert titles.first.locator(".pad-folded-rows").inner_text() == "2 rows"
+    assert page.locator(".pad-editor .cm-line").count() == 2
+    assert page.evaluate("Notepad.text()") == written
+    from app.services import tasks as tasks_svc
+
+    with app_db() as db:
+        [task] = tasks_svc.list_tasks(db)  # added by Ctrl+Enter
+        task_id = task.id
+    saved_as(app_db, [{"kind": "text", "text": written, "links": {"0": task_id}, "folded": [0]}])
+
+    # Folded after a reload too. End on its title goes to the title's end
+    # (its rows share its line): what is typed there is its title's.
+    page.reload()
+    assert titles.first.locator(".pad-folded-rows").inner_text() == "2 rows"
+    write_in(page)
+    page.keyboard.press("Control+Home")
+    page.keyboard.press("End")
+    page.keyboard.type(" soon")
+    written = written.replace("dentist", "dentist soon")
+    assert page.evaluate("Notepad.text()") == written
+    assert titles.first.locator(".pad-folded-rows").count() == 1
+    # An edit that would reach its rows unfolds it first.
+    page.keyboard.press("Delete")
+    assert titles.first.locator(".pad-folded-rows").count() == 0
+    assert page.evaluate("Notepad.text()") == written
+    assert titles.first.locator(".pad-fold").get_attribute("aria-expanded") == "true"
+
+    # Folded again, Ctrl+Enter from its title goes on to a row after it, still folded.
+    titles.first.locator(".pad-fold").click()
+    page.keyboard.press("Control+Home")
+    page.keyboard.press("Control+Enter")
+    assert titles.first.locator(".pad-folded-rows").inner_text() == "2 rows"
+    text = page.evaluate("Notepad.text()")
+    task = "- [ ] Call the dentist soon\n\t- ask about the crown\n\t- and the cleaning\n"
+    assert text.startswith(task + "\n")

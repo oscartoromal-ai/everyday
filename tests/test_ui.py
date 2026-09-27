@@ -45,7 +45,7 @@ def test_a_page_written_with_tasks_reads_back_as_text(client, db) -> None:
     pad = client.get("/today").text.split('id="notepad"')[1].split("</textarea>")[0]
     assert ">Morning.\n- [ ] Call the dentist" in pad
     [row] = task_rows_of(pad)
-    assert (row["row"], row["done"], row["id"]) == (1, False, task.id)
+    assert (row["row"], row["done"], row["id"], row["folded"]) == (1, False, task.id, False)
     # Its title row's controls get the task's fields.
     assert row["fields"]["status"] == "todo" and row["fields"]["planned_for"] == ""
 

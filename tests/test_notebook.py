@@ -107,6 +107,18 @@ def test_time_on_a_day_creates_moves_and_clears_the_block(db) -> None:
     assert task.blocks == []
 
 
+def test_folded_task_rows_follow_their_text(db) -> None:
+    blocks = [
+        {"kind": "text", "text": "\n- [ ] a\n\tx", "folded": [1]},
+        {"kind": "text", "text": "- [ ] b\n\ty", "folded": [0, 9]},
+    ]
+    # Trimmed from the top and joined, each still names its row; one past
+    # the text is dropped.
+    assert notebook.normalize(db, blocks) == [
+        {"kind": "text", "text": "- [ ] a\n\tx\n- [ ] b\n\ty", "folded": [0, 2]},
+    ]
+
+
 def test_a_stay_keeps_its_items_as_written(db) -> None:
     text = "\n- [x] place: Lisbon\n- [ ] accommodation:\n- [ ] ferry\nno rush"
     page = notebook.save_page(

@@ -418,6 +418,7 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
     rows."""
     lines: list[str] = []
     links: dict[int, int] = {}
+    folded: set[int] = set()  # task rows shown folded to their title
     for block in notebook_svc.blocks_of(db, day):
         if block["kind"] == "task":
             task = block["task"]
@@ -445,6 +446,7 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
         lines.extend(block["text"].split("\n"))
         for row, task_id in (block.get("links") or {}).items():
             links[start + int(row)] = task_id
+        folded |= {start + int(row) for row in block.get("folded") or []}
     tasks = {t.id: t for t in db.scalars(select(Task).where(Task.id.in_(links.values())))}
     for row, task_id in list(links.items()):
         task = tasks.get(task_id)
@@ -463,9 +465,10 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
             # The fields its title row's controls show and set (the sheet's own).
             sheet = sheet_ctx(db, task, day)
             fields = {k: sheet[k] for k in TASK_FIELDS}
-        task_rows.append(
-            {"row": row, "done": done, "id": task.id if task else None, "fields": fields}
-        )
+        task_rows.append({
+            "row": row, "done": done, "id": task.id if task else None, "fields": fields,
+            "folded": row in folded,
+        })
         lines[row] = f"- [{'x' if done else ' '}] " + line[mark.end():]
     return {
         "text": "\n".join(lines),

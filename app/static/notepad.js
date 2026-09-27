@@ -15,7 +15,10 @@
    box or tab away, and the row is plain again.
 
    Every task is bracketed by a rule above its title and below its last row,
-   always; the task the caret is in has its rules and row numbers in ink.
+   always (one rule between a task and the one right under it); the task
+   the caret is in has its rules and row numbers in ink. A task with rows
+   under its title folds to its title and back (the chevron after Task),
+   and stays so; an edit that would reach its hidden rows unfolds it first.
    Ctrl+Enter or Esc in a task saves it (adds it for the day, with what its
    controls set, or writes its title and description to the task it made),
    Ctrl+Enter then going on to a fresh plain row. Ticking a task's box ticks
@@ -88,7 +91,7 @@
     planned_for: day, time: "", due: "", repeat: "none",
     project_id: "", milestone_id: "", status: "todo", owner: "oscar",
   });
-  const newTask = () => ({ id: null, saved: null, fields: newFields() });
+  const newTask = () => ({ id: null, saved: null, fields: newFields(), folded: false });
 
   const isTask = (line) => TASK.test(line.text);
   const isReflection = (line) => REFLECTION.test(line.text);
@@ -113,6 +116,8 @@
   // Every habit and its days (Monday 0 to Sunday 6, "" any day).
   const habits = new Map();
   const setTasks = StateEffect.define();
+  // A task folded to its title, or unfolded: {m, folded}.
+  const setFolded = StateEffect.define();
   // Tasks an edit took away, back with the undo that brings their rows back.
   const restoreTasks = StateEffect.define({
     map: (list, mapping) => list.map(({ pos, m }) => ({ pos: mapping.mapPos(pos, 1), m })),
@@ -141,6 +146,7 @@
     create: () => [],
     update(list, tr) {
       let next = null;
+      for (const e of tr.effects) if (e.is(setFolded)) e.value.m.folded = e.value.folded;
       for (const e of tr.effects) if (e.is(setTasks)) next = e.value;
       if (!next && tr.docChanged) {
         next = list.map(({ pos, m }) => ({ pos: tr.changes.mapPos(pos, 1, MapMode.TrackAfter), m }));
@@ -215,14 +221,17 @@
   /* ---- how the rows are drawn ---- */
 
   // In a task's (or habit's) row: its checkbox and the word Task (Habit).
+  // A task with rows under its title has its chevron after Task, to fold
+  // it to its title (fold: null without rows, else whether it is folded).
   class Kind extends WidgetType {
-    constructor(done, name = "Task") {
+    constructor(done, name = "Task", fold = null) {
       super();
       this.done = done;
       this.name = name;
+      this.fold = fold;
     }
     eq(other) {
-      return other.done === this.done && other.name === this.name;
+      return other.done === this.done && other.name === this.name && other.fold === this.fold;
     }
     toDOM() {
       const kind = document.createElement("span");
@@ -232,6 +241,16 @@
       const box = kind.firstElementChild;
       box.setAttribute("aria-checked", String(this.done));
       box.setAttribute("aria-label", "Done");
+      if (this.fold !== null) {
+        const fold = document.createElement("button");
+        fold.type = "button";
+        fold.className = "pad-fold";
+        fold.setAttribute("aria-expanded", String(!this.fold));
+        fold.setAttribute("aria-label", this.fold ? "Unfold the task" : "Fold the task to its title");
+        fold.title = this.fold ? "Unfold" : "Fold to its title";
+        fold.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 8l4 4 4-4"/></svg>';
+        kind.append(fold);
+      }
       return kind;
     }
     ignoreEvent() {
@@ -280,6 +299,23 @@
     }
     ignoreEvent() {
       return true;
+    }
+  }
+
+  // A folded task's hidden rows, after its title: how many.
+  class Folded extends WidgetType {
+    constructor(count) {
+      super();
+      this.count = count;
+    }
+    eq(other) {
+      return other.count === this.count;
+    }
+    toDOM() {
+      const badge = document.createElement("span");
+      badge.className = "pad-folded-rows";
+      badge.textContent = `${this.count} ${this.count === 1 ? "row" : "rows"}`;
+      return badge;
     }
   }
 
@@ -494,6 +530,9 @@
     const current = focused ? all.find((b) => here >= b.first && here <= b.last) : null;
     const of = new Map();
     for (const b of all) for (let n = b.first; n <= b.last; n++) of.set(n, b);
+    // A folded task shows its title alone: its last row, as drawn.
+    const folded = (b) => b.kind === "task" && b.m.folded && b.last > b.first;
+    const shownLast = (b) => (folded(b) ? b.first : b.last);
     const decos = [];
     const atomic = [];
     const numbers = new RangeSetBuilder();
@@ -501,6 +540,7 @@
       const line = doc.line(n);
       const b = of.get(n);
       const head = b?.first === n;
+      if (b && !head && folded(b)) continue; // hidden under its title
       const task = head && b.kind === "task";
       const reflection = head && b.kind === "reflection";
       const habit = head && b.kind === "habit";
@@ -509,8 +549,13 @@
       const item = tabbed && b?.kind === "stay" && ITEM.exec(line.text);
       const kinds = [];
       if (b) {
-        if (head) kinds.push("pad-first");
-        if (b.last === n) kinds.push("pad-last");
+        // Right under another, it shares that one's rule: its own is not drawn,
+        // and that one's is drawn in its colour while the caret is in it.
+        const above = head && of.get(n - 1);
+        const below = shownLast(b) === n && of.get(b.last + 1);
+        if (head) kinds.push(above ? "pad-first pad-joined" : "pad-first");
+        if (shownLast(b) === n) kinds.push("pad-last");
+        if (below && below === current) kinds.push("pad-then-current", `pad-then-${below.kind}`);
         if (b === current) kinds.push("pad-current");
         if (b.kind !== "task") kinds.push(`pad-${b.kind}`);
       }
@@ -539,10 +584,19 @@
         decos.push(label.range(line.from, line.from + lead));
         atomic.push(label.range(line.from, line.from + lead));
       } else if (task) {
-        const box = Decoration.replace({ widget: new Kind(TASK.exec(line.text)[1] !== " ") });
+        const fold = b.last > b.first ? folded(b) : null;
+        const box = Decoration.replace({ widget: new Kind(TASK.exec(line.text)[1] !== " ", "Task", fold) });
         decos.push(box.range(line.from, line.from + BOX));
         atomic.push(box.range(line.from, line.from + BOX));
-        decos.push(Decoration.widget({ widget: new Controls(b.m), side: 1 }).range(line.to));
+        let end = line.to;
+        if (fold) {
+          // Its rows hidden after its title, their count in their place.
+          end = doc.line(b.last).to;
+          const hidden = Decoration.replace({ widget: new Folded(b.last - b.first) });
+          decos.push(hidden.range(line.to, end));
+          atomic.push(hidden.range(line.to, end));
+        }
+        decos.push(Decoration.widget({ widget: new Controls(b.m), side: 1 }).range(end));
       } else if (tabbed) {
         const tab = Decoration.replace({ widget: INDENT });
         decos.push(tab.range(line.from, line.from + 1));
@@ -584,12 +638,21 @@
     return line.text.startsWith(TAB) ? 1 : 0;
   };
   // A caret landing at a boxed, labelled or tabbed row's very start goes to
-  // its first word (Home too, from anywhere in the row).
+  // its first word (Home too, from anywhere in the row). One landing after a
+  // folded task's hidden rows (End on its title: they share its line) goes
+  // to its title's end, where what is typed can be seen.
   const offTheLead = EditorState.transactionFilter.of((tr) => {
     if (!tr.selection) return tr;
     const { doc, selection } = tr.state;
+    const hidden = new Map(blocksOf(tr.state)
+      .filter((b) => b.m.folded && b.last > b.first)
+      .map((b) => [doc.line(b.last).to, doc.line(b.first).to]));
     let moved = false;
     const ranges = selection.ranges.map((r) => {
+      if (r.empty && hidden.has(r.head)) {
+        moved = true;
+        return EditorSelection.cursor(hidden.get(r.head));
+      }
       const line = doc.lineAt(r.head);
       const lead = leadOf(line, tr.state);
       if (!lead || r.head >= line.from + lead) return r;
@@ -605,6 +668,46 @@
     });
     if (!moved) return tr;
     return [tr, { selection: EditorSelection.create(ranges, selection.mainIndex), sequential: true }];
+  });
+
+  /* ---- folded tasks ---- */
+
+  // An edit that would reach a folded task's hidden rows unfolds it instead
+  // (the next edit does what was meant); an undo or redo goes through, and
+  // unfolds it too. A row added after it (Ctrl+Enter) leaves it folded.
+  const unfoldFirst = EditorState.transactionFilter.of((tr) => {
+    if (!tr.docChanged || tr.annotation(loading)) return tr;
+    const reached = [];
+    for (const b of blocksOf(tr.startState)) {
+      if (!b.m.folded || b.last === b.first) continue;
+      const from = tr.startState.doc.line(b.first).to;
+      const to = tr.startState.doc.line(b.last).to;
+      tr.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
+        const text = inserted.toString();
+        const reaches = toA > fromA
+          // a deletion into its rows, or joining the row after onto its last
+          ? (fromA < to && toA > from) || fromA === to
+          // a row added under its title, or words at its last row's end
+          : (fromA === from && text.includes("\n")) || (fromA === to && !text.startsWith("\n"));
+        if (reaches) reached.push(b.m);
+      });
+    }
+    if (!reached.length) return tr;
+    const effects = [...new Set(reached)].map((m) => setFolded.of({ m, folded: false }));
+    if (tr.isUserEvent("undo") || tr.isUserEvent("redo")) return [tr, { effects, sequential: true }];
+    return { effects };
+  });
+
+  document.addEventListener("pointerdown", (e) => {
+    if (e.target.closest?.(".pad-fold")) e.preventDefault(); // the caret stays where it was
+  });
+  document.addEventListener("click", (e) => {
+    const fold = e.target.closest?.(".pad-fold");
+    if (!fold || !view?.dom.contains(fold)) return;
+    const m = taskOfBox(fold);
+    if (!m) return;
+    view.dispatch({ effects: setFolded.of({ m, folded: !m.folded }) });
+    schedule(); // kept with the notes
   });
 
   /* ---- keys ---- */
@@ -714,11 +817,15 @@
     const doc = state.doc;
     const tasks = new Map(state.field(tasksField).map(({ pos, m }) => [pos, m]));
     const written = new Map(writtenOf(state).map((r) => [r.first, r]));
+    const foldable = new Set(blocksOf(state).filter((b) => b.last > b.first).map((b) => b.first));
     const out = [];
     let text = null;
     const endText = () => {
       if (!text) return;
-      out.push(Object.keys(text.links).length ? text : { kind: "text", text: text.text });
+      const block = { kind: "text", text: text.text };
+      if (Object.keys(text.links).length) block.links = text.links;
+      if (text.folded.length) block.folded = text.folded;
+      out.push(block);
       text = null;
     };
     for (let n = 1; n <= doc.lines; n++) {
@@ -735,14 +842,15 @@
         n = block.last;
         continue;
       }
-      if (!text) text = { kind: "text", text: null, links: {}, rows: [] };
+      if (!text) text = { kind: "text", text: null, links: {}, folded: [], rows: [] };
       const m = tasks.get(line.from);
       if (m?.id) text.links[text.rows.length] = m.id;
+      if (m?.folded && foldable.has(n)) text.folded.push(text.rows.length);
       text.rows.push(line.text);
       text.text = text.rows.join("\n");
     }
     endText();
-    return out.map(({ rows, ...block }) => block);
+    return out;
   };
   const snapshot = () => JSON.stringify(serialize());
   const pending = () => !!view && snapshot() !== saved;
@@ -1213,7 +1321,7 @@
   });
 
   const extensions = () => [
-    tasksField, keepTasks, focusField, fillerField, drawField, offTheLead,
+    tasksField, keepTasks, focusField, fillerField, drawField, offTheLead, unfoldFirst,
     EditorView.focusChangeEffect.of((state, focusing) => setFocus.of(focusing)),
     lineNumbers(),
     lineNumberWidgetMarker.of((v, widget) => (widget instanceof Filler ? new FillerNumbers(v.state.doc.lines + 1, widget.count) : null)),
@@ -1252,9 +1360,10 @@
     for (const { slug, days } of known) habits.set(slug, days);
     const starts = [0];
     for (let i = 0; i < text.length; i++) if (text[i] === "\n") starts.push(i + 1);
-    const tasks = rows.filter(({ row }) => row < starts.length).map(({ row, id, fields }) => {
+    const tasks = rows.filter(({ row }) => row < starts.length).map(({ row, id, fields, folded }) => {
       const given = Object.entries(fields || {}).map(([name, value]) => [name, value == null ? "" : String(value)]);
-      return { pos: starts[row], m: { id, saved: null, fields: { ...newFields(), ...Object.fromEntries(given) } } };
+      const m = { id, saved: null, fields: { ...newFields(), ...Object.fromEntries(given) }, folded: !!folded };
+      return { pos: starts[row], m };
     });
     const state = EditorState.create({ doc: text, extensions: extensions() });
     if (view) {

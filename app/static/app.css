@@ -1130,14 +1130,38 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 
 /* every task: a graphite rule above its title and below its last row,
    across the row numbers too, nothing filled; the one the caret is in,
-   the same rules in ink */
+   the same rules in ink. Right under another task (or reflection, habit,
+   stay), there is one rule between them, the upper's: the lower draws no
+   rule above it, and the shared one takes the lower's colour while the
+   caret is in the lower. */
 .pad-editor .pad-current { --bracket: var(--ink); }
-.pad-editor .cm-line.pad-first { box-shadow: inset 0 2px 0 var(--bracket); }
-.pad-editor .cm-line.pad-last { border-bottom-color: var(--bracket); box-shadow: inset 0 -1px 0 var(--bracket); }
-.pad-editor .cm-line.pad-first.pad-last { box-shadow: inset 0 2px 0 var(--bracket), inset 0 -1px 0 var(--bracket); }
-.pad-editor .cm-gutterElement.pad-first { box-shadow: inset 0 2px 0 var(--bracket); }
-.pad-editor .cm-gutterElement.pad-last { box-shadow: inset 0 -2px 0 var(--bracket); }
-.pad-editor .cm-gutterElement.pad-first.pad-last { box-shadow: inset 0 2px 0 var(--bracket), inset 0 -2px 0 var(--bracket); }
+.pad-editor .pad-then-current { --below: var(--ink); }
+.pad-editor .pad-then-current.pad-then-reflection { --below: var(--signal); }
+.pad-editor .pad-then-current.pad-then-habit { --below: var(--hue-4); }
+.pad-editor .pad-then-current.pad-then-stay { --below: var(--hue-3); }
+.pad-editor :is(.cm-line, .cm-gutterElement):is(.pad-first, .pad-last) {
+  box-shadow: var(--rule-above, 0 0 transparent), var(--rule-below, 0 0 transparent);
+}
+.pad-editor :is(.cm-line, .cm-gutterElement).pad-first:not(.pad-joined) { --rule-above: inset 0 2px 0 var(--bracket); }
+.pad-editor .cm-line.pad-last { border-bottom-color: var(--below, var(--bracket)); --rule-below: inset 0 -1px 0 var(--below, var(--bracket)); }
+.pad-editor .cm-gutterElement.pad-last { --rule-below: inset 0 -2px 0 var(--below, var(--bracket)); }
+/* a task with rows under its title: its chevron after Task folds it to its
+   title, the hidden rows counted in a quiet tag after it */
+.pad-fold {
+  flex: none; display: grid; place-content: center; width: 16px; height: 16px; margin-left: -2px;
+  color: var(--pewter); cursor: pointer;
+}
+.pad-fold svg {
+  width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round; transition: transform var(--dur) var(--ease);
+}
+.pad-fold[aria-expanded="false"] svg { transform: rotate(-90deg); }
+.pad-fold:hover { color: var(--ink); }
+.pad-folded-rows {
+  margin-left: var(--s-2); padding: 1px 6px; text-indent: 0;
+  font-size: var(--t-caption); color: var(--pewter);
+  box-shadow: inset 0 0 0 1px var(--hairline); border-radius: var(--r-tag);
+}
 /* a reflection: the same rules in light blue, the signal's cyan let out
    toward the paper; the one the caret is in, the signal itself */
 .pad-editor .pad-reflection { --bracket: color-mix(in srgb, var(--signal) 45%, var(--paper)); }
