@@ -1098,15 +1098,16 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 /* the row the caret is in: its number in ink */
 .pad-rows-inner > div.here { color: var(--ink); font-weight: 600; }
 /* a task being written ("- [ ] " at a row's start): the rows it covers are
-   marked in the spark tint, their numbers in spark, until it is closed */
+   bracketed by a graphite rule above and below, nothing filled, their
+   numbers in ink, until it is closed */
 .notepad { position: relative; z-index: 1; }
 .pad-task-mark {
-  position: absolute; z-index: 0; left: var(--pad-rows); right: 0;
-  background: var(--spark-tint); box-shadow: inset 0 0 0 1px var(--spark-deep);
+  position: absolute; z-index: 2; left: 0; right: 0;
+  border-top: 2px solid var(--graphite); border-bottom: 2px solid var(--graphite);
   pointer-events: none;
 }
 .pad-task-mark[hidden] { display: none; }
-.pad-rows-inner > div.task { color: var(--spark-deep); font-weight: 600; background: var(--spark-tint); }
+.pad-rows-inner > div.task { color: var(--ink); font-weight: 600; }
 .notepad::placeholder { color: var(--pewter); }
 .notepad:focus, .notepad:focus-visible { outline: none; box-shadow: none; }
 
