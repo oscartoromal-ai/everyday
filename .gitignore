@@ -23,3 +23,6 @@ __pycache__/
 
 # The CodeMirror build's packages (scripts/vendor/codemirror; its output is committed).
 node_modules/
+
+# Git worktrees agents work in (their own checkouts, never part of this one).
+.claude/worktrees/
