@@ -140,8 +140,7 @@ The empty-list note hides once the list has a row.
 
 **Notepad.** Today, and every day's page (`/day/2026-09-25`), is a notepad beside the day's timeline.
 The header is the day's name at 24px ("Today" on today's), a pair of 32px chevrons for the day before and after, and on any other day a pill back to Today; the line under it gives the date, and the key line names N, the arrows and "? all keys".
-The rest of the left column is one plate (see Inputs) under a NOTES caption, as tall as the window allows (at least 420px; 55vh once the timeline stacks under it), holding a plain textarea: 16px ink at 1.7 line height, 16px by 24px in, no resize handle, the pewter placeholder "Anything on your mind today."
-It is written in all day, so in use it keeps its blue rule and only its crosses and caption take the red pencil.
+The rest of the left column is one glass card (as list cards are), as tall as the window allows (at least 420px; 55vh once the timeline stacks under it), holding a plain textarea: 16px ink at 1.7 line height, 16px by 24px in, no border, no focus ring and no resize handle, the pewter placeholder "Anything on your mind today."
 When the notes were saved in another window, a line under the plate says so, with Show that version and Keep mine as secondary buttons.
 
 **Tasks.** A page header ("Tasks", the open and undated counts, and a By date / By project segmented control on the right), the composer alone in its own card, then the tasks.
@@ -178,7 +177,7 @@ A plate is square, ruled with a 1px line in drafting blue (`--draft-rule`: `--hu
 Above it, a caption: an 11px leader line in the rule's blue, then the field's name in 11px Barlow Condensed caps, graphite.
 The field in use is re-marked in red pencil (`--hue-8`): its rule gains a 1px paper gap and a 1px red line around it, its crosses turn red, and its caption turns red with them.
 Inside a plate, controls draw nothing of their own: 16px ink text, 40px tall, pewter placeholders, date and time in `--font-num`, a select's chevron drawn in the rule's blue.
-Plates are the task sheet (composer and edit, captioned Add a task, then New task once writing; Edit task), Today's notepad, the event, milestone and new-project forms, the project editor, Weeks' quick add, and, rule only, Projects' status select.
+Plates are the task sheet (composer and edit, captioned Add a task, then New task once writing; Edit task), the event, milestone and new-project forms, the project editor, Weeks' quick add, and, rule only, Projects' status select.
 In a task sheet a set field's value is written in red pencil, and a dashed blue rule divides the title line from the description.
 The buttons that finish writing (the sheet's, and those of the inline forms and the project editor) are drafted too: square, 34px (40px beside a form's fields), captions in Barlow Condensed caps; the secondary is a blue-ruled outline, the primary a red-pencil fill with paper-coloured text (deepened by day for 4.5:1).
 Everything that holds a plate leaves the 5px its crosses need.

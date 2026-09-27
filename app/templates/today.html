@@ -24,13 +24,10 @@
       <p class="keys-hint"><kbd>N</kbd> new task · <kbd>←</kbd><kbd>→</kbd> days · <kbd>?</kbd> all keys</p>
     </header>
 
-    <label class="field notepad-field">
-      <span class="draft-label">Notes</span>
-      <span class="plate notepad-plate">
-        <textarea class="notepad" id="notepad" data-day="{{ day.isoformat() }}" data-version="{{ notepad.version }}"
-                  spellcheck="true" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
-      </span>
-    </label>
+    <section class="notepad-card">
+      <textarea class="notepad" id="notepad" data-day="{{ day.isoformat() }}" data-version="{{ notepad.version }}"
+                spellcheck="true" aria-label="Notes" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
+    </section>
     <div class="pad-stale" id="pad-stale" role="alert" hidden>
       <span>These notes were changed in another window.</span>
       <button type="button" class="btn quiet" data-pad-reload>Show that version</button>

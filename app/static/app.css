@@ -1054,20 +1054,22 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 }
 .day-today:hover { background: var(--glass-hover); }
 
-/* The notepad: the whole left column, one drafted plate (see drafted
-   inputs) as tall as the window allows, for plain text at reading size. */
+/* The notepad: the whole left column, one glass card as tall as the
+   window allows, for plain text at reading size. */
 .today-pad { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-6)); }
 .today-pad .day-header { margin-bottom: var(--s-4); }
-.notepad-field { display: flex; flex: 1; flex-direction: column; margin: 5px; }
-.notepad-plate { display: flex; flex: 1; }
-.plate > textarea.notepad {
-  flex: 1; min-height: 420px; padding: var(--s-4) var(--s-6);
-  font-size: var(--t-body); line-height: 1.7; color: var(--ink);
-  resize: none;
+.notepad-card {
+  display: flex; flex: 1;
+  background: var(--glass-card); backdrop-filter: blur(20px) saturate(1.1);
+  border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
 }
-/* the notes are written all day: the plate keeps its blue rule while in
-   use, and only its crosses and caption take the red pencil */
-.notepad-plate:focus-within { box-shadow: inset 0 0 0 1px var(--draft-rule); }
+.notepad {
+  flex: 1; min-height: 420px; padding: var(--s-4) var(--s-6);
+  font: inherit; font-size: var(--t-body); line-height: 1.7; color: var(--ink);
+  background: transparent; border: none; resize: none;
+}
+.notepad::placeholder { color: var(--pewter); }
+.notepad:focus, .notepad:focus-visible { outline: none; box-shadow: none; }
 
 .pad-stale { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-3); font-size: var(--t-body-sm); color: var(--ink); }
 .pad-stale[hidden] { display: none; }
@@ -1085,12 +1087,12 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 @media (max-width: 1100px) {
   .today-page { grid-template-columns: minmax(0, 1fr); gap: var(--s-6); }
   .today-pad { min-height: 0; }
-  .plate > textarea.notepad { min-height: 55vh; }
+  .notepad { min-height: 55vh; }
   .today-timeline { position: static; }
   .today-timeline .calendar-grid { max-height: none; }
 }
 @media (max-width: 720px) {
-  .plate > textarea.notepad { padding: var(--s-3) var(--s-4); }
+  .notepad { padding: var(--s-3) var(--s-4); }
 }
 
 /* ---------- weeks: several weeks at a glance, as a grid or as rows ---------- */
