@@ -400,9 +400,6 @@ def projects_list_ctx(db: Session, now: datetime) -> dict[str, Any]:
 
 
 TASK_ROW = re.compile(r"^- \[[ xX]\] ")
-# What starts a reflection's row in the notepad (the notepad saves it as a
-# reflection block).
-REFLECTION = "/reflection"
 # What starts a habit's row: "/habit name" when done, "/habit [ ] name" when
 # its box is unticked (the notepad saves it as a habit block).
 HABIT = "/habit"
@@ -430,10 +427,11 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
                     links[len(lines)] = task.id
                 lines.append(f"- [ ] {title}")
             continue
-        if block["kind"] == "reflection":
-            # Written as it was: its "/reflection" row, its other rows tabbed in.
+        if block["kind"] in ("reflection", "stay"):
+            # Written as it was: its "/reflection" (or "/stay") row, its other
+            # rows tabbed in.
             first, *rest = block["text"].split("\n")
-            lines.append(f"{REFLECTION} {first}")
+            lines.append(f"/{block['kind']} {first}".rstrip(" "))
             lines.extend(f"\t{line}" for line in rest)
             continue
         if block["kind"] == "habit":
@@ -476,6 +474,8 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
         # Every habit and its days: for the strip of those not yet written,
         # and the names offered after "/habit ".
         "habits": [{"slug": h.slug, "days": h.days} for h in habits_svc.list_habits(db)],
+        # What a stay written here starts with: the last stay's items.
+        "stay_items": notebook_svc.last_stay_items(db, day),
         "version": notebook_svc.version_of(db, day),
     }
 

@@ -21,7 +21,10 @@
         </nav>
       </div>
       <div class="rest">{% if is_today %}{{ day.strftime("%A") }} {% endif %}{{ day.day }} {{ day.strftime("%B %Y") }}</div>
-      <p class="keys-hint"><kbd>- [ ]</kbd> task · <kbd>/reflection</kbd> · <kbd>/habit</kbd> · <kbd>Ctrl</kbd><kbd>Enter</kbd> close it · <kbd>←</kbd><kbd>→</kbd> days · <kbd>?</kbd> all keys</p>
+      {# Where Oscar stays this day, from the notes' /stay: each item, sorted or
+         not; a click goes to its row (notepad.js). #}
+      <ul class="day-stay" id="day-stay" aria-label="Stay" hidden></ul>
+      <p class="keys-hint"><kbd>- [ ]</kbd> task · <kbd>/reflection</kbd> · <kbd>/habit</kbd> · <kbd>/stay</kbd> ·<kbd>Ctrl</kbd><kbd>Enter</kbd> close it · <kbd>←</kbd><kbd>→</kbd> days · <kbd>?</kbd> all keys</p>
     </header>
 
     <section class="notepad-card">
@@ -30,6 +33,7 @@
       <textarea class="notepad" id="notepad" data-day="{{ day.isoformat() }}" data-version="{{ notepad.version }}"
                 data-task-rows='{{ notepad.task_rows | tojson }}'
                 data-habits='{{ notepad.habits | tojson }}'
+                data-stay-items='{{ notepad.stay_items | tojson }}'
                 spellcheck="true" aria-label="Notes" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
     </section>
     {# A task row's controls, after its title (notepad.js clones one

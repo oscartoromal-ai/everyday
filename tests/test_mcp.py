@@ -108,6 +108,7 @@ async def test_claude_reads_the_notebook_and_a_tasks_history(app_db) -> None:
                 {"kind": "task", "id": task.id},
                 {"kind": "reflection", "text": "Calmer."},
                 {"kind": "habit", "habit": "stretch", "text": "\nten minutes"},
+                {"kind": "stay", "text": "\n- [x] place: Lisbon\n- [ ] accommodation:"},
             ],
             version=0,
         )
@@ -117,12 +118,16 @@ async def test_claude_reads_the_notebook_and_a_tasks_history(app_db) -> None:
     async with Client(mcp) as client:
         await client.call_tool("update_task_status", {"task_id": task_id, "status": "done"})
         pages = (await client.call_tool("get_notebook", {})).data
-        [text, written, reflection, habit] = pages[TODAY.isoformat()]
+        [text, written, reflection, habit, stay] = pages[TODAY.isoformat()]
         assert text == {"kind": "text", "text": "Slow morning."}
         assert written["task"]["title"] == "Call the dentist"
         assert written["task"]["status"] == "done"
         assert reflection == {"kind": "reflection", "text": "Calmer."}
         assert habit == {"kind": "habit", "habit": "stretch", "done": True, "note": "ten minutes"}
+        assert stay["items"] == [
+            {"name": "place", "value": "Lisbon", "done": True},
+            {"name": "accommodation", "value": "", "done": False},
+        ]
 
         # How consistent he is: each habit, day by day.
         [row] = (await client.call_tool("get_habits", {"days": 2})).data

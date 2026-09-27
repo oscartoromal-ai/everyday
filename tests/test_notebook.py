@@ -105,3 +105,20 @@ def test_time_on_a_day_creates_moves_and_clears_the_block(db) -> None:
     assert moved.id == block.id and moved.end == datetime.combine(TODAY, time(18, 30))
     blocks_svc.set_day_time(db, task, TODAY, None, None)
     assert task.blocks == []
+
+
+def test_a_stay_keeps_its_items_as_written(db) -> None:
+    text = "\n- [x] place: Lisbon\n- [ ] accommodation:\n- [ ] ferry\nno rush"
+    page = notebook.save_page(
+        db, TODAY - timedelta(days=1), [{"kind": "stay", "text": text + "\n\n"}], version=0
+    )
+    assert page.blocks == [{"kind": "stay", "text": text}]
+    # Its items: each named, its value, sorted or not; its other lines its note.
+    assert notebook.stay_items(text) == [
+        {"name": "place", "value": "Lisbon", "done": True},
+        {"name": "accommodation", "value": "", "done": False},
+        {"name": "ferry", "value": "", "done": False},
+    ]
+    # A stay written later starts with them; the first ever with place and accommodation.
+    assert notebook.last_stay_items(db, TODAY) == ["place", "accommodation", "ferry"]
+    assert notebook.last_stay_items(db, TODAY - timedelta(days=1)) == ["place", "accommodation"]

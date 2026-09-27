@@ -38,6 +38,14 @@
    writes its row, its icon sets its days. After "/" at a row's start the
    commands are offered, and after "/habit " the habits' names.
 
+   "/stay" says where Oscar stays that day: a note, then its items, each a
+   tabbed "- [ ] name: value" row drawn with its box (ticked once sorted),
+   bracketed in amber. A new stay starts with the items the last one had
+   (place and accommodation, the first time); Enter on an item starts the
+   next, on an empty one steps back to a plain tabbed row. Under the date,
+   the day's stay item by item, each a way to its row. The notes save it as
+   a stay block.
+
    The notes are saved as text, the task each row made by row (links), a
    moment after each change, when the tab is hidden, and when the page is
    left. A save names the version it was made from; one refused because
@@ -60,6 +68,10 @@
   const TAB = "\t"; // a task's or reflection's other rows start with one
   const REFLECTION = /^\/reflection(?: |$)/; // a reflection's first row, and its lead
   const HABIT = /^\/habit (?:\[([ xX])\] )?/; // a habit's first row, and its lead
+  const STAY = /^\/stay(?: |$)/; // a stay's first row, and its lead
+  // A stay's item row: its tab and box, its name, its value.
+  const ITEM = /^\t- \[([ xX])\] ([^:]*?)\s*(?::\s?(.*))?$/;
+  const ITEM_LEAD = 7; // "\t- [ ] "
   const HABIT_NAME = /^[a-z0-9][a-z0-9-]{0,79}$/; // as the server keeps them
 
   const source = () => document.getElementById("notepad");
@@ -81,6 +93,10 @@
   const isTask = (line) => TASK.test(line.text);
   const isReflection = (line) => REFLECTION.test(line.text);
   const isHabit = (line) => HABIT.test(line.text);
+  const isStay = (line) => STAY.test(line.text);
+  // What a stay written here starts with (the last stay's items).
+  let stayItems = ["place", "accommodation"];
+  const stayTemplate = () => stayItems.map((name) => `\n\t- [ ] ${name}: `).join("");
   // A habit's row read: its lead, done or skipped, its name as written and
   // as kept, and the rest of the row (its note's first line).
   const habitOf = (line) => {
@@ -162,7 +178,7 @@
     const out = [];
     for (let n = 1; n <= doc.lines; n++) {
       const line = doc.line(n);
-      const kind = isReflection(line) ? "reflection" : isHabit(line) ? "habit" : null;
+      const kind = isReflection(line) ? "reflection" : isHabit(line) ? "habit" : isStay(line) ? "stay" : null;
       if (!kind) continue;
       let last = n;
       while (last < doc.lines) {
@@ -179,6 +195,11 @@
     const n = state.doc.lineAt(state.selection.main.head).number;
     return [...blocksOf(state), ...writtenOf(state)].find((b) => n >= b.first && n <= b.last) || null;
   };
+  // A row of a stay, under its first: its items are there.
+  const inStay = (state, line) =>
+    writtenOf(state).some((b) => b.kind === "stay" && line.number > b.first && line.number <= b.last);
+  const isItem = (state, line) => ITEM.test(line.text) && inStay(state, line);
+
   // The habits a page has written (by name as kept).
   const writtenHabits = (state) => new Set(
     writtenOf(state).filter((b) => b.kind === "habit").map((b) => habitOf(state.doc.line(b.first)).slug),
@@ -218,19 +239,49 @@
     }
   }
 
-  // In a reflection's first row, for its "/reflection": the word Reflection.
-  class ReflectionLabel extends WidgetType {
-    eq() {
-      return true;
+  // In a reflection's (or stay's) first row, for its "/reflection": the
+  // word Reflection (Stay).
+  class Label extends WidgetType {
+    constructor(name, className) {
+      super();
+      this.name = name;
+      this.className = className;
+    }
+    eq(other) {
+      return other.name === this.name;
     }
     toDOM() {
       const label = document.createElement("span");
-      label.className = "pad-kind pad-reflection-name";
-      label.textContent = "Reflection";
+      label.className = `pad-kind ${this.className}`;
+      label.textContent = this.name;
       return label;
     }
   }
-  const REFLECTION_LABEL = new ReflectionLabel();
+  const REFLECTION_LABEL = new Label("Reflection", "pad-reflection-name");
+  const STAY_LABEL = new Label("Stay", "pad-stay-name");
+
+  // In a stay's item, for its "- [ ] ": its box, ticked once it is sorted.
+  class ItemBox extends WidgetType {
+    constructor(done) {
+      super();
+      this.done = done;
+    }
+    eq(other) {
+      return other.done === this.done;
+    }
+    toDOM() {
+      const box = document.createElement("button");
+      box.type = "button";
+      box.className = "pad-check pad-item-check";
+      box.setAttribute("role", "checkbox");
+      box.setAttribute("aria-checked", String(this.done));
+      box.setAttribute("aria-label", "Sorted");
+      return box;
+    }
+    ignoreEvent() {
+      return true;
+    }
+  }
 
   // A task's other rows' tab: the same indent.
   class Indent extends WidgetType {
@@ -453,7 +504,9 @@
       const task = head && b.kind === "task";
       const reflection = head && b.kind === "reflection";
       const habit = head && b.kind === "habit";
+      const stay = head && b.kind === "stay";
       const tabbed = !head && line.text.startsWith(TAB);
+      const item = tabbed && b?.kind === "stay" && ITEM.exec(line.text);
       const kinds = [];
       if (b) {
         if (head) kinds.push("pad-first");
@@ -464,7 +517,8 @@
       const row = [...kinds];
       if (task) row.push("pad-title");
       else if (habit) row.push("pad-body", "pad-head");
-      else if (reflection || tabbed) row.push("pad-body");
+      else if (reflection || stay || tabbed) row.push("pad-body");
+      if (item) row.push(item[1] === " " ? "pad-item open" : "pad-item");
       if (row.length) decos.push(Decoration.line({ class: row.join(" ") }).range(line.from));
       if (habit) {
         const h = habitOf(line);
@@ -479,9 +533,9 @@
           decos.push(name.range(line.from + h.lead, line.from + h.lead + h.name.length));
         }
         if (h.valid) decos.push(Decoration.widget({ widget: new HabitControls(h.slug), side: 1 }).range(line.to));
-      } else if (reflection) {
-        const lead = REFLECTION.exec(line.text)[0].length;
-        const label = Decoration.replace({ widget: REFLECTION_LABEL });
+      } else if (reflection || stay) {
+        const lead = (reflection ? REFLECTION : STAY).exec(line.text)[0].length;
+        const label = Decoration.replace({ widget: reflection ? REFLECTION_LABEL : STAY_LABEL });
         decos.push(label.range(line.from, line.from + lead));
         atomic.push(label.range(line.from, line.from + lead));
       } else if (task) {
@@ -493,6 +547,15 @@
         const tab = Decoration.replace({ widget: INDENT });
         decos.push(tab.range(line.from, line.from + 1));
         atomic.push(tab.range(line.from, line.from + 1));
+        if (item) {
+          // Its box, then its name (up to its colon) set as a label.
+          const box = Decoration.replace({ widget: new ItemBox(item[1] !== " ") });
+          decos.push(box.range(line.from + 1, line.from + ITEM_LEAD));
+          atomic.push(box.range(line.from + 1, line.from + ITEM_LEAD));
+          const colon = line.text.indexOf(":", ITEM_LEAD);
+          const end = colon < 0 ? line.length : colon + 1;
+          if (end > ITEM_LEAD) decos.push(Decoration.mark({ class: "pad-item-name" }).range(line.from + ITEM_LEAD, line.from + end));
+        }
       }
       if (focused && n === here) kinds.push("here");
       if (kinds.length) numbers.add(line.from, line.from, new RowClass(kinds.join(" ")));
@@ -513,12 +576,11 @@
 
   /* ---- the caret: never inside a box or a tab ---- */
 
-  const leadOf = (line) => {
+  const leadOf = (line, state = null) => {
     if (isTask(line)) return BOX;
-    const reflection = REFLECTION.exec(line.text);
-    if (reflection) return reflection[0].length;
-    const habit = HABIT.exec(line.text);
-    if (habit) return habit[0].length;
+    const lead = REFLECTION.exec(line.text) || HABIT.exec(line.text) || STAY.exec(line.text);
+    if (lead) return lead[0].length;
+    if (state && isItem(state, line)) return ITEM_LEAD;
     return line.text.startsWith(TAB) ? 1 : 0;
   };
   // A caret landing at a boxed, labelled or tabbed row's very start goes to
@@ -529,7 +591,7 @@
     let moved = false;
     const ranges = selection.ranges.map((r) => {
       const line = doc.lineAt(r.head);
-      const lead = leadOf(line);
+      const lead = leadOf(line, tr.state);
       if (!lead || r.head >= line.from + lead) return r;
       if (!r.empty) {
         // A selection drawn back to a row's start (Shift+Home) stops at its
@@ -552,16 +614,32 @@
     if (state.selection.ranges.length > 1) return false;
     const range = state.selection.main;
     const line = state.doc.lineAt(range.head);
-    if (isTask(line) || isReflection(line) || isHabit(line)) {
+    if (isTask(line) || isReflection(line) || isHabit(line) || isStay(line)) {
       const lead = leadOf(line);
       if (range.empty && range.head === line.from + lead && line.length > lead) {
         // At a first row's first word: a plain row above it, the task (or
-        // reflection, or habit) moving down with its words.
+        // reflection, habit or stay) moving down with its words.
         v.dispatch({ changes: { from: line.from, insert: "\n" }, selection: { anchor: range.head + 1 }, scrollIntoView: true, userEvent: "input" });
+        return true;
+      }
+      const next = line.number < state.doc.lines && state.doc.line(line.number + 1);
+      if (isStay(line) && range.empty && range.head === line.to && !next?.text.startsWith(TAB)) {
+        // A stay with nothing under it yet: its items, the caret at the first.
+        const items = stayTemplate();
+        const first = items.indexOf(": ") + 2;
+        v.dispatch({ changes: { from: line.to, insert: items }, selection: { anchor: line.to + first }, scrollIntoView: true, userEvent: "input" });
         return true;
       }
     } else if (!line.text.startsWith(TAB)) {
       return false;
+    } else if (isItem(state, line)) {
+      if (range.empty && /^\t- \[[ xX]\] $/.test(line.text)) {
+        // An empty item: a plain tabbed row (Enter again steps out).
+        v.dispatch({ changes: { from: line.from + 1, to: line.to }, userEvent: "delete" });
+        return true;
+      }
+      v.dispatch(state.replaceSelection(`\n${TAB}- [ ] `), { scrollIntoView: true, userEvent: "input" });
+      return true;
     } else if (line.text === TAB && range.empty) {
       // An empty row of a task, reflection or habit: out of it, to a plain row.
       v.dispatch({ changes: { from: line.from, to: line.to }, userEvent: "delete" });
@@ -608,7 +686,7 @@
       run: (v) => {
         const range = v.state.selection.main;
         const line = v.state.doc.lineAt(range.head);
-        const lead = leadOf(line);
+        const lead = leadOf(line, v.state);
         if (!range.empty || !lead || range.head !== line.from + lead || line.number === 1) return false;
         v.dispatch({ selection: { anchor: line.from - 1 }, scrollIntoView: true, userEvent: "select" });
         return true;
@@ -653,7 +731,7 @@
         for (let k = n + 1; k <= block.last; k++) words.push(doc.line(k).text.slice(1));
         out.push(habit
           ? { kind: "habit", habit: habit.slug, done: habit.done, text: words.join("\n") }
-          : { kind: "reflection", text: words.join("\n") });
+          : { kind: block.kind, text: words.join("\n") });
         n = block.last;
         continue;
       }
@@ -836,6 +914,12 @@
     const box = e.target.closest?.(".pad-check");
     if (!box || !view?.dom.contains(box)) return;
     const line = view.state.doc.lineAt(view.posAtDOM(box));
+    if (isItem(view.state, line)) {
+      // A stay's item: sorted, or not yet.
+      const at = line.from + 4;
+      view.dispatch({ changes: { from: at, to: at + 1, insert: line.text[4] === " " ? "x" : " " }, userEvent: "input" });
+      return;
+    }
     if (isHabit(line)) {
       const { lead, done } = habitOf(line);
       const insert = done ? "/habit [ ] " : "/habit ";
@@ -924,6 +1008,49 @@
     if (pending()) flush({ leaving: true });
   });
 
+  /* ---- the day's stay, under the date ---- */
+
+  // Each item of the day's stays: its box, its name, its value; unsorted in
+  // amber. A click goes to its row.
+  let stayShows = null;
+  function drawStay() {
+    const list = document.getElementById("day-stay");
+    if (!list || !view) return;
+    const doc = view.state.doc;
+    const items = [];
+    for (const b of writtenOf(view.state)) {
+      if (b.kind !== "stay") continue;
+      for (let n = b.first + 1; n <= b.last; n++) {
+        const item = ITEM.exec(doc.line(n).text);
+        if (item && item[2].trim()) items.push({ n, name: item[2].trim(), value: (item[3] || "").trim(), done: item[1] !== " " });
+      }
+    }
+    const shows = JSON.stringify(items);
+    if (shows === stayShows) return;
+    stayShows = shows;
+    list.hidden = !items.length;
+    list.replaceChildren(...items.map(({ n, name, value, done }) => {
+      const li = document.createElement("li");
+      const go = document.createElement("button");
+      go.type = "button";
+      go.className = done ? "day-stay-item done" : "day-stay-item";
+      go.dataset.row = String(n);
+      go.innerHTML = '<span class="day-stay-box" aria-hidden="true"></span><span class="day-stay-name"></span><span class="day-stay-value"></span>';
+      go.querySelector(".day-stay-name").textContent = name.charAt(0).toUpperCase() + name.slice(1);
+      go.querySelector(".day-stay-value").textContent = value || (done ? "" : "not sorted");
+      go.setAttribute("aria-label", `${name}: ${value || "no value"}, ${done ? "sorted" : "not sorted"}`);
+      li.append(go);
+      return li;
+    }));
+  }
+  document.addEventListener("click", (e) => {
+    const go = e.target.closest?.(".day-stay-item");
+    if (!go || !view) return;
+    const line = view.state.doc.line(Math.min(Number(go.dataset.row), view.state.doc.lines));
+    view.focus();
+    view.dispatch({ selection: { anchor: line.to }, scrollIntoView: true });
+  });
+
   /* ---- habits not yet written ---- */
 
   // Under the notes: each habit due this day (any day's, or one of its
@@ -977,6 +1104,7 @@
   const COMMANDS = [
     { label: "/habit", apply: "/habit ", detail: "a habit, checked this day" },
     { label: "/reflection", apply: "/reflection ", detail: "free text" },
+    { label: "/stay", apply: "/stay", detail: "where you stay this day" },
   ];
   const offer = (context) => {
     const line = context.state.doc.lineAt(context.pos);
@@ -988,12 +1116,36 @@
           ...c,
           // Choosing /habit goes straight on to the names.
           apply: (v, completion, from, to) => {
+            if (c.label === "/stay") {
+              // Its items come with it, the caret at the first.
+              const insert = c.apply + stayTemplate();
+              const anchor = from + c.apply.length + stayTemplate().indexOf(": ") + 2;
+              v.dispatch({ changes: { from, to, insert }, selection: { anchor }, userEvent: "input.complete" });
+              return;
+            }
             v.dispatch({ changes: { from, to, insert: c.apply }, selection: { anchor: from + c.apply.length }, userEvent: "input.complete" });
             // Once the pick is done: the offer closes as part of it.
             if (c.label === "/habit") setTimeout(() => startCompletion(v));
           },
         })),
         validFor: /^\/[a-z]*$/,
+      };
+    }
+    // A stay's item names: those it started with, and those this page has.
+    const naming = /^\t- \[[ xX]\] ([^:]*)$/.exec(before);
+    if (naming && inStay(context.state, line)) {
+      const names = new Set(stayItems);
+      for (const b of writtenOf(context.state)) {
+        if (b.kind !== "stay") continue;
+        for (let n = b.first + 1; n <= b.last; n++) {
+          const other = ITEM.exec(context.state.doc.line(n).text);
+          if (other && n !== line.number && other[2].trim()) names.add(other[2].trim());
+        }
+      }
+      return {
+        from: line.from + ITEM_LEAD,
+        options: [...names].map((name) => ({ label: name, apply: `${name}: ` })),
+        validFor: /^[^:]*$/,
       };
     }
     const lead = HABIT.exec(line.text);
@@ -1077,7 +1229,10 @@
     autocompletion({ override: [offer], icons: false }),
     EditorView.updateListener.of((u) => {
       if (u.docChanged && !u.transactions.some((tr) => tr.annotation(loading))) schedule();
-      if (u.docChanged) drawStrip();
+      if (u.docChanged) {
+        drawStrip();
+        drawStay();
+      }
     }),
     theme,
   ];
@@ -1091,6 +1246,8 @@
     try { rows = JSON.parse(src.dataset.taskRows || "[]"); } catch { /* none */ }
     let known = [];
     try { known = JSON.parse(src.dataset.habits || "[]"); } catch { /* none */ }
+    try { stayItems = JSON.parse(src.dataset.stayItems || "[]"); } catch { /* the defaults */ }
+    if (!stayItems.length) stayItems = ["place", "accommodation"];
     habits.clear();
     for (const { slug, days } of known) habits.set(slug, days);
     const starts = [0];
@@ -1114,6 +1271,7 @@
     for (const block of blocks()) block.m.saved = contentOf(block);
     saved = snapshot();
     drawStrip();
+    drawStay();
   }
 
   const el = source();

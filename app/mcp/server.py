@@ -35,8 +35,10 @@ mcp = FastMCP(
         "A task's notes are its free-form description: lines starting with '- ' are "
         "its sub-tasks ('- [x] ' once done), and other lines are context around them. "
         "Each day has a notebook page Oscar writes in: prose, the tasks he wrote there "
-        "(as they stand now), reflections, and the habits he checked that day; read it "
-        "for context with get_notebook. How consistent he is with each habit: get_habits."
+        "(as they stand now), reflections, the habits he checked that day, and where he "
+        "stays (a stay: its items, such as place and accommodation, each sorted or not); "
+        "read it for context with get_notebook. How consistent he is with each habit: "
+        "get_habits."
     ),
 )
 
@@ -199,6 +201,10 @@ def _notebook_payload(db, day: date, *, brief: bool = False) -> list[dict[str, A
         if block["kind"] == "habit":
             out.append({"kind": "habit", "habit": block["slug"], "done": block["done"],
                         "note": block["text"].strip()})
+        elif block["kind"] == "stay":
+            # Where he stays that day: each item (place, accommodation...), sorted or not.
+            out.append({"kind": "stay", "text": block["text"],
+                        "items": notebook_svc.stay_items(block["text"])})
         elif block["kind"] != "task":
             out.append({"kind": block["kind"], "text": block["text"]})
         elif block["task"] is None:

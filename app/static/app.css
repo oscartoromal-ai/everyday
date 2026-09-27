@@ -1069,6 +1069,21 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
    window allows, for plain text at reading size. */
 .today-pad { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-6)); }
 .today-pad .day-header { margin-bottom: var(--s-4); }
+/* under the date, the day's stay item by item: a small box (ink once
+   sorted, amber-ruled not yet), its name in pewter, its value in ink; a
+   click goes to its row */
+.day-stay { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-4); margin: var(--s-2) 0 0; padding: 0; list-style: none; }
+.day-stay[hidden] { display: none; }
+.day-stay-item {
+  display: inline-flex; align-items: center; gap: 6px; padding: 2px 0;
+  font-size: var(--t-body-sm); color: var(--ink); cursor: pointer;
+}
+.day-stay-box { flex: none; width: 10px; height: 10px; border: 1.5px solid color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
+.day-stay-item.done .day-stay-box { background: var(--ink); border-color: var(--ink); }
+.day-stay-name { font-size: var(--t-caption); color: var(--pewter); }
+.day-stay-value:empty { display: none; }
+.day-stay-item:not(.done) .day-stay-value { color: color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
+.day-stay-item:hover .day-stay-value, .day-stay-item:hover .day-stay-name { text-decoration: underline; text-underline-offset: 3px; }
 /* Ruled like a spreadsheet: every row is 36px tall with its text in the
    middle, on its own rule, the rows numbered down the left (their headers),
    empty numbered rows to the box's bottom. A row too long for the box wraps
@@ -1141,6 +1156,16 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .pad-habit-name { color: var(--ink); font-weight: 500; }
 .pad-habit-name.wrong { text-decoration: underline wavy var(--hue-8); text-underline-offset: 3px; }
 .pad-habit .pad-kind:not(.done) ~ .pad-habit-name { color: var(--pewter); }
+/* a stay: the same rules in amber (on the move), let out toward the paper;
+   the one the caret is in, the amber itself. "Stay" in amber in its first
+   row's indent; each item its box (ink once sorted) and its name, up to its
+   colon, set as a label in graphite. */
+.pad-editor .pad-stay { --bracket: color-mix(in srgb, var(--hue-3) 45%, var(--paper)); --stay: color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
+.pad-editor .pad-stay.pad-current { --bracket: var(--hue-3); }
+.pad-kind.pad-stay-name { font-size: var(--t-caption); color: var(--stay); }
+.pad-editor .pad-check.pad-item-check { display: inline-grid; vertical-align: -2px; margin-right: 8px; text-indent: 0; }
+.pad-item-name { color: var(--graphite); font-weight: 500; }
+.pad-item.open .pad-item-name { color: var(--stay); }
 /* the caret's row, and the rows of the task it is in: numbers in ink */
 .pad-editor .cm-gutterElement:is(.here, .pad-current) { color: var(--ink); font-weight: 600; }
 

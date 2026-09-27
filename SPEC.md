@@ -55,6 +55,9 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   After "/" at a row's start the commands are offered, and after "/habit " the names already used, so one habit keeps one name.
   Each habit has its days (any day, every day, weekdays, or chosen weekdays), set from the repeat icon at its row's right; under the notes, the habits due that day not yet written are listed, each name writing its row and each icon setting its days.
   A due day with nothing written is a miss (a habit for any day is never missed); Claude reads the day-by-day record through `get_habits`.
+  Where Oscar stays is written in them too (Oscar's call on 2026-09-27: he moves around, and does not always have a bed sorted): "/stay" on a day's page, then its items, each "- [ ] name: value" with a box ticked once sorted, bracketed in amber.
+  Its items are his to name (place and accommodation to begin with; a new stay starts with the items the last one had), and under the date the day's stay reads item by item, the unsorted ones in amber.
+  A stay is written day by day, not as a range; a view of all days' stays together is next.
   Every day has its notepad: Left and Right (outside the text) go a day back or on, and past days stay editable.
   N writes a new task from Today in the capture window, as on Calendar and Weeks; the day's tasks are worked from Tasks, and the nudge center now opens Tasks.
   It replaces [the notebook](#the-notebook-decided-2026-09-26), where lines became tasks and reflections, and the storyboard sheet that followed it; both are in git history.
@@ -111,7 +114,7 @@ A task's time is a block on its do-date: giving a task a time (in the sheet, or 
 Recorded by the ORM on every flush that touches a task, whatever path made the change, and kept after the task is deleted; the history started on 2026-09-26 with a baseline of every task as it stood.
 It is shown under the task's sheet and read by Claude through `get_task_history`.
 
-**NotebookPage**: one per day; its blocks in the order they were written and a version. Today's notepad writes it as one text block; a page written in the notebook's time (with task references and reflections) reads back as text.
+**NotebookPage**: one per day; its blocks in the order they were written and a version (text, tasks by reference, reflections, habits, and stays, whose items are read from their "- [ ] name: value" lines). Today's notepad writes it as one text block; a page written in the notebook's time (with task references and reflections) reads back as text.
 A save names the version it was made from, and a save from an older copy is refused, so two windows never silently overwrite each other; the page asks which to keep.
 
 **Event**: title, start, end, all-day flag, source (local / work), read-only flag, external id.
@@ -180,7 +183,7 @@ Hook commands need a short HTTP timeout so a down app never delays sessions.
 
 ### Notebook and history
 
-- `get_notebook(start, days)` reads Oscar's notes for each day (his notepad: prose, the tasks he wrote there, reflections and the habits he checked).
+- `get_notebook(start, days)` reads Oscar's notes for each day (his notepad: prose, the tasks he wrote there, reflections, the habits he checked, and where he stays, each stay's items as name, value and sorted or not).
 - `get_habits(start, days)` reads each habit day by day: done, skipped, missed, or nothing (not due, or today still open), with his note.
   `get_agenda` carries each day's page in brief too, so planning with Claude starts from what Oscar wrote.
   The notebook is read-only to Claude: it is Oscar's own writing.

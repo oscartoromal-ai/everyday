@@ -400,3 +400,45 @@ def test_a_habit_is_checked_from_the_notes(page, live, app_db) -> None:
         assert time.monotonic() < end
         time.sleep(0.1)
     assert today != other
+
+
+def test_a_stay_is_written_in_the_notes(page, live, app_db) -> None:
+    page.goto(f"{live}/today")
+    write_in(page)
+    # "/stay" comes with its items (place and accommodation, the first time).
+    page.keyboard.type("/st")
+    page.locator(".cm-tooltip-autocomplete li", has_text="/stay").wait_for()
+    page.wait_for_timeout(150)  # CodeMirror's interactionDelay
+    page.keyboard.press("Enter")
+    page.keyboard.type("Lisbon")
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("End")
+    page.keyboard.type("Airbnb")
+    # Enter on an item starts the next; its name is offered from the others.
+    page.keyboard.press("Enter")
+    page.keyboard.type("ferry: Sunday")
+    written = "/stay\n\t- [ ] place: Lisbon\n\t- [ ] accommodation: Airbnb\n\t- [ ] ferry: Sunday"
+    assert page.evaluate("Notepad.text()") == written
+    stay = page.locator(".pad-editor .cm-line.pad-stay")
+    assert stay.first.locator(".pad-stay-name").inner_text() == "Stay"
+    assert stay.locator(".pad-item-check").count() == 3
+
+    # Its box: sorted.
+    stay.locator(".pad-item-check").first.click()
+    assert page.evaluate("Notepad.text()").startswith("/stay\n\t- [x] place: Lisbon\n")
+    # Under the date, item by item; a click goes to its row.
+    line = page.locator("#day-stay .day-stay-item")
+    assert [t.split() for t in line.all_inner_texts()] == [
+        ["Place", "Lisbon"], ["Accommodation", "Airbnb"], ["Ferry", "Sunday"],
+    ]
+    assert line.nth(0).get_attribute("class") == "day-stay-item done"
+    line.nth(1).click()
+    caret_row = "(s => s.doc.lineAt(s.selection.main.head).number)(Notepad.view.state)"
+    assert page.evaluate(caret_row) == 3
+
+    # Saved as a stay, and read back as written.
+    stay_text = "\n- [x] place: Lisbon\n- [ ] accommodation: Airbnb\n- [ ] ferry: Sunday"
+    saved_as(app_db, [{"kind": "stay", "text": stay_text}])
+    page.reload()
+    assert page.evaluate("Notepad.text()") == written.replace("[ ] place", "[x] place")
+    assert line.count() == 3

@@ -7,6 +7,9 @@ A page is its blocks, in the order they were written:
     {"kind": "reflection", "text": "..."}                   a reflection, free text
     {"kind": "habit", "habit": 3, "done": true, "text": ""} a habit checked that day,
                                                             with a note (app.services.habits)
+    {"kind": "stay", "text": "..."}                         where Oscar stays that day: a
+                                                            note, then its items, each
+                                                            "- [ ] name: value" (stay_items)
 
 Tasks are only referenced: the page shows each as it stands now, wherever it
 was changed since, and a task deleted since shows as its last known title.
@@ -17,6 +20,7 @@ on it, after what was written.
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from typing import Any
 
@@ -32,7 +36,11 @@ class StalePage(DomainError):
     """The page was saved elsewhere since this copy was read."""
 
 
-KINDS = ("text", "task", "reflection", "habit")
+KINDS = ("text", "task", "reflection", "habit", "stay")
+# A stay's item: "- [ ] accommodation: Airbnb near Alfama" ("- [x] " once sorted).
+STAY_ITEM = re.compile(r"^- \[([ xX])\] ([^:]*?)\s*(?::\s?(.*))?$")
+# What a day's first stay lists, when no stay was written before it.
+STAY_ITEMS = ("place", "accommodation")
 
 
 def get_page(db: Session, day: date) -> NotebookPage | None:
@@ -118,7 +126,7 @@ def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
             done = block.get("done", True) is not False
             out.append({"kind": "habit", "habit": slug, "done": done, "text": text})
             continue
-        if not text.strip() and (kind == "reflection" or not out or last):
+        if not text.strip() and (kind in ("reflection", "stay") or not out or last):
             continue
         links: dict[int, int] = {}
         if kind == "text":
@@ -200,6 +208,37 @@ def blocks_of(db: Session, day: date) -> list[dict[str, Any]]:
         else:
             out.append(dict(block))
     return out
+
+
+def stay_items(text: str) -> list[dict[str, Any]]:
+    """A stay's items, in order: each a name (as written, trimmed), its value
+    and whether it is sorted. Its other lines are its note."""
+    items = []
+    for line in text.split("\n"):
+        item = STAY_ITEM.match(line.strip())
+        if item and item[2].strip():
+            items.append({
+                "name": item[2].strip(), "value": (item[3] or "").strip(), "done": item[1] in "xX",
+            })
+    return items
+
+
+def last_stay_items(db: Session, day: date) -> list[str]:
+    """The items the stay written last before `day` lists (a new stay starts
+    with them), or place and accommodation."""
+    pages = db.scalars(
+        select(NotebookPage)
+        .where(NotebookPage.day < day)
+        .order_by(NotebookPage.day.desc())
+        .limit(60)
+    )
+    for page in pages:
+        for block in reversed(page.blocks):
+            if block["kind"] == "stay":
+                names = [item["name"] for item in stay_items(block["text"])]
+                if names:
+                    return names
+    return list(STAY_ITEMS)
 
 
 def task_ids_on(db: Session, day: date) -> set[int]:
