@@ -1165,6 +1165,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .task-sheet.pad-props .prop { margin: 0; }
 .task-sheet.pad-props .prop.is-set .prop-value { color: var(--graphite); }
 .task-sheet.pad-props .prop.is-set svg { stroke: var(--graphite); }
+.task-sheet.pad-props .task-delete { margin: 0; opacity: 1; }
 
 .pad-stale { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-3); font-size: var(--t-body-sm); color: var(--ink); }
 .pad-stale[hidden] { display: none; }
@@ -1189,9 +1190,9 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 @media (max-width: 720px) {
   .notepad-card { --pad-rows: 34px; --pad-gap: var(--s-2); --pad-tab: 70px; }
   .notepad { padding-right: var(--s-3); }
-  /* too narrow for every icon on every task: the task in use shows them all,
-     the others only the fields they have */
-  .pad-task-mark:not(.in-use) .pad-props .prop:not(.is-set) { display: none; }
+  /* too narrow for every icon on every task: the task whose title the caret
+     is on shows them all, the others only the fields they have */
+  .pad-task-mark:not(.in-use) .pad-props :is(.prop:not(.is-set), .task-delete) { display: none; }
 }
 
 /* ---------- weeks: several weeks at a glance, as a grid or as rows ---------- */

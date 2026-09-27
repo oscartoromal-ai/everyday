@@ -109,7 +109,8 @@
   });
 
   /* ---- confirm: hx-confirm on an element with data-confirm-* opens the
-     app's dialog (#confirm-dialog) instead of the browser's native box ---- */
+     app's dialog (#confirm-dialog) instead of the browser's native box; a
+     page's own script asks the same (window.confirmAction) ---- */
 
   // A list can re-render while its question is open (a refresh from an
   // earlier change landing late), leaving the asking row detached. The
@@ -126,22 +127,14 @@
   };
 
   let answer = null; // the open confirm's close handler
-  document.addEventListener("htmx:confirm", (e) => {
-    const source = e.detail.elt;
-    if (!source.dataset.confirmTitle) return;
-    e.preventDefault();
-    if (source._answered) {
-      // Asked already, on the twin this stands in for.
-      delete source._answered;
-      e.detail.issueRequest(true);
-      return;
-    }
+  // Resolves true when the action is confirmed, false when it is not.
+  const confirmAction = ({ title, name = "", detail = "", action = "Confirm" }) => new Promise((resolve) => {
     const returnTo = document.activeElement;
     const dialog = document.getElementById("confirm-dialog");
-    dialog.querySelector(".confirm-title").textContent = source.dataset.confirmTitle;
-    dialog.querySelector(".confirm-name").textContent = source.dataset.confirmName || "";
-    dialog.querySelector(".confirm-detail").textContent = source.dataset.confirmDetail || "";
-    dialog.querySelector("[value=go]").textContent = source.dataset.confirmAction || "Confirm";
+    dialog.querySelector(".confirm-title").textContent = title;
+    dialog.querySelector(".confirm-name").textContent = name;
+    dialog.querySelector(".confirm-detail").textContent = detail;
+    dialog.querySelector("[value=go]").textContent = action;
     dialog.returnValue = "";
     // One answer per opening. A dialog's "close" arrives a task after it
     // closes, so an Esc followed at once by another open would hand the new
@@ -154,7 +147,27 @@
       answer = null;
       // The dialog gives focus back to where it was, unless that was swapped away.
       if (returnTo && !returnTo.isConnected) live(returnTo)?.focus();
-      if (dialog.returnValue !== "go") return;
+      resolve(dialog.returnValue === "go");
+    };
+    answer = heard;
+    dialog.addEventListener("close", heard);
+    dialog.showModal();
+  });
+  window.confirmAction = confirmAction;
+
+  document.addEventListener("htmx:confirm", (e) => {
+    const source = e.detail.elt;
+    if (!source.dataset.confirmTitle) return;
+    e.preventDefault();
+    if (source._answered) {
+      // Asked already, on the twin this stands in for.
+      delete source._answered;
+      e.detail.issueRequest(true);
+      return;
+    }
+    const { confirmTitle, confirmName, confirmDetail, confirmAction: action } = source.dataset;
+    confirmAction({ title: confirmTitle, name: confirmName, detail: confirmDetail, action }).then((yes) => {
+      if (!yes) return;
       if (source.isConnected) {
         e.detail.issueRequest(true);
         return;
@@ -163,9 +176,6 @@
       if (!twin) return; // gone for good: nothing left to act on
       twin._answered = true;
       htmx.trigger(twin, "click");
-    };
-    answer = heard;
-    dialog.addEventListener("close", heard);
-    dialog.showModal();
+    });
   });
 })();

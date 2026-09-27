@@ -38,7 +38,7 @@
     </section>
     {# A task row's controls, after its title (notepad.js clones one
        per task): the task sheet's icons and menus alone (task-sheet.js,
-       data-sheet="props"), over the task's fields. #}
+       data-sheet="props"), over the task's fields, and Delete. #}
     <template id="pad-props-template">
       <form class="task-sheet pad-props" data-sheet="props" onsubmit="return false">
         {% for name in ["planned_for", "time", "due", "repeat", "project_id", "milestone_id", "status", "owner"] %}
@@ -62,6 +62,9 @@
         <button type="button" class="prop" data-prop="project" aria-haspopup="menu" title="Project and milestone">
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
           <span class="prop-value" data-empty=""></span>
+        </button>
+        <button type="button" class="task-delete" data-pad-remove title="Delete task" aria-label="Delete task">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>
         </button>
         <script type="application/json" data-sheet-projects>{{ notepad.projects | tojson }}</script>
       </form>

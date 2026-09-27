@@ -190,3 +190,47 @@ def test_a_task_row_sets_its_fields_from_its_controls(page, live, app_db) -> Non
     page.reload()
     assert props.locator(".prop[data-prop=planned_for] .prop-value").inner_text() == "tomorrow"
     assert props.locator(".prop[data-prop=project] .prop-value").inner_text() == "Home › Garden"
+
+
+def test_a_task_row_is_deleted_from_its_controls(page, live, app_db) -> None:
+    from app.services import tasks as tasks_svc
+
+    page.goto(f"{live}/today")
+    pad = page.locator("#notepad")
+    pad.click()
+    page.keyboard.type("Morning.")
+    page.keyboard.press("Enter")
+    page.keyboard.type("- [ ] Not this one")
+    page.keyboard.press("Enter")
+    page.keyboard.type("- or this")
+    marks = page.locator(".pad-marks .pad-task-mark")
+
+    # Not added yet: its rows go, with no question, and undo brings them back.
+    marks.first.locator("[data-pad-remove]").click()
+    assert pad.input_value() == "Morning."
+    assert marks.count() == 0
+    page.keyboard.press("Control+z")
+    assert pad.input_value() == "Morning.\n\tNot this one\n\t- or this"
+    page.keyboard.press("Control+a")
+    page.keyboard.type("Morning.\n- [ ] Call the dentist")
+    page.keyboard.press("Control+Enter")
+    page.locator(".cal-toast.show", has_text="Task added: Call the dentist").wait_for()
+    page.keyboard.type("After.")
+
+    # Added: the app's own question first; kept, nothing changes.
+    marks.first.locator("[data-pad-remove]").click()
+    dialog = page.locator("#confirm-dialog")
+    dialog.get_by_role("button", name="Cancel").click()
+    assert pad.input_value() == "Morning.\n\tCall the dentist\nAfter."
+    with app_db() as db:
+        assert len(tasks_svc.list_tasks(db)) == 1
+
+    # Confirmed: the task goes from the plan and its row from the notes.
+    marks.first.locator("[data-pad-remove]").click()
+    dialog.get_by_role("button", name="Delete").click()
+    page.locator(".cal-toast.show", has_text="Task deleted: Call the dentist").wait_for()
+    assert pad.input_value() == "Morning.\nAfter."
+    assert marks.count() == 0
+    with app_db() as db:
+        assert tasks_svc.list_tasks(db) == []
+    saved_as(app_db, [{"kind": "text", "text": "Morning.\nAfter."}])

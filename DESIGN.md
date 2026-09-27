@@ -144,9 +144,9 @@ The header is the day's name at 24px ("Today" on today's), a pair of 32px chevro
 The rest of the left column is one card, the paper at 35% (see-through, as every input), as tall as the window allows (at least 420px; 55vh once the timeline stacks under it), holding a plain textarea ruled like a spreadsheet, written in 14px: the body grey (`--ink` 55% into `--graphite`, darker than the Task label), a task's first line in ink (colour only, so every row keeps its letters' widths); the textarea's own letters are clear and a mirror under it draws each row in its colour, sharing every metric, so the caret and selection sit exactly on the words. Every line is a 36px row with its text in the middle, on its own `--hairline` rule from the box's very top, and a 44px column of row numbers (12px pewter, tabular) runs down the left on a fog wash behind a hairline, like a spreadsheet's row headers (34px on phones).
 Plain rows start right after the numbers; only a task's rows are tabbed in, by a tab 76px wide (70px on phones), and in a task row's tab the page draws the task's box (square, 14px, graphite-ruled, ink with a paper tick once done) and "Task" in 12px graphite (struck through in pewter once done), neither of them text nor editable.
 Every task is bracketed by a 2px graphite rule above its title and below its last row, always; the task the caret is in has its rules and row numbers in ink, as has the caret's row.
-After a task's title's last word, 12px on, come its controls: the task sheet's icons (do date, time, due, repeat, project), each a pewter icon with its value beside it once set, in graphite rather than the sheet's red pencil, with no plate around them.
+After a task's title's last word, 12px on, come its controls: the task sheet's icons (do date, time, due, repeat, project), each a pewter icon with its value beside it once set, in graphite rather than the sheet's red pencil, with no plate around them, and last the rows' trash bin (steel, red on hover).
 A title running on past the box leaves them at its right edge, its words fading out over 24px under them, unless the caret is writing there, when they go on after the words, out of sight.
-On phones only the task in use (the caret in it, or a menu of it open) shows every icon; the others show the fields they have.
+On phones only the task in use (the caret on its title, or a menu of it open) shows every icon and the bin; the others show the fields they have.
 A line does not wrap but runs on to the right, as a cell does; rules, numbers and marks scroll with the text; no border, no focus ring and no resize handle, the pewter placeholder "Anything on your mind today."
 When the notes were saved in another window, a line under the card says so, with Show that version and Keep mine as secondary buttons.
 
@@ -270,10 +270,12 @@ Home on a tabbed row goes to its first word, and Backspace there takes its tab a
 Ctrl+Enter or Esc in a task saves it: added for the day ("Task added: <title>"), or its title and description written to the task it made ("Task saved: <title>"); Ctrl+Enter then goes on to a fresh plain row.
 Ticking a task's box ticks its task; the box shows the task as it stands, wherever it was ticked.
 A task's controls open the task sheet's menus (task-sheet.js, `data-sheet="props"`): a field set before the task is added goes with it when it is (a new task's do date is the page's day), and once added each change is written to the task at once, with its words.
+Its bin takes its rows out of the notes (undo brings the words back); a task already added is deleted with them, once the app's "Delete task?" dialog is confirmed (`window.confirmAction`, shell.js, the dialog hx-confirm opens).
 The notes save as a whole 600ms after a change, when the tab is hidden, and when the page is left (with every task written or changed since its last save); a task row saves as "- [ ] " or "- [x] " and the task it made by row (a text block's `links`).
 Rows keep their kind through edits by the exact span each edit replaced, read against its selection: clearing the whole page leaves plain rows, and Enter at a task row's start moves the task down with its words.
 A save names the version it was made from; refused (another window saved since), the page stops saving and asks; returning to the tab shows a newer version when nothing here is unsaved.
 Esc outside a task steps out of the text; Left and Right, outside it, go a day back or on.
+The caret never stands under the row numbers: a row's start scrolled away comes back into view, all the way when the caret is within the first screenful of its row (the browser reveals it only to the box's edge).
 
 **Assets.** Static URLs go through `asset()`, which appends the file's mtime (`?v=`), so a browser never pairs new templates with a stale stylesheet.
 The favicon is the Today icon in ink on a white tile, its dot the spark (Neon Signage's day pink, `#e5006e`).

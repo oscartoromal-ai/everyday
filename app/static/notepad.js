@@ -16,9 +16,11 @@
    description to the task it made), Ctrl+Enter then going on to a fresh
    plain row. Ticking a task's box ticks its task. After a task's title's
    last word come its controls, the task sheet's icons (do date, time, due,
-   repeat, project); a title too long for the box runs on under them, at the
-   box's right, unless the caret is writing there. What they set goes with
-   the task when it is added, and straight to it once it has been.
+   repeat, project) and Delete; a title too long for the box runs on under
+   them, at the box's right, unless the caret is writing there. What they
+   set goes with the task when it is added, and straight to it once it has
+   been. Delete takes the task's rows out of the notes, and an added task,
+   once confirmed, out of the plan.
 
    The notes are saved as text, a task row as "- [ ] " or "- [x] " and the
    task it made by row (links), a moment after each change, when the tab is
@@ -359,6 +361,7 @@
     const marks = marksOf();
     if (!el || !rows || !marks) return;
     mirror(el);
+    if (keepCaretClear(el)) mirror(el);
     const h = lineHeight();
     const written = meta.length;
     const count = Math.max(written, Math.ceil(el.clientHeight / h) + 1) + Math.ceil(el.scrollTop / h);
@@ -394,8 +397,9 @@
         fresh.push(mark.querySelector(".pad-props"));
       }
       mark.classList.toggle("current", b === current);
-      // In use: the caret is in it, or a menu of its controls is open.
-      mark.classList.toggle("in-use", b === current || !!mark.querySelector(".prop[aria-expanded='true']"));
+      // In use: the caret is on its title, or a menu of its controls is open.
+      const onTitle = focused && here === b.row;
+      mark.classList.toggle("in-use", onTitle || !!mark.querySelector(".prop[aria-expanded='true']"));
       mark.style.top = `${b.row * h - el.scrollTop}px`;
       mark.style.height = `${(b.end - b.row + 1) * h}px`;
       const kind = mark.querySelector(".pad-kind");
@@ -437,8 +441,34 @@
     });
   }
 
+  // The caret stays in sight, never under the row numbers. The browser
+  // reveals it only to the box's edge, where the numbers stand, and not at
+  // all when the page sets it (Home, Left to the row above): a row's start
+  // scrolled away comes back, all the way when the caret is within the
+  // first screenful of its row, and a caret past the right edge is brought
+  // in. True when it scrolled.
+  const keepCaretClear = (el) => {
+    if (document.activeElement !== el || el.selectionStart !== el.selectionEnd) return false;
+    const row = document.querySelector(".pad-mirror-inner")?.children[caret().row];
+    if (!row) return false;
+    const x = caretX(row.classList.contains("title") ? row.firstElementChild : row);
+    const box = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    const start = box.left + el.clientLeft + parseFloat(style.paddingLeft);
+    const end = box.left + el.clientLeft + el.clientWidth - parseFloat(style.paddingRight);
+    const along = x + el.scrollLeft - start; // from the row's start, unscrolled
+    if (x < start && el.scrollLeft) {
+      el.scrollLeft = along < el.clientWidth / 2 ? 0 : el.scrollLeft - (start - x) - el.clientWidth / 4;
+    } else if (x > end + 1) {
+      el.scrollLeft += x - end;
+    } else {
+      return false;
+    }
+    return true;
+  };
+
   const PROPS_GAP = 12;
-  // The caret's place in a title's words (drawn in the mirror).
+  // The caret's place in a row's words (drawn in the mirror).
   const caretX = (words) => {
     const node = words.firstChild;
     if (!node) return 0;
@@ -464,7 +494,48 @@
 
   // Ticking a task's box ticks its task (and its row, in the notes).
   document.addEventListener("pointerdown", (e) => {
-    if (e.target.closest?.(".pad-check")) e.preventDefault(); // the caret stays where it was
+    if (e.target.closest?.(".pad-check, [data-pad-remove]")) e.preventDefault(); // the caret stays where it was
+  });
+
+  // Delete: an added task goes from the plan (asked first), and its rows
+  // from the notes, as an edit the browser's undo can take back (the words
+  // come back; the task does not).
+  const takeOut = (m) => {
+    const block = blocks().find((b) => b.m === m);
+    if (!block) return;
+    const el = pad();
+    const lines = linesOf();
+    const last = block.end + 1 >= lines.length;
+    // Its rows and one of the newlines around them.
+    const from = rowStart(lines, block.row) - (last && block.row > 0 ? 1 : 0);
+    const to = last ? el.value.length : rowStart(lines, block.end + 1);
+    el.focus();
+    el.setSelectionRange(from, to);
+    type("");
+  };
+  document.addEventListener("click", async (e) => {
+    const button = e.target.closest?.("[data-pad-remove]");
+    const m = button?.closest(".pad-props")?._m;
+    const block = m && blocks().find((b) => b.m === m);
+    if (!block) return;
+    if (m.id) {
+      const title = contentOf(block).title || m.saved?.title || "";
+      const yes = await window.confirmAction({
+        title: "Delete task?",
+        name: title,
+        detail: "will be deleted, with its rows in these notes and any time blocked for it on the calendar. This can't be undone.",
+        action: "Delete",
+      });
+      if (!yes) return;
+      const res = await post(`/ui/tasks/${m.id}/delete`).catch(() => null);
+      if (!res?.ok) {
+        window.toast("Could not delete that task.");
+        return;
+      }
+      window.toast(`Task deleted: ${title}`);
+      htmx.trigger(document.body, "calendar:refresh");
+    }
+    takeOut(m);
   });
   document.addEventListener("click", async (e) => {
     const box = e.target.closest?.(".pad-check");
