@@ -144,7 +144,7 @@
     toastTimer = setTimeout(() => el.classList.remove("show"), action && run ? 6000 : 2600);
   };
 
-  /* ---- keys that work on every page: 1-5 go to the nav's pages in order,
+  /* ---- keys that work on every page: 1-6 go to the nav's pages in order,
      ? shows every key (#keys-dialog), and N or Shift+N writes a new task (on
      the list pages, tasks.js puts it in the page's own list; elsewhere it
      opens #capture-dialog). Never while typing, or over a dialog. ---- */

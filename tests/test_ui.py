@@ -829,3 +829,14 @@ def test_a_task_shows_its_project_as_its_flag_in_its_colour(client, db) -> None:
     card = client.post(f"/ui/projects/{p.id}", data={"name": "Reno", "color": "6"}).text
     assert 'style="--project: var(--hue-6)"' in card
     assert projects_svc.get_project(db, p.id).color == 6
+
+
+def test_health_is_its_own_nav_group_with_nutrition(client) -> None:
+    page = client.get("/nutrition").text
+    group = page.split('aria-labelledby="nav-health"')[1].split("</nav>")[0]
+    assert '<div class="nav-group-label" id="nav-health">Health</div>' in group
+    link = group.split('href="/nutrition"')[1].split("</a>")[0]
+    assert 'aria-keyshortcuts="6"' in link and 'aria-current="page"' in link
+    # Empty for now.
+    main = page.split('<main class="main">')[1]
+    assert "<h1>Nutrition</h1>" in main and "Nothing here yet." in main

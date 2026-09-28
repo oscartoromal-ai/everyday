@@ -131,6 +131,12 @@ def backlog_page():
     return RedirectResponse("/", status_code=301)
 
 
+@router.get("/nutrition")
+def nutrition_page(request: Request):
+    # Health's first page, empty for now.
+    return templates.TemplateResponse(request, "nutrition.html", _base(request, "nutrition"))
+
+
 @router.get("/calendar")
 def calendar_page(request: Request, db: DbSession, week: date | None = None):
     now = datetime.now()

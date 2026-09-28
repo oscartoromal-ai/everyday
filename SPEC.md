@@ -20,6 +20,7 @@ Per [v1 phasing](tracker/tickets/002-v1-phasing.md):
 - **v3**: goals, which projects roll up into.
 - **v4**: habits and routines. Habits came early (Oscar's call on 2026-09-27): written in the notepad as "/habit name" (see Today), kept as their own entity rather than recurring tasks, so they never crowd the task lists; a table of when each was done and missed is next.
 - **v5**: reviews and reflection flows.
+- **Health** (Oscar's call on 2026-09-28): a module beside the planner, its own group in the nav, starting with Nutrition as an empty page; what it holds is still to be decided.
 
 Review flows are deliberately unspecified here; they sharpen as their phase nears (see the map's Not yet specified section).
 

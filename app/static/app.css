@@ -233,6 +233,8 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 }
 
 .empty { margin: 0; padding: var(--s-4); font-size: var(--t-body-sm); color: var(--pewter); }
+/* a page with nothing on it yet: the note in line with its title */
+.page-empty { padding: 0; }
 /* the first quick-added row retires the empty note beneath it */
 .task-list:has(> li) + .empty { display: none; }
 
