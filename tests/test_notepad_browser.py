@@ -761,3 +761,26 @@ def test_a_title_s_words_made_a_field_come_back_with_undo(page, live, app_db) ->
                 break
         assert time.monotonic() < end, (task.title, task.due)
         time.sleep(0.1)
+
+
+def test_spelling_is_marked_only_in_the_row_being_written(page, live) -> None:
+    page.goto(f"{live}/today")
+    write_in(page)
+    page.keyboard.type("Speling mistaek")
+    page.keyboard.press("Enter")
+    page.keyboard.type("Anothr wrng line")
+    # The page follows the caret and focus a moment after they move.
+    def marked(expected: list) -> None:
+        page.wait_for_function(
+            """expected => JSON.stringify(
+                [...document.querySelectorAll('.pad-editor .cm-line')].slice(0, 2)
+                    .map(e => e.getAttribute('spellcheck'))) === JSON.stringify(expected)""",
+            arg=expected, timeout=3000,
+        )
+
+    marked(["false", None])
+    page.keyboard.press("ArrowUp")
+    marked([None, "false"])
+    # Out of the notes, no row is.
+    page.keyboard.press("Escape")
+    marked(["false", "false"])

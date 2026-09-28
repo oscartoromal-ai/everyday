@@ -105,3 +105,35 @@ def test_editing_saves_when_focus_leaves_the_sheet(page, live, app_db) -> None:
         assert task.title == "Mow the lawn"
         assert task.milestone.name == "Garden" and task.project.name == "Home"
         assert task.notes == "- oil"
+
+
+def test_spelling_is_marked_only_in_the_line_being_written(page, live) -> None:
+    page.goto(f"{live}/")
+    sheet = page.locator(".task-sheet[data-sheet=compose]")
+    title = sheet.locator(".sheet-title")
+    sheet.locator(".sheet-line").click()
+    page.keyboard.type("Wrte a titel")
+    assert title.get_attribute("spellcheck") == "true"
+
+    # From the title into the description: the title is left unmarked, and
+    # of the description's lines only the caret's is marked.
+    page.keyboard.press("Enter")
+    assert title.get_attribute("spellcheck") == "false"
+    page.keyboard.type("frst lin")
+    page.keyboard.press("Enter")
+    page.keyboard.type("secnd lin")
+    # The page follows the caret a moment after it moves (selectionchange).
+    def marked(expected: list) -> None:
+        page.wait_for_function(
+            """expected => JSON.stringify([...document.querySelectorAll(
+                '.task-sheet[data-sheet=compose] [data-notes-editor] > .ln')]
+                .map(e => e.getAttribute('spellcheck'))) === JSON.stringify(expected)""",
+            arg=expected, timeout=3000,
+        )
+
+    marked(["false", "true"])
+    page.keyboard.press("ArrowUp")
+    marked(["true", "false"])
+    # Out of it, no line is.
+    title.click()
+    marked(["false", "false"])

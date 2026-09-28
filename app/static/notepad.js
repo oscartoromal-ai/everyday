@@ -357,6 +357,9 @@
     }
   }
   const INDENT = new Indent();
+  // Spelling is marked only in the row being written: every other row (all
+  // of them, out of the notes) is left unmarked.
+  const UNCHECKED = Decoration.line({ attributes: { spellcheck: "false" } });
 
   // After a title's last word: its controls, the task sheet's icons and
   // their menus (task-sheet.js takes them up), and Delete. One per task,
@@ -567,6 +570,7 @@
       const b = of.get(n);
       const head = b?.first === n;
       if (b && !head && folded(b)) continue; // hidden under its title
+      if (!focused || n !== here) decos.push(UNCHECKED.range(line.from));
       const task = head && b.kind === "task";
       const reflection = head && b.kind === "reflection";
       const habit = head && b.kind === "habit";

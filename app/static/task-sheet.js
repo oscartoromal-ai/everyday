@@ -300,6 +300,14 @@
 
   /* ---- the title line ---- */
 
+  // Its spelling is marked only while it is being written.
+  document.addEventListener("focusin", (e) => {
+    if (e.target.matches?.(".sheet-title")) e.target.setAttribute("spellcheck", "true");
+  });
+  document.addEventListener("focusout", (e) => {
+    if (e.target.matches?.(".sheet-title")) e.target.setAttribute("spellcheck", "false");
+  });
+
   const syncTitle = (form) => {
     const title = titleOf(form);
     // An emptied contenteditable can keep a stray <br>; the placeholder needs it truly empty.

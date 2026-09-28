@@ -48,7 +48,7 @@
 
   <div class="sheet-body">
     <p class="sheet-line">
-      <span class="sheet-title" contenteditable="plaintext-only" role="textbox" spellcheck="true"
+      <span class="sheet-title" contenteditable="plaintext-only" role="textbox" spellcheck="false"
             aria-label="{{ 'Task title' if editing else placeholder }}"
             data-placeholder="{{ '' if editing else placeholder }}"
             {%- if editing %} data-original="{{ s.title }}"{% endif %}>{{ s.title }}</span><span class="sheet-props">

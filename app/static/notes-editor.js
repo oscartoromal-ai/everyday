@@ -61,6 +61,7 @@
     el.dataset.depth = String(b.depth);
     el.style.setProperty("--depth", b.depth);
     if (b.kind === "item" && b.checked) el.dataset.checked = "";
+    el.setAttribute("spellcheck", "false"); // until the caret is in it (markSpelling)
     el.textContent = b.text;
     if (!b.text) el.append(document.createElement("br")); // keeps an empty line caret-able
     return el;
@@ -438,6 +439,22 @@
     else line.dataset.checked = "";
     sync(root);
   });
+
+  // Spelling is marked only in the line being written: every other line
+  // (all of them, once focus is elsewhere) is left unmarked. Only a line
+  // whose setting changes is touched: setting it again, even to the same
+  // value, makes the browser drop the marks it has.
+  const markSpelling = () => {
+    for (const root of document.querySelectorAll("[data-notes-editor]")) {
+      const sel = root.contains(document.activeElement) ? selectionIn(root) : null;
+      lines(root).forEach((el, i) => {
+        const want = sel && i === sel.start.i && i === sel.end.i ? "true" : "false";
+        if (el.getAttribute("spellcheck") !== want) el.setAttribute("spellcheck", want);
+      });
+    }
+  };
+  document.addEventListener("selectionchange", markSpelling);
+  document.addEventListener("focusout", () => setTimeout(markSpelling));
 
   // A contenteditable is not labelable; its label focuses it all the same.
   document.addEventListener("click", (e) => {
