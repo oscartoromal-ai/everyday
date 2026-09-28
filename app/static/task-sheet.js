@@ -149,26 +149,34 @@
     syncTitle(form);
   };
 
-  // `text` is the title up to the caret, ending in the space just typed.
-  const convert = (form, text, caret, { moveCaret = true } = {}) => {
+  // The field the words ending `text` (ending in the space just typed) make:
+  // {name, value, start}, start where the words begin; or null.
+  const fieldOfWords = (text) => {
     for (const rule of RULES) {
       const m = rule.re.exec(text);
       if (!m) continue;
       const value = rule.value(m);
       if (value == null) continue;
-      const start = text.length - m[1].length - 1;
-      if (kept.get(form)?.has(start)) return false;
-      const full = titleOf(form).textContent;
-      const after = full.slice(0, start) + full.slice(caret);
-      converted = {
-        form, before: full, caretBefore: caret, after, caretAfter: start,
-        name: rule.name, previous: valueOf(form, rule.name), start,
-      };
-      setField(form, rule.name, value);
-      setTitle(form, after, moveCaret ? start : null);
-      return true;
+      return { name: rule.name, value, start: text.length - m[1].length - 1 };
     }
-    return false;
+    return null;
+  };
+
+  // `text` is the title up to the caret, ending in the space just typed.
+  const convert = (form, text, caret, { moveCaret = true } = {}) => {
+    const field = fieldOfWords(text);
+    if (!field) return false;
+    const { name, value, start } = field;
+    if (kept.get(form)?.has(start)) return false;
+    const full = titleOf(form).textContent;
+    const after = full.slice(0, start) + full.slice(caret);
+    converted = {
+      form, before: full, caretBefore: caret, after, caretAfter: start,
+      name, previous: valueOf(form, name), start,
+    };
+    setField(form, name, value);
+    setTitle(form, after, moveCaret ? start : null);
+    return true;
   };
 
   // A word still at the end of the title when it is written (no space after).
@@ -888,6 +896,13 @@
     // days, changed from its other place on the page).
     refresh(form) {
       draw(form);
+    },
+    // For Today's notes, whose task titles take the same words: the field
+    // the words ending `text` make ({name, value, start}), or null.
+    fieldOfWords,
+    // Set one field of a sheet of controls, as its menus do (sheet:field).
+    setField(form, name, value) {
+      setField(form, name, value);
     },
     // Edit a row's task with one field's menu open; choosing (or Esc) saves.
     edit(row, field, landOnChange) {

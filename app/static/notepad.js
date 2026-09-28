@@ -15,7 +15,11 @@
    (the task's description keeps it as "- [ ] " or "- [x] "); Enter on one
    starts the next, on an empty one steps back to a plain row. A ticked
    sub-task is crossed out, and a ticked task, title and rows. Backspace at a row's first word takes its
-   box or tab away, and the row is plain again.
+   box or tab away, and the row is plain again. Tab and Shift+Tab never
+   leave the notes: Tab goes from a title to the row under it, takes a
+   plain row into the task above it, and makes a task's row a sub-task;
+   Shift+Tab steps back out. As in the task sheet, "friday", "at 3pm",
+   "due friday" or "every week" and a space in a title become its fields.
 
    Every task is bracketed by a rule above its title and below its last row,
    always (one rule between a task and the one right under it); the task
@@ -791,7 +795,97 @@
     return true;
   };
 
-  // Esc: in a task, save it; elsewhere, out of the text. Ahead of what is
+  // Tab and Shift+Tab stay in the notes, a step into or out of a task (or
+  // reflection, habit, stay) at a time. Tab from a first row goes under it
+  // (to its first row, a new one when it has none); on a plain row right
+  // under one, the row joins it; on a task's or stay's row, the row takes a
+  // box (a sub-task, an item). Shift+Tab takes a box away, else a row's tab.
+  const blockOfLine = (state, n) =>
+    [...blocksOf(state), ...writtenOf(state)].find((b) => n >= b.first && n <= b.last) || null;
+  const tab = (v) => {
+    const { state } = v;
+    if (state.selection.ranges.length > 1) return true;
+    const line = state.doc.lineAt(state.selection.main.head);
+    const block = blockOfLine(state, line.number);
+    if (block?.first === line.number) {
+      const effects = block.kind === "task" && block.m.folded ? [setFolded.of({ m: block.m, folded: false })] : [];
+      if (block.last > block.first) {
+        v.dispatch({ selection: { anchor: state.doc.line(line.number + 1).to }, effects, scrollIntoView: true, userEvent: "select" });
+      } else {
+        v.dispatch({ changes: { from: line.to, insert: `\n${TAB}` }, selection: { anchor: line.to + 2 }, effects, scrollIntoView: true, userEvent: "input" });
+      }
+      return true;
+    }
+    if (block) {
+      const boxes = block.kind === "task" || block.kind === "stay";
+      if (boxes && line.text.startsWith(TAB) && !SUB.test(line.text)) {
+        v.dispatch({ changes: { from: line.from + 1, insert: "- [ ] " }, scrollIntoView: true, userEvent: "input" });
+      }
+      return true;
+    }
+    if (!line.text.startsWith(TAB) && blockOfLine(state, line.number - 1)) {
+      v.dispatch({ changes: { from: line.from, insert: TAB }, scrollIntoView: true, userEvent: "input" });
+    }
+    return true;
+  };
+  const untab = (v) => {
+    const { state } = v;
+    if (state.selection.ranges.length > 1) return true;
+    const line = state.doc.lineAt(state.selection.main.head);
+    if (!line.text.startsWith(TAB) || !blockOfLine(state, line.number)) return true;
+    const boxed = SUB.test(line.text);
+    const change = boxed ? { from: line.from + 1, to: line.from + ITEM_LEAD } : { from: line.from, to: line.from + 1 };
+    v.dispatch({ changes: change, scrollIntoView: true, userEvent: "delete" });
+    return true;
+  };
+
+  // As in the task sheet: in a task's title, "friday", "at 3pm", "due
+  // friday" or "every week" and a space set the field (its icon shows it)
+  // and leave the title; Backspace straight after puts the words back, and
+  // they stay words. A title's last words are taken when it is closed.
+  let converted = null; // {m, name, previous, at, words, doc}
+  const toField = (v, line, caret, { closing = false } = {}) => {
+    const text = `${line.text.slice(BOX, caret - line.from)} `;
+    const field = window.TaskSheet?.fieldOfWords(text);
+    if (!field) return false;
+    const m = v.state.field(tasksField).find(({ pos }) => pos === line.from)?.m;
+    if (!m || m.kept?.has(field.start)) return false;
+    let from = line.from + BOX + field.start;
+    const words = v.state.sliceDoc(from, caret);
+    // Closing, the space before the words goes with them.
+    if (closing) while (from > line.from + BOX && v.state.sliceDoc(from - 1, from) === " ") from--;
+    const form = controlsOf(m);
+    const previous = form.elements[field.name].value;
+    v.dispatch({ changes: { from, to: caret }, selection: { anchor: from }, userEvent: "input" });
+    converted = { m, name: field.name, previous, at: from, words, doc: v.state.doc };
+    window.TaskSheet.setField(form, field.name, field.value);
+    return true;
+  };
+  const wordsToFields = EditorView.inputHandler.of((v, from, to, text) => {
+    if (text !== " " || from !== to || v.state.selection.ranges.length > 1) return false;
+    const line = v.state.doc.lineAt(from);
+    return isTask(line) && from >= line.from + BOX && toField(v, line, from);
+  });
+  const backToWords = (v) => {
+    const c = converted;
+    converted = null;
+    const range = v.state.selection.main;
+    if (!c || v.state.doc !== c.doc || !range.empty || range.head !== c.at) return false;
+    v.dispatch({ changes: { from: c.at, insert: c.words }, selection: { anchor: c.at + c.words.length }, userEvent: "input" });
+    const line = v.state.doc.lineAt(c.at);
+    (c.m.kept ||= new Set()).add(c.at - line.from - BOX);
+    window.TaskSheet.setField(controlsOf(c.m), c.name, c.previous);
+    return true;
+  };
+  // The title's last words, as a task is closed: its block as it then stands.
+  const closing = (v, block) => {
+    const line = v.state.doc.line(block.first);
+    const end = line.from + BOX + line.text.slice(BOX).replace(/\s+$/, "").length;
+    if (end > line.from + BOX && toField(v, line, end, { closing: true })) converted = null;
+    return blocksOf(v.state).find((b) => b.m === block.m) || block;
+  };
+
+  // Esc: in a task, save it (saved already, out of the text); elsewhere, out of the text. Ahead of what is
   // offered while writing, which takes Esc even while it is only looking
   // (just after a key), and would lose a task's save: it has Esc only while
   // an offer is on screen, to close it.
@@ -799,8 +893,11 @@
     key: "Escape",
     run: (v) => {
       if (completionStatus(v.state) === "active") return false;
+      // A task saved as it stands (Esc again) lets the keyboard out too.
       const block = blockAt(v.state);
-      if (block?.kind === "task") saveTask(block);
+      const { title, notes } = block?.kind === "task" ? contentOf(block) : {};
+      const saved = block?.m?.saved;
+      if (block?.kind === "task" && !(saved && saved.title === title && saved.notes === notes)) saveTask(closing(v, block));
       else v.contentDOM.blur();
       return true;
     },
@@ -812,15 +909,17 @@
       // reflection or habit: on to a plain row after it.
       key: "Mod-Enter",
       run: (v) => {
-        const block = blockAt(v.state);
+        let block = blockAt(v.state);
         if (!block) return false;
-        if (block.kind === "task") saveTask(block);
+        if (block.kind === "task") saveTask((block = closing(v, block)));
         const end = v.state.doc.line(block.last).to;
         v.dispatch({ changes: { from: end, insert: "\n" }, selection: { anchor: end + 1 }, scrollIntoView: true, userEvent: "input" });
         return true;
       },
     },
     { key: "Enter", run: enter },
+    { key: "Tab", run: tab, shift: untab },
+    { key: "Backspace", run: backToWords },
     {
       // Left from a boxed, labelled or tabbed row's first word goes on to the
       // row above (past the box, not into it).
@@ -1432,7 +1531,7 @@
   });
 
   const extensions = () => [
-    tasksField, keepTasks, focusField, fillerField, drawField, offTheLead, unfoldFirst,
+    tasksField, keepTasks, focusField, fillerField, drawField, offTheLead, unfoldFirst, wordsToFields,
     EditorView.focusChangeEffect.of((state, focusing) => setFocus.of(focusing)),
     lineNumbers(),
     lineNumberWidgetMarker.of((v, widget) => (widget instanceof Filler ? new FillerNumbers(v.state.doc.lines + 1, widget.count) : null)),

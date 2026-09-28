@@ -203,12 +203,12 @@ def test_a_task_row_sets_its_fields_from_its_controls(page, live, app_db) -> Non
     assert props.locator(".prop[data-prop=planned_for] .prop-value").inner_text() == "tomorrow"
     # The caret is back in the notes, where writing carries on.
     assert page.evaluate("document.activeElement.classList.contains('cm-content')")
-    page.keyboard.type(" today")
+    page.keyboard.type(" short")
     page.keyboard.press("Control+Enter")
-    page.locator(".cal-toast.show", has_text="Task added: Mow the lawn today").wait_for()
+    page.locator(".cal-toast.show", has_text="Task added: Mow the lawn short").wait_for()
     with app_db() as db:
         [task] = tasks_svc.list_tasks(db)
-        assert (task.title, task.planned_for) == ("Mow the lawn today", tomorrow)
+        assert (task.title, task.planned_for) == ("Mow the lawn short", tomorrow)
         task_id = task.id
 
     # Once added, a change goes straight to the task: a milestone, with its project.
@@ -236,10 +236,10 @@ def test_a_task_row_sets_its_fields_from_its_controls(page, live, app_db) -> Non
     with app_db() as db:
         task = tasks_svc.get_task(db, task_id)
         assert (task.project.name, task.milestone.name) == ("Home", "Garden")
-        assert (task.title, task.planned_for) == ("Mow the lawn today", tomorrow)
+        assert (task.title, task.planned_for) == ("Mow the lawn short", tomorrow)
 
     # The controls show the task as it stands after a reload.
-    notes = "- [ ] Mow the lawn today"
+    notes = "- [ ] Mow the lawn short"
     saved_as(app_db, [{"kind": "text", "text": notes, "links": {"0": task_id}}])
     page.reload()
     assert props.locator(".prop[data-prop=planned_for] .prop-value").inner_text() == "tomorrow"
@@ -645,3 +645,75 @@ def test_tasks_still_open_yesterday_are_brought_to_today(page, live, app_db) -> 
     # Only today's page offers them.
     page.goto(f"{live}/day/{TODAY + timedelta(days=1)}")
     assert strip.is_hidden()
+
+
+def test_tab_stays_in_the_notes_a_step_into_or_out_of_a_task(page, live) -> None:
+    page.goto(f"{live}/today")
+    write_in(page)
+    in_notes = "document.activeElement.classList.contains('cm-content')"
+
+    # From a task's title, Tab goes under it; the notes keep the keyboard.
+    page.keyboard.type("- [ ] Buy milk")
+    page.keyboard.press("Tab")
+    assert text_of(page) == "- [ ] Buy milk\n\t"
+    assert page.evaluate(in_notes)
+    page.keyboard.type("two litres")
+    # On its row, Tab makes a sub-task; Shift+Tab steps back out, a step at a time.
+    page.keyboard.press("Tab")
+    assert text_of(page) == "- [ ] Buy milk\n\t- [ ] two litres"
+    page.keyboard.press("Shift+Tab")
+    assert text_of(page) == "- [ ] Buy milk\n\ttwo litres"
+    page.keyboard.press("Shift+Tab")
+    assert text_of(page) == "- [ ] Buy milk\ntwo litres"
+    # A plain row right under a task joins it.
+    page.keyboard.press("Tab")
+    assert text_of(page) == "- [ ] Buy milk\n\ttwo litres"
+    # Where there is nothing to step into (a blank row between), Tab still
+    # keeps to the notes. Enter on the task's empty row steps out of it.
+    page.keyboard.press("Control+End")
+    for _ in range(3):
+        page.keyboard.press("Enter")
+    page.keyboard.type("Slow morning.")
+    page.keyboard.press("Tab")
+    assert text_of(page).endswith("\n\nSlow morning.")
+    assert page.evaluate(in_notes)
+    # Esc saves a task; Esc again, with nothing left to save, leaves the notes.
+    page.keyboard.press("Control+Home")
+    page.keyboard.press("Escape")
+    page.locator(".cal-toast.show", has_text="Task added: Buy milk").wait_for()
+    assert page.evaluate(in_notes)
+    page.keyboard.press("Escape")
+    assert not page.evaluate(in_notes)
+
+
+def test_a_task_title_takes_its_fields_from_words(page, live, app_db) -> None:
+    from datetime import timedelta
+
+    from app.services import tasks as tasks_svc
+
+    page.goto(f"{live}/today")
+    write_in(page)
+    title = page.locator(".pad-editor .cm-line.pad-title").first
+    value = lambda name: title.locator(f".prop[data-prop={name}] .prop-value").inner_text()  # noqa: E731
+
+    # As in the task sheet: the words and a space set the field and leave the title.
+    page.keyboard.type("- [ ] Call the bank tomorrow ")
+    assert text_of(page) == "- [ ] Call the bank "
+    assert value("planned_for") == "tomorrow"
+    # Backspace straight after puts them back, and they stay words.
+    page.keyboard.press("Backspace")
+    assert text_of(page) == "- [ ] Call the bank tomorrow"
+    assert value("planned_for") == "today"
+    page.keyboard.type(" at 3pm ")
+    assert text_of(page) == "- [ ] Call the bank tomorrow "
+    assert value("time") == "15:00–16:00"
+    # A title's last words are taken as it is closed.
+    page.keyboard.type("due friday")
+    page.keyboard.press("Control+Enter")
+    page.locator(".cal-toast.show", has_text="Task added: Call the bank tomorrow").wait_for()
+    with app_db() as db:
+        [task] = tasks_svc.list_tasks(db)
+        weekday = (4 - TODAY.weekday() - 1) % 7 + 1
+        assert (task.title, task.planned_for) == ("Call the bank tomorrow", TODAY)
+        assert task.due == TODAY + timedelta(days=weekday)
+        assert [(b.start.hour, b.end.hour) for b in task.blocks] == [(15, 16)]
