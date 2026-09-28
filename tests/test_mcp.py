@@ -21,6 +21,7 @@ EXPECTED_TOOLS = {
     "add_event",
     "get_notebook",
     "get_task_history",
+    "get_health_profile",
 }
 
 
@@ -144,3 +145,18 @@ async def test_claude_reads_the_notebook_and_a_tasks_history(app_db) -> None:
         assert history[0]["actor"] == "claude"
         assert history[0]["fields"] == [{"field": "status", "from": "todo", "to": "done"}]
         assert history[-1]["change"] == "created"
+
+
+async def test_health_profile_is_context_for_claude(app_db) -> None:
+    from app.services import health as health_svc
+
+    with app_db() as db:
+        health_svc.update_profile(db, height_cm=180, allergies="peanuts")
+        health_svc.log_weight(db, TODAY, 80)
+        db.commit()
+    async with Client(mcp) as client:
+        me = (await client.call_tool("get_health_profile", {})).data
+    got = (me["height_cm"], me["weight_kg"], me["bmi"], me["allergies"])
+    assert got == (180, 80, 24.7, "peanuts")
+    assert me["weights"] == [{"day": TODAY.isoformat(), "weight_kg": 80}]
+    assert me["energy_kcal"] is None and me["sex"] is None

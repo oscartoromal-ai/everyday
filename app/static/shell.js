@@ -109,6 +109,15 @@
   });
   applyTimeline(root.dataset.timeline === "folded");
 
+  /* ---- a request refused (a value out of range, a lost connection): said in a toast ---- */
+
+  document.addEventListener("htmx:responseError", (e) => {
+    let detail = "";
+    try { detail = JSON.parse(e.detail.xhr.responseText).detail; } catch { /* not JSON */ }
+    window.toast(typeof detail === "string" && detail ? detail : "Could not save that. Try again?");
+  });
+  document.addEventListener("htmx:sendError", () => window.toast("Could not reach the app. Try again?"));
+
   /* ---- a toast: one line of news at the foot of the page, for a moment ---- */
 
   // One with an action (Undo) stays longer, and while the pointer is on it.
@@ -144,7 +153,7 @@
     toastTimer = setTimeout(() => el.classList.remove("show"), action && run ? 6000 : 2600);
   };
 
-  /* ---- keys that work on every page: 1-6 go to the nav's pages in order,
+  /* ---- keys that work on every page: 1-7 go to the nav's pages in order,
      ? shows every key (#keys-dialog), and N or Shift+N writes a new task (on
      the list pages, tasks.js puts it in the page's own list; elsewhere it
      opens #capture-dialog). Never while typing, or over a dialog. ---- */

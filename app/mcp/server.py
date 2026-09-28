@@ -38,7 +38,9 @@ mcp = FastMCP(
         "(as they stand now), reflections, the habits he checked that day, and where he "
         "stays (a stay: its items, such as place and accommodation, each sorted or not); "
         "read it for context with get_notebook. How consistent he is with each habit: "
-        "get_habits."
+        "get_habits. His health context (body, activity, goal, diet, allergies, "
+        "weigh-ins, estimated daily energy), for anything about what he eats: "
+        "get_health_profile."
     ),
 )
 
@@ -249,6 +251,27 @@ def get_habits(start: date | None = None, days: int = 14) -> list[dict[str, Any]
             {**row, "checks": [{**c, "day": c["day"].isoformat()} for c in row["checks"]]}
             for row in habits_svc.grid(db, first, days)
         ]
+
+
+@mcp.tool
+def get_health_profile() -> dict[str, Any]:
+    """Oscar's health context (Health > Me), for advice on what he eats: his
+    height, birth date and age, sex, activity level, goal and target weight,
+    his latest weight and recent weigh-ins (newest first), his dietary
+    pattern, allergies and intolerances, foods he avoids, and health notes;
+    with his BMI and estimated daily energy to keep his weight (kcal,
+    Mifflin-St Jeor times his activity's factor). A field he has not filled
+    is null or empty. Read-only: he keeps it himself."""
+    from app.services import health as health_svc
+
+    with session_scope("claude") as db:
+        me = health_svc.context(db)
+        return {
+            **me,
+            "birth_date": me["birth_date"].isoformat() if me["birth_date"] else None,
+            "weighed_on": me["weighed_on"].isoformat() if me["weighed_on"] else None,
+            "weights": [{**w, "day": w["day"].isoformat()} for w in me["weights"]],
+        }
 
 
 @mcp.tool

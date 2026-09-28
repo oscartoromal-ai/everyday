@@ -27,6 +27,7 @@ from app.models import (
 )
 from app.services import blocks as blocks_svc
 from app.services import habits as habits_svc
+from app.services import health as health_svc
 from app.services import notebook as notebook_svc
 from app.services import projects as projects_svc
 from app.services import recurrence as recurrence_svc
@@ -603,3 +604,34 @@ def history_ctx(changes: list[dict[str, Any]], today: date) -> list[dict[str, An
         steps.append({"when": when, "who": ACTOR_WORDS.get(change["actor"], change["actor"]),
                       "lines": lines})
     return steps
+
+
+SEX_WORDS = {"female": "Female", "male": "Male"}
+ACTIVITY_WORDS = {
+    "sedentary": "Sedentary: little or no exercise",
+    "light": "Light: exercise 1 to 3 days a week",
+    "moderate": "Moderate: exercise 3 to 5 days a week",
+    "active": "Active: exercise 6 to 7 days a week",
+    "very_active": "Very active: hard exercise daily, or a physical job",
+}
+GOAL_WORDS = {"lose": "Lose weight", "maintain": "Keep my weight", "gain": "Gain weight"}
+
+
+def me_ctx(db: Session, today: date) -> dict[str, Any]:
+    """Health > Me: the profile (health.context) with its choices in words,
+    and what the daily energy estimate still needs, in words."""
+    me = health_svc.context(db, today)
+    needs = [
+        word for word, have in (
+            ("your weight", me["weight_kg"]), ("height", me["height_cm"]),
+            ("birth date", me["birth_date"]), ("sex", me["sex"]), ("activity", me["activity"]),
+        ) if not have
+    ]
+    return {
+        "me": me,
+        "energy_needs": needs,
+        "sex_words": SEX_WORDS,
+        "activity_words": ACTIVITY_WORDS,
+        "goal_words": GOAL_WORDS,
+        "today": today,
+    }

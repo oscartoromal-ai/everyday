@@ -16,6 +16,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -314,3 +315,53 @@ class HabitCheck(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     habit: Mapped[Habit] = relationship(back_populates="checks")
+
+
+class Sex(enum.StrEnum):
+    female = "female"
+    male = "male"
+
+
+class ActivityLevel(enum.StrEnum):
+    sedentary = "sedentary"
+    light = "light"
+    moderate = "moderate"
+    active = "active"
+    very_active = "very_active"
+
+
+class WeightGoal(enum.StrEnum):
+    lose = "lose"
+    maintain = "maintain"
+    gain = "gain"
+
+
+class HealthProfile(Base):
+    """Oscar himself, as the context health advice needs (Health > Me): his
+    body, how active he is and what he is aiming for, what he eats and
+    cannot, and notes. One row; his weight is its own log (WeightEntry)."""
+
+    __tablename__ = "health_profile"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    height_cm: Mapped[float | None] = mapped_column(Float, default=None)
+    birth_date: Mapped[date | None] = mapped_column(Date, default=None)
+    sex: Mapped[Sex | None] = mapped_column(_enum(Sex), default=None)
+    activity: Mapped[ActivityLevel | None] = mapped_column(_enum(ActivityLevel), default=None)
+    goal: Mapped[WeightGoal | None] = mapped_column(_enum(WeightGoal), default=None)
+    target_weight_kg: Mapped[float | None] = mapped_column(Float, default=None)
+    diet: Mapped[str] = mapped_column(Text, default="")
+    allergies: Mapped[str] = mapped_column(Text, default="")
+    avoids: Mapped[str] = mapped_column(Text, default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class WeightEntry(Base):
+    """Oscar's weight on a day: one per day, the last written kept."""
+
+    __tablename__ = "weight_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    day: Mapped[date] = mapped_column(Date, unique=True)
+    weight_kg: Mapped[float] = mapped_column(Float)

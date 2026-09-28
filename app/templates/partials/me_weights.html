@@ -1,0 +1,39 @@
+{# His weigh-ins: one a day (a second that day replaces the first), newest
+   first, each with its bin. A weigh-in draws this again and tells the page
+   (me:changed), so what follows from it is drawn again too. #}
+<section class="me-section me-weights" id="me-weights" aria-labelledby="me-weight">
+  <h2 id="me-weight">Weight</h2>
+  <form class="inline-form" hx-post="/ui/me/weight" hx-target="#me-weights" hx-swap="outerHTML">
+    <label class="field">
+      <span class="draft-label">Weight (kg)</span>
+      <span class="plate"><input name="weight_kg" inputmode="decimal" autocomplete="off" required></span>
+    </label>
+    <label class="field">
+      <span class="draft-label">Day</span>
+      <span class="plate"><input type="date" name="day" max="{{ today.isoformat() }}" value="{{ today.isoformat() }}"></span>
+    </label>
+    <button type="submit" class="btn primary">Log</button>
+  </form>
+  {% if me.weights %}
+  <ul class="weight-log">
+    {% for w in me.weights %}
+    <li>
+      <span class="weight-day">{{ w.day | short_date | capitalize }}</span>
+      <span class="weight-kg">{{ "%g" % w.weight_kg }} kg</span>
+      <button type="button" class="task-delete" title="Delete this weigh-in"
+              aria-label="Delete the weigh-in of {{ w.day | short_date }}"
+              hx-post="/ui/me/weight/{{ w.day.isoformat() }}/delete" hx-target="#me-weights" hx-swap="outerHTML"
+              hx-confirm="Delete weigh-in?"
+              data-confirm-title="Delete weigh-in?"
+              data-confirm-name="{{ '%g' % w.weight_kg }} kg, {{ w.day | short_date }}"
+              data-confirm-detail="will be deleted. This can't be undone."
+              data-confirm-action="Delete">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>
+      </button>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty page-empty">No weigh-ins yet.</p>
+  {% endif %}
+</section>

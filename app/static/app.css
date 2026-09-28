@@ -233,6 +233,38 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 }
 
 .empty { margin: 0; padding: var(--s-4); font-size: var(--t-body-sm); color: var(--pewter); }
+/* ---------- Health > Me ---------- */
+
+/* what follows from it: four figures in a glass card, then a line saying how */
+.me-context { margin-bottom: var(--s-6); }
+.me-figures {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0;
+  background: var(--glass-card); backdrop-filter: blur(20px) saturate(1.1);
+  border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
+}
+.me-figures > div { padding: var(--s-3) var(--s-4); }
+.me-figures > div + div { border-left: 1px solid var(--hairline-on-glass); }
+.me-figures dt { font-size: var(--t-caption); color: var(--pewter); }
+.me-figures dd { margin: 2px 0 0; font-size: var(--t-body); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.me-figures .me-when { margin-left: 2px; font-size: var(--t-caption); font-weight: 400; color: var(--pewter); }
+.me-figures .me-unset { font-weight: 400; color: var(--pewter); }
+.me-note { margin: var(--s-2) 0 0; font-size: var(--t-body-sm); color: var(--graphite); }
+/* each part under its own heading; fields three to a row, a wide one alone */
+.me-section { margin-bottom: var(--s-6); }
+.me-section > h2 { margin-bottom: var(--s-2); font-size: var(--t-body); font-weight: 600; }
+.me-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-3); }
+.me-fields .field.wide { grid-column: 1 / -1; }
+.me-weights .inline-form { padding-top: 0; }
+.me-weights .inline-form .field { flex: 0 1 12rem; }
+.weight-log { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hairline); }
+.weight-log li {
+  display: flex; align-items: center; gap: var(--s-3); min-height: 36px;
+  border-bottom: 1px solid var(--hairline); font-size: var(--t-body-sm);
+}
+.weight-log .weight-day { flex: 0 0 9rem; color: var(--graphite); }
+.weight-log .weight-kg { flex: 1; color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.weight-log li:hover .task-delete, .weight-log .task-delete:focus-visible { opacity: 1; }
+
 /* a page with nothing on it yet: the note in line with its title */
 .page-empty { padding: 0; }
 /* the first quick-added row retires the empty note beneath it */
@@ -688,7 +720,7 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .plate > :is(input, textarea)::placeholder { color: var(--pewter); }
 .plate > input:is([type="date"], [type="time"]) { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 .plate > input::-webkit-calendar-picker-indicator { opacity: 0.55; cursor: pointer; }
-:root[data-theme="dark"] .plate > input::-webkit-calendar-picker-indicator { filter: invert(1); }
+/* by night the picker's icon is already light (the theme's color-scheme: dark) */
 .plate > :is(input, select) { height: 40px; }
 .plate > textarea { resize: vertical; line-height: 1.5; }
 .plate > select:not([hidden]) {

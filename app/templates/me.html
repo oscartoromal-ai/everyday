@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Me · Personal Calendar{% endblock %}
+{% block content %}
+{# Health > Me: the context health advice needs, Oscar's and Claude's
+   (get_health_profile). What follows from it on top, then his weigh-ins,
+   then the rest, saved as it changes. #}
+{% macro num(value) %}{{ "%g" % value if value is not none else "" }}{% endmacro %}
+<div class="me-page">
+  <header class="page-header">
+    <div>
+      <h1>Me</h1>
+      <p class="rest">What health advice needs to know about you. Claude reads it too.</p>
+    </div>
+  </header>
+
+  {% include "partials/me_context.html" %}
+  {% include "partials/me_weights.html" %}
+
+  <form class="me-form" id="me-form" hx-post="/ui/me" hx-trigger="change" hx-target="#me-context" hx-swap="outerHTML">
+    <section class="me-section" aria-labelledby="me-body">
+      <h2 id="me-body">Body</h2>
+      <div class="me-fields">
+        <label class="field">
+          <span class="draft-label">Height (cm)</span>
+          <span class="plate"><input name="height_cm" inputmode="decimal" autocomplete="off" value="{{ num(me.height_cm) }}"></span>
+        </label>
+        <label class="field">
+          <span class="draft-label">Birth date</span>
+          <span class="plate"><input type="date" name="birth_date" max="{{ today.isoformat() }}" value="{{ me.birth_date.isoformat() if me.birth_date else '' }}"></span>
+        </label>
+        <label class="field">
+          <span class="draft-label">Sex</span>
+          <span class="plate">
+            <select name="sex">
+              <option value="">Not set</option>
+              {% for value, word in sex_words.items() %}<option value="{{ value }}" {% if me.sex == value %}selected{% endif %}>{{ word }}</option>{% endfor %}
+            </select>
+          </span>
+        </label>
+      </div>
+    </section>
+
+    <section class="me-section" aria-labelledby="me-goal">
+      <h2 id="me-goal">Activity and goal</h2>
+      <div class="me-fields">
+        <label class="field wide">
+          <span class="draft-label">Activity</span>
+          <span class="plate">
+            <select name="activity">
+              <option value="">Not set</option>
+              {% for value, word in activity_words.items() %}<option value="{{ value }}" {% if me.activity == value %}selected{% endif %}>{{ word }}</option>{% endfor %}
+            </select>
+          </span>
+        </label>
+        <label class="field">
+          <span class="draft-label">Goal</span>
+          <span class="plate">
+            <select name="goal">
+              <option value="">Not set</option>
+              {% for value, word in goal_words.items() %}<option value="{{ value }}" {% if me.goal == value %}selected{% endif %}>{{ word }}</option>{% endfor %}
+            </select>
+          </span>
+        </label>
+        <label class="field">
+          <span class="draft-label">Target weight (kg)</span>
+          <span class="plate"><input name="target_weight_kg" inputmode="decimal" autocomplete="off" value="{{ num(me.target_weight_kg) }}"></span>
+        </label>
+      </div>
+    </section>
+
+    <section class="me-section" aria-labelledby="me-diet">
+      <h2 id="me-diet">Diet</h2>
+      <div class="me-fields">
+        <label class="field wide">
+          <span class="draft-label">Dietary pattern</span>
+          <span class="plate"><input name="diet" autocomplete="off" placeholder="Omnivore, vegetarian, pescatarian…" value="{{ me.diet }}"></span>
+        </label>
+        <label class="field wide">
+          <span class="draft-label">Allergies and intolerances</span>
+          <span class="plate"><input name="allergies" autocomplete="off" value="{{ me.allergies }}"></span>
+        </label>
+        <label class="field wide">
+          <span class="draft-label">Foods I avoid</span>
+          <span class="plate"><input name="avoids" autocomplete="off" value="{{ me.avoids }}"></span>
+        </label>
+      </div>
+    </section>
+
+    <section class="me-section" aria-labelledby="me-notes">
+      <h2 id="me-notes">Health notes</h2>
+      <label class="field">
+        <span class="draft-label">Conditions, medications, anything else that bears on what you eat</span>
+        <span class="plate"><textarea name="notes" rows="4">{{ me.notes }}</textarea></span>
+      </label>
+    </section>
+  </form>
+</div>
+{% endblock %}

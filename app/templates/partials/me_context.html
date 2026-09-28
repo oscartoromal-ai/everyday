@@ -1,0 +1,34 @@
+{# What follows from Me: age, BMI and daily energy, from the profile and the
+   latest weigh-in. Drawn again after each save, and after a weigh-in. #}
+<section class="me-context" id="me-context" aria-label="What follows"
+         hx-get="/ui/me/context" hx-trigger="me:changed from:body" hx-swap="outerHTML">
+  <dl class="me-figures">
+    <div>
+      <dt>Weight</dt>
+      <dd>{% if me.weight_kg %}{{ "%g" % me.weight_kg }} kg <span class="me-when">{{ me.weighed_on | short_date }}</span>{% else %}<span class="me-unset">Not yet</span>{% endif %}</dd>
+    </div>
+    <div>
+      <dt>Age</dt>
+      <dd>{% if me.age is not none %}{{ me.age }}{% else %}<span class="me-unset">Not yet</span>{% endif %}</dd>
+    </div>
+    <div>
+      <dt>BMI</dt>
+      <dd>{% if me.bmi %}{{ me.bmi }}{% else %}<span class="me-unset">Not yet</span>{% endif %}</dd>
+    </div>
+    <div>
+      <dt>Daily energy</dt>
+      <dd>{% if me.energy_kcal %}{{ "{:,}".format(me.energy_kcal) }} kcal{% else %}<span class="me-unset">Not yet</span>{% endif %}</dd>
+    </div>
+  </dl>
+  <p class="me-note">
+    {% if me.energy_kcal %}
+    About {{ "{:,}".format(me.energy_kcal) }} kcal a day keeps your weight, estimated from your body and activity (Mifflin-St Jeor).
+    {% else %}
+    Daily energy is estimated once you add {{ energy_needs[:-1] | join(", ") }}{% if energy_needs | length > 1 %} and {% endif %}{{ energy_needs[-1] }}.
+    {% endif %}
+    {% if me.goal and me.goal != "maintain" and me.target_weight_kg and me.weight_kg %}
+    {% set gap = (me.target_weight_kg - me.weight_kg) | round(1) %}
+    {% if gap != 0 %}Your target is {{ "%g" % me.target_weight_kg }} kg: {{ "%g" % (gap | abs) }} kg to {{ "gain" if gap > 0 else "lose" }}.{% endif %}
+    {% endif %}
+  </p>
+</section>

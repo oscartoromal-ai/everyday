@@ -13,6 +13,7 @@ from app.ui.calendar_view import grid_ctx, tray_tasks, week_monday
 from app.ui.views import (
     TASKS_VIEWS,
     day_page_ctx,
+    me_ctx,
     projects_list_ctx,
     tasks_page_ctx,
     templates,
@@ -135,6 +136,14 @@ def backlog_page():
 def nutrition_page(request: Request):
     # Health's first page, empty for now.
     return templates.TemplateResponse(request, "nutrition.html", _base(request, "nutrition"))
+
+
+@router.get("/me")
+def me_page(request: Request, db: DbSession):
+    # Health > Me: the context health advice needs.
+    ctx = me_ctx(db, date.today())
+    db.commit()  # the profile, begun empty the first time
+    return templates.TemplateResponse(request, "me.html", {**_base(request, "me"), **ctx})
 
 
 @router.get("/calendar")

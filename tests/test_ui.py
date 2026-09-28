@@ -840,3 +840,30 @@ def test_health_is_its_own_nav_group_with_nutrition(client) -> None:
     # Empty for now.
     main = page.split('<main class="main">')[1]
     assert "<h1>Nutrition</h1>" in main and "Nothing here yet." in main
+
+
+def test_me_saves_as_it_changes_and_says_what_follows(client, db) -> None:
+    page = client.get("/me").text
+    assert 'aria-keyshortcuts="7"' in page and "<h1>Me</h1>" in page
+    assert "No weigh-ins yet." in page
+    needs = "once you add your weight, height, birth date, sex and activity."
+    assert f"Daily energy is estimated {needs}" in page
+
+    form = {
+        "height_cm": "180", "birth_date": "1996-03-01", "sex": "male", "activity": "moderate",
+        "goal": "lose", "target_weight_kg": "75", "diet": "Omnivore", "allergies": "",
+        "avoids": "", "notes": "",
+    }
+    context = client.post("/ui/me", data=form).text
+    assert 'id="me-context"' in context and "once you add your weight." in context
+
+    weights = client.post("/ui/me/weight", data={"weight_kg": "80,5"})
+    assert weights.headers["HX-Trigger"] == "me:changed"
+    assert "80.5 kg" in weights.text and "Today" in weights.text
+    context = client.get("/ui/me/context").text
+    assert "Your target is 75 kg: 5.5 kg to lose." in context
+    assert "kcal a day keeps your weight" in context
+
+    # A value out of range is refused, with why (the page toasts it).
+    refused = client.post("/ui/me", data={**form, "height_cm": "1800"})
+    assert refused.status_code == 422 and "Height" in refused.json()["detail"]
