@@ -1716,6 +1716,9 @@
     drawStay();
   }
 
+  // Compact rows, or the timeline folded: the rows' size or the box's width changed.
+  document.addEventListener("density:change", () => view?.requestMeasure());
+
   const el = source();
   if (el) load(el);
   // For the page's tests: the notes as written.

@@ -16,17 +16,23 @@
   {% for font in ds.fonts %}<link rel="preload" href="/static/design/{{ font }}" as="font" type="font/woff2" crossorigin>
   {% endfor %}<link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
   <script>
-    // Before first paint: the saved theme (else the system's) and the
-    // sidebar's collapsed state, so neither flashes. shell.js keeps both.
+    // Before first paint: the saved theme (else the system's), the
+    // sidebar's collapsed state, compact rows and Today's folded timeline,
+    // so none flashes. shell.js keeps them.
     (() => {
       const root = document.documentElement;
-      let theme = null, rail = null;
-      try { theme = localStorage.getItem("pc-theme"); rail = localStorage.getItem("pc-rail"); } catch {}
+      let theme = null, rail = null, density = null, timeline = null;
+      try {
+        theme = localStorage.getItem("pc-theme"); rail = localStorage.getItem("pc-rail");
+        density = localStorage.getItem("pc-density"); timeline = localStorage.getItem("pc-timeline");
+      } catch {}
       if (theme !== "light" && theme !== "dark") {
         theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       }
       if (theme === "dark") root.dataset.theme = "dark";
       if (rail === "collapsed") root.dataset.rail = "collapsed";
+      if (density === "compact") root.dataset.density = "compact";
+      if (timeline === "folded") root.dataset.timeline = "folded";
     })();
     // Double-submit CSRF: echo the cookie on every htmx request.
     window.csrfToken = () =>
@@ -79,6 +85,12 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       </div>
     </nav>
     <div class="rail-foot">
+      {# Compact rows (C): more of Tasks and Today's notes on screen, the text its size. #}
+      <button type="button" class="theme-toggle density-toggle" aria-pressed="false" title="Compact rows (C)">
+        <svg class="density-toggle__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
+        <span class="theme-toggle__label density-toggle__label--roomy">Roomy</span>
+        <span class="theme-toggle__label density-toggle__label--compact">Compact</span>
+      </button>
       {# Brasa's shipped toggle: the current mode's icon morphs, with its name (the system's own) beside it. #}
       <button type="button" class="theme-toggle" aria-pressed="false" aria-label="Switch to {{ ds.modes.dark }}"
               data-label-light="{{ ds.modes.light }}" data-label-dark="{{ ds.modes.dark }}">
@@ -130,6 +142,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
           <dt><kbd>1</kbd>–<kbd>5</kbd></dt><dd>Tasks, Today, Calendar, Weeks, Projects</dd>
           <dt><kbd>N</kbd> <span class="or">or</span> <kbd>Shift</kbd> <kbd>N</kbd></dt><dd>New task</dd>
           <dt><kbd>?</kbd></dt><dd>These keys</dd>
+          <dt><kbd>C</kbd></dt><dd>Compact rows, or roomy again (Tasks, Today's notes)</dd>
         </dl>
         <h3>Writing a task</h3>
         <dl>
@@ -152,6 +165,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
           <dt><kbd>Ctrl</kbd> <kbd>Enter</kbd> <span class="or">or</span> <kbd>Esc</kbd></dt><dd>Close the task (it is added), onto the next row or where it is</dd>
           <dt><kbd>Ctrl</kbd> <kbd>Enter</kbd></dt><dd>Close a reflection, onto the next row</dd>
           <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>The day before or after (outside the notes)</dd>
+          <dt><kbd>Ctrl</kbd> <kbd>\</kbd></dt><dd>Fold the timeline away, the notes taking its room, or back (in the notes too)</dd>
           <dt><kbd>Esc</kbd></dt><dd>Out of the notes (in a task, once it is saved: Esc again)</dd>
         </dl>
       </section>

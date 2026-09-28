@@ -59,6 +59,56 @@
   });
   applyRail(root.dataset.rail === "collapsed");
 
+  /* ---- compact rows: a two-way toggle (and C), remembered ---- */
+
+  const applyDensity = (compact) => {
+    if (compact) root.dataset.density = "compact";
+    else delete root.dataset.density;
+    const button = document.querySelector(".density-toggle");
+    button?.setAttribute("aria-pressed", String(compact));
+    button?.setAttribute("aria-label", compact ? "Compact rows: on" : "Compact rows: off");
+    // The notes measure their rows again.
+    document.dispatchEvent(new CustomEvent("density:change"));
+  };
+  const toggleDensity = () => {
+    const compact = root.dataset.density !== "compact";
+    store("pc-density", compact ? "compact" : "roomy");
+    applyDensity(compact);
+  };
+  document.addEventListener("click", (e) => {
+    if (e.target.closest(".density-toggle")) toggleDensity();
+  });
+  applyDensity(root.dataset.density === "compact");
+
+  /* ---- Today's timeline: folded away (Ctrl+\, or its button), remembered ---- */
+
+  const applyTimeline = (folded) => {
+    if (folded) root.dataset.timeline = "folded";
+    else delete root.dataset.timeline;
+    const button = document.querySelector(".timeline-toggle");
+    if (!button) return;
+    button.setAttribute("aria-pressed", String(folded));
+    button.title = folded ? "Show the timeline (Ctrl+\\)" : "Fold the timeline away (Ctrl+\\)";
+    button.setAttribute("aria-label", folded ? "Show the timeline" : "Fold the timeline away");
+    document.dispatchEvent(new CustomEvent("density:change"));
+  };
+  const toggleTimeline = () => {
+    const folded = root.dataset.timeline !== "folded";
+    store("pc-timeline", folded ? "folded" : "shown");
+    applyTimeline(folded);
+  };
+  document.addEventListener("click", (e) => {
+    if (e.target.closest(".timeline-toggle")) toggleTimeline();
+  });
+  // Anywhere on Today, writing in the notes too.
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "\\" || !(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+    if (!document.querySelector(".today-page")) return;
+    e.preventDefault();
+    toggleTimeline();
+  });
+  applyTimeline(root.dataset.timeline === "folded");
+
   /* ---- a toast: one line of news at the foot of the page, for a moment ---- */
 
   // One with an action (Undo) stays longer, and while the pointer is on it.
@@ -109,6 +159,11 @@
       e.preventDefault();
       capture.showModal();
       window.TaskSheet.compose(capture.querySelector(".task-sheet"));
+      return;
+    }
+    if (e.key === "c" || e.key === "C") {
+      e.preventDefault();
+      toggleDensity();
       return;
     }
     if (e.key === "?") {

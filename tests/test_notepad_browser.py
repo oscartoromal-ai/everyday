@@ -867,3 +867,35 @@ def test_a_row_deleted_from_inside_a_task_leaves_the_rest_inside(page, live) -> 
     page.keyboard.press("Delete")
     assert text_of(page) == "- [ ] Pack\n\t- [ ] socks\n\t- [ ] shoes"
     assert page.locator(".pad-editor .cm-line.pad-title").count() == 1
+
+
+def test_compact_rows_and_a_folded_timeline_are_kept(page, live) -> None:
+    def row_height() -> float:
+        first = page.locator(".pad-editor .cm-line").first
+        return first.evaluate("e => e.getBoundingClientRect().height")
+
+    page.goto(f"{live}/today")
+    assert row_height() == 36
+    # C, outside the text: compact rows, remembered; the text keeps its size.
+    page.keyboard.press("c")
+    assert row_height() == 28
+    assert page.locator(".density-toggle").get_attribute("aria-pressed") == "true"
+    # Ctrl+\, even writing in the notes: the timeline folds away, the notes taking its room.
+    write_in(page)
+    width = page.locator(".notepad-card").evaluate("e => e.getBoundingClientRect().width")
+    page.keyboard.press("Control+\\")
+    assert page.locator(".today-timeline").is_hidden()
+    assert page.locator(".notepad-card").evaluate("e => e.getBoundingClientRect().width") > width
+    assert text_of(page) == ""
+    # In the notes, C is a letter.
+    page.keyboard.type("c")
+    assert text_of(page) == "c"
+    assert row_height() == 28
+
+    page.reload()
+    assert row_height() == 28
+    assert page.locator(".today-timeline").is_hidden()
+    page.locator(".timeline-toggle").click()
+    page.locator(".density-toggle").click()
+    assert page.locator(".today-timeline").is_visible()
+    assert row_height() == 36

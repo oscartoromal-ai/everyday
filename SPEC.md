@@ -42,6 +42,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Triage by keyboard**: on Tasks, arrow keys move a row cursor and single keys act on it (T today, M tomorrow, D pick a day, X done, E edit), the cursor moving on to the next row as each one is dated or finished.
 - **A task's project is its colour** (Oscar's call on 2026-09-28, chosen from a prototype of four): each project has a colour, set in its editor on Projects, and a task in it shows the project as its flag filled in that colour, the name only on hover, wherever tasks are listed.
   In Today's notes the task's rules take the colour too, and on Tasks its row's rule.
+- **Seeing more** (Oscar's call on 2026-09-28; the browser's zoom stays the browser's): compact rows (C, or the rail's toggle) fit more of Tasks and Today's notes on screen at the same text size; Today, Calendar and Weeks widen with the window; and on Today, Ctrl+\ (or the day header's icon) folds the timeline away for the notes. All three are remembered.
 - **Filing by drag**: in By project (and on Projects) a task is dragged onto a milestone, another project, or No project to file it there.
 - **Today is a notepad beside the day's timeline** (Oscar's call on 2026-09-27, "for now"): the whole left column is one plain notepad for the day, the right the day's timeline.
   The notes are plain text, saved as they are written.

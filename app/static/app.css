@@ -159,6 +159,16 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 :root[data-rail="collapsed"] .nav-group-label { height: 0; margin: 0 var(--s-1) var(--s-3); padding: 0; border-top: 1px solid var(--chrome-flank-border); font-size: 0; }
 :root[data-rail="collapsed"] .nav a,
 :root[data-rail="collapsed"] .theme-toggle { justify-content: center; padding-inline: 0; }
+/* compact rows' toggle: drawn as the mode toggle, three lines that close up when on */
+.density-toggle__icon {
+  flex: none; width: 16px; height: 16px;
+  fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round;
+}
+.density-toggle__icon path { transition: transform 220ms var(--ease); }
+:root[data-density="compact"] .density-toggle__icon path:first-child { transform: translateY(2px); }
+:root[data-density="compact"] .density-toggle__icon path:last-child { transform: translateY(-2px); }
+:root[data-density="compact"] .density-toggle__label--roomy,
+:root:not([data-density="compact"]) .density-toggle__label--compact { display: none; }
 
 .main { width: 100%; max-width: 800px; margin-inline: auto; padding: var(--s-8); }
 
@@ -928,6 +938,10 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
    edge. The lists and rows are Projects' own, so the sheet restyles them
    here rather than in their markup. */
 .tasks-page { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-8)); }
+/* compact rows: Tasks' sheet and Today's notes 28px a row, not 36px, the text its size */
+:root[data-density="compact"] :is(.tasks-sheet, .notepad-card) {
+  --pad-line: 28px; --pad-text: 20px; --pad-above: 3px; --pad-below: 4px;
+}
 .tasks-sheet {
   --pad-line: 36px;
   --pad-text: 22px;
@@ -1060,7 +1074,8 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 
 /* ---------- calendar (week grid and Today's timeline) ---------- */
 
-.main:has(.calendar-page), .main:has(.weeks-page), .main:has(.today-page) { max-width: 1200px; }
+/* the day's and week's pages take a wide window (or a zoomed-out page) */
+.main:has(.calendar-page), .main:has(.weeks-page), .main:has(.today-page) { max-width: 1600px; }
 .calendar-header h1 { font-variant-numeric: tabular-nums; }
 .week-today { white-space: nowrap; }
 @media (max-width: 540px) {
@@ -1228,6 +1243,17 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .task-row[draggable="true"] :is(button, input) { cursor: pointer; }
 
 .day-title { display: flex; align-items: center; gap: var(--s-3); }
+/* at the day's header's right: fold the timeline away, and back */
+.timeline-toggle {
+  display: grid; place-content: center; width: 32px; height: 32px; margin-left: auto;
+  border-radius: var(--r-ctl); color: var(--pewter); cursor: pointer;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.timeline-toggle svg { stroke: currentColor; }
+.timeline-toggle:hover { color: var(--ink); background: var(--glass-hover); }
+.timeline-toggle[aria-pressed="true"] { color: var(--graphite); }
+:root[data-timeline="folded"] .today-page { grid-template-columns: minmax(0, 1fr); }
+:root[data-timeline="folded"] .today-timeline { display: none; }
 .day-nav { display: flex; align-items: center; gap: var(--s-1); }
 .day-step {
   display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--r-ctl);

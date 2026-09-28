@@ -81,7 +81,9 @@ A panel icon beside the wordmark collapses the sidebar to a 64px icon rail (`dat
 The shell animates its column width on `--ease` over 220ms.
 When collapsed, the wordmark and labels hide, each link keeps its name as a tooltip, group labels become hairlines, and the spark bar stays.
 Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the spark bar moves above the active tab's icon, and the mode toggle ends the bar as a 44px sun or moon icon past a hairline, with no label; the collapse control stays desktop-only.
-Content is 800px wide for list pages (Tasks, Projects) and 1200px for Today, Calendar and Weeks.
+Content is 800px wide for list pages (Tasks, Projects), where more width only lengthens a row, and up to 1600px for Today, Calendar and Weeks, so a wide window or a zoomed-out page widens them rather than their margins.
+Compact rows (the rail's toggle above the mode's, or C) set Tasks' sheet and Today's notes 28px a row rather than 36px, the text its size: 3px above a 20px line, 4px below; the toggle's three lines close up while it is on, its label the state (Roomy, Compact).
+On Today a panel icon at the day header's right (or Ctrl+\) folds the timeline away, the notes taking its column, and back.
 
 ## Components
 
