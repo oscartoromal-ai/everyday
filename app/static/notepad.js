@@ -832,6 +832,22 @@
     }
     return true;
   };
+  // Lines pasted inside a task (or reflection, habit, stay) stay inside it:
+  // each after the first is tabbed in as one of its rows ("- [ ] " ones
+  // becoming sub-tasks), so a paste never ends it early or starts another.
+  const pasteInside = EditorView.domEventHandlers({
+    paste(e, v) {
+      const text = e.clipboardData?.getData("text/plain");
+      if (!text || !/[\r\n]/.test(text)) return false;
+      const line = v.state.doc.lineAt(v.state.selection.main.from);
+      if (!blockOfLine(v.state, line.number)) return false;
+      e.preventDefault();
+      const rows = text.replace(/\r\n?/g, "\n").split("\n");
+      const insert = rows.map((row, i) => (i === 0 || row.startsWith(TAB) ? row : TAB + row)).join("\n");
+      v.dispatch(v.state.replaceSelection(insert), { scrollIntoView: true, userEvent: "input.paste" });
+      return true;
+    },
+  });
   const untab = (v) => {
     const { state } = v;
     if (state.selection.ranges.length > 1) return true;
@@ -1604,7 +1620,7 @@
 
   const extensions = () => [
     tasksField, keepTasks, focusField, fillerField, drawField, offTheLead, unfoldFirst, wordsToFields,
-    fieldHistory, setFields,
+    fieldHistory, setFields, pasteInside,
     EditorView.focusChangeEffect.of((state, focusing) => setFocus.of(focusing)),
     lineNumbers(),
     lineNumberWidgetMarker.of((v, widget) => (widget instanceof Filler ? new FillerNumbers(v.state.doc.lines + 1, widget.count) : null)),

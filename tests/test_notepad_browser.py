@@ -784,3 +784,52 @@ def test_spelling_is_marked_only_in_the_row_being_written(page, live) -> None:
     # Out of the notes, no row is.
     page.keyboard.press("Escape")
     marked(["false", "false"])
+
+
+PASTE = """text => {
+  const dt = new DataTransfer();
+  dt.setData('text/plain', text);
+  document.querySelector('.pad-editor .cm-content').dispatchEvent(
+    new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+}"""
+
+
+def test_lines_pasted_inside_a_task_stay_inside_it(page, live) -> None:
+    page.goto(f"{live}/today")
+    write_in(page)
+    page.keyboard.type("- [ ] Plan the trip")
+    page.keyboard.press("Enter")
+    page.keyboard.type("book flights")
+    page.keyboard.press("Enter")
+    page.keyboard.type("pack")
+
+    # Into one of its rows: every line pasted is a row of it, a "- [ ] "
+    # line a sub-task, and the rows after it stay its own.
+    page.keyboard.press("ArrowUp")
+    page.keyboard.press("End")
+    page.keyboard.press("Enter")
+    page.evaluate(PASTE, "call the hotel\r\nrent a car\n- [ ] check visas")
+    trip = "\n".join([
+        "- [ ] Plan the trip", "\tbook flights", "\tcall the hotel", "\trent a car",
+        "\t- [ ] check visas", "\tpack",
+    ])
+    assert text_of(page) == trip
+    assert page.locator(".pad-editor .cm-line.pad-title").count() == 1
+
+    # At its title: the first line joins it, the rest go under it; rows
+    # copied from the notes keep their one tab.
+    page.keyboard.press("Control+Home")
+    page.keyboard.press("End")
+    page.evaluate(PASTE, " to Lisbon\n\tsort insurance")
+    lisbon = "- [ ] Plan the trip to Lisbon\n\tsort insurance\n\tbook flights"
+    assert text_of(page).startswith(lisbon)
+    # One paste is one undo.
+    page.keyboard.press("Control+z")
+    assert text_of(page) == trip
+
+    # Outside any task (Enter twice steps out of it), a paste is just text.
+    page.keyboard.press("Control+End")
+    for _ in range(2):
+        page.keyboard.press("Enter")
+    page.evaluate(PASTE, "Slow morning.\nCoffee first.")
+    assert text_of(page) == trip + "\nSlow morning.\nCoffee first."
