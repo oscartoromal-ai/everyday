@@ -338,3 +338,33 @@ def test_an_add_racing_a_list_refresh_lands_once(page, live, app_db) -> None:
     assert page.locator(".capture .task-sheet .sheet-title").text_content() == ""
     with app_db() as db:
         assert [t.title for t in tasks_svc.list_tasks(db)].count("Kilo") == 1
+
+
+def test_a_key_racing_a_list_refresh_still_opens_its_row(page, live, app_db, tasks) -> None:
+    """A row's key pressed while its list is re-rendering still acts on it:
+    P opens the row's sheet on its project menu, in the list as it is once
+    the refresh lands, and the choice is saved. Held back on purpose, the
+    refresh is always in flight when the key is pressed."""
+    page.goto(live)
+    press(page, "j")
+    cursor_on(page, page.evaluate(STOPS)[0])
+    on = cursor(page)
+
+    # The list's refresh is slow, and the edit sheet slower.
+    def later(ms):
+        def handle(route):
+            page.wait_for_timeout(ms)
+            route.continue_()
+
+        return handle
+
+    page.route(lambda url: url.endswith(("/", "/?view=date")), later(300))
+    page.route("**/ui/tasks/*/edit", later(600))
+    page.evaluate("htmx.trigger(document.body, 'tasks:changed')")
+    press(page, "p")  # No project, Home, Garden
+    page.locator(".task-sheet[data-sheet=edit]").wait_for()
+    press(page, "ArrowDown", "ArrowDown", "Enter")
+    page.locator(".task-sheet[data-sheet=edit]").wait_for(state="detached")
+    with app_db() as db:
+        task = next(t for t in tasks_svc.list_tasks(db) if t.title == on)
+        assert task.milestone is not None and task.milestone.name == "Garden"
