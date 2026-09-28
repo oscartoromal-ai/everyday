@@ -842,47 +842,97 @@
   // As in the task sheet: in a task's title, "friday", "at 3pm", "due
   // friday" or "every week" and a space set the field (its icon shows it)
   // and leave the title; Backspace straight after puts the words back, and
-  // they stay words. A title's last words are taken when it is closed.
-  let converted = null; // {m, name, previous, at, words, doc}
+  // they stay words. A title's last words are taken when it is closed, and
+  // the toast that says so can take them back. Each is an undo step of its
+  // own, the field with the words: Ctrl+Z puts both back, Ctrl+Y again.
+  // {m, name, value, previous, start, toWords}: start, the words' in the
+  // title; toWords, the words coming back (they then stay words, as after
+  // Backspace) rather than becoming the field.
+  const fieldChange = StateEffect.define();
+  const fieldHistory = invertedEffects.of((tr) => tr.effects
+    .filter((e) => e.is(fieldChange))
+    .map((e) => fieldChange.of({ ...e.value, value: e.value.previous, previous: e.value.value, toWords: !e.value.toWords })));
+  const setFields = EditorView.updateListener.of((u) => {
+    for (const tr of u.transactions) {
+      for (const e of tr.effects) {
+        if (!e.is(fieldChange)) continue;
+        const { m, name, value, start, toWords } = e.value;
+        window.TaskSheet.setField(controlsOf(m), name, value);
+        if (toWords) (m.kept ||= new Set()).add(start);
+        else m.kept?.delete(start);
+      }
+    }
+  });
+  let converted = null; // {m, name, previous, at, words, doc}: the last, for Backspace
   const toField = (v, line, caret, { closing = false } = {}) => {
     const text = `${line.text.slice(BOX, caret - line.from)} `;
     const field = window.TaskSheet?.fieldOfWords(text);
-    if (!field) return false;
+    if (!field) return null;
     const m = v.state.field(tasksField).find(({ pos }) => pos === line.from)?.m;
-    if (!m || m.kept?.has(field.start)) return false;
-    let from = line.from + BOX + field.start;
-    const words = v.state.sliceDoc(from, caret);
+    if (!m || m.kept?.has(field.start)) return null;
+    const at = line.from + BOX + field.start;
+    const words = v.state.sliceDoc(at, caret);
     // Closing, the space before the words goes with them.
+    let from = at;
     if (closing) while (from > line.from + BOX && v.state.sliceDoc(from - 1, from) === " ") from--;
-    const form = controlsOf(m);
-    const previous = form.elements[field.name].value;
-    v.dispatch({ changes: { from, to: caret }, selection: { anchor: from }, userEvent: "input" });
-    converted = { m, name: field.name, previous, at: from, words, doc: v.state.doc };
-    window.TaskSheet.setField(form, field.name, field.value);
-    return true;
+    const previous = controlsOf(m).elements[field.name].value;
+    v.dispatch({
+      changes: { from, to: caret }, selection: { anchor: from }, userEvent: "input",
+      effects: fieldChange.of({ m, name: field.name, value: field.value, previous, start: field.start, toWords: false }),
+      annotations: isolateHistory.of("full"),
+    });
+    converted = { m, name: field.name, value: field.value, previous, at: from, words, doc: v.state.doc };
+    return converted;
   };
   const wordsToFields = EditorView.inputHandler.of((v, from, to, text) => {
     if (text !== " " || from !== to || v.state.selection.ranges.length > 1) return false;
     const line = v.state.doc.lineAt(from);
-    return isTask(line) && from >= line.from + BOX && toField(v, line, from);
+    return isTask(line) && from >= line.from + BOX && !!toField(v, line, from);
   });
+  // Words back in a title (where they were, or at its end) and the field as
+  // it was; the words stay words from then on.
+  const unconvert = (v, c, at, insert) => {
+    const start = at + insert.length - c.words.length - v.state.doc.lineAt(at).from - BOX;
+    v.dispatch({
+      changes: { from: at, insert }, selection: { anchor: at + insert.length }, scrollIntoView: true, userEvent: "input",
+      effects: fieldChange.of({ m: c.m, name: c.name, value: c.previous, previous: c.value, start, toWords: true }),
+      annotations: isolateHistory.of("full"),
+    });
+  };
   const backToWords = (v) => {
     const c = converted;
     converted = null;
     const range = v.state.selection.main;
     if (!c || v.state.doc !== c.doc || !range.empty || range.head !== c.at) return false;
-    v.dispatch({ changes: { from: c.at, insert: c.words }, selection: { anchor: c.at + c.words.length }, userEvent: "input" });
-    const line = v.state.doc.lineAt(c.at);
-    (c.m.kept ||= new Set()).add(c.at - line.from - BOX);
-    window.TaskSheet.setField(controlsOf(c.m), c.name, c.previous);
+    unconvert(v, c, c.at, c.words);
     return true;
   };
-  // The title's last words, as a task is closed: its block as it then stands.
+  // The title's last words, as a task is closed: its block as it then
+  // stands, and what they became (null when nothing).
   const closing = (v, block) => {
     const line = v.state.doc.line(block.first);
     const end = line.from + BOX + line.text.slice(BOX).replace(/\s+$/, "").length;
-    if (end > line.from + BOX && toField(v, line, end, { closing: true })) converted = null;
-    return blocksOf(v.state).find((b) => b.m === block.m) || block;
+    const c = end > line.from + BOX ? toField(v, line, end, { closing: true }) : null;
+    converted = null;
+    return { block: blocksOf(v.state).find((b) => b.m === block.m) || block, converted: c };
+  };
+  // What a closed title's words became, in the toast's words: "do Fri 2 Oct".
+  const fieldWords = (c) => {
+    const button = controlsOf(c.m).querySelector(`.prop[data-prop="${c.name}"]`);
+    const shown = button?.querySelector(".prop-value")?.textContent || "";
+    if (c.name === "planned_for") return `do ${shown}`;
+    if (c.name === "due") return `due ${shown}`;
+    if (c.name === "time") return `at ${shown}`;
+    return (button?.title || "").toLowerCase();
+  };
+  // The toast's Undo: the words back at the title's end, written to the task.
+  const undoClosing = (c) => {
+    const entry = view?.state.field(tasksField).find(({ m }) => m === c.m);
+    if (!entry) return;
+    const line = view.state.doc.lineAt(entry.pos);
+    const end = line.from + BOX + line.text.slice(BOX).replace(/\s+$/, "").length;
+    view.focus();
+    unconvert(view, c, end, ` ${c.words}`);
   };
 
   // Esc: in a task, save it (saved already, out of the text); elsewhere, out of the text. Ahead of what is
@@ -897,7 +947,10 @@
       const block = blockAt(v.state);
       const { title, notes } = block?.kind === "task" ? contentOf(block) : {};
       const saved = block?.m?.saved;
-      if (block?.kind === "task" && !(saved && saved.title === title && saved.notes === notes)) saveTask(closing(v, block));
+      if (block?.kind === "task" && !(saved && saved.title === title && saved.notes === notes)) {
+        const closed = closing(v, block);
+        saveTask(closed.block, { converted: closed.converted });
+      }
       else v.contentDOM.blur();
       return true;
     },
@@ -911,7 +964,11 @@
       run: (v) => {
         let block = blockAt(v.state);
         if (!block) return false;
-        if (block.kind === "task") saveTask((block = closing(v, block)));
+        if (block.kind === "task") {
+          const closed = closing(v, block);
+          block = closed.block;
+          saveTask(block, { converted: closed.converted });
+        }
         const end = v.state.doc.line(block.last).to;
         v.dispatch({ changes: { from: end, insert: "\n" }, selection: { anchor: end + 1 }, scrollIntoView: true, userEvent: "input" });
         return true;
@@ -1090,14 +1147,25 @@
     return true;
   }
 
-  async function saveTask(block, { leaving = false } = {}) {
+  // `converted`: the title's last words became a field as it closed; the
+  // toast says which, and can take it back.
+  async function saveTask(block, { leaving = false, converted = null } = {}) {
     const { title, notes } = contentOf(block);
     const m = block.m;
-    if (!title || (m.saved && m.saved.title === title && m.saved.notes === notes)) return;
+    const told = (news) => (converted
+      ? window.toast(`${news}, ${fieldWords(converted)}`, { action: "Undo", run: () => undoClosing(converted) })
+      : window.toast(news));
+    if (!title) return;
+    if (m.saved && m.saved.title === title && m.saved.notes === notes) {
+      // Only a field changed (its words taken): the field is already written.
+      if (converted && m.id) told(`Task saved: ${title}`);
+      return;
+    }
     if (m.id) {
       const ok = await writeTask(block, { leaving });
       if (leaving) return;
-      window.toast(ok ? `Task saved: ${title}` : "Could not save that task. Its words are still in the notes.");
+      if (ok) told(`Task saved: ${title}`);
+      else window.toast("Could not save that task. Its words are still in the notes.");
       return;
     }
     const { planned_for, time, due, repeat, project_id } = m.fields;
@@ -1111,7 +1179,7 @@
     }
     m.id = Number(/id="task-(\d+)"/.exec(html)?.[1]) || null;
     m.saved = { title, notes };
-    window.toast(`Task added: ${title}`);
+    told(`Task added: ${title}`);
     htmx.trigger(document.body, "calendar:refresh");
     schedule();
     // What adding leaves out: its milestone, and a box ticked before it was added.
@@ -1532,6 +1600,7 @@
 
   const extensions = () => [
     tasksField, keepTasks, focusField, fillerField, drawField, offTheLead, unfoldFirst, wordsToFields,
+    fieldHistory, setFields,
     EditorView.focusChangeEffect.of((state, focusing) => setFocus.of(focusing)),
     lineNumbers(),
     lineNumberWidgetMarker.of((v, widget) => (widget instanceof Filler ? new FillerNumbers(v.state.doc.lines + 1, widget.count) : null)),

@@ -1201,6 +1201,13 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   transition: opacity 220ms var(--ease), transform 220ms var(--ease);
 }
 .cal-toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* one with an action (Undo): the pointer can reach it, the action after the words */
+.cal-toast.has-action.show { display: flex; align-items: center; gap: var(--s-3); padding-right: var(--s-2); pointer-events: auto; }
+.toast-action {
+  padding: 2px var(--s-2); border-radius: var(--r-tag); font-weight: 600; color: var(--on-carbon); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.toast-action:hover { background: color-mix(in srgb, var(--on-carbon) 14%, transparent); }
 
 @media (max-width: 900px) {
   .calendar-layout { grid-template-columns: minmax(0, 1fr); }

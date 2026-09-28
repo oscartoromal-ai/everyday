@@ -61,20 +61,37 @@
 
   /* ---- a toast: one line of news at the foot of the page, for a moment ---- */
 
+  // One with an action (Undo) stays longer, and while the pointer is on it.
   let toastTimer = 0;
-  window.toast = (message) => {
+  window.toast = (message, { action = "", run = null } = {}) => {
     let el = document.querySelector(".cal-toast");
     if (!el) {
       el = document.createElement("div");
       el.className = "cal-toast";
       el.setAttribute("role", "status");
+      el.addEventListener("pointerenter", () => clearTimeout(toastTimer));
+      el.addEventListener("pointerleave", () => {
+        toastTimer = setTimeout(() => el.classList.remove("show"), 1500);
+      });
       document.body.appendChild(el);
     }
     el.textContent = message;
+    if (action && run) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "toast-action";
+      button.textContent = action;
+      button.addEventListener("click", () => {
+        el.classList.remove("show");
+        run();
+      });
+      el.append(button);
+    }
+    el.classList.toggle("has-action", !!(action && run));
     el.classList.add("show");
     // A newer toast gets its own full moment.
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+    toastTimer = setTimeout(() => el.classList.remove("show"), action && run ? 6000 : 2600);
   };
 
   /* ---- keys that work on every page: 1-5 go to the nav's pages in order,

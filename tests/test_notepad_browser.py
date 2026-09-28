@@ -717,3 +717,47 @@ def test_a_task_title_takes_its_fields_from_words(page, live, app_db) -> None:
         assert (task.title, task.planned_for) == ("Call the bank tomorrow", TODAY)
         assert task.due == TODAY + timedelta(days=weekday)
         assert [(b.start.hour, b.end.hour) for b in task.blocks] == [(15, 16)]
+
+
+def test_a_title_s_words_made_a_field_come_back_with_undo(page, live, app_db) -> None:
+    from app.services import tasks as tasks_svc
+
+    page.goto(f"{live}/today")
+    write_in(page)
+    title = page.locator(".pad-editor .cm-line.pad-title").first
+    value = lambda name: title.locator(f".prop[data-prop={name}] .prop-value").inner_text()  # noqa: E731
+
+    # Ctrl+Z puts back the words and the field together, even after more
+    # writing; Ctrl+Y makes the field again.
+    page.keyboard.type("- [ ] Book flights for friday ")
+    assert value("planned_for") != "today"
+    page.keyboard.type("soon")
+    page.keyboard.press("Control+z")
+    assert text_of(page) == "- [ ] Book flights for "
+    page.keyboard.press("Control+z")
+    assert text_of(page) == "- [ ] Book flights for friday"
+    assert value("planned_for") == "today"
+    page.keyboard.press("Control+y")
+    assert text_of(page) == "- [ ] Book flights for "
+    assert value("planned_for") != "today"
+    page.keyboard.press("Control+z")
+
+    # Closing takes a title's last words; the toast says what they became,
+    # and its Undo puts them back, written to the task.
+    page.keyboard.press("End")
+    page.keyboard.type(" due tomorrow")
+    page.keyboard.press("Control+Enter")
+    added = "Task added: Book flights for friday, due tomorrow"
+    toast = page.locator(".cal-toast.show", has_text=added)
+    toast.wait_for()
+    toast.locator(".toast-action", has_text="Undo").click()
+    assert text_of(page).startswith("- [ ] Book flights for friday due tomorrow\n")
+    assert value("due") == ""
+    end = time.monotonic() + 5
+    while True:
+        with app_db() as db:
+            [task] = tasks_svc.list_tasks(db)
+            if (task.title, task.due) == ("Book flights for friday due tomorrow", None):
+                break
+        assert time.monotonic() < end, (task.title, task.due)
+        time.sleep(0.1)
