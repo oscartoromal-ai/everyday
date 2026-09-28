@@ -85,7 +85,7 @@ Content is 800px wide for list pages (Tasks, Projects) and 1200px for Today, Cal
 
 ## Components
 
-**List cards.** Tasks' groups, each project, each week in Rows, the nudge center (at the top of Tasks) and the trays are glass cards.
+**List cards.** Each project, each week in Rows, the nudge center (at the top of Tasks) and the trays are glass cards; Tasks' groups are not, but rows of its ruled sheet (see Tasks).
 A title row sits on a stronger hairline, and rows below are full-bleed, dividing with hairlines and lighting on hover with `--glass-row-hover`.
 
 **Task rows.** An 18px checkbox with a 6px radius fills with ink when checked; there is no draw-in animation.
@@ -161,8 +161,14 @@ What is offered while writing (after "/" at a row's start, and after "/habit ") 
 No border, no focus ring and no resize handle; the pewter placeholder "Anything on your mind today."
 When the notes were saved in another window, a line under the card says so, with Show that version and Keep mine as secondary buttons.
 
-**Tasks.** A page header ("Tasks", the open and undated counts, and a By date / By project segmented control on the right), the composer alone in its own card, then the tasks.
-By date is one list card per do-date group; By project is Projects' cards (without their status control, which moves cards between Projects' shelves, and with a neutral badge on a parked project that still holds open work), then a No project card in the same form, its empty edit slot keeping the counts in line.
+**Tasks.** A page header ("Tasks", the open and undated counts, and a By date / By project segmented control on the right), the composer's plate on the page, as wide as the sheet under it, then the tasks on one sheet ruled as Today's notepad is.
+The page runs to the window's foot and the sheet takes what is left of it (at least 420px).
+It is the notepad card's paper at 35%, with the same metrics: every row at least 36px tall with its text in the middle (7px above a 22px line, 6px below), on its own `--hairline` rule, and the 44px column of row numbers (12px pewter, tabular) on a fog wash behind a hairline (34px on phones).
+Every row is numbered, headers and composers included, and empty numbered rows fill the sheet under the last group, the last of them cut at its edge; a Done fold's hidden rows are not counted.
+Each group is bracketed as a notepad task is: a 2px graphite rule above its title row and below its last row, across the row numbers too, one rule between two groups; the group the keyboard is in has its rules in ink, as has the cursor row's number.
+A group's title row is its name in 14px/600 ink with its count in pewter; a task row is the notepad's box (square, 14px, graphite-ruled, ink with a paper tick once done) 8px before its title, the meta line and an opened description on the row's own 22px lines, the row growing with them.
+By date is one group per do-date group; By project is Projects' cards drawn as groups (their title rows 14px/600, without their status control, which moves cards between Projects' shelves, and with a neutral badge on a parked project that still holds open work), a milestone's tasks one 24px step in, each project's composer a row of its own, then a No project group in the same form, its empty edit slot keeping the counts in line.
+The rows are Projects' own markup, so the sheet restyles them under `.tasks-sheet` and Projects keeps its cards.
 While planning, every row names its do-date, "today" included, whichever way it is grouped.
 Each row ends in quiet do-date buttons, always shown since dating is the page's job: "Today" and "Tomorrow" in 12px pewter, and a calendar icon that opens the native date picker.
 They darken to graphite on row hover and ink on their own hover; a button for the day the task already has leaves its slot empty, so the columns line up down the page.
@@ -175,7 +181,7 @@ It is the one cursor the app draws: a Done fold's header, a Projects shelf's hea
 Projects' shelves remember being open like the Done folds, so a key acting inside one never folds it away.
 
 **Done fold.** Finished tasks fold away under a list: a pewter "Done" summary with its count and a steel chevron that turns when open, then the rows, checked and struck through, ready to untick.
-On Today it is the last row of the Today card; on Tasks it is its own card at the foot, noting "last 14 days".
+On Tasks it is the sheet's last group, noting "last 14 days".
 Which folds are open is remembered per tab (`sessionStorage` key `pc-open-folds`).
 
 **Keys dialog.** `?` on any page opens every key, grouped Anywhere, Writing a task and Lists, on the confirm dialog's paper, 760px wide in two columns (one under 640px).

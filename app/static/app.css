@@ -408,7 +408,10 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   .plan-btn.slot { display: none; }
 }
 
-.tasks-page .capture { margin-bottom: var(--s-6); }
+/* the composer stands on the page, its plate as wide as the sheet under it */
+.tasks-page .page-header { margin-bottom: var(--s-4); }
+.tasks-page .capture { margin-bottom: var(--s-4); }
+.tasks-page .capture > .draft-slot { padding: 0; }
 /* the triage keys, named where they are used; no keyboard, no hint */
 .keys-hint { margin: var(--s-2) 0 0; font-size: var(--t-caption); color: var(--pewter); }
 .keys-hint kbd { margin-right: 2px; }
@@ -887,6 +890,140 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .nudge-dismiss:hover { color: var(--ink); background: var(--fog); }
 .nudge-dismiss svg { stroke: currentColor; }
 #nudge-editor-slot:empty { display: none; }
+
+/* ---------- Tasks: one ruled sheet, as Today's notepad is ---------- */
+
+/* The page runs to the window's foot and the sheet takes what the header
+   and the composer leave. Ruled like the notepad: every row is 36px tall
+   with its text in the middle, on its own hairline, numbered down the left
+   on a fog wash; each group (a do-date, a project, Done) is bracketed by a
+   2px graphite rule above its title row and below its last row, one rule
+   between two groups, in ink while the keyboard is in it. Empty numbered
+   rows fill the sheet under the last group, the last of them cut at its
+   edge. The lists and rows are Projects' own, so the sheet restyles them
+   here rather than in their markup. */
+.tasks-page { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-8)); }
+.tasks-sheet {
+  --pad-line: 36px;
+  --pad-text: 22px;
+  --pad-above: 7px;
+  --pad-below: 6px;
+  --pad-rows: 44px;
+  --pad-gap: var(--s-3);
+  --row-start: calc(var(--pad-rows) + var(--pad-gap));
+  flex: 1; display: flex; flex-direction: column; min-height: 420px;
+  padding-top: 2px; /* room for the first group's rule */
+  counter-reset: sheet-row;
+  font-size: var(--t-body-sm); line-height: var(--pad-text);
+  background:
+    linear-gradient(to right,
+      color-mix(in srgb, var(--fog) 70%, transparent) var(--pad-rows),
+      var(--hairline) var(--pad-rows) calc(var(--pad-rows) + 1px),
+      transparent calc(var(--pad-rows) + 1px)),
+    color-mix(in srgb, var(--paper) 35%, transparent);
+  border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
+}
+
+/* a group: no card of its own, only its two rules; the lower of two
+   groups draws the rule they share over the upper's, unless the keyboard
+   is in the upper */
+.tasks-sheet :is(.list-section, .project-card) {
+  --bracket: var(--graphite);
+  position: relative; margin: 0; overflow: visible;
+  background: none; backdrop-filter: none; border: none; border-radius: 0;
+}
+.tasks-sheet :is(.list-section, .project-card)::before,
+.tasks-sheet :is(.list-section, .project-card)::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 2px;
+  background: var(--bracket); pointer-events: none;
+}
+.tasks-sheet :is(.list-section, .project-card)::before { top: -2px; }
+.tasks-sheet :is(.list-section, .project-card)::after { bottom: 0; }
+.tasks-sheet :is(.list-section, .project-card):has(:focus-visible) { --bracket: var(--ink); }
+.tasks-sheet :is(.list-section, .project-card):has(:focus-visible)::after { z-index: 1; }
+.tasks-sheet .projects:empty { display: none; }
+
+/* every row: 36px or more, text from the numbers' edge, its own hairline */
+.tasks-sheet :is(.list-section > h2, .project-card > header, .project-card > .notes, .milestone, .loose-head,
+  .task-row, .sheet-item, .empty, .done-fold > summary, .project-card > .draft-slot, .expander > summary, .sheet-filler li) {
+  position: relative; min-height: var(--pad-line); margin: 0;
+  padding: var(--row-above, var(--pad-above)) var(--s-4) var(--row-below, var(--pad-below)) var(--row-start);
+  border: none; border-bottom: 1px solid var(--hairline); border-radius: 0;
+  line-height: var(--pad-text);
+  counter-increment: sheet-row;
+}
+/* its number, level with its first line, on the fog */
+.tasks-sheet :is(.list-section > h2, .project-card > header, .project-card > .notes, .milestone, .loose-head,
+  .task-row, .sheet-item, .empty, .done-fold > summary, .project-card > .draft-slot, .expander > summary, .sheet-filler li)::after {
+  content: counter(sheet-row);
+  position: absolute; left: 0; top: 0; width: var(--pad-rows); padding-right: var(--s-2);
+  font: 400 var(--t-caption) / calc(var(--pad-line) - 1px) var(--font-num); text-align: right;
+  letter-spacing: normal; color: var(--pewter);
+  font-variant-numeric: tabular-nums;
+}
+.tasks-sheet :is(.task-row, .done-fold > summary):focus-visible::after { color: var(--ink); font-weight: 600; }
+/* a list's last row keeps its hairline: a group's rule, or the next row, follows */
+.tasks-sheet .task-list .task-row:last-child { border-bottom: 1px solid var(--hairline); }
+
+/* a group's title row: its name in ink, its count in pewter */
+.tasks-sheet .list-section > h2 {
+  display: flex; align-items: baseline; gap: var(--s-2);
+  font-size: var(--t-body-sm); font-weight: 600; color: var(--ink);
+}
+.tasks-sheet .project-card > header { display: flex; align-items: center; gap: var(--s-3); }
+.tasks-sheet .project-card > header h2 { font-size: var(--t-body-sm); line-height: var(--pad-text); letter-spacing: 0; }
+.tasks-sheet .card-edit-btn { width: 24px; height: 24px; margin: -1px -4px; }
+.tasks-sheet .project-card > .notes { color: var(--graphite); }
+.tasks-sheet .loose-head { font-size: var(--t-caption); }
+.tasks-sheet .empty { color: var(--pewter); }
+
+/* a task row: the notepad's box, 8px before the words; the meta line and
+   an opened description on the row's own 22px lines, the row growing */
+.tasks-sheet .task-row { gap: 0 var(--s-2); }
+.tasks-sheet .task-check { width: 14px; height: 14px; margin-top: 4px; border-color: var(--graphite); }
+.tasks-sheet .task-check::before { width: 8px; height: 8px; }
+.tasks-sheet .task-check:checked { border-color: var(--ink); }
+.tasks-sheet .task-meta { margin-top: 0; min-height: var(--pad-text); }
+.tasks-sheet .task-notes { margin-top: 0; line-height: var(--pad-text); }
+.tasks-sheet .task-notes .gap { height: var(--pad-text); }
+.tasks-sheet .subtask label { padding: 0; }
+.tasks-sheet .subtask-check { margin-top: 4px; }
+.tasks-sheet .task-plan { margin: -1px 0 -1px auto; }
+.tasks-sheet .plan-btn { height: 24px; }
+.tasks-sheet .plan-btn.icon { width: 24px; }
+.tasks-sheet .task-delete { width: 24px; height: 24px; margin: -1px -4px -1px 0; }
+
+/* a project's milestones, their tasks one step in */
+.tasks-sheet .milestone-groups:not(:empty) { margin-top: 0; }
+.tasks-sheet .milestone { gap: var(--s-2); }
+.tasks-sheet .milestone-tasks { --row-start: calc(var(--pad-rows) + var(--pad-gap) + var(--s-6)); padding-left: 0; }
+
+/* writing: the edit sheet in place of its row, a project's composer as a
+   row of its own, each plate with room for its crosses */
+.tasks-sheet :is(.sheet-item, .project-card > .draft-slot) { --row-above: var(--s-2); --row-below: var(--s-3); }
+.tasks-sheet .project-card .task-sheet[data-sheet="compose"] { border-top: none; }
+.tasks-sheet .project-card > .expander { padding: 0; border-top: none; }
+.tasks-sheet .expander > summary.add-inline { font-size: var(--t-body-sm); }
+.tasks-sheet .expander .inline-form {
+  padding: var(--s-2) var(--s-4) var(--s-3) var(--row-start); border-bottom: 1px solid var(--hairline);
+}
+
+/* Done: the last group, its summary a row */
+.tasks-sheet .done-fold > summary { gap: var(--s-2); }
+.tasks-sheet .done-fold .task-list { border-top: none; }
+
+/* the empty rows under the last group: numbered on, cut at the sheet's foot */
+.sheet-filler { position: relative; flex: 1 0 0; min-height: 0; overflow: hidden; }
+.sheet-filler > ol { position: absolute; inset: 0 0 auto; margin: 0; padding: 0; list-style: none; }
+
+@media (max-width: 720px) {
+  .tasks-page { min-height: calc(100vh - var(--s-6) - 96px); }
+  .tasks-sheet { --pad-rows: 34px; --pad-gap: var(--s-2); }
+}
+@media (max-width: 540px) {
+  /* the buttons' words under the title's: the box and its gap, less a button's padding */
+  .tasks-sheet .task-row .task-plan { margin: 0 0 0 calc(22px - var(--s-2)); }
+}
 
 /* ---------- calendar (week grid and Today's timeline) ---------- */
 

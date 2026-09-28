@@ -22,15 +22,16 @@
 
   <div id="nudges-slot">{% with nudges = nudges %}{% include "partials/nudges.html" %}{% endwith %}</div>
 
-  <section class="list-section capture" aria-label="Add a task">
+  <section class="capture" aria-label="Add a task">
     {% with mode = "compose", target = "nodate-list" if view == "date" else "loose-list", planned_for = None, placeholder = "Add a task…" %}
       {% include "partials/task_sheet.html" %}
     {% endwith %}
   </section>
 
   {# Regroups whenever a task is added, dated, saved, ticked or deleted;
-     tasks.js carries any half-written composer across the swap. #}
-  <div id="task-groups" data-cursor
+     tasks.js carries any half-written composer across the swap. Ruled like
+     Today's notepad: one sheet of numbered rows, each group bracketed. #}
+  <div id="task-groups" class="tasks-sheet" data-cursor
        hx-get="/" hx-select="#task-groups" hx-select-oob="#tasks-rest,#nudges-slot" hx-swap="outerHTML"
        hx-trigger="task:added from:body, tasks:changed from:body, calendar:refresh from:body"
        hx-disinherit="hx-get hx-select hx-select-oob hx-swap hx-trigger">
@@ -73,6 +74,9 @@
       {% endwith %}
     </section>
     {% endif %}
+
+    {# The empty rows under the last, numbered on, to the sheet's foot. #}
+    <div class="sheet-filler" aria-hidden="true"><ol>{% for _ in range(60) %}<li></li>{% endfor %}</ol></div>
   </div>
 </div>
 {% endblock %}
