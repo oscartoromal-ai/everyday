@@ -19,12 +19,14 @@ from app.models import (
 class ProjectIn(BaseModel):
     name: str
     notes: str = ""
+    color: int | None = None  # 1 to 8; the least used one when left out
 
 
 class ProjectPatch(BaseModel):
     name: str | None = None
     status: ProjectStatus | None = None
     notes: str | None = None
+    color: int | None = None
 
 
 class ProjectOut(BaseModel):
@@ -34,6 +36,7 @@ class ProjectOut(BaseModel):
     name: str
     status: ProjectStatus
     notes: str
+    color: int
 
 
 class MilestoneIn(BaseModel):

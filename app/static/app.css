@@ -299,6 +299,14 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 }
 .task-meta .when { color: var(--ink); font-weight: 500; }
 .task-meta .planned { color: var(--graphite); }
+/* a task's project: its flag, filled in the project's colour (the name on hover) */
+.project-flag { display: inline-grid; place-content: center; width: 16px; height: 16px; }
+.project-flag svg, .prop.in-project svg, .sheet-menu .flag {
+  width: 14px; height: 14px; fill: var(--project); stroke: var(--project);
+  stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.sheet-menu .flag { flex: none; fill: var(--project, none); stroke: var(--project, var(--steel)); }
+.sheet-menu :has(> .flag) ~ .indent { padding-left: 48px; }
 
 /* the description: folded under the meta line, opened by its count */
 .notes-toggle {
@@ -838,6 +846,23 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .project-editor { padding: var(--s-4); }
 .project-editor .field { margin-top: var(--s-3); }
 .project-editor textarea { resize: vertical; line-height: 1.5; }
+/* its colour: the eight flags, the chosen one ringed in its colour */
+.project-editor .color-field { min-width: 0; margin-inline: 0; padding: 0; border: 0; }
+.color-field .draft-label { float: left; width: 100%; }
+.color-field .swatches { clear: both; display: flex; flex-wrap: wrap; gap: var(--s-1); }
+.swatch {
+  position: relative; display: grid; place-content: center; width: 32px; height: 32px;
+  border-radius: var(--r-tag); cursor: pointer;
+}
+.swatch input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.swatch svg {
+  width: 16px; height: 16px; fill: var(--project); stroke: var(--project);
+  stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.swatch:hover { background: var(--fog); }
+.swatch:has(input:checked) { box-shadow: inset 0 0 0 1.5px var(--project); }
+.swatch:has(input:focus-visible) { outline: 2px solid var(--draft-pencil); outline-offset: 1px; }
+.project-card > header .project-flag { margin-right: calc(var(--s-2) - var(--s-3)); }
 
 .project-shelf { margin-top: var(--s-8); }
 .project-shelf > summary {
@@ -964,6 +989,14 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .tasks-sheet :is(.task-row, .done-fold > summary):focus-visible::after { color: var(--ink); font-weight: 600; }
 /* a list's last row keeps its hairline: a group's rule, or the next row, follows */
 .tasks-sheet .task-list .task-row:last-child { border-bottom: 1px solid var(--hairline); }
+/* a task in a project: its rule in the project's colour, softened, and full
+   under the keyboard's cursor */
+.task-list .task-row.in-project, .tasks-sheet .task-list .task-row.in-project:last-child {
+  border-bottom-color: color-mix(in srgb, var(--project) 55%, var(--paper));
+}
+.task-list .task-row.in-project:focus-visible, .tasks-sheet .task-list .task-row.in-project:last-child:focus-visible {
+  border-bottom-color: var(--project);
+}
 
 /* a group's title row: its name in ink, its count in pewter */
 .tasks-sheet .list-section > h2 {
@@ -1285,6 +1318,27 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .pad-editor :is(.cm-line, .cm-gutterElement).pad-first:not(.pad-joined) { --rule-above: inset 0 2px 0 var(--bracket); }
 .pad-editor .cm-line.pad-last { border-bottom-color: var(--below, var(--bracket)); --rule-below: inset 0 -1px 0 var(--below, var(--bracket)); }
 .pad-editor .cm-gutterElement.pad-last { --rule-below: inset 0 -2px 0 var(--below, var(--bracket)); }
+/* a task in a project: its rules in the project's colour, softened, and
+   full while the caret is in it (the one shared with the task above too) */
+.pad-editor .pad-hue-1 { --project: var(--hue-1); }
+.pad-editor .pad-hue-2 { --project: var(--hue-2); }
+.pad-editor .pad-hue-3 { --project: var(--hue-3); }
+.pad-editor .pad-hue-4 { --project: var(--hue-4); }
+.pad-editor .pad-hue-5 { --project: var(--hue-5); }
+.pad-editor .pad-hue-6 { --project: var(--hue-6); }
+.pad-editor .pad-hue-7 { --project: var(--hue-7); }
+.pad-editor .pad-hue-8 { --project: var(--hue-8); }
+.pad-editor .pad-then-hue-1 { --then-project: var(--hue-1); }
+.pad-editor .pad-then-hue-2 { --then-project: var(--hue-2); }
+.pad-editor .pad-then-hue-3 { --then-project: var(--hue-3); }
+.pad-editor .pad-then-hue-4 { --then-project: var(--hue-4); }
+.pad-editor .pad-then-hue-5 { --then-project: var(--hue-5); }
+.pad-editor .pad-then-hue-6 { --then-project: var(--hue-6); }
+.pad-editor .pad-then-hue-7 { --then-project: var(--hue-7); }
+.pad-editor .pad-then-hue-8 { --then-project: var(--hue-8); }
+.pad-editor .pad-project { --bracket: color-mix(in srgb, var(--project) 55%, var(--paper)); }
+.pad-editor .pad-project.pad-current { --bracket: var(--project); }
+.pad-editor .pad-then-current.pad-then-project { --below: var(--then-project); }
 /* a task with rows under its title: its chevron after Task folds it to its
    title, the hidden rows counted in a quiet tag after it */
 .pad-fold {
@@ -1369,6 +1423,8 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .task-sheet.pad-props .prop { min-height: var(--pad-text); margin: 0; }
 .task-sheet.pad-props .prop.is-set .prop-value { color: var(--graphite); }
 .task-sheet.pad-props .prop.is-set svg { stroke: var(--graphite); }
+/* a project's flag keeps its colour, set or hovered */
+.task-sheet :is(.prop.in-project, .prop.in-project:hover, .prop.in-project[aria-expanded="true"]) svg { stroke: var(--project); }
 .task-sheet.pad-props .task-delete { width: 24px; height: var(--pad-text); margin: 0; opacity: 1; }
 
 /* under the notes: the habits due this day not yet written, each a name

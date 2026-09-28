@@ -117,7 +117,7 @@ Writing sets them too: "today", "tomorrow", a weekday's name or "next week" foll
 A time is the task's block on its do-date: set, it books that time on the calendar; changed, it moves it, with the day if the day changes; cleared, it frees it.
 The words leave the title as they convert, and Backspace straight after puts them back as words, which then stay words.
 The description follows under the title, aligned with its text.
-Editing adds an end line under the description: Project › Milestone (a flag, "Project" when there is none, one menu of open projects with their open milestones indented), a person icon that names Claude when the task is Claude's, its status once it is Claude's or beyond the box, History, and the bin.
+Editing adds an end line under the description: the project (its flag, filled in the project's colour with the project and milestone named on hover; an outline and "No project" when there is none; one menu of open projects, each after its flag, with their open milestones indented), a person icon that names Claude when the task is Claude's, its status once it is Claude's or beyond the box, History, and the bin.
 History opens under the end line, above a hairline: each change newest first, a 12px pewter line of when and who ("Today 14:02 · Claude"), then a 12px graphite line per field that moved ("Do date: tomorrow → Fri 2 Oct", "Ticked “oil”", "Description edited").
 Project and milestone live only there, since the list a task is written in already says which project it belongs to.
 
@@ -154,7 +154,8 @@ They stand on the title's last line when they fit there, and when not, on a line
 A reflection is drawn as a task's rows are, without a box or controls: "Reflection" in 12px `--signal-deep` in its first row's indent, its words in the body grey, and its rules light blue (`--signal` 45% into the paper; the signal itself while the caret is in it).
 A habit is drawn as a task is: in its indent its box (ticked by default, filled green) and "Habit" in green (`--hue-4` 85% into ink; pewter once unticked, with its name), then its name in ink at 500 and its note in the body grey, its rules green (`--hue-4` 45% into the paper; the green itself while the caret is in it), and at its row's right its days' icon, the task sheet's repeat icon with its days beside it once set ("Every day", "Weekdays", "Tue, Thu"); a name that cannot be one is underlined in a wavy `--hue-8`.
 A stay is drawn as a reflection is, in amber (`--hue-3`: 45% into the paper for its rules, the amber itself while the caret is in it, 85% into ink for "Stay"): each item row its box (the task box, inline, 8px before the words) and its name up to its colon in graphite at 500, amber while unsorted.
-Light blue for reflection, green for habits and amber for stays are the only colours in the notes that are not ink or grey.
+A task in a project has its rules in the project's colour, 55% into the paper (the colour itself while the caret is in it; the rule it shares with the task above takes the upper task's colour, and the lower's while the caret is in the lower), and its project control is the flag alone, filled in that colour.
+Light blue for reflection, green for habits, amber for stays and the projects' colours are the only colours in the notes that are not ink or grey.
 Under the date, a day with a stay lists it item by item on one wrapping line: a 10px box (ink once sorted, amber-ruled until), the name in pewter caption, the value in 14px ink (amber while unsorted, "not sorted" when it has none); each is a button to its row.
 Under the card, "Habits not yet written" in pewter caption and each habit due that day not written yet: its name (14px ink at 500) and its days' icon, on the see-through paper inside a 1px green rule; none due, the line is gone.
 What is offered while writing (after "/" at a row's start, and after "/habit ") is drawn as the icons' menus are: the paper, a hairline, the dropdown shadow, 32px rows, the matched letters in 600 and a pewter caption beside a command.
@@ -238,7 +239,11 @@ The work calendar shows only as each day's load (meetings and busy hours): pewte
 A drop target lights with `--spark-tint` and an inset spark ring.
 The add-a-task plus shows on hover, or always on touch, and opens an opaque popover.
 
-**Project cards.** The title is 20px/600, followed by the open count, a secondary-style status select, and a ghost pencil that swaps in the inline editor.
+**Projects' colours.** A project is one of the eight hues (`--hue-1` to `--hue-8`), shown wherever its tasks are as its flag: a 14px flag filled in the colour, the name said on hover and to a screen reader, never written beside it (task rows, the trays, the task sheet, the notes).
+On Tasks a task in a project also has its rule below it in that colour, 55% into the paper (the colour itself under the keyboard's cursor).
+A new project takes the hue fewest open projects have; the project editor offers the eight flags in a row, the chosen one ringed in its colour.
+
+**Project cards.** The title is 20px/600, after the project's flag, followed by the open count, a secondary-style status select, and a ghost pencil that swaps in the inline editor.
 Milestone rows are 14px/600 with steel circles that turn ink when reached, and a warn badge when the target is close.
 Each milestone's open tasks are indented beneath it; the other tasks follow under a pewter caption, then the project's task sheet for adding.
 Paused and done projects sit on collapsible shelves.

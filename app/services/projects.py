@@ -4,17 +4,47 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Milestone, MilestoneStatus, Project, ProjectStatus, Task, TaskStatus
+from app.models import (
+    PROJECT_COLORS,
+    Milestone,
+    MilestoneStatus,
+    Project,
+    ProjectStatus,
+    Task,
+    TaskStatus,
+)
 from app.services import DomainError
 
 
-def create_project(db: Session, *, name: str, notes: str = "") -> Project:
+def _check_color(color: int) -> int:
+    if not 1 <= color <= PROJECT_COLORS:
+        raise DomainError(f"A project's colour is 1 to {PROJECT_COLORS}")
+    return color
+
+
+def next_color(db: Session) -> int:
+    """The colour a new project gets: the one fewest open projects have
+    (the first of them, on a tie), so projects side by side differ."""
+    used = dict(
+        db.execute(
+            select(Project.color, func.count())
+            .where(Project.status != ProjectStatus.done)
+            .group_by(Project.color)
+        ).all()
+    )
+    return min(range(1, PROJECT_COLORS + 1), key=lambda c: used.get(c, 0))
+
+
+def create_project(
+    db: Session, *, name: str, notes: str = "", color: int | None = None
+) -> Project:
     if not name.strip():
         raise DomainError("Project name must not be empty")
-    project = Project(name=name.strip(), notes=notes)
+    color = next_color(db) if color is None else _check_color(color)
+    project = Project(name=name.strip(), notes=notes, color=color)
     db.add(project)
     db.flush()
     return project
@@ -27,6 +57,7 @@ def update_project(
     name: str | None = None,
     status: ProjectStatus | None = None,
     notes: str | None = None,
+    color: int | None = None,
 ) -> Project:
     project = get_project(db, project_id)
     if name is not None:
@@ -37,6 +68,8 @@ def update_project(
         project.status = status
     if notes is not None:
         project.notes = notes
+    if color is not None:
+        project.color = _check_color(color)
     db.flush()
     return project
 

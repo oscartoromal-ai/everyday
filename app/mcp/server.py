@@ -67,9 +67,11 @@ def upsert_project(
     project_id: int | None = None,
     status: ProjectStatus | None = None,
     notes: str | None = None,
+    color: int | None = None,
 ) -> dict[str, Any]:
     """Create or update a project. Matches by project_id when given, else by exact
-    name; creates when no match exists."""
+    name; creates when no match exists. `color` is 1 to 8, one of the app's hues,
+    shown as the flag on the project's tasks; a new project gets the least used."""
     with session_scope("claude") as db:
         if project_id is None:
             existing = next(
@@ -77,12 +79,12 @@ def upsert_project(
             )
             project_id = existing.id if existing else None
         if project_id is None:
-            project = projects_svc.create_project(db, name=name, notes=notes or "")
+            project = projects_svc.create_project(db, name=name, notes=notes or "", color=color)
             if status is not None:
                 project = projects_svc.update_project(db, project.id, status=status)
         else:
             project = projects_svc.update_project(
-                db, project_id, name=name, status=status, notes=notes
+                db, project_id, name=name, status=status, notes=notes, color=color
             )
         return _project_payload(db, project)
 

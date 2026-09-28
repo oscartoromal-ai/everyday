@@ -19,7 +19,9 @@
 
    Every task is bracketed by a rule above its title and below its last row,
    always (one rule between a task and the one right under it); the task
-   the caret is in has its rules and row numbers in ink. A task with rows
+   the caret is in has its rules and row numbers in ink. A task in a
+   project has its rules in the project's colour, softened (full while the
+   caret is in it), and its project control is the flag in that colour. A task with rows
    under its title folds to its title and back (the chevron after Task),
    and stays so; an edit that would reach its hidden rows unfolds it first.
    Ctrl+Enter or Esc in a task saves it (adds it for the day, with what its
@@ -123,6 +125,12 @@
 
   // Every habit and its days (Monday 0 to Sunday 6, "" any day).
   const habits = new Map();
+  // Each project's colour (1 to 8, --hue-N), by id; and a task's, when it
+  // is in one.
+  const projectColors = new Map();
+  const colorOf = (b) => (b.kind === "task" && projectColors.get(String(b.m.fields.project_id))) || 0;
+  // The rows drawn again (a task's project changed from its controls).
+  const redraw = StateEffect.define();
   const setTasks = StateEffect.define();
   // A task folded to its title, or unfolded: {m, folded}.
   const setFolded = StateEffect.define();
@@ -572,9 +580,16 @@
         const below = shownLast(b) === n && of.get(b.last + 1);
         if (head) kinds.push(above ? "pad-first pad-joined" : "pad-first");
         if (shownLast(b) === n) kinds.push("pad-last");
-        if (below && below === current) kinds.push("pad-then-current", `pad-then-${below.kind}`);
+        if (below && below === current) {
+          kinds.push("pad-then-current", `pad-then-${below.kind}`);
+          const then = colorOf(below);
+          if (then) kinds.push("pad-then-project", `pad-then-hue-${then}`);
+        }
         if (b === current) kinds.push("pad-current");
         if (b.kind !== "task") kinds.push(`pad-${b.kind}`);
+        // A task in a project: its rules in the project's colour.
+        const color = colorOf(b);
+        if (color) kinds.push("pad-project", `pad-hue-${color}`);
       }
       const row = [...kinds];
       if (task) row.push("pad-title");
@@ -1012,7 +1027,10 @@
     const m = e.target._m;
     if (!m) return;
     m.fields[e.detail.name] = e.detail.value;
-    if (e.detail.name === "project_id") m.fields.milestone_id = "";
+    if (e.detail.name === "project_id") {
+      m.fields.milestone_id = "";
+      view.dispatch({ effects: redraw.of(null) }); // its rules take the project's colour
+    }
     if (!m.id) return;
     clearTimeout(fieldWrites.get(m));
     fieldWrites.set(m, setTimeout(async () => {
@@ -1455,6 +1473,11 @@
     carryShows = null;
     habits.clear();
     for (const { slug, days } of known) habits.set(slug, days);
+    projectColors.clear();
+    const projects = document.getElementById("pad-props-template")?.content.querySelector("[data-sheet-projects]");
+    try {
+      for (const { id, color } of JSON.parse(projects?.textContent || "[]")) projectColors.set(String(id), color);
+    } catch { /* none */ }
     const starts = [0];
     for (let i = 0; i < text.length; i++) if (text[i] === "\n") starts.push(i + 1);
     const tasks = rows.filter(({ row }) => row < starts.length).map(({ row, id, fields, folded }) => {

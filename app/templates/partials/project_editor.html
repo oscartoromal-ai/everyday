@@ -6,6 +6,18 @@
       <span class="draft-label">Project</span>
       <span class="plate"><input name="name" value="{{ p.name }}" required autofocus></span>
     </label>
+    {# Its colour: the flag on its tasks, and their rules. #}
+    <fieldset class="field color-field">
+      <legend class="draft-label">Colour</legend>
+      <span class="swatches">
+        {% for n in range(1, 9) %}
+        <label class="swatch" style="--project: var(--hue-{{ n }})">
+          <input type="radio" name="color" value="{{ n }}"{% if p.color == n %} checked{% endif %} aria-label="Colour {{ n }}">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
+        </label>
+        {% endfor %}
+      </span>
+    </fieldset>
     <label class="field">
       <span class="draft-label">Notes</span>
       <span class="plate"><textarea name="notes" rows="3">{{ p.notes }}</textarea></span>

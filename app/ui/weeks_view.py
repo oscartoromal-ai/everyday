@@ -262,7 +262,7 @@ def unplanned_tasks(db: Session, today: date) -> list[dict[str, Any]]:
         {
             "id": task.id,
             "title": task.title,
-            "project": task.project.name if task.project else None,
+            "project": task.project,
             "due": task.due,
             "due_soon": bool(task.due and task.due <= today + timedelta(days=DUE_SOON_DAYS)),
         }

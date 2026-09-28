@@ -212,9 +212,20 @@ def test_a_task_row_sets_its_fields_from_its_controls(page, live, app_db) -> Non
         task_id = task.id
 
     # Once added, a change goes straight to the task: a milestone, with its project.
-    props.locator(".prop[data-prop=project]").click()
+    # The project is its flag in the project's colour (in the menu too), its
+    # name on hover, and the task's rules take the colour.
+    flag = props.locator(".prop[data-prop=project]")
+    title = page.locator(".pad-editor .cm-line.pad-title")
+    assert "pad-project" not in title.get_attribute("class")
+    flag.click()
+    home = page.locator(".sheet-menu [role=menuitemradio]", has_text="Home")
+    assert home.locator(".flag").count() == 1
+    assert home.evaluate("e => e.style.getPropertyValue('--project')") == "var(--hue-1)"
     page.locator(".sheet-menu [role=menuitemradio]", has_text="Garden").click()
-    assert props.locator(".prop[data-prop=project] .prop-value").inner_text() == "Home › Garden"
+    assert flag.get_attribute("title") == "Project: Home › Garden"
+    assert flag.locator(".prop-value").inner_text() == ""
+    assert "in-project" in flag.get_attribute("class")
+    assert "pad-hue-1" in title.get_attribute("class")
     end = time.monotonic() + 5
     while time.monotonic() < end:
         with app_db() as db:
@@ -232,7 +243,8 @@ def test_a_task_row_sets_its_fields_from_its_controls(page, live, app_db) -> Non
     saved_as(app_db, [{"kind": "text", "text": notes, "links": {"0": task_id}}])
     page.reload()
     assert props.locator(".prop[data-prop=planned_for] .prop-value").inner_text() == "tomorrow"
-    assert props.locator(".prop[data-prop=project] .prop-value").inner_text() == "Home › Garden"
+    assert flag.get_attribute("title") == "Project: Home › Garden"
+    assert "pad-hue-1" in title.get_attribute("class")
 
 
 def test_a_task_row_is_deleted_from_its_controls(page, live, app_db) -> None:

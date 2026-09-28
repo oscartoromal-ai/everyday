@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Calendar · Personal Calendar{% endblock %}
 {% block content %}
+{% from "partials/project_flag.html" import project_flag %}
 <div class="calendar-page">
   <header class="page-header calendar-header">
     <h1>{{ grid.week_label }}</h1>
@@ -67,7 +68,7 @@
           <span class="tray-meta">
             {% if t.reason == "missed" %}<span class="missed">missed</span>{% endif %}
             {% if t.reason == "due" and t.task.due %}<span class="due">due {{ t.task.due | short_date }}</span>{% endif %}
-            {% if t.project_name %}{{ t.project_name }}{% endif %}
+            {% if t.project %}{{ project_flag(t.project) }}{% endif %}
           </span>
         </li>
         {% endfor %}

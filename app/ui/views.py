@@ -146,6 +146,7 @@ def project_choices(
         {
             "id": p.id,
             "name": p.name,
+            "color": p.color,
             "milestones": [
                 {"id": m.id, "name": m.name}
                 for m in p.milestones
@@ -187,6 +188,7 @@ def sheet_ctx(db: Session, task: Task, today: date) -> dict[str, Any]:
         "time": f"{block.start:%H:%M}-{block.end:%H:%M}" if block else "",
         "time_label": f"{block.start:%H:%M}–{block.end:%H:%M}" if block else "",
         "project_label": project_label,
+        "project_color": task.project.color if task.project else None,
         "projects": projects,
     }
 
@@ -241,7 +243,7 @@ def row_ctx(
         "chip_class": CHIPS[task.status][1] if task.status in CHIPS else "",
         "due_label": f"due {short_date(task.due, today)}" if task.due else None,
         "due_soon": bool(task.due and task.due <= today + timedelta(days=DUE_SOON_DAYS)),
-        "project_name": task.project.name if task.project else None,
+        "project": task.project,
     }
 
 

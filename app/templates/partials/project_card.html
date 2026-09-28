@@ -1,6 +1,8 @@
+{% from "partials/project_flag.html" import project_flag %}
 {% set p = card.project %}
 <article class="project-card {{ p.status.value }}" id="project-{{ p.id }}" data-file-project="{{ p.id }}">
   <header>
+    {{ project_flag(p) }}
     <h2>{{ p.name }}</h2>
     <span class="open-count">{% if card.open_count == 1 %}1 open{% elif card.open_count %}{{ card.open_count }} open{% endif %}</span>
     {# Status moves cards between Projects' shelves, so it lives there only. #}

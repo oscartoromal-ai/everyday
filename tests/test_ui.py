@@ -808,3 +808,24 @@ def test_book_says_when_today_is_full(client, db, monkeypatch) -> None:
     assert response.status_code == 422
     assert response.json() == {"detail": "No free hour left today."}
     assert task.blocks == []
+
+
+def test_a_task_shows_its_project_as_its_flag_in_its_colour(client, db) -> None:
+    p = projects_svc.create_project(db, name="Reno", color=3)
+    task = tasks_svc.create_task(db, title="get quotes", planned_for=TODAY, project_id=p.id)
+
+    # Its row: the flag in the project's colour, the name on hover, not written.
+    row = client.get("/").text.split(f'id="task-{task.id}"')[1].split("</li>")[0]
+    assert 'class="project-flag" role="img" style="--project: var(--hue-3)"' in row
+    assert 'title="Project: Reno"' in row
+    assert ">Reno<" not in row
+    # Its sheet: the flag set, the name only in its title.
+    sheet = client.get(f"/ui/tasks/{task.id}/edit").text
+    assert 'class="prop in-project"' in sheet and 'style="--project: var(--hue-3)"' in sheet
+    assert 'title="Project: Reno"' in sheet
+
+    # The project's colour is chosen when it is edited.
+    assert 'name="color" value="3" checked' in client.get(f"/ui/projects/{p.id}/edit").text
+    card = client.post(f"/ui/projects/{p.id}", data={"name": "Reno", "color": "6"}).text
+    assert 'style="--project: var(--hue-6)"' in card
+    assert projects_svc.get_project(db, p.id).color == 6

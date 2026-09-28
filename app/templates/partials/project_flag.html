@@ -1,0 +1,8 @@
+{# A task's project, shown as its flag in the project's colour; the name is
+   said on hover and to a screen reader, not written. #}
+{% macro project_flag(project) %}
+<span class="project-flag" role="img" style="--project: var(--hue-{{ project.color }})"
+      title="Project: {{ project.name }}" aria-label="Project: {{ project.name }}">
+  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
+</span>
+{%- endmacro %}

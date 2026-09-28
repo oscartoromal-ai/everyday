@@ -1,3 +1,4 @@
+{% from "partials/project_flag.html" import project_flag %}
 {% import "partials/plan_macros.html" as plan_ui %}
 <div class="weeks-layout {{ layout }}" id="weeks-board"
      hx-get="/weeks/board?start={{ plan.start.isoformat() }}&layout={{ layout }}"
@@ -73,7 +74,7 @@
         {% if t.due or t.project %}
         <span class="tray-meta">
           {% if t.due %}<span class="due{% if not t.due_soon %} later{% endif %}">due {{ t.due | short_date }}</span>{% endif %}
-          {% if t.project %}{{ t.project }}{% endif %}
+          {% if t.project %}{{ project_flag(t.project) }}{% endif %}
         </span>
         {% endif %}
       </li>

@@ -85,9 +85,12 @@
 
       {% if editing %}
       <div class="sheet-end">
-        <button type="button" class="prop" data-prop="project" aria-haspopup="menu" title="Project and milestone">
+        {# In a project: its flag in the project's colour, the name on hover. #}
+        <button type="button" class="prop{% if s.project_color %} in-project{% endif %}" data-prop="project" aria-haspopup="menu"
+                title="{% if s.project_label %}Project: {{ s.project_label }}{% else %}Project and milestone{% endif %}"
+                {%- if s.project_color %} style="--project: var(--hue-{{ s.project_color }})"{% endif %}>
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
-          <span class="prop-value" data-empty="No project">{{ s.project_label }}</span>
+          <span class="prop-value" data-empty="No project"></span>
         </button>
         <button type="button" class="prop" data-prop="owner" aria-haspopup="menu" title="Whose task">
           <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="7" r="3.25"/><path d="M4 17c.8-3 3.2-4.5 6-4.5s5.2 1.5 6 4.5"/></svg>

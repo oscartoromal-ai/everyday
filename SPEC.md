@@ -40,6 +40,8 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Done folds away**: finished tasks leave their lists for a collapsed Done fold, under Today's list and at the foot of Tasks (the last 14 days), where unticking one sends it back.
 - **Sub-tasks and the calendar**: sub-tasks have no blocks of their own; a task's block is the time its checklist is worked, and the block's menu on the calendar lists the sub-tasks so they tick off there. Milestones likewise attach to tasks, never sub-tasks.
 - **Triage by keyboard**: on Tasks, arrow keys move a row cursor and single keys act on it (T today, M tomorrow, D pick a day, X done, E edit), the cursor moving on to the next row as each one is dated or finished.
+- **A task's project is its colour** (Oscar's call on 2026-09-28, chosen from a prototype of four): each project has a colour, set in its editor on Projects, and a task in it shows the project as its flag filled in that colour, the name only on hover, wherever tasks are listed.
+  In Today's notes the task's rules take the colour too, and on Tasks its row's rule.
 - **Filing by drag**: in By project (and on Projects) a task is dragged onto a milestone, another project, or No project to file it there.
 - **Today is a notepad beside the day's timeline** (Oscar's call on 2026-09-27, "for now"): the whole left column is one plain notepad for the day, the right the day's timeline.
   The notes are plain text, saved as they are written.
@@ -93,7 +95,7 @@ Per [Domain model](tracker/tickets/008-domain-model.md). All v1 entities below; 
 
 ### Entities
 
-**Project**: name, status (active / paused / done), notes.
+**Project**: name, status (active / paused / done), notes, colour (one of the design's eight hues; a new project takes the one fewest open projects have).
 Flat, no nesting.
 v3 adds a Goal entity plus a nullable goal reference on Project.
 

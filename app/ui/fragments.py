@@ -441,8 +441,9 @@ def save_project(
     project_id: int,
     name: Annotated[str, Form()],
     notes: Annotated[str, Form()] = "",
+    color: Annotated[int | None, Form()] = None,
 ):
-    projects_svc.update_project(db, project_id, name=name, notes=notes.strip())
+    projects_svc.update_project(db, project_id, name=name, notes=notes.strip(), color=color)
     db.commit()
     return _project_partial(request, db, project_id, "partials/project_card.html")
 

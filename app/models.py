@@ -80,6 +80,10 @@ def _enum(e: type[enum.StrEnum]) -> Enum:
     return Enum(e, native_enum=False, values_callable=lambda x: [m.value for m in x])
 
 
+# How many colours a project can have: the design's hues, --hue-1 to --hue-8.
+PROJECT_COLORS = 8
+
+
 class Project(Base):
     __tablename__ = "projects"
 
@@ -89,6 +93,8 @@ class Project(Base):
         _enum(ProjectStatus), default=ProjectStatus.active
     )
     notes: Mapped[str] = mapped_column(Text, default="")
+    # Its colour: one of the design's hues, 1 to PROJECT_COLORS (--hue-N).
+    color: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     milestones: Mapped[list[Milestone]] = relationship(back_populates="project")

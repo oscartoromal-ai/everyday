@@ -213,8 +213,9 @@
     const data = form.querySelector("[data-sheet-projects]");
     return data ? JSON.parse(data.textContent) : [];
   };
+  const projectOf = (form) => projectsOf(form).find((p) => String(p.id) === valueOf(form, "project_id"));
   const projectLabel = (form) => {
-    const project = projectsOf(form).find((p) => String(p.id) === valueOf(form, "project_id"));
+    const project = projectOf(form);
     if (!project) return "";
     const milestone = project.milestones.find((m) => String(m.id) === valueOf(form, "milestone_id"));
     return milestone ? `${project.name} › ${milestone.name}` : project.name;
@@ -243,10 +244,15 @@
         spoken = set ? `Repeats: ${REPEAT_LABELS[value].toLowerCase()}` : "Repeat";
         button.title = set ? `Repeats ${REPEAT_LABELS[value].toLowerCase()}` : "Repeat";
       } else if (name === "project") {
-        text = projectLabel(form);
-        set = text !== "";
-        spoken = set ? `Project: ${text}` : "Project: none";
-        if (!set) text = label.dataset.empty;
+        // In a project: its flag in the project's colour, the name on hover.
+        const project = projectOf(form);
+        set = !!project;
+        spoken = set ? `Project: ${projectLabel(form)}` : "Project: none";
+        button.title = set ? spoken : "Project and milestone";
+        button.classList.toggle("in-project", set);
+        if (set) button.style.setProperty("--project", `var(--hue-${project.color})`);
+        else button.style.removeProperty("--project");
+        text = set ? "" : label.dataset.empty || "";
       } else if (name === "owner") {
         const value = valueOf(form, "owner");
         set = value === "claude";
@@ -333,18 +339,21 @@
   let menu = null; // {form, button, el, returnTo, range}
 
   const CHECK = '<svg class="tick" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.5 3.5 7.5-8"/></svg>';
+  // A project's flag, before its name, in its colour (an outline for none).
+  const FLAG = '<svg class="flag" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>';
   const ITEMS = "[role='menuitemradio'], [role='menuitemcheckbox']";
 
   // Items are buttons, except one that holds the date picker's input (a
   // button may not contain an input); the menu's keys press either.
-  const item = (label, { checked = false, aside = "", indent = false, pick, tag = "button", role = "menuitemradio" } = {}) => {
+  const item = (label, { checked = false, aside = "", indent = false, flag = false, color = 0, pick, tag = "button", role = "menuitemradio" } = {}) => {
     const el = document.createElement(tag);
     if (tag === "button") el.type = "button";
     el.setAttribute("role", role);
     el.setAttribute("aria-checked", String(checked));
     el.tabIndex = -1;
     if (indent) el.classList.add("indent");
-    el.innerHTML = `<span class="label"></span>${aside ? '<span class="aside"></span>' : ""}${checked ? CHECK : ""}`;
+    el.innerHTML = `${flag ? FLAG : ""}<span class="label"></span>${aside ? '<span class="aside"></span>' : ""}${checked ? CHECK : ""}`;
+    if (color) el.style.setProperty("--project", `var(--hue-${color})`);
     el.querySelector(".label").textContent = label;
     if (aside) el.querySelector(".aside").textContent = aside;
     el._pick = pick;
@@ -494,9 +503,11 @@
     if (name === "project") {
       const project = valueOf(form, "project_id");
       const milestone = valueOf(form, "milestone_id");
-      const items = [item("No project", { checked: project === "", pick: () => setField(form, "project_id", "") })];
+      const items = [item("No project", { flag: true, checked: project === "", pick: () => setField(form, "project_id", "") })];
       for (const p of projectsOf(form)) {
         items.push(item(p.name, {
+          flag: true,
+          color: p.color,
           checked: String(p.id) === project && milestone === "",
           pick: () => setField(form, "project_id", String(p.id)),
         }));

@@ -215,3 +215,18 @@ def test_deleting_a_task_takes_its_blocks_and_nudges(db) -> None:
 
     assert db.scalars(select(Block)).all() == []
     assert db.scalars(select(Nudge)).all() == []
+
+
+def test_a_new_project_takes_the_colour_fewest_open_projects_have(db) -> None:
+    from app.models import ProjectStatus
+
+    first, second = (projects_svc.create_project(db, name=n) for n in ("Home", "Work"))
+    assert (first.color, second.color) == (1, 2)
+    # A finished project's colour is free again; one chosen is kept.
+    projects_svc.update_project(db, first.id, status=ProjectStatus.done)
+    assert projects_svc.create_project(db, name="Garden").color == 1
+    assert projects_svc.create_project(db, name="Trip", color=2).color == 2
+    assert projects_svc.update_project(db, second.id, color=8).color == 8
+    for wrong in (0, 9):
+        with pytest.raises(DomainError):
+            projects_svc.update_project(db, second.id, color=wrong)

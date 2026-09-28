@@ -222,7 +222,7 @@ def tray_tasks(db: Session, week_start: date, now: datetime) -> list[dict[str, A
             {
                 "task": task,
                 "reason": reason,
-                "project_name": task.project.name if task.project else None,
+                "project": task.project,
             }
         )
 
