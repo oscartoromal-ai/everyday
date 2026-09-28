@@ -833,3 +833,37 @@ def test_lines_pasted_inside_a_task_stay_inside_it(page, live) -> None:
         page.keyboard.press("Enter")
     page.evaluate(PASTE, "Slow morning.\nCoffee first.")
     assert text_of(page) == trip + "\nSlow morning.\nCoffee first."
+
+
+def test_a_row_deleted_from_inside_a_task_leaves_the_rest_inside(page, live) -> None:
+    packing = "- [ ] Pack\n\t- [ ] socks\n\t- [ ] shirts\n\t- [ ] shoes"
+
+    def written() -> None:
+        page.evaluate(
+            """t => Notepad.view.dispatch(
+              { changes: { from: 0, to: Notepad.view.state.doc.length, insert: t } })""",
+            packing,
+        )
+
+    page.goto(f"{live}/today")
+    write_in(page)
+    written()
+
+    # Backspace through a sub-task: once its box and tab are gone the row
+    # goes whole, and the caret is at the end of the row above.
+    page.locator(".pad-editor .cm-line", has_text="shirts").click()
+    page.keyboard.press("End")
+    for _ in range(8):
+        page.keyboard.press("Backspace")
+    assert text_of(page) == "- [ ] Pack\n\t- [ ] socks\n\t- [ ] shoes"
+    assert page.locator(".pad-editor .cm-line.pad-title").count() == 1
+    page.keyboard.type("!")
+    assert text_of(page) == "- [ ] Pack\n\t- [ ] socks!\n\t- [ ] shoes"
+
+    # Selected whole, box and tab too (as a drag from its left edge does), and deleted.
+    written()
+    page.evaluate("""() => { const v = Notepad.view, line = v.state.doc.line(3);
+      v.dispatch({ selection: { anchor: line.from, head: line.to } }); v.focus(); }""")
+    page.keyboard.press("Delete")
+    assert text_of(page) == "- [ ] Pack\n\t- [ ] socks\n\t- [ ] shoes"
+    assert page.locator(".pad-editor .cm-line.pad-title").count() == 1

@@ -832,6 +832,30 @@
     }
     return true;
   };
+  // A row deleted from inside a task (or reflection, habit, stay) goes
+  // whole: its words, box and tab deleted (by Backspace, Delete or a cut),
+  // it would be left an empty plain row between two of the task's rows,
+  // ending the task there and leaving the rows under it outside. The caret
+  // goes to the end of the row above.
+  const DELETES = ["delete.backward", "delete.forward", "delete.cut", "delete.selection"];
+  const rowsStayTogether = EditorState.transactionFilter.of((tr) => {
+    if (!tr.docChanged || !DELETES.some((e) => tr.isUserEvent(e))) return tr;
+    const { state } = tr;
+    const doc = state.doc;
+    let gap = null;
+    tr.changes.iterChangedRanges((fromA, toA, fromB, toB) => {
+      for (let n = doc.lineAt(fromB).number; !gap && n <= doc.lineAt(toB).number; n++) {
+        const line = doc.line(n);
+        if (line.text !== "" || n === 1 || n === doc.lines) continue;
+        const next = doc.line(n + 1);
+        if (next.text.startsWith(TAB) && blockOfLine(state, n - 1)) gap = line;
+      }
+    });
+    if (!gap) return tr;
+    const end = doc.line(gap.number - 1).to;
+    return [tr, { changes: { from: end, to: gap.to }, selection: { anchor: end }, sequential: true }];
+  });
+
   // Lines pasted inside a task (or reflection, habit, stay) stay inside it:
   // each after the first is tabbed in as one of its rows ("- [ ] " ones
   // becoming sub-tasks), so a paste never ends it early or starts another.
@@ -1620,7 +1644,7 @@
 
   const extensions = () => [
     tasksField, keepTasks, focusField, fillerField, drawField, offTheLead, unfoldFirst, wordsToFields,
-    fieldHistory, setFields, pasteInside,
+    fieldHistory, setFields, pasteInside, rowsStayTogether,
     EditorView.focusChangeEffect.of((state, focusing) => setFocus.of(focusing)),
     lineNumbers(),
     lineNumberWidgetMarker.of((v, widget) => (widget instanceof Filler ? new FillerNumbers(v.state.doc.lines + 1, widget.count) : null)),
