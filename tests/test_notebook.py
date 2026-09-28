@@ -2,6 +2,7 @@ from datetime import date, datetime, time, timedelta
 
 import pytest
 
+from app.models import TaskStatus
 from app.services import DomainError, notebook
 from app.services import blocks as blocks_svc
 from app.services import tasks as tasks_svc
@@ -91,7 +92,7 @@ def test_a_task_whose_reference_never_landed_still_shows(db) -> None:
     blocks = notebook.blocks_of(db, TODAY)
     assert [b["kind"] for b in blocks] == ["text", "task"]
     assert blocks[1]["id"] == stray.id
-    assert notebook.task_ids_on(db, TODAY) == {stray.id}
+    assert notebook.task_ids_on(db, TODAY) == [stray.id]
 
 
 def test_time_on_a_day_creates_moves_and_clears_the_block(db) -> None:
@@ -134,3 +135,34 @@ def test_a_stay_keeps_its_items_as_written(db) -> None:
     # A stay written later starts with them; the first ever with place and accommodation.
     assert notebook.last_stay_items(db, TODAY) == ["place", "accommodation", "ferry"]
     assert notebook.last_stay_items(db, TODAY - timedelta(days=1)) == ["place", "accommodation"]
+
+
+def test_the_tasks_still_open_from_the_last_page_with_tasks(db) -> None:
+    def written(day: date, *tasks) -> None:
+        rows = "\n".join(f"- [ ] {t.title}" for t in tasks)
+        links = {str(n): t.id for n, t in enumerate(tasks)}
+        notebook.save_page(db, day, [{"kind": "text", "text": rows, "links": links}], version=0)
+
+    def task(title: str, **fields):
+        return tasks_svc.create_task(db, title=title, **fields)
+
+    friday = TODAY - timedelta(days=3)
+    written(friday - timedelta(days=1), task("From Thursday"))
+    overdue = task("Call the bank", planned_for=friday)
+    undated = task("Sort the photos")
+    for_today = task("Pay rent", planned_for=TODAY)
+    for_later = task("Plan the trip", planned_for=TODAY + timedelta(days=4))
+    done = task("Buy milk", planned_for=friday)
+    dropped = task("Old idea")
+    written(friday, for_later, overdue, done, undated, dropped, for_today)
+    tasks_svc.set_status(db, done.id, TaskStatus.done)
+    tasks_svc.set_status(db, dropped.id, TaskStatus.cancelled)
+    # A page with no tasks is passed over.
+    yesterday = TODAY - timedelta(days=1)
+    notebook.save_page(db, yesterday, [{"kind": "text", "text": "Rest."}], version=0)
+
+    # From the last page before today that holds tasks: the open ones to be
+    # worked by today (not those dated later), in the page's order.
+    assert notebook.still_open(db, TODAY) == (friday, [overdue, undated, for_today])
+    # The first page ever has nothing to bring.
+    assert notebook.still_open(db, friday - timedelta(days=1)) == (None, [])

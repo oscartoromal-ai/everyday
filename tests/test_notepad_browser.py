@@ -551,3 +551,85 @@ def test_a_task_has_sub_tasks(page, live, app_db) -> None:
             assert time.monotonic() < end
             time.sleep(0.1)
             db.expire_all()
+
+
+def test_tasks_still_open_yesterday_are_brought_to_today(page, live, app_db) -> None:
+    from datetime import timedelta
+
+    from app.models import Task, TaskStatus
+    from app.services import tasks as tasks_svc
+
+    yesterday = TODAY - timedelta(days=1)
+    with app_db() as db:
+        bank = tasks_svc.create_task(
+            db, title="Call the bank", planned_for=yesterday,
+            notes="- [ ] ask about fees\n- [x] find the card",
+        )
+        milk = tasks_svc.create_task(db, title="Buy milk", planned_for=yesterday)
+        rent = tasks_svc.create_task(db, title="Pay rent")
+        tasks_svc.set_status(db, milk.id, TaskStatus.done)
+        written = [{
+            "kind": "text", "text": "- [ ] Call the bank\n- [x] Buy milk\n- [ ] Pay rent",
+            "links": {"0": bank.id, "1": milk.id, "2": rent.id},
+        }]
+        notebook_svc.save_page(db, yesterday, written, version=0)
+        db.commit()
+        ids = (bank.id, rent.id)
+
+    def planned() -> tuple:
+        with app_db() as db:
+            return tuple(db.get(Task, i).planned_for for i in ids)
+
+    page.goto(f"{live}/today")
+    # Under the notes: yesterday's open tasks, the done one left behind.
+    strip = page.locator("#pad-carry")
+    assert strip.locator(".pad-habits-label").inner_text() == "Still open from yesterday"
+    assert strip.locator(".pad-carry-write").all_inner_texts() == ["Call the bank", "Pay rent"]
+
+    # A title writes its rows, its title row the same task, its do-date today.
+    strip.locator(".pad-carry-write", has_text="Call the bank").click()
+    bank_rows = "- [ ] Call the bank\n\t- [ ] ask about fees\n\t- [x] find the card"
+    assert text_of(page) == bank_rows
+    assert strip.locator(".pad-carry-write").all_inner_texts() == ["Pay rent"]
+    assert strip.locator(".pad-carry-all").is_hidden()  # one left: its title is enough
+    saved_as(app_db, [{"kind": "text", "text": bank_rows, "links": {"0": ids[0]}}])
+    end = time.monotonic() + 5
+    while planned()[0] != TODAY:
+        assert time.monotonic() < end, planned()
+        time.sleep(0.1)
+    title = page.locator(".pad-editor .cm-line.pad-title").first
+    prop = title.locator(".prop[data-prop=planned_for] .prop-value")
+    assert prop.inner_text() == "today"
+    # Its sub-tasks are its own: ticked, as they stand.
+    assert page.locator(".pad-editor .pad-check[aria-checked=true]").count() == 1
+
+    # Undone, it is offered again; Bring all writes every one left.
+    page.keyboard.press("Control+z")
+    assert text_of(page) == ""
+    assert strip.locator(".pad-carry-write").all_inner_texts() == ["Call the bank", "Pay rent"]
+    strip.locator(".pad-carry-all").click()
+    assert text_of(page) == bank_rows + "\n- [ ] Pay rent"
+    assert strip.is_hidden()
+    saved_as(app_db, [{
+        "kind": "text", "text": bank_rows + "\n- [ ] Pay rent", "links": {"0": ids[0], "3": ids[1]},
+    }])
+    end = time.monotonic() + 5
+    while planned() != (TODAY, TODAY):
+        assert time.monotonic() < end, planned()
+        time.sleep(0.1)
+
+    # Ticked here, it is done; yesterday's page keeps what was written there.
+    title.locator(".pad-check").first.click()
+    end = time.monotonic() + 5
+    while True:
+        with app_db() as db:
+            if db.get(Task, ids[0]).status == TaskStatus.done:
+                assert notebook_svc.get_page(db, yesterday).blocks == written
+                break
+        assert time.monotonic() < end
+        time.sleep(0.1)
+    page.reload()
+    assert strip.is_hidden()
+    # Only today's page offers them.
+    page.goto(f"{live}/day/{TODAY + timedelta(days=1)}")
+    assert strip.is_hidden()

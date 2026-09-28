@@ -483,14 +483,45 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
     }
 
 
+def still_open_ctx(db: Session, day: date) -> dict[str, Any]:
+    """What today's notepad offers to bring over (notebook.still_open): the
+    day they are from, in words ("yesterday", "Friday", "Sun 20 Sep"), and
+    each task with its words and its fields as they will stand once brought
+    (do-date this day, and so no time yet unless it had one on it)."""
+    earlier, tasks = notebook_svc.still_open(db, day)
+    if earlier is None or not tasks:
+        return {"from": "", "tasks": []}
+    if earlier == day - timedelta(days=1):
+        label = "yesterday"
+    elif earlier > day - timedelta(days=7):
+        label = earlier.strftime("%A")
+    else:
+        label = short_date(earlier, day)
+    out = []
+    for task in tasks:
+        sheet = sheet_ctx(db, task, day)
+        fields = {k: sheet[k] for k in TASK_FIELDS}
+        moves = task.planned_for != day
+        if moves:
+            fields |= {"planned_for": day.isoformat(), "time": ""}
+        out.append({
+            "id": task.id, "title": task.title, "notes": task.notes or "",
+            "fields": fields, "moves": moves,
+        })
+    return {"from": label, "tasks": out}
+
+
 def day_page_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
-    """A day's page: its notepad beside its timeline."""
+    """A day's page: its notepad beside its timeline; today's also offers
+    the tasks still open from the last page before it."""
+    is_today = day == now.date()
     return {
         "day": day,
-        "is_today": day == now.date(),
+        "is_today": is_today,
         "prev_day": day - timedelta(days=1),
         "next_day": day + timedelta(days=1),
         "notepad": notepad_ctx(db, day),
+        "still_open": still_open_ctx(db, day) if is_today else {"from": "", "tasks": []},
     }
 
 

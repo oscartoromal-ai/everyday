@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 from app.models import Habit, NotebookPage, Task, TaskRevision
 from app.services import DomainError
 from app.services import habits as habits_svc
+from app.services import tasks as tasks_svc
 
 
 class StalePage(DomainError):
@@ -263,9 +264,41 @@ def last_stay_items(db: Session, day: date) -> list[str]:
     return list(STAY_ITEMS)
 
 
-def task_ids_on(db: Session, day: date) -> set[int]:
-    """Tasks the day's page holds (written there, or referenced by it)."""
-    return {b["id"] for b in blocks_of(db, day) if b["kind"] == "task"}
+def task_ids_on(db: Session, day: date) -> list[int]:
+    """Tasks the day's page holds, in the order it reads: its rows that made
+    tasks, and those written there or referenced by it."""
+    ids: list[int] = []
+    for block in blocks_of(db, day):
+        if block["kind"] == "task":
+            ids.append(block["id"])
+        elif block["kind"] == "text":
+            links = block.get("links") or {}
+            ids += [links[row] for row in sorted(links, key=int)]
+    return list(dict.fromkeys(ids))
+
+
+def still_open(db: Session, day: date) -> tuple[date | None, list[Task]]:
+    """What a day's page offers to bring over: the last page before it that
+    holds tasks, and those of them still open and to be worked by `day` (no
+    do-date, or one not after it), in the order that page has them."""
+    earlier_days = db.scalars(
+        select(NotebookPage.day)
+        .where(NotebookPage.day < day)
+        .order_by(NotebookPage.day.desc())
+        .limit(60)
+    )
+    for earlier in earlier_days:
+        ids = task_ids_on(db, earlier)
+        tasks = {t.id: t for t in db.scalars(select(Task).where(Task.id.in_(ids)))}
+        if not tasks:
+            continue
+        return earlier, [
+            tasks[i] for i in ids
+            if i in tasks
+            and tasks[i].status in tasks_svc.OPEN_STATUSES
+            and (tasks[i].planned_for is None or tasks[i].planned_for <= day)
+        ]
+    return None, []
 
 
 def version_of(db: Session, day: date) -> int:

@@ -44,6 +44,11 @@
    writes its row, its icon sets its days. After "/" at a row's start the
    commands are offered, and after "/habit " the habits' names.
 
+   On today's page, under the notes, the tasks still open from the last
+   page before it, not yet written here: a title writes its rows at the end
+   of the notes, its title row making that same task, and moves its do-date
+   to today; Bring all writes every one.
+
    "/stay" says where Oscar stays that day: a note, then its items, each a
    tabbed "- [ ] name: value" row drawn with its box (ticked once sorted),
    bracketed in amber. A new stay starts with the items the last one had
@@ -1229,6 +1234,72 @@
     view.dispatch({ changes: { from, to: last.to, insert }, selection: { anchor: from + insert.length }, scrollIntoView: true, userEvent: "input" });
   });
 
+  /* ---- tasks still open from the last page ---- */
+
+  // Today's: the tasks still open from the last page before it, {from,
+  // tasks: [{id, title, notes, fields, moves}]}, each with its fields as
+  // they stand once brought here, and whether that moves its do-date.
+  let stillOpen = { from: "", tasks: [] };
+  let carryShows = null;
+  const toBring = (state) => {
+    const written = new Set(state.field(tasksField).map(({ m }) => m.id));
+    return stillOpen.tasks.filter((t) => !written.has(t.id));
+  };
+  function drawCarry() {
+    const strip = document.getElementById("pad-carry");
+    if (!strip || !view) return;
+    const open = toBring(view.state);
+    const shows = open.map((t) => t.id).join(" ");
+    if (shows === carryShows) return;
+    carryShows = shows;
+    strip.hidden = !open.length;
+    strip.querySelector(".pad-habits-label").textContent = `Still open from ${stillOpen.from}`;
+    strip.querySelector(".pad-carry-all").hidden = open.length < 2;
+    strip.querySelector(".pad-habits-list").replaceChildren(...open.map((t) => {
+      const item = document.createElement("li");
+      const write = document.createElement("button");
+      write.type = "button";
+      write.className = "pad-carry-write";
+      write.dataset.task = String(t.id);
+      write.textContent = t.title;
+      write.title = "Bring it here, to do today";
+      item.append(write);
+      return item;
+    }));
+  }
+
+  // Tasks brought over: each written at the end of the notes (from its last
+  // row, when that is empty), its title row making the same task, its
+  // description its rows; and its do-date moved to this day.
+  async function bring(list) {
+    if (!view || !list.length) return;
+    const doc = view.state.doc;
+    const last = doc.line(doc.lines);
+    const from = last.text.trim() ? last.to : last.from;
+    let insert = last.text.trim() ? "\n" : "";
+    const tasks = [...view.state.field(tasksField)];
+    list.forEach((t, i) => {
+      const m = { id: t.id, saved: { title: t.title, notes: t.notes }, fields: { ...newFields(), ...t.fields }, folded: false };
+      tasks.push({ pos: from + insert.length, m });
+      const rows = t.notes ? t.notes.split("\n").map((row) => `\n${TAB}${row}`).join("") : "";
+      insert += `- [ ] ${t.title}${rows}${i < list.length - 1 ? "\n" : ""}`;
+    });
+    view.focus();
+    view.dispatch({
+      changes: { from, to: last.to, insert }, effects: setTasks.of(tasks),
+      selection: { anchor: from + insert.length }, scrollIntoView: true, userEvent: "input",
+    });
+    const moved = await Promise.all(list.filter((t) => t.moves).map((t) =>
+      post(`/ui/tasks/${t.id}/plan`, new URLSearchParams({ planned_for: day })).then((r) => r.ok, () => false)));
+    if (moved.includes(false)) window.toast("Could not move every task to today. Their rows are in the notes.");
+    if (moved.length) htmx.trigger(document.body, "calendar:refresh");
+  }
+  document.addEventListener("click", (e) => {
+    const write = e.target.closest?.(".pad-carry-write");
+    if (write) bring(toBring(view.state).filter((t) => String(t.id) === write.dataset.task));
+    else if (e.target.closest?.(".pad-carry-all")) bring(toBring(view.state));
+  });
+
   // Offered while writing: the commands, after "/" at a row's start, and
   // the habits' names (and those this page has), after "/habit ".
   const COMMANDS = [
@@ -1361,6 +1432,7 @@
       if (u.docChanged && !u.transactions.some((tr) => tr.annotation(loading))) schedule();
       if (u.docChanged) {
         drawStrip();
+        drawCarry();
         drawStay();
       }
     }),
@@ -1378,6 +1450,9 @@
     try { known = JSON.parse(src.dataset.habits || "[]"); } catch { /* none */ }
     try { stayItems = JSON.parse(src.dataset.stayItems || "[]"); } catch { /* the defaults */ }
     if (!stayItems.length) stayItems = ["place", "accommodation"];
+    stillOpen = { from: "", tasks: [] };
+    try { stillOpen = JSON.parse(src.dataset.stillOpen || "null") || stillOpen; } catch { /* none */ }
+    carryShows = null;
     habits.clear();
     for (const { slug, days } of known) habits.set(slug, days);
     const starts = [0];
@@ -1402,6 +1477,7 @@
     for (const block of blocks()) block.m.saved = contentOf(block);
     saved = snapshot();
     drawStrip();
+    drawCarry();
     drawStay();
   }
 

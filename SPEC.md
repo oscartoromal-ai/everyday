@@ -56,6 +56,9 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   After "/" at a row's start the commands are offered, and after "/habit " the names already used, so one habit keeps one name.
   Each habit has its days (any day, every day, weekdays, or chosen weekdays), set from the repeat icon at its row's right; under the notes, the habits due that day not yet written are listed, each name writing its row and each icon setting its days.
   A due day with nothing written is a miss (a habit for any day is never missed); Claude reads the day-by-day record through `get_habits`.
+  What was left open comes along (Oscar's call on 2026-09-28): under today's notes, the tasks still open from the last page before it that holds tasks, those to be worked by today (no do-date, or one not after it) and not yet written here.
+  A title writes the task's rows at the end of the notes, its title row that same task (not a copy) and its description its rows, and moves its do-date to today; Bring all writes every one.
+  The earlier page keeps its rows as written, each showing its task as it stands, so a task finished today reads ticked there too.
   Where Oscar stays is written in them too (Oscar's call on 2026-09-27: he moves around, and does not always have a bed sorted): "/stay" on a day's page, then its items, each "- [ ] name: value" with a box ticked once sorted, bracketed in amber.
   Its items are his to name (place and accommodation to begin with; a new stay starts with the items the last one had), and under the date the day's stay reads item by item, the unsorted ones in amber.
   A stay is written day by day, not as a range; a view of all days' stays together is next.
