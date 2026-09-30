@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app import checklist
+from app.dates import monday
 from app.models import (
     BlockState,
     Milestone,
@@ -48,6 +49,7 @@ def create_task(
     milestone_id: int | None = None,
     planned_for: date | None = None,
     due: date | None = None,
+    starts_on: date | None = None,
     written_on: date | None = None,
 ) -> Task:
     if not title.strip():
@@ -62,11 +64,37 @@ def create_task(
         milestone_id=milestone_id,
         planned_for=planned_for,
         due=due,
+        starts_on=starts_on,
         written_on=written_on,
     )
+    _keep_span(task, {"starts_on"} if starts_on else set())
     db.add(task)
     db.flush()
     return task
+
+
+# A span with no end given runs to the Friday of its week.
+SPAN_END_WEEKDAY = 4
+
+
+def _keep_span(task: Task, given: set[str]) -> None:
+    """A task's span on its project's Gantt stays whole: it starts on a
+    Monday and ends on its due, never before. A start given alone ends that
+    week's Friday; a due cleared takes the start with it (a bar needs its
+    end); and a due moved before the start pulls the start back to its week,
+    unless the start was given in the same change, which is then refused."""
+    if task.starts_on is None:
+        return
+    task.starts_on = monday(task.starts_on)
+    if task.due is None:
+        if "starts_on" in given:
+            task.due = task.starts_on + timedelta(days=SPAN_END_WEEKDAY)
+        else:
+            task.starts_on = None
+    elif task.due < task.starts_on:
+        if "starts_on" in given:
+            raise DomainError("A task's start week must not be after its due")
+        task.starts_on = monday(task.due)
 
 
 def update_task(db: Session, task_id: int, **fields: Any) -> Task:
@@ -90,6 +118,7 @@ def update_task(db: Session, task_id: int, **fields: Any) -> Task:
         setattr(task, key, value)
     if "title" in fields and not task.title.strip():
         raise DomainError("Task title must not be empty")
+    _keep_span(task, set(fields))
     db.flush()
     return task
 

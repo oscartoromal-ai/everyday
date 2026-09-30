@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
 from app import checklist
-from app.dates import human_date, short_date
+from app.dates import human_date, short_date, week_label
 from app.models import (
     Block,
     BlockState,
@@ -537,6 +537,7 @@ HISTORY_FIELDS = {
     "milestone_id": "Milestone",
     "planned_for": "Do date",
     "due": "Due",
+    "starts_on": "Start week",
 }
 STATUS_WORDS = {
     "todo": "To do",
@@ -569,6 +570,9 @@ def _history_value(field: str, value: Any, today: date) -> str:
         return "none"
     if field in ("planned_for", "due"):
         return short_date(date.fromisoformat(value), today)
+    if field == "starts_on":
+        start = date.fromisoformat(value)
+        return f"{week_label(start, today)} ({start.day} {start:%b})"
     if field == "status":
         return STATUS_WORDS.get(value, value)
     if field == "owner":

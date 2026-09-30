@@ -1,0 +1,1 @@
+{% if task_count == 0 %}No tasks yet{% elif task_count == 1 %}1 task{% else %}{{ task_count }} tasks{% endif %}{% if task_count %}, {% if open_count == 0 %}all done{% else %}{{ open_count }} open{% endif %}{% endif %}{% if plan_span %} · {{ plan_span }}{% endif %}

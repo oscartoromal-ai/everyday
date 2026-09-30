@@ -79,6 +79,15 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   Each day shows its planned tasks, deadlines, milestones, and personal events; the work calendar is condensed to a load figure (meetings and busy hours) rather than listed.
   Dragging a task between days replans it (sets planned_for); an Unplanned tray holds tasks with no do-date, and dragging back to it unplans.
   It supersedes the earlier seven-day next-days list.
+- **A project as a Gantt chart** (Oscar's call on 2026-09-30: "I work in weeks", "a kind of Excel interface"): each project opens (`/projects/<id>`, from its card's bars icon) as a spreadsheet of its plan by week.
+  A row per milestone, its tasks under it and a row to write one more; then the other tasks, and a row to write a milestone; a column per week (the ISO week, over its Monday), frozen beside Task, Start, Wks and Due.
+  A task's bar is its span: from its start week to its due, so the end of a bar is its deadline, and the Tasks page, nudges and Weeks see the plan through the due they already read (Oscar's call: a task has to be done by a day).
+  The do-date stays apart: when Oscar works on it, not when the plan says it runs.
+  A task due with no start is a tick on its due; a milestone is a diamond on its target, over a summary from its tasks' first start to their last end.
+  It is worked as a spreadsheet: a cell cursor, typing writes over a cell (a title; a week as "42", "W42", "12 Oct" or "next week"; a number of weeks; a due, a week there meaning its Friday), Enter goes down and Tab across, Shift holds a range, Space draws the bars over the weeks held, a drag over a task's weeks draws its bar, a bar's middle drags it and its ends stretch it, Alt+Left/Right move bars a week, Alt+Up/Down move a row (into the milestone above or below), Delete clears, Ctrl+Z undoes, and pasted lines become tasks.
+  Everything is in whole weeks: a due keeps its weekday as its bar moves or stretches, and a bar drawn new ends on the Friday.
+  Rows keep their order as they are edited (a spreadsheet's rows do not re-sort), their own order once moved.
+  Done tasks stay on the plan, struck through; cancelled ones and a series' finished occurrences leave it.
 
 ### The notebook (decided 2026-09-26, set aside 2026-09-27)
 
@@ -110,13 +119,14 @@ v3 adds a Goal entity plus a nullable goal reference on Project.
 **Milestone**: belongs to one project; name, optional target date, status (open / reached / dropped).
 Progress toward a milestone is computable from its attached tasks.
 
-**Task**: title, notes, status, owner (oscar / claude), optional project, optional milestone (only of its own project), optional planned_for (do-date), optional due (deadline), optional written_on (the notebook page it was written on).
+**Task**: title, notes, status, owner (oscar / claude), optional project, optional milestone (only of its own project), optional planned_for (do-date), optional due (deadline), optional starts_on (its start week on its project's Gantt), optional position (its place among its group's rows there), optional written_on (the notebook page it was written on).
 Notes are the task's free-form description, and sub-tasks live inside it: a line starting with "- " (or "* ") is a sub-task, "- [x] " once done, and every other line is context kept where it was written.
 Sub-tasks are text, not rows: they carry no status, owner, or dates of their own, and ticking one rewrites only its own line.
 A repeating task's occurrences start with every sub-task open.
 planned_for is the day Oscar intends to work it and drives the daily list; due is the obligation and drives urgency.
 Backlog tasks have neither.
 The Weeks view is driven by planned_for, due, and milestone target dates.
+starts_on is always a Monday and always comes with a due, never after it: its span is its start week to its due's week, a start given alone ends that week's Friday, a due cleared takes the start with it, and a due moved before the start pulls the start back to its week.
 
 **Block**: belongs to one task; start, end, state (planned / completed / missed).
 A task accumulates blocks over time (missed Tuesday, re-slotted Thursday).

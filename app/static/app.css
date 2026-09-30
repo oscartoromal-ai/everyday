@@ -1981,3 +1981,232 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
   .nav a { flex: 1 0 44px; }
   .nav a[aria-current="page"]::before { top: 0; }
 }
+
+/* ---------- a project's Gantt: a spreadsheet of its plan by week ---------- */
+
+/* The sheet is ruled as Tasks' is (36px rows, 28px compact; numbered on a
+   fog wash; each milestone's rows bracketed by 2px rules, in ink while the
+   cursor is in them), and scrolls both ways inside the window: its header
+   row and its frozen pane (the numbers, the box, Task, Start, Wks and Due)
+   stay put, as a spreadsheet's do, so they are opaque paper where the
+   weeks are the sheet's own see-through paper. Week columns are ruled by
+   the table's background, so the filler rows under the last are too. */
+.main:has(.gantt-page) { max-width: 1600px; }
+.gantt-page { display: flex; flex-direction: column; height: calc(100dvh - 2 * var(--s-8)); min-height: 560px; }
+.gantt-header { margin-bottom: var(--s-4); }
+.gantt-header h1 { display: flex; align-items: center; gap: var(--s-2); }
+.gantt-header h1 .project-flag { width: 20px; height: 20px; }
+.gantt-header h1 .project-flag svg { width: 18px; height: 18px; }
+.gantt-back {
+  display: inline-block; margin-bottom: var(--s-1);
+  font-size: var(--t-caption); font-weight: 500; color: var(--graphite); text-decoration: none;
+}
+.gantt-back::before { content: "‹ "; }
+.gantt-back:hover { color: var(--ink); }
+.gantt-this-week { flex: none; margin-top: var(--s-1); }
+
+.gantt-sheet {
+  --gantt-wk: 52px;
+  --gantt-num: var(--pad-rows);
+  --gantt-box: 32px;
+  --gantt-title: 280px;
+  --gantt-start: 64px;
+  --gantt-wks: 48px;
+  --gantt-due: 108px;
+  --gantt-pane: calc(var(--gantt-num) + var(--gantt-box) + var(--gantt-title) + var(--gantt-start) + var(--gantt-wks) + var(--gantt-due));
+  --gantt-head: 48px;
+  --gantt-pane-bg: var(--paper);
+  --bracket-rule: var(--graphite);
+  display: block; flex: 1; min-height: 360px; padding: 0;
+  overflow: auto; overscroll-behavior: contain;
+  background: color-mix(in srgb, var(--paper) 35%, transparent);
+  font-size: var(--t-body-sm); line-height: var(--pad-text);
+}
+.gantt-table {
+  position: relative; display: flex; flex-direction: column;
+  width: calc(var(--gantt-pane) + var(--weeks) * var(--gantt-wk)); min-height: 100%;
+  background:
+    linear-gradient(var(--ink-tint-faint), var(--ink-tint-faint))
+      calc(var(--gantt-pane) + var(--this-week) * var(--gantt-wk)) 0 / var(--gantt-wk) 100% no-repeat,
+    repeating-linear-gradient(to right, transparent 0 calc(var(--gantt-wk) - 1px), var(--hairline) calc(var(--gantt-wk) - 1px) var(--gantt-wk))
+      var(--gantt-pane) 0 / calc(100% - var(--gantt-pane)) 100% no-repeat;
+}
+
+.gantt-row { display: flex; flex: none; height: var(--pad-line); box-sizing: border-box; border-bottom: 1px solid var(--hairline); }
+.gantt-pane {
+  position: sticky; left: 0; z-index: 2;
+  display: flex; flex: none; width: var(--gantt-pane);
+  background: var(--gantt-pane-bg);
+  box-shadow: 1px 0 0 var(--mist);
+}
+.gantt-weeks { position: relative; z-index: 0; display: flex; flex: none; }
+
+.gantt-num {
+  flex: none; width: var(--gantt-num); padding-right: var(--s-2);
+  font: 400 var(--t-caption) / calc(var(--pad-line) - 1px) var(--font-num); text-align: right;
+  color: var(--pewter); font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--fog) 70%, var(--paper));
+  box-shadow: inset -1px 0 0 var(--hairline);
+}
+.gantt-row.has-cursor .gantt-num { color: var(--ink); font-weight: 600; }
+.gantt-cell {
+  position: relative; flex: none; display: flex; align-items: center; min-width: 0; height: 100%;
+  padding: 0 var(--s-2); overflow: hidden; white-space: nowrap;
+  color: var(--graphite); font-variant-numeric: tabular-nums;
+  box-shadow: inset -1px 0 0 var(--hairline);
+  cursor: cell;
+}
+.gantt-cell:focus, .gantt-cell:focus-visible { outline: none; box-shadow: inset -1px 0 0 var(--hairline); border-radius: 0; }
+.gantt-box { width: var(--gantt-box); justify-content: center; padding: 0; }
+.gantt-title { width: var(--gantt-title); padding-left: var(--s-3); color: var(--ink); font-weight: 500; }
+.gantt-start { width: var(--gantt-start); }
+.gantt-wks { width: var(--gantt-wks); justify-content: flex-end; }
+.gantt-due { width: var(--gantt-due); box-shadow: none; }
+.gantt-due:focus, .gantt-due:focus-visible { box-shadow: none; }
+.gantt-wk { width: var(--gantt-wk); padding: 0; box-shadow: none; }
+.gantt-wk:focus, .gantt-wk:focus-visible { box-shadow: none; }
+.gantt-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.gantt-text.placeholder { color: var(--pewter); font-weight: 400; }
+.gantt-row.indent .gantt-title { padding-left: calc(var(--s-3) + var(--s-6)); }
+.gantt-row:is(.kind-milestone, .kind-heading) .gantt-title { font-weight: 600; }
+.gantt-cell.derived { color: var(--pewter); cursor: default; }
+.gantt-row.is-done .gantt-title { color: var(--pewter); }
+.gantt-row.kind-task.is-done .gantt-text { text-decoration: line-through; text-decoration-thickness: 1px; }
+.gantt-soon {
+  display: inline-flex; align-items: center; margin-left: -8px; padding: 1px var(--s-2); border-radius: var(--r-pill);
+  font-size: var(--t-caption); font-weight: 500; line-height: 20px; color: var(--warn-fg); background: var(--badge-warn-glass);
+}
+
+/* the box: a task's (the notepad's, 14px), a milestone's diamond, a plus to write */
+.gantt-check {
+  display: grid; place-content: center; width: 14px; height: 14px;
+  border: 1.5px solid var(--graphite); border-radius: var(--r-tag); cursor: pointer;
+}
+.gantt-row.is-done .gantt-check { background: var(--ink); border-color: var(--ink); }
+.gantt-row.is-done .gantt-check::before {
+  content: ""; width: 8px; height: 8px; background: var(--paper);
+  clip-path: polygon(14% 52%, 5% 65%, 38% 95%, 97% 18%, 85% 8%, 37% 71%);
+}
+.gantt-diamond-mark { width: 9px; height: 9px; border: 1.5px solid var(--steel); transform: rotate(45deg); cursor: pointer; }
+.gantt-row.is-done .gantt-diamond-mark { background: var(--ink); border-color: var(--ink); }
+.gantt-plus { width: 14px; height: 14px; fill: none; stroke: var(--steel); stroke-width: 1.6; stroke-linecap: round; }
+.gantt-row.has-cursor .gantt-plus { stroke: var(--ink); }
+
+/* the header row: the columns' names, then each week's number over its Monday */
+.gantt-head {
+  position: sticky; top: 0; z-index: 4; height: var(--gantt-head);
+  background: var(--gantt-pane-bg); border-bottom: 1px solid var(--mist);
+}
+.gantt-head .gantt-pane { z-index: 5; }
+.gantt-head .gantt-num { line-height: calc(var(--gantt-head) - 1px); }
+.gantt-head .gantt-cell { align-items: flex-end; padding-bottom: 7px; font-size: var(--t-caption); font-weight: 500; color: var(--graphite); cursor: default; }
+.gantt-head .gantt-title { padding-left: var(--s-3); }
+.gantt-head abbr { text-decoration: none; }
+.gantt-resize { position: absolute; top: 0; right: -4px; bottom: 0; width: 8px; cursor: col-resize; }
+.gantt-resize::after { content: ""; position: absolute; top: 12px; bottom: 12px; left: 3px; width: 2px; background: transparent; transition: background-color var(--dur) var(--ease); }
+.gantt-resize:hover::after { background: var(--steel); }
+.gantt-wk-head {
+  display: flex; flex-direction: column; justify-content: flex-end; flex: none;
+  width: var(--gantt-wk); padding: 0 0 7px var(--s-2);
+  font-size: var(--t-caption); line-height: 16px; font-variant-numeric: tabular-nums;
+  box-shadow: inset -1px 0 0 var(--hairline);
+}
+.gantt-wk-head b { font-weight: 600; color: var(--ink); }
+.gantt-wk-head small { font-size: inherit; color: var(--pewter); }
+.gantt-wk-head.new-month small { color: var(--graphite); }
+.gantt-wk-head.is-current b, .gantt-wk-head.is-current small { color: var(--spark-deep); text-shadow: var(--spark-glow-text); }
+.gantt-wk-head.col-cursor { background: var(--fog); }
+
+/* groups: a milestone and its rows between two rules, as on every sheet */
+.gantt-group { position: relative; }
+.gantt-group::before, .gantt-group::after {
+  content: ""; position: absolute; left: 0; right: 0; z-index: 3; height: 2px;
+  background: var(--bracket-rule); pointer-events: none;
+}
+.gantt-group::before { top: -1px; }
+.gantt-group::after { bottom: -1px; }
+.gantt-group + .gantt-group::before { display: none; }
+.gantt-head + .gantt-group::before { top: 0; }
+.gantt-group.has-cursor::before, .gantt-group.has-cursor::after,
+.gantt-group:has(+ .gantt-group.has-cursor)::after { background: var(--ink); z-index: 4; }
+
+/* the plan: a task's bar is solid ink as its calendar blocks are, grips at
+   its ends; done, it is fog. A task due with no start is a tick on its due.
+   A milestone is a diamond on its target over a summary of its tasks' bars. */
+.gantt-bar {
+  position: absolute; top: 50%; z-index: 1; height: 14px; margin-top: -7px;
+  left: calc(var(--s) * var(--gantt-wk) + 3px); width: calc(var(--n) * var(--gantt-wk) - 7px);
+  background: var(--solid); box-shadow: inset 0 0 0 1.5px var(--solid-edge), var(--solid-glow);
+  cursor: grab;
+}
+.gantt-row.is-done .gantt-bar { background: var(--fog); box-shadow: inset 0 0 0 1px var(--mist); }
+.gantt-grip { position: absolute; top: -4px; bottom: -4px; width: 8px; cursor: ew-resize; }
+.gantt-grip[data-grip="start"] { left: -3px; }
+.gantt-grip[data-grip="end"] { right: -3px; }
+.gantt-tick {
+  position: absolute; top: 50%; z-index: 1; width: 2px; height: 16px; margin-top: -8px;
+  left: calc(var(--x) * var(--gantt-wk) - 1px); background: var(--ink); cursor: grab;
+}
+.gantt-tick::before { content: ""; position: absolute; top: 0; left: -3px; width: 8px; height: 2px; background: var(--ink); }
+.gantt-summary {
+  position: absolute; top: 50%; height: 4px; margin-top: -2px;
+  left: calc(var(--s) * var(--gantt-wk) + 3px); width: calc(var(--n) * var(--gantt-wk) - 7px);
+  background: var(--graphite); pointer-events: none;
+}
+.gantt-summary::before, .gantt-summary::after { content: ""; position: absolute; top: 0; width: 2px; height: 9px; background: var(--graphite); }
+.gantt-summary::before { left: 0; }
+.gantt-summary::after { right: 0; }
+.gantt-diamond {
+  position: absolute; top: 50%; z-index: 1; width: 12px; height: 12px; margin-top: -6px;
+  left: calc(var(--x) * var(--gantt-wk) - 6px); transform: rotate(45deg);
+  background: var(--ink); cursor: grab;
+}
+.gantt-row.is-done .gantt-diamond { background: var(--fog); box-shadow: inset 0 0 0 1.5px var(--ink); }
+:is(.gantt-bar, .gantt-diamond, .gantt-tick).is-dragged { cursor: grabbing; opacity: 0.85; }
+
+/* now: the signal, down through the weeks, at today */
+.gantt-now {
+  position: absolute; top: var(--gantt-head); bottom: 0; z-index: 1; width: 2px;
+  left: calc(var(--gantt-pane) + var(--now) * var(--gantt-wk) - 1px);
+  background: var(--signal); box-shadow: var(--signal-glow); pointer-events: none;
+}
+
+/* the cursor: the spark's ring on its cell, over any bar; a range is the
+   spark's tint, and a bar being drawn its preview, edged as a calendar drag's */
+.gantt-cell.in-range { background: var(--spark-tint); }
+.gantt-cell.is-cursor::after {
+  content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--steel);
+}
+.gantt-sheet:focus-within .gantt-cell.is-cursor::after { box-shadow: inset 0 0 0 2px var(--spark-deep), var(--spark-glow); }
+.gantt-sheet.is-drawing .gantt-wk.in-range { box-shadow: inset 0 1.5px 0 var(--spark), inset 0 -1.5px 0 var(--spark); }
+.gantt-row.kind-task .gantt-wk { cursor: crosshair; }
+
+/* writing in a cell: the words on the cell's own line, its ring kept */
+.gantt-cell.is-editing { overflow: visible; }
+.gantt-input {
+  position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%;
+  padding: 0 var(--s-2); border: none; border-radius: 0; outline: none;
+  background: var(--gantt-pane-bg); color: var(--ink);
+  font: inherit; font-weight: 500; font-variant-numeric: tabular-nums;
+}
+.gantt-input:focus, .gantt-input:focus-visible { outline: none; box-shadow: none; }
+.gantt-title .gantt-input { padding-left: var(--s-3); }
+.gantt-row.indent .gantt-title .gantt-input { padding-left: calc(var(--s-3) + var(--s-6)); }
+.gantt-input::placeholder { color: var(--pewter); font-weight: 400; }
+
+.gantt-filler { flex: 1 1 0; min-height: 0; overflow: hidden; }
+.gantt-filler .gantt-cell { cursor: default; }
+
+/* a phone: the Task column narrower, the typed columns folded away (bars
+   still drawn and dragged), the numbers as narrow as the sheets' */
+@media (max-width: 720px) {
+  .gantt-page { height: calc(100dvh - var(--s-6) - 96px); min-height: 480px; }
+  .gantt-sheet {
+    --gantt-num: 34px; --gantt-box: 28px;
+    --gantt-pane: calc(var(--gantt-num) + var(--gantt-box) + min(var(--gantt-title), 150px));
+  }
+  .gantt-sheet .gantt-title { width: min(var(--gantt-title), 150px); }
+  .gantt-sheet :is(.gantt-start, .gantt-wks, .gantt-due) { display: none; }
+  .gantt-this-week { display: none; }
+}

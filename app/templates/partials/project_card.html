@@ -17,6 +17,9 @@
     {% elif p.status.value != "active" %}
     <span class="chip queued">{{ p.status.value | capitalize }}</span>
     {% endif %}
+    <a class="card-edit-btn" href="/projects/{{ p.id }}" aria-label="Open {{ p.name }} as a Gantt chart" title="Gantt chart">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3.5" width="7" height="3"/><rect x="6.5" y="8.5" width="8" height="3"/><rect x="10" y="13.5" width="7" height="3"/></svg>
+    </a>
     <button type="button" class="card-edit-btn" aria-label="Edit {{ p.name }}" title="Rename or edit notes"
             hx-get="/ui/projects/{{ p.id }}/edit" hx-target="#project-{{ p.id }}" hx-swap="outerHTML">
       <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 3.5l3 3L7 16H4v-3z"/><path d="M11.5 5.5l3 3"/></svg>

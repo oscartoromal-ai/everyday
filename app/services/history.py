@@ -27,6 +27,7 @@ FIELDS = (
     "milestone_id",
     "planned_for",
     "due",
+    "starts_on",
 )
 
 ACTORS = ("oscar", "claude", "system")

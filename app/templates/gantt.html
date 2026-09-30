@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "partials/project_flag.html" import project_flag %}
+{% block title %}{{ project.name }} · Gantt · Personal Calendar{% endblock %}
+{% block content %}
+{# A project as a Gantt chart: a spreadsheet of its milestones and tasks,
+   each task's bar over the weeks from its start to its due. gantt.js runs
+   the sheet: a cell cursor, writing in cells, drawing and dragging bars,
+   and undo; every edit is answered with the sheet drawn again. #}
+<div class="gantt-page">
+  <header class="page-header gantt-header">
+    <div>
+      <a class="gantt-back" href="/projects">Projects</a>
+      <h1>{{ project_flag(project) }}<span>{{ project.name }}</span></h1>
+      <div class="rest" id="gantt-rest">{% include "partials/gantt_rest.html" %}</div>
+      <p class="keys-hint">
+        <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> move · type to write · <kbd>Space</kbd> fill weeks · <kbd>Alt</kbd><kbd>←</kbd><kbd>→</kbd> move a bar · <kbd>Alt</kbd><kbd>↑</kbd><kbd>↓</kbd> move a row · <kbd>Ctrl</kbd><kbd>Z</kbd> undo · <kbd>?</kbd> all keys
+      </p>
+    </div>
+    <button type="button" class="btn quiet gantt-this-week" data-gantt-this-week>This week</button>
+  </header>
+
+  <div class="gantt-sheet ruled-sheet" id="gantt" role="grid"
+       aria-label="{{ project.name }}, by week" aria-readonly="false"
+       data-project="{{ project.id }}">
+    {% include "partials/gantt_sheet.html" %}
+  </div>
+</div>
+<script src="{{ asset('gantt.js') }}" defer></script>
+{% endblock %}

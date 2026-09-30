@@ -17,6 +17,7 @@ from app.mcp.server import mcp
 from app.security import BrowserGuardMiddleware
 from app.services import DomainError
 from app.ui import fragments as ui_fragments
+from app.ui import gantt as ui_gantt
 from app.ui import garmin as ui_garmin
 from app.ui import money as ui_money
 from app.ui import nutrition as ui_nutrition
@@ -57,6 +58,7 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     app.include_router(ui_nutrition.router)
     app.include_router(ui_garmin.router)
     app.include_router(ui_money.router)
+    app.include_router(ui_gantt.router)
 
     @app.exception_handler(DomainError)
     def domain_error(request: Request, exc: DomainError) -> JSONResponse:
