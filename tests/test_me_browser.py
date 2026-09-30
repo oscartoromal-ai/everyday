@@ -18,8 +18,8 @@ def test_me_saves_as_it_changes(page, live, app_db) -> None:
     page.locator("input[name=birth_date]").fill("1990-05-14")
     page.locator("select[name=sex]").select_option("male")
     page.locator("select[name=activity]").select_option("light")
-    page.locator("input[name=allergies]").fill("peanuts")
-    page.locator("input[name=allergies]").press("Tab")
+    page.locator("textarea[name=allergies]").fill("peanuts")
+    page.locator("textarea[name=allergies]").press("Tab")
     end = time.monotonic() + 5
     while True:
         with app_db() as db:
@@ -28,6 +28,20 @@ def test_me_saves_as_it_changes(page, live, app_db) -> None:
         if saved == (180, "male", "light", "peanuts"):
             break
         assert time.monotonic() < end, me
+        time.sleep(0.1)
+
+    # A one-line answer wraps as a notes row does, but Enter ends it, and saves.
+    diet = page.locator("textarea[name=diet]")
+    diet.fill("Mostly plants")
+    diet.press("Enter")
+    assert diet.input_value() == "Mostly plants"
+    assert not page.evaluate("document.activeElement.name === 'diet'")
+    end = time.monotonic() + 5
+    while True:
+        with app_db() as db:
+            if health_svc.context(db)["diet"] == "Mostly plants":
+                break
+        assert time.monotonic() < end
         time.sleep(0.1)
 
     # A weigh-in joins the log and draws what follows again.

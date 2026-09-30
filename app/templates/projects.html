@@ -17,8 +17,8 @@
       hx-target="#projects" hx-swap="outerHTML"
       hx-on::after-request="if (event.detail.successful) this.reset()">
   <label class="field" style="flex: 2;">
-    <span class="draft-label">New project</span>
-    <span class="plate"><input name="name" placeholder="Start a project…" required></span>
+    <span class="field-label">New project</span>
+    <span class="field-line"><input name="name" placeholder="Start a project…" required></span>
   </label>
   <button type="submit" class="btn primary">Create</button>
 </form>

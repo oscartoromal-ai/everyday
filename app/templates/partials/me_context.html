@@ -1,26 +1,28 @@
 {# What follows from Me: age, BMI and daily energy, from the profile and the
-   latest weigh-in. Drawn again after each save, and after a weigh-in. #}
-<section class="me-context" id="me-context" aria-label="What follows"
+   latest weigh-in, a row each, then a row saying how. Drawn again after each
+   save, and after a weigh-in. #}
+<section class="sheet-group me-context" id="me-context" aria-labelledby="me-glance"
          hx-get="/ui/me/context" hx-trigger="me:changed from:body" hx-swap="outerHTML">
+  <h2 class="sheet-row sheet-head" id="me-glance">At a glance</h2>
   <dl class="me-figures">
-    <div>
-      <dt>Weight</dt>
-      <dd>{% if me.weight_kg %}{{ "%g" % me.weight_kg }} kg <span class="me-when">{{ me.weighed_on | short_date }}</span>{% else %}<span class="me-unset">Not yet</span>{% endif %}</dd>
+    <div class="sheet-row me-row">
+      <dt class="me-label">Weight</dt>
+      <dd class="me-value">{% if me.weight_kg %}{{ "%g" % me.weight_kg }} kg <span class="me-when">{{ me.weighed_on | short_date }}</span>{% else %}<span class="me-unset">Not yet</span>{% endif %}</dd>
     </div>
-    <div>
-      <dt>Age</dt>
-      <dd>{% if me.age is not none %}{{ me.age }}{% else %}<span class="me-unset">Not yet</span>{% endif %}</dd>
+    <div class="sheet-row me-row">
+      <dt class="me-label">Age</dt>
+      <dd class="me-value">{% if me.age is not none %}{{ me.age }}{% else %}<span class="me-unset">Not yet</span>{% endif %}</dd>
     </div>
-    <div>
-      <dt>BMI</dt>
-      <dd>{% if me.bmi %}{{ me.bmi }}{% else %}<span class="me-unset">Not yet</span>{% endif %}</dd>
+    <div class="sheet-row me-row">
+      <dt class="me-label">BMI</dt>
+      <dd class="me-value">{% if me.bmi %}{{ me.bmi }}{% else %}<span class="me-unset">Not yet</span>{% endif %}</dd>
     </div>
-    <div>
-      <dt>Daily energy</dt>
-      <dd>{% if me.energy_kcal %}{{ "{:,}".format(me.energy_kcal) }} kcal{% else %}<span class="me-unset">Not yet</span>{% endif %}</dd>
+    <div class="sheet-row me-row">
+      <dt class="me-label">Daily energy</dt>
+      <dd class="me-value">{% if me.energy_kcal %}{{ "{:,}".format(me.energy_kcal) }} kcal{% else %}<span class="me-unset">Not yet</span>{% endif %}</dd>
     </div>
   </dl>
-  <p class="me-note">
+  <p class="sheet-row me-note">
     {% if me.energy_kcal %}
     About {{ "{:,}".format(me.energy_kcal) }} kcal a day keeps your weight, estimated from your body and activity (Mifflin-St Jeor).
     {% else %}

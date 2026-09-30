@@ -259,4 +259,28 @@
       htmx.trigger(twin, "click");
     });
   });
+
+  /* ---- fields written on the line (app.css, "inputs") ---- */
+
+  // A one-line answer wraps as a notes row does, but Enter ends it (a
+  // change, which saves) and a pasted line break becomes a space.
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || e.isComposing || !e.target.matches?.("textarea[data-one-line]")) return;
+    e.preventDefault();
+    e.target.blur();
+  });
+  // An empty date reads as a placeholder (data-empty), not as a value.
+  const markDate = (input) => input.toggleAttribute("data-empty", !input.value);
+  document.addEventListener("input", (e) => {
+    const field = e.target;
+    if (field.matches?.("textarea[data-one-line]") && /\r|\n/.test(field.value)) {
+      field.value = field.value.replace(/\s*[\r\n]+\s*/g, " ");
+    }
+    if (field.matches?.("input[type=date]")) markDate(field);
+  });
+  const markDates = (scope) => scope.querySelectorAll("input[type=date]").forEach(markDate);
+  markDates(document);
+  document.addEventListener("htmx:load", (e) => markDates(e.detail.elt));
+  // A form's reset event comes before its fields go back.
+  document.addEventListener("reset", (e) => setTimeout(() => markDates(e.target)));
 })();

@@ -3,12 +3,12 @@
   <form class="project-editor"
         hx-post="/ui/projects/{{ p.id }}" hx-target="#project-{{ p.id }}" hx-swap="outerHTML">
     <label class="field">
-      <span class="draft-label">Project</span>
-      <span class="plate"><input name="name" value="{{ p.name }}" required autofocus></span>
+      <span class="field-label">Project</span>
+      <span class="field-line"><input name="name" value="{{ p.name }}" required autofocus></span>
     </label>
     {# Its colour: the flag on its tasks, and their rules. #}
     <fieldset class="field color-field">
-      <legend class="draft-label">Colour</legend>
+      <legend class="field-label">Colour</legend>
       <span class="swatches">
         {% for n in range(1, 9) %}
         <label class="swatch" style="--project: var(--hue-{{ n }})">
@@ -19,8 +19,8 @@
       </span>
     </fieldset>
     <label class="field">
-      <span class="draft-label">Notes</span>
-      <span class="plate"><textarea name="notes" rows="3">{{ p.notes }}</textarea></span>
+      <span class="field-label">Notes</span>
+      <span class="field-line"><textarea name="notes" rows="3">{{ p.notes }}</textarea></span>
     </label>
     <div class="editor-actions">
       <button type="submit" class="btn primary">Save</button>

@@ -35,7 +35,7 @@
   <form hx-post="/ui/tasks/quick-add" hx-swap="none"
         hx-on::after-request="if (event.detail.successful) htmx.trigger(document.body, 'weeks:refresh')">
     <input type="hidden" name="planned_for" value="{{ day.isoformat() }}">
-    <span class="plate"><input name="title" placeholder="Add a task…" autocomplete="off" aria-label="Task title" required autofocus></span>
+    <span class="field-line"><input name="title" placeholder="Add a task…" autocomplete="off" aria-label="Task title" required autofocus></span>
   </form>
 </details>
 {% endmacro %}

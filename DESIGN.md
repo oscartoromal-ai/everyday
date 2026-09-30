@@ -49,7 +49,7 @@ With no saved choice, `shell.js` keeps following the system live.
   Without the inversion, dark-mode blocks sat at almost the same grey as work meetings.
 - **Status pairs:** `--ok-*`, `--warn-*`, `--err-*`, `--neutral-*`, rendered on glass through the `--badge-*-glass` fills.
 - **Canvas and glass:** `--canvas` (fixed to the viewport), `--chrome-flank` (the matte sidebar), `--glass-card`, `--glass-border`, `--glass-input`, `--glass-btn`, `--glass-hover`, `--glass-row-hover`, and ink-alpha hairlines `--hairline-on-glass(-strong)`; `--ink-tint-faint` tints weekends.
-- **Hues:** two of the contract's hues draw the inputs (see Inputs): `--hue-6` is the drafting blue of their rules, `--hue-8` the red pencil of the field in use; the other six are installed but not used yet.
+- **Hues:** the contract's eight hues colour projects (their flags and their tasks' rules) and, in the notes, habits (`--hue-4`), stays (`--hue-3`) and a habit name that cannot be one (`--hue-8`); inputs use none.
 
 ## Type
 
@@ -58,12 +58,12 @@ Neon Signage uses one face, Inter variable, installed in `app/static/design/font
 Titles (page, card, week and dialog titles, and the wordmark) use `--font-display` and figures (times, counts, targets, busy hours) use `--font-num`; in Neon Signage both are Inter, so these hooks matter only when another system is installed.
 Every font size is a scale token: `--t-caption` 12px, `--t-body-sm` 14px (the default UI size), `--t-body` 16px (inputs, card titles), `--t-sub` 20px (project titles), `--t-h-sm` 24px (page titles).
 Dates, times, counts and busy hours are `tabular-nums`.
-Input captions and the buttons that finish writing are set in Barlow Condensed 600 (`--font-label`), uppercase with 0.16 to 0.18em tracking: the one face beside Inter, self-hosted as a Latin subset in `app/static/fonts/` (OFL) by `scripts/fetch-label-fonts.py`.
+Field names are 12px/500 graphite Inter, as the notes' "Task" label is: Inter is the only face.
 
 ## Shape, space, elevation
 
 - **Radii:** none. Every corner in the app is square (Oscar's call, 2026-09-27): `app.css` sets the system's `--r-tag`, `--r-ctl` and `--r-pill` to 0 after `design.css` loads, and no rule rounds a corner of its own, dots and the now mark included.
-- **Inputs are see-through:** every place Oscar writes lets the page show through: drafted plates fill with `--draft-fill` (their paper at 40%) under the graph grid, Today's notepad card is the paper at 35%, and checkboxes are unfilled until ticked. The field in use takes its red pencil as a 1px outline 2px clear of its rule, so the gap between them is see-through too.
+- **Inputs are see-through:** every place Oscar writes lets the page show through: a field has no fill, only its line; Today's notepad card and the ruled sheets (Tasks, Me) are the paper at 35%; and checkboxes are unfilled until ticked.
 - **Spacing:** the `--s-*` scale (4, 8, 12, 16, 24, 32, 48).
 - **Elevation:** resting glass has no shadow; only the block menu, the add-a-task popover, the task sheet's menus and the toast float, on opaque paper with `--shadow-dropdown`.
   There is one toast, `window.toast` in `shell.js`, for every page; a newer message gets its own full moment.
@@ -110,7 +110,7 @@ It is the one handler behind every `hx-confirm` that carries `data-confirm-*` at
 Each opening hears only its own answer: a dialog's close arrives a moment after it closes, and an Esc followed at once by another Delete must not hand the new question the old one's cancel.
 
 **Task sheet.** Adding a task and editing one are the same sheet, written like a document rather than filled in like a form.
-It is a drafted plate (see Inputs) under its caption, shaped inside like the row it becomes: the row's box (or, to add, a plus in the rule's blue, red once writing), then the title in 14px/500 ink, which wraps as a line of text.
+It is written on the line (see Inputs), shaped like the row it becomes: the row's box (or, to add, a plus in steel, ink once writing), then the title in 14px/500 ink, which wraps as a line of text.
 The do-date, time, due and repeat fields trail the title's last word as small icons in `--steel`, 14px, with the value beside the icon in 12px graphite once set ("tomorrow", "15:00–16:00", "Fri 2 Oct"); repeat stays an icon, its rule in the tooltip.
 The gaps before and between them are the line's own spaces, widened, so when they wrap they start flush with the title's text.
 Each is a 24px target that opens a small menu on paper with the dropdown shadow: Today, Tomorrow, Next week, Pick a date (the native picker) and No date; for the time, Pick a time, then Change the start, Change the end and No time (native pickers, 15-minute steps; a new start keeps the length); or the repeat presets.
@@ -124,11 +124,11 @@ History opens under the end line, above a hairline: each change newest first, a 
 Project and milestone live only there, since the list a task is written in already says which project it belongs to.
 
 To add, each list card ends in the sheet's plus and a pewter placeholder, filed by the card it sits in (a project card's is in that project).
-Typing a title opens the icons and the description (focus alone does not, so a composer that folds away never shifts the page under a click), with a pewter "Ctrl+Enter to add" hint (hidden on touch), a drafted Cancel and the red-pencil "Add task".
+Typing a title opens the icons and the description (focus alone does not, so a composer that folds away never shifts the page under a click), and a line under them: a pewter "Ctrl+Enter to add" hint (hidden on touch), then Cancel in 12px graphite and "Add task" in 12px/600 ink, words on the line with the fog under them on hover, not boxes.
 Enter in the title moves to the description, and Ctrl+Enter adds the task and returns to an empty title for the next one.
 A task dated away from the list it was written in does not join it; the page regroups instead.
 
-To edit, the row's title swaps the sheet in place, on the row hover fill, with the caret at the end of the title.
+To edit, the row's title swaps the sheet in place, on the row hover fill with its rules above and below in ink (as the notes' task the caret is in), with the caret at the end of the title.
 There is no Save: the sheet saves when focus leaves it (a click elsewhere, Tab past its last control, Esc or Ctrl+Enter), and if nothing changed it goes back to its row without a save.
 Tab past its last control leaves it even where nothing on the page follows to take the focus; the window losing focus does not.
 
@@ -151,7 +151,7 @@ Every task is bracketed by a 2px graphite rule above its title and below its las
 A task's "- [ ] " rows are its sub-tasks, each with the task box inline before its words; a ticked sub-task, and a ticked task (title and every row), is crossed out in pewter, its box, "Task" and icons not struck.
 A task (or reflection, habit, stay) right under another shares that one's rule, one line between them: it draws none above itself, and the shared rule takes its colour while the caret is in it.
 A task with rows under its title has a 12px pewter chevron after "Task" (ink on hover; pointing down when open, right when folded): folded, the task shows its title alone, its hidden rows counted in a pewter caption tag after it ("2 rows") and its row numbers skipping them, and it stays folded with the notes.
-At the right of a task's title come its controls, 12px or more after its last word: the task sheet's icons (do date, time, due, repeat, project), each a pewter icon with its value beside it once set, in graphite rather than the sheet's red pencil, with no plate around them, and last the rows' trash bin (steel, red on hover).
+At the right of a task's title come its controls, 12px or more after its last word: the task sheet's icons (do date, time, due, repeat, project), each a pewter icon with its value beside it once set, in graphite, and last the rows' trash bin (steel, red on hover).
 They stand on the title's last line when they fit there, and when not, on a line of their own under it, still at the right: the row grows by a line, and no row is added to the notes.
 A reflection is drawn as a task's rows are, without a box or controls: "Reflection" in 12px `--signal-deep` in its first row's indent, its words in the body grey, and its rules light blue (`--signal` 45% into the paper; the signal itself while the caret is in it).
 A habit is drawn as a task is: in its indent its box (ticked by default, filled green) and "Habit" in green (`--hue-4` 85% into ink; pewter once unticked, with its name), then its name in ink at 500 and its note in the body grey, its rules green (`--hue-4` 45% into the paper; the green itself while the caret is in it), and at its row's right its days' icon, the task sheet's repeat icon with its days beside it once set ("Every day", "Weekdays", "Tue, Thu"); a name that cannot be one is underlined in a wavy `--hue-8`.
@@ -164,7 +164,7 @@ What is offered while writing (after "/" at a row's start, and after "/habit ") 
 No border, no focus ring and no resize handle; the pewter placeholder "Anything on your mind today."
 When the notes were saved in another window, a line under the card says so, with Show that version and Keep mine as secondary buttons.
 
-**Tasks.** A page header ("Tasks", the open and undated counts, and a By date / By project segmented control on the right), the composer's plate on the page, as wide as the sheet under it, then the tasks on one sheet ruled as Today's notepad is.
+**Tasks.** A page header ("Tasks", the open and undated counts, and a By date / By project segmented control on the right), then the tasks on one sheet ruled as Today's notepad is, its first row the composer ("Add a task…" after the plus), above the first group's rule.
 The page runs to the window's foot and the sheet takes what is left of it (at least 420px).
 It is the notepad card's paper at 35%, with the same metrics: every row at least 36px tall with its text in the middle (7px above a 22px line, 6px below), on its own `--hairline` rule, and the 44px column of row numbers (12px pewter, tabular) on a fog wash behind a hairline (34px on phones).
 Every row is numbered, headers and composers included, and empty numbered rows fill the sheet under the last group, the last of them cut at its edge; a Done fold's hidden rows are not counted.
@@ -183,6 +183,13 @@ The bar shows for keyboard focus only (`:focus-visible`), never after a click.
 It is the one cursor the app draws: a Done fold's header, a Projects shelf's header (as an inset shadow, since its `::before` is the +/− sign) and the item under the keyboard in a task sheet's menu take the same bar (on `--fog` in the menu, which is opaque paper).
 Projects' shelves remember being open like the Done folds, so a key acting inside one never folds it away.
 
+**Me** (Health).
+A page header, then one sheet ruled as Tasks' is, each part a group: At a glance (Weight, Age, BMI and Daily energy, read-only in ink at 500, "Not yet" in pewter, then a graphite row saying how the energy is estimated), Weight, Body, Activity and goal, Diet, and Health notes.
+Each field is a row: its name in a 112px indent (96px on phones), then its value written on the line, a number followed by its unit in graphite once set; the row takes the click and the hover fill.
+Diet, allergies and foods avoided wrap as a notes row does, the row growing, and Enter ends them; Health notes is one row that grows, with its placeholder as its name.
+The Weight group's first row writes a weigh-in (the weight, "on" and its day, and a quiet Log; Enter logs it), and each weigh-in follows as a row: its day in the indent, the weight in ink at 500, and the rows' bin on hover.
+The page saves each field as it changes.
+
 **Done fold.** Finished tasks fold away under a list: a pewter "Done" summary with its count and a steel chevron that turns when open, then the rows, checked and struck through, ready to untick.
 On Tasks it is the sheet's last group, noting "last 14 days".
 Which folds are open is remembered per tab (`sessionStorage` key `pc-open-folds`).
@@ -198,16 +205,12 @@ Esc closes it and keeps a half-written draft for the next time.
 **Buttons.** `.btn.primary` is the spark primary, glowing at night, `.btn.quiet` the glass secondary, `.btn.danger-quiet` the destructive secondary with an err border.
 Week navigation and nudge actions are secondary-style controls.
 
-**Inputs: drafted, like a settei sheet** (Oscar's pick, 2026-09-27, from three 90s-anime directions in `tracker/prototypes/input-boxes.html`).
-Every place Oscar writes is drawn like the model sheets anime of the 90s was animated from: a *plate*.
-A plate is square, ruled with a 1px line in drafting blue (`--draft-rule`: `--hue-6`, softened toward paper by day so a resting field blends in while its edge holds 3:1, and lifted toward ink by night), filled with faint graph paper (16px squares in `--draft-grid` over `--draft-paper`, a hint of blue in paper by day, the sheet's cyanotype by night), with a registration cross just outside each corner.
-Above it, a caption: an 11px leader line in the rule's blue, then the field's name in 11px Barlow Condensed caps, graphite.
-The field in use is re-marked in red pencil (`--hue-8`): its rule gains a 1px paper gap and a 1px red line around it, its crosses turn red, and its caption turns red with them.
-Inside a plate, controls draw nothing of their own: 16px ink text, 40px tall, pewter placeholders, date and time in `--font-num`, a select's chevron drawn in the rule's blue.
-Plates are the task sheet (composer and edit, captioned Add a task, then New task once writing; Edit task), the event, milestone and new-project forms, the project editor, Weeks' quick add, and, rule only, Projects' status select.
-In a task sheet a set field's value is written in red pencil, and a dashed blue rule divides the title line from the description.
-The buttons that finish writing (the sheet's, and those of the inline forms and the project editor) are drafted too: square, 34px (40px beside a form's fields), captions in Barlow Condensed caps; the secondary is a blue-ruled outline, the primary a red-pencil fill with paper-coloured text (deepened by day for 4.5:1).
-Everything that holds a plate leaves the 5px its crosses need.
+**Inputs: written on the line, as Today's notes are** (Oscar's call, 2026-09-30, replacing the settei plates of 2026-09-27).
+Every place Oscar writes is a line of the notebook: no box, no fill and no focus ring, the words straight on a rule, 22px of 14px ink on a 36px line as the notes' rows are, pewter placeholders, date and time in `--font-num`, a select's words followed by a small steel chevron, and an empty date in pewter.
+On a ruled sheet (Tasks, Me) the rows are the lines: a field is a row, its name in the row's indent in 12px/500 graphite, and the field in use has its row number in ink 600 and its group's rules in ink, as the notes' caret row does.
+Elsewhere (the event, milestone and new-project forms, the project editor, Weeks' quick add) a field is its name in 12px/500 graphite over a 1px steel line (3:1 as a field's edge), the line 2px ink and the name ink while it is in use.
+Their buttons are the app's own, 36px beside a form's fields; the task sheet's are words on its line (see Task sheet).
+Projects' status select is its words in 12px/500 graphite and the steel chevron, the fog under it on hover.
 Focus elsewhere in the app is unchanged: every other focus ring is `--spark-deep`, not `--spark`, since accent text holds 4.5:1 on every surface where the bright spark can sink into a glow of its own colour.
 
 **Time grid** (Calendar's week and Today's one-day timeline, one partial).

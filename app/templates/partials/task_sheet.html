@@ -7,7 +7,7 @@
   repeat icons trail its last word. The description follows. In edit mode the sheet
   ends with Project › Milestone, owner (and status once it is Claude's), and
   delete; it saves when focus leaves it.
-  The sheet is a drafted plate under its label (app.css, "drafted inputs").
+  It is written on the line, as a row is (app.css, "inputs").
 #}
 {% set editing = mode == "edit" %}
 {% set s = sheet if editing else {
@@ -16,11 +16,7 @@
   "project_id": project_id or "", "milestone_id": "",
   "planned_label": planned_for | short_date if planned_for else "", "due_label": "", "time_label": "",
 } %}
-{% if editing %}<li id="task-{{ s.id }}" class="sheet-item">{% else %}<div class="draft-slot">{% endif %}
-<p class="draft-label">
-  {%- if editing %}Edit task
-  {%- else %}<span class="when-rest">Add a task</span><span class="when-writing">New task</span>
-  {%- endif %}</p>
+{% if editing %}<li id="task-{{ s.id }}" class="sheet-item">{% else %}<div class="compose-slot">{% endif %}
 <form class="task-sheet" data-sheet="{{ mode }}"
   {%- if editing %}
       hx-post="/ui/tasks/{{ s.id }}" hx-target="#task-{{ s.id }}" hx-swap="outerHTML"

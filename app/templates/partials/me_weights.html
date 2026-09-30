@@ -1,25 +1,24 @@
 {# His weigh-ins: one a day (a second that day replaces the first), newest
-   first, each with its bin. A weigh-in draws this again and tells the page
-   (me:changed), so what follows from it is drawn again too. #}
-<section class="me-section me-weights" id="me-weights" aria-labelledby="me-weight">
-  <h2 id="me-weight">Weight</h2>
-  <form class="inline-form" hx-post="/ui/me/weight" hx-target="#me-weights" hx-swap="outerHTML">
-    <label class="field">
-      <span class="draft-label">Weight (kg)</span>
-      <span class="plate"><input name="weight_kg" inputmode="decimal" autocomplete="off" required></span>
-    </label>
-    <label class="field">
-      <span class="draft-label">Day</span>
-      <span class="plate"><input type="date" name="day" max="{{ today.isoformat() }}" value="{{ today.isoformat() }}"></span>
-    </label>
-    <button type="submit" class="btn primary">Log</button>
+   first, each with its bin, under a row to write the next one in. A
+   weigh-in draws this again and tells the page (me:changed), so what
+   follows from it is drawn again too. #}
+<section class="sheet-group me-weights" id="me-weights" aria-labelledby="me-weight">
+  <h2 class="sheet-row sheet-head" id="me-weight">Weight</h2>
+  <form class="sheet-row me-row me-weigh-in" hx-post="/ui/me/weight" hx-target="#me-weights" hx-swap="outerHTML">
+    <label class="me-label" for="me-weigh-in">Weigh in</label>
+    <span class="sheet-field">
+      <input id="me-weigh-in" name="weight_kg" inputmode="decimal" autocomplete="off" required placeholder="Weight" aria-label="Weight (kg)"><span class="me-unit">kg</span>
+      <span class="me-on">on</span>
+      <input type="date" name="day" max="{{ today.isoformat() }}" value="{{ today.isoformat() }}" aria-label="Day">
+    </span>
+    <button type="submit" class="plan-btn">Log</button>
   </form>
   {% if me.weights %}
   <ul class="weight-log">
     {% for w in me.weights %}
-    <li>
-      <span class="weight-day">{{ w.day | short_date | capitalize }}</span>
-      <span class="weight-kg">{{ "%g" % w.weight_kg }} kg</span>
+    <li class="sheet-row me-row">
+      <span class="me-label">{{ w.day | short_date | capitalize }}</span>
+      <span class="me-value">{{ "%g" % w.weight_kg }} kg</span>
       <button type="button" class="task-delete" title="Delete this weigh-in"
               aria-label="Delete the weigh-in of {{ w.day | short_date }}"
               hx-post="/ui/me/weight/{{ w.day.isoformat() }}/delete" hx-target="#me-weights" hx-swap="outerHTML"
@@ -34,6 +33,6 @@
     {% endfor %}
   </ul>
   {% else %}
-  <p class="empty page-empty">No weigh-ins yet.</p>
+  <p class="sheet-row empty">No weigh-ins yet.</p>
   {% endif %}
 </section>

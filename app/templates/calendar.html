@@ -27,25 +27,25 @@
           hx-post="/ui/events" hx-swap="none"
           hx-on::after-request="if (event.detail.successful) { this.reset(); this.closest('details').open = false; }">
       <label class="field" style="flex: 2;">
-        <span class="draft-label">Event</span>
-        <span class="plate"><input name="title" placeholder="Event title" required></span>
+        <span class="field-label">Event</span>
+        <span class="field-line"><input name="title" placeholder="Event title" required></span>
       </label>
       <label class="field">
-        <span class="draft-label">Date</span>
-        <span class="plate"><input type="date" name="day" value="{{ today.isoformat() }}" required></span>
+        <span class="field-label">Date</span>
+        <span class="field-line"><input type="date" name="day" value="{{ today.isoformat() }}" required></span>
       </label>
       <label class="field">
-        <span class="draft-label">Starts</span>
-        <span class="plate"><input type="time" name="start_time"></span>
+        <span class="field-label">Starts</span>
+        <span class="field-line"><input type="time" name="start_time"></span>
       </label>
       <label class="field">
-        <span class="draft-label">Ends</span>
-        <span class="plate"><input type="time" name="end_time"></span>
+        <span class="field-label">Ends</span>
+        <span class="field-line"><input type="time" name="end_time"></span>
       </label>
       <label class="check-label"><input type="checkbox" name="all_day"> All day</label>
       <label class="field">
-        <span class="draft-label">Repeat</span>
-        <span class="plate"><select name="repeat">
+        <span class="field-label">Repeat</span>
+        <span class="field-line"><select name="repeat">
           {% for value, label in [("none", "Does not repeat"), ("daily", "Daily"), ("weekdays", "Weekdays"), ("weekly", "Weekly"), ("monthly", "Monthly")] %}
           <option value="{{ value }}">{{ label }}</option>
           {% endfor %}
