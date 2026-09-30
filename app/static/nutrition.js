@@ -136,17 +136,6 @@
     submit();
   });
 
-  // Left and Right, outside the message, change the day.
-  document.addEventListener("keydown", (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    if (e.target.closest?.("input, textarea, select, [contenteditable]") || document.querySelector("dialog[open]")) return;
-    const link = document.querySelector(`[data-day-step="${e.key === "ArrowLeft" ? "prev" : "next"}"]`);
-    if (!link) return;
-    e.preventDefault();
-    link.click();
-  });
-
   // The latest of the chat in view, on arrival and each time it is drawn again.
   toBottom();
   chatLog.addEventListener("htmx:afterSwap", toBottom);

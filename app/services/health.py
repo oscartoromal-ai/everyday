@@ -4,7 +4,8 @@ His profile is one row: height, birth date, sex, how active he is, his goal
 and target weight, his dietary pattern, allergies and intolerances, foods he
 avoids, and notes. His weight is a log, one entry a day, so its trend is
 there too. `context` reads it all with what follows from it: his age, BMI,
-and an estimate of the energy he needs a day to keep his weight.
+and an estimate of the energy he needs a day to keep his weight; and, with
+Garmin connected, the energy his watch measured him burning.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.models import ActivityLevel, HealthProfile, Sex, WeightEntry, WeightGoal
 from app.services import DomainError
+from app.services import garmin as garmin_svc
 
 # Physiological bounds, to catch a slip of the keyboard (178 typed as 1780).
 HEIGHT_CM = (50.0, 272.0)
@@ -124,7 +126,9 @@ def context(db: Session, today: date | None = None) -> dict[str, Any]:
     """Everything Me holds, with what follows from it: age, BMI (from his
     latest weight) and his estimated daily energy to keep his weight
     (Mifflin-St Jeor resting energy times his activity's factor), each None
-    until what it needs is there."""
+    until what it needs is there; and the energy his Garmin measured him
+    burning a day (the average of his recent full days worn, and how many),
+    None without enough of them."""
     today = today or date.today()
     profile = get_profile(db)
     recent = weights(db)
@@ -139,6 +143,7 @@ def context(db: Session, today: date | None = None) -> dict[str, Any]:
         resting = 10 * weight + 6.25 * profile.height_cm - 5 * age
         resting += 5 if profile.sex == Sex.male else -161
         energy = int(round(resting * ACTIVITY_FACTORS[profile.activity], -1))
+    measured = garmin_svc.measured_energy(db, today)
     return {
         "height_cm": profile.height_cm,
         "birth_date": profile.birth_date,
@@ -152,5 +157,7 @@ def context(db: Session, today: date | None = None) -> dict[str, Any]:
         "weights": [{"day": w.day, "weight_kg": w.weight_kg} for w in recent],
         "bmi": bmi,
         "energy_kcal": energy,
+        "measured_energy_kcal": measured["kcal"] if measured else None,
+        "measured_energy_days": measured["days"] if measured else None,
         **{name: getattr(profile, name) for name in TEXT_FIELDS},
     }

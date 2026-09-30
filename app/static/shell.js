@@ -189,6 +189,19 @@
     }
   });
 
+  // Left and Right, outside a field, change the day on a page of days
+  // (its [data-day-step] links). On the window, so it runs after a page's
+  // own handler (Today's saves its notes first) and leaves what that took.
+  window.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    if (e.target.closest?.(TYPING) || document.querySelector("dialog[open]")) return;
+    const link = document.querySelector(`[data-day-step="${e.key === "ArrowLeft" ? "prev" : "next"}"]`);
+    if (!link) return;
+    e.preventDefault();
+    link.click();
+  });
+
   /* ---- confirm: hx-confirm on an element with data-confirm-* opens the
      app's dialog (#confirm-dialog) instead of the browser's native box; a
      page's own script asks the same (window.confirmAction) ---- */

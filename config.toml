@@ -34,3 +34,10 @@ dir = "nutrition"
 # The Claude Code executable; empty finds it (see app/config.py).
 claude_cli = ""
 model = "claude-opus-5-5"
+
+[garmin]
+# Garmin Connect, connected from Health > Garmin. Its sign-in token lives in
+# token_dir (git-ignored); the password is used once and never kept.
+token_dir = "local/garmin"
+sync_minutes = 30
+backfill_days = 30

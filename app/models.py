@@ -387,3 +387,82 @@ class NutritionMessage(Base):
     # Claude's answer did not finish (an error, or the run was cut short).
     failed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class GarminLink(Base):
+    """The link to Oscar's Garmin Connect account (Health > Garmin): who is
+    signed in and how the last sync went. One row while connected. Garmin's
+    sign-in token is not here but in local/ (config [garmin].token_dir),
+    beside the app's other secrets; his password is never kept."""
+
+    __tablename__ = "garmin_link"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    full_name: Mapped[str] = mapped_column(Text, default="")
+    connected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    # The last sync that finished, and why the last one failed ("" when it did not).
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    sync_error: Mapped[str] = mapped_column(Text, default="")
+
+
+class GarminDay(Base):
+    """What Oscar's Garmin measured on a day, as Garmin Connect sums it: his
+    steps, energy, heart, stress and body battery that day, and the sleep
+    that ended that morning, with its HRV and the readiness that followed.
+    A figure Garmin did not have is None. Today's is so far, redrawn each
+    sync."""
+
+    __tablename__ = "garmin_days"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    day: Mapped[date] = mapped_column(Date, unique=True)
+    steps: Mapped[int | None] = mapped_column(Integer, default=None)
+    step_goal: Mapped[int | None] = mapped_column(Integer, default=None)
+    distance_m: Mapped[float | None] = mapped_column(Float, default=None)
+    # Energy burned: all of it (resting and active), and the active part.
+    total_kcal: Mapped[int | None] = mapped_column(Integer, default=None)
+    active_kcal: Mapped[int | None] = mapped_column(Integer, default=None)
+    moderate_minutes: Mapped[int | None] = mapped_column(Integer, default=None)
+    vigorous_minutes: Mapped[int | None] = mapped_column(Integer, default=None)
+    resting_hr: Mapped[int | None] = mapped_column(Integer, default=None)
+    stress_avg: Mapped[int | None] = mapped_column(Integer, default=None)
+    body_battery_high: Mapped[int | None] = mapped_column(Integer, default=None)
+    body_battery_low: Mapped[int | None] = mapped_column(Integer, default=None)
+    sleep_seconds: Mapped[int | None] = mapped_column(Integer, default=None)
+    deep_seconds: Mapped[int | None] = mapped_column(Integer, default=None)
+    light_seconds: Mapped[int | None] = mapped_column(Integer, default=None)
+    rem_seconds: Mapped[int | None] = mapped_column(Integer, default=None)
+    awake_seconds: Mapped[int | None] = mapped_column(Integer, default=None)
+    sleep_score: Mapped[int | None] = mapped_column(Integer, default=None)
+    # Garmin's word for the score: EXCELLENT, GOOD, FAIR or POOR.
+    sleep_quality: Mapped[str | None] = mapped_column(String(32), default=None)
+    # Overnight HRV (ms): last night's average, the 7-day average, and
+    # Garmin's status for it (BALANCED, UNBALANCED, LOW, POOR).
+    hrv_ms: Mapped[int | None] = mapped_column(Integer, default=None)
+    hrv_week_ms: Mapped[int | None] = mapped_column(Integer, default=None)
+    hrv_status: Mapped[str | None] = mapped_column(String(32), default=None)
+    # Training readiness on waking, 0-100, and its level (LOW ... PRIME).
+    readiness: Mapped[int | None] = mapped_column(Integer, default=None)
+    readiness_level: Mapped[str | None] = mapped_column(String(32), default=None)
+    synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class GarminActivity(Base):
+    """An activity Oscar recorded on his Garmin (a run, a ride, a strength
+    session), as Garmin Connect has it."""
+
+    __tablename__ = "garmin_activities"
+    __table_args__ = (Index("ix_garmin_activities_day", "day"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    garmin_id: Mapped[int] = mapped_column(Integer, unique=True)
+    day: Mapped[date] = mapped_column(Date)
+    start: Mapped[datetime] = mapped_column(DateTime)
+    name: Mapped[str] = mapped_column(Text, default="")
+    # Garmin's type key: running, cycling, strength_training, walking...
+    kind: Mapped[str] = mapped_column(String(64), default="")
+    duration_s: Mapped[int | None] = mapped_column(Integer, default=None)
+    distance_m: Mapped[float | None] = mapped_column(Float, default=None)
+    kcal: Mapped[int | None] = mapped_column(Integer, default=None)
+    avg_hr: Mapped[int | None] = mapped_column(Integer, default=None)
+    max_hr: Mapped[int | None] = mapped_column(Integer, default=None)

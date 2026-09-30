@@ -80,9 +80,10 @@ def messages(db: Session, day: date) -> list[NutritionMessage]:
 
 def start(
     db: Session, day: date, text: str, *, agent: Agent, profile: dict[str, Any],
-    now: datetime | None = None,
+    garmin: list[dict[str, Any]] | None = None, now: datetime | None = None,
 ) -> Run:
-    """Save Oscar's message and set Claude answering it."""
+    """Save Oscar's message and set Claude answering it. `garmin` is what his
+    watch measured on the day and the day before (garmin.report)."""
     text = text.strip()
     if not text:
         raise DomainError("Write a message first")
@@ -104,6 +105,7 @@ def start(
     request = AgentRequest(
         day=day, now=now or datetime.now(), message=text,
         folder=get_settings().nutrition_dir, profile=profile, transcript=transcript,
+        garmin=garmin or [],
     )
     # A session factory on the request's own database, for the thread.
     factory = sessionmaker(bind=db.get_bind(), expire_on_commit=False)

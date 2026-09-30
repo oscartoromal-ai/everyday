@@ -40,7 +40,9 @@ mcp = FastMCP(
         "read it for context with get_notebook. How consistent he is with each habit: "
         "get_habits. His health context (body, activity, goal, diet, allergies, "
         "weigh-ins, estimated daily energy), for anything about what he eats: "
-        "get_health_profile."
+        "get_health_profile. What his Garmin watch measured day by day (steps, energy "
+        "burned, sleep, resting heart rate, HRV, stress, body battery, readiness, "
+        "activities): get_garmin."
     ),
 )
 
@@ -260,8 +262,11 @@ def get_health_profile() -> dict[str, Any]:
     his latest weight and recent weigh-ins (newest first), his dietary
     pattern, allergies and intolerances, foods he avoids, and health notes;
     with his BMI and estimated daily energy to keep his weight (kcal,
-    Mifflin-St Jeor times his activity's factor). A field he has not filled
-    is null or empty. Read-only: he keeps it himself."""
+    Mifflin-St Jeor times his activity's factor), and the energy his Garmin
+    measured him burning a day (measured_energy_kcal, the average of his
+    last measured_energy_days full days worn; null without Garmin or enough
+    days). A field he has not filled is null or empty. Read-only: he keeps
+    it himself."""
     from app.services import health as health_svc
 
     with session_scope("claude") as db:
@@ -271,6 +276,34 @@ def get_health_profile() -> dict[str, Any]:
             "birth_date": me["birth_date"].isoformat() if me["birth_date"] else None,
             "weighed_on": me["weighed_on"].isoformat() if me["weighed_on"] else None,
             "weights": [{**w, "day": w["day"].isoformat()} for w in me["weights"]],
+        }
+
+
+@mcp.tool
+def get_garmin(start: date | None = None, days: int = 7) -> dict[str, Any]:
+    """What Oscar's Garmin watch measured over `days` days from `start`
+    (default: the 7 days up to today), synced from Garmin Connect: each day's
+    steps and step goal, distance (m), energy burned (total_kcal, and the
+    active_kcal part), intensity minutes (moderate, vigorous), resting heart
+    rate, average stress (0-100), body battery high and low, the sleep that
+    ended that morning (seconds asleep and in each stage, its score and
+    Garmin's word for it), that night's HRV (ms; its 7-day average and
+    status) and training readiness on waking (0-100 and its level); with the
+    day's activities. A figure Garmin did not have is null; today's are so
+    far. `connected` is false when he has not connected Garmin, or Garmin
+    signed him out; `synced_at` is the last sync. Read-only."""
+    from app.services import garmin as garmin_svc
+    from app.sources.garmin import account
+
+    days = max(1, min(days, 92))
+    with session_scope("claude") as db:
+        first = start or date.today() - timedelta(days=days - 1)
+        link = garmin_svc.link(db)
+        return {
+            "connected": link is not None and account().has_token(),
+            "synced_at": link.synced_at.isoformat(timespec="minutes")
+            if link and link.synced_at else None,
+            "days": garmin_svc.report(db, first, first + timedelta(days=days - 1)),
         }
 
 

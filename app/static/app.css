@@ -197,6 +197,16 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
   :root[data-rail="collapsed"] .nav a { padding-inline: var(--s-2); }
   .main { padding: var(--s-6) var(--s-4) 96px; }
 }
+/* a narrow phone: the tabs' names do not fit beside each other, so each tab
+   is its icon, its name still read out and shown on a long press */
+@media (max-width: 600px) {
+  .nav a { flex: 1 1 0; min-width: 0; align-items: center; padding: 12px 0; }
+  .nav a .nav-label, :root[data-rail="collapsed"] .nav a .nav-label {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+  .nav a svg { width: 20px; height: 20px; }
+  .nav a[aria-current="page"]::before { left: 25%; right: 25%; }
+}
 
 /* ---------- page headers ---------- */
 
@@ -916,7 +926,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
    edge. Tasks' lists and rows are Projects' own, so the sheet restyles
    them here rather than in their markup; Me's are .sheet-group and
    .sheet-row. */
-:is(.tasks-page, .me-page) { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-8)); }
+:is(.tasks-page, .me-page, .garmin-page) { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-8)); }
 /* compact rows: the sheets and Today's notes 28px a row, not 36px, the text its size */
 :root[data-density="compact"] :is(.ruled-sheet, .notepad-card) {
   --pad-line: 28px; --pad-text: 20px; --pad-above: 3px; --pad-below: 4px;
@@ -1781,3 +1791,61 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   .nutrition-meter { display: none; }
 }
 @media (max-width: 540px) { .nutrition-label { width: 96px; } }
+
+/* ---------- Health > Garmin: a day on one ruled sheet, as Nutrition's is ---------- */
+
+.garmin-header { margin-bottom: var(--s-4); }
+/* a figure: its name in the row's indent, as Me's are; the figure in ink,
+   what qualifies it in graphite, an aside in pewter; steps' meter at the end */
+.garmin-figures, .garmin-activities, .garmin-trend-days { margin: 0; padding: 0; list-style: none; }
+.garmin-figure { display: flex; align-items: flex-start; gap: 0 var(--s-3); }
+.garmin-label {
+  flex: none; width: 112px; font-size: var(--t-caption); font-weight: 500; color: var(--graphite);
+}
+.garmin-time { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.garmin-value { flex: 1; min-width: 0; margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s-2); }
+.garmin-main { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.garmin-detail { color: var(--graphite); font-variant-numeric: tabular-nums; }
+.garmin-aside { font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums; }
+.garmin-figure > .garmin-meter {
+  flex: 0 1 200px; display: flex; height: 4px; margin: calc(var(--pad-text) / 2 - 2px) 0 0 auto;
+  background: var(--hairline); overflow: hidden;
+}
+.garmin-meter > span { background: var(--ink); }
+.garmin-line { color: var(--graphite); overflow-wrap: anywhere; }
+.garmin-quiet { color: var(--pewter); }
+.garmin-error { color: var(--err-fg); }
+
+/* the fortnight: a row a day, its figures in columns; the day shown in ink */
+.garmin-trend-row { display: flex; align-items: baseline; gap: 0 var(--s-3); }
+.garmin-trend-day { flex: 1; min-width: 0; color: var(--graphite); font-variant-numeric: tabular-nums; }
+a.garmin-trend-day { text-decoration: none; }
+a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.garmin-cell {
+  flex: none; width: 56px; text-align: right;
+  color: var(--graphite); font-variant-numeric: tabular-nums;
+}
+.sheet-head .garmin-cell { font-size: var(--t-caption); font-weight: 500; color: var(--pewter); }
+.garmin-trend-row.is-current :is(.garmin-trend-day, .garmin-cell) { color: var(--ink); font-weight: 600; }
+.garmin-trend-row:hover { background: var(--glass-row-hover); }
+
+/* the account: Me's rows; a button sits on the row's line, at its end */
+.garmin-synced .me-value, .garmin-synced .garmin-line { flex: 1; min-width: 0; }
+.garmin-synced .plan-btn { flex: none; height: 24px; margin-top: calc(var(--pad-above) - 1px); }
+.garmin-synced .chip { margin-left: var(--s-2); vertical-align: 1px; }
+.garmin-synced .garmin-line { padding: var(--pad-above) 0 var(--pad-below); }
+.garmin-actions { align-items: center; }
+.garmin-actions .btn { height: 28px; margin-block: 3px; padding: 0 var(--s-4); }
+.garmin-go .garmin-busy, .garmin-form.htmx-request .garmin-go .garmin-idle { display: none; }
+.garmin-form.htmx-request .garmin-go .garmin-busy { display: inline; }
+.garmin-form button:disabled { cursor: progress; }
+
+@media (max-width: 720px) {
+  .garmin-sheet { --pad-rows: 34px; --pad-gap: var(--s-2); }
+  /* steps, energy, sleep and resting heart rate */
+  .garmin-cell:not([data-col="0"], [data-col="1"], [data-col="2"], [data-col="4"]) { display: none; }
+  .garmin-figure > .garmin-meter { display: none; }
+  .garmin-cell { width: 44px; }
+  .garmin-trend-day { white-space: nowrap; }
+}
+@media (max-width: 540px) { .garmin-label { width: 88px; } }

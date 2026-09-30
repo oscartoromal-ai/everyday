@@ -22,6 +22,7 @@ EXPECTED_TOOLS = {
     "get_notebook",
     "get_task_history",
     "get_health_profile",
+    "get_garmin",
 }
 
 

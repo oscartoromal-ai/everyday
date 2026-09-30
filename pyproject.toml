@@ -17,6 +17,7 @@ dependencies = [
     "claude-agent-sdk>=0.2.162",
     "pyyaml>=6.0.3",
     "markdown-it-py>=4.2.0",
+    "garminconnect>=0.3.17",
 ]
 
 [project.scripts]

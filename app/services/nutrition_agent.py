@@ -6,8 +6,9 @@ and the day's log, writes what Oscar ate into that log, and answers him. A
 hook keeps every file tool inside the folder, and no MCP server, setting
 or CLAUDE.md of the machine's reaches it, so it sees only what it is given.
 
-Each message is its own run, stateless: the day's chat so far and Oscar's
-profile go into the prompt, and the files carry everything else. An agent
+Each message is its own run, stateless: the day's chat so far, Oscar's
+profile and what his Garmin measured go into the prompt, and the files
+carry everything else. An agent
 is any callable from an AgentRequest to AgentEvents, so tests stand in a
 fake for Claude.
 """
@@ -46,6 +47,8 @@ class AgentRequest:
     profile: dict[str, Any] = field(default_factory=dict)
     # The day's chat so far, oldest first: ("oscar" | "claude", text).
     transcript: list[tuple[str, str]] = field(default_factory=list)
+    # What his Garmin measured the day before and on the day (garmin.report).
+    garmin: list[dict[str, Any]] = field(default_factory=list)
     # A turn Oscar does not see: fixing a file that did not parse.
     repair: bool = False
 
@@ -116,6 +119,10 @@ amount you assumed), where the day stands against his targets in a sentence (the
 page beside the chat already shows every total), and what to eat next when that helps.
 - When he needs to buy something, give a short shopping list and simple steps. \
 Follow the plan's constraints on cooking and on anything else it names.
+- When the prompt carries what his Garmin watch measured, use it: energy burned \
+(total_kcal, active_kcal) and activities tell you how hard the day was, and sleep \
+how he recovers. Today's figures are so far, not the whole day. Do not change the \
+plan's targets for one day; say what a big day means for what to eat next, when it matters.
 - Never invent facts about him. When you need to know something, ask.
 - Write a plain dash, never an em dash. The chat is a narrow column: use short \
 Markdown lists when they help, and no tables or headings.
@@ -140,6 +147,13 @@ def build_prompt(request: AgentRequest) -> str:
         "His profile, from the app's Health > Me page:",
         json.dumps(request.profile, default=str, ensure_ascii=False, indent=1),
     ]
+    if request.garmin:
+        lines += [
+            "",
+            "What his Garmin watch measured (sleep is the night that ended that morning; "
+            "the chat's day is so far when it is today):",
+            json.dumps(request.garmin, default=str, ensure_ascii=False, indent=1),
+        ]
     if request.repair:
         lines += ["", REPAIR_PROMPT.format(path=log, problem=request.message)]
         return "\n".join(lines)

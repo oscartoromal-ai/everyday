@@ -58,6 +58,18 @@ Nutrition's chat runs Claude through the [Claude Agent SDK](https://code.claude.
 
 The files are the record, outside the database and its backups: git keeps their history.
 
+## Garmin setup
+
+Health > Garmin syncs Oscar's Garmin metrics from Garmin Connect, through [python-garminconnect](https://github.com/cyberjunky/python-garminconnect).
+
+1. Open Garmin in the app and sign in with the Garmin Connect email and password, then the code Garmin sends if the account uses two-step sign-in.
+2. The password is used once and never stored.
+   Garmin's token is saved to `local/garmin/garmin_tokens.json` (git-ignored, `[garmin].token_dir` in `config.toml`), and the library keeps it fresh.
+3. The first sync fetches the last 30 days; after that the app syncs every 30 minutes while it runs, or on "Sync now" (`[garmin]` in `config.toml`).
+4. If Garmin signs the app out, the page asks to sign in again; Disconnect deletes the token, and the synced days stay.
+
+Garmin has no API for individuals, so the library signs in as Garmin's mobile app does, and a change on Garmin's side can break it until the library catches up (`uv lock --upgrade-package garminconnect`).
+
 ## Work-calendar setup
 
 The work calendar syncs in read-only, via a published ICS feed, subject/time/location only.

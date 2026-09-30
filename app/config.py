@@ -67,6 +67,15 @@ class NutritionConfig(BaseModel):
     model: str = "claude-opus-5-5"
 
 
+class GarminConfig(BaseModel):
+    # Where Garmin's sign-in token is kept (git-ignored); the password never is.
+    token_dir: str = "local/garmin"
+    # How often the day's figures are fetched again while connected.
+    sync_minutes: int = 30
+    # How far back a first sync reaches, and the most a later one catches up.
+    backfill_days: int = 30
+
+
 class Settings(BaseSettings):
     # Env vars override config.toml, e.g. PC_STORAGE__DB_PATH=...
     model_config = SettingsConfigDict(
@@ -81,6 +90,7 @@ class Settings(BaseSettings):
     push: PushConfig = PushConfig()
     backup: BackupConfig = BackupConfig()
     nutrition: NutritionConfig = NutritionConfig()
+    garmin: GarminConfig = GarminConfig()
 
     @classmethod
     def settings_customise_sources(
@@ -106,6 +116,11 @@ class Settings(BaseSettings):
     @property
     def nutrition_dir(self) -> Path:
         path = Path(self.nutrition.dir)
+        return path if path.is_absolute() else REPO_ROOT / path
+
+    @property
+    def garmin_token_dir(self) -> Path:
+        path = Path(self.garmin.token_dir)
         return path if path.is_absolute() else REPO_ROOT / path
 
     @property

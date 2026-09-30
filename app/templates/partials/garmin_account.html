@@ -1,0 +1,76 @@
+{# The Garmin Connect account: connected, its name and how the last sync
+   went, polled while a sync runs; or the sign-in, email and password, then
+   the code Garmin sends when it asks for one. Each answer draws this
+   again in place. #}
+{% if connected %}
+<section class="sheet-group garmin-account" id="garmin-account" aria-labelledby="garmin-account-title"
+         {% if running %}hx-get="/ui/garmin/account" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <h2 class="sheet-row sheet-head" id="garmin-account-title">Garmin Connect</h2>
+  <div class="sheet-row me-row">
+    <span class="me-label">Account</span>
+    <span class="me-value">{{ link.full_name or "Connected" }}</span>
+  </div>
+  <div class="sheet-row me-row garmin-synced">
+    <span class="me-label">Synced</span>
+    <span class="me-value">
+      {% if running %}<span class="me-unset">Syncing…</span>
+      {% elif synced %}{{ synced }}{% if link.sync_error %} <span class="chip blocked">Last sync failed</span>{% endif %}
+      {% elif link.sync_error %}<span class="chip blocked">Failed</span>
+      {% else %}<span class="me-unset">Not yet</span>{% endif %}
+    </span>
+    <button type="button" class="plan-btn" hx-post="/ui/garmin/sync" hx-target="#garmin-account" hx-swap="outerHTML"
+            {% if running %}disabled{% endif %}>Sync now</button>
+  </div>
+  {% if link.sync_error and not running %}
+  <p class="sheet-row garmin-line" role="alert">{{ link.sync_error }}</p>
+  {% endif %}
+  <div class="sheet-row me-row garmin-synced">
+    <span class="me-label"></span>
+    <span class="garmin-line garmin-quiet">Syncs on its own every half hour while the app runs.</span>
+    <button type="button" class="plan-btn" hx-post="/ui/garmin/disconnect" hx-swap="none"
+            hx-confirm="Disconnect Garmin?"
+            data-confirm-title="Disconnect Garmin?"
+            data-confirm-name="{{ link.full_name or 'Garmin Connect' }}"
+            data-confirm-detail="stops syncing, and its sign-in is deleted from this computer. The days already synced stay."
+            data-confirm-action="Disconnect">Disconnect</button>
+  </div>
+</section>
+{% else %}
+<section class="sheet-group garmin-account" id="garmin-account" aria-labelledby="garmin-account-title">
+  <h2 class="sheet-row sheet-head" id="garmin-account-title">Connect Garmin</h2>
+  {% if signed_out %}
+  <p class="sheet-row garmin-line" role="status">Garmin signed you out, so syncing stopped. Sign in again to keep it going.</p>
+  {% endif %}
+  {% if code_step %}
+  <form class="garmin-form" hx-post="/ui/garmin/verify" hx-target="#garmin-account" hx-swap="outerHTML" hx-disabled-elt="find button">
+    <p class="sheet-row garmin-line">Garmin sent you a code, by email or text. Write it here to finish.</p>
+    <label class="sheet-row me-row">
+      <span class="me-label">Code</span>
+      <span class="sheet-field"><input name="code" inputmode="numeric" autocomplete="one-time-code" required autofocus placeholder="From Garmin"></span>
+    </label>
+    <div class="sheet-row me-row garmin-actions">
+      <span class="me-label"></span>
+      <button type="submit" class="btn primary garmin-go"><span class="garmin-idle">Verify</span><span class="garmin-busy">Verifying…</span></button>
+      <button type="button" class="plan-btn" hx-post="/ui/garmin/cancel" hx-target="#garmin-account" hx-swap="outerHTML">Start again</button>
+    </div>
+  </form>
+  {% else %}
+  <form class="garmin-form" hx-post="/ui/garmin/connect" hx-target="#garmin-account" hx-swap="outerHTML" hx-disabled-elt="find button">
+    <label class="sheet-row me-row">
+      <span class="me-label">Email</span>
+      <span class="sheet-field"><input type="email" name="email" autocomplete="username" required placeholder="Your Garmin Connect email" value="{{ email }}"></span>
+    </label>
+    <label class="sheet-row me-row">
+      <span class="me-label">Password</span>
+      <span class="sheet-field"><input type="password" name="password" autocomplete="current-password" required placeholder="Password"></span>
+    </label>
+    <div class="sheet-row me-row garmin-actions">
+      <span class="me-label"></span>
+      <button type="submit" class="btn primary garmin-go"><span class="garmin-idle">Connect</span><span class="garmin-busy">Connecting…</span></button>
+    </div>
+    <p class="sheet-row garmin-line garmin-quiet">Your password signs in once and is never saved: the app keeps only Garmin's sign-in, on this computer.</p>
+  </form>
+  {% endif %}
+  {% if error %}<p class="sheet-row garmin-line garmin-error" role="alert">{{ error }}</p>{% endif %}
+</section>
+{% endif %}

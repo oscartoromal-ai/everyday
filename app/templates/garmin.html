@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Garmin · {% if is_today %}Today{% else %}{{ day.strftime("%a") }} {{ day.day }} {{ day.strftime("%b") }}{% endif %} · Personal Calendar{% endblock %}
+{% block content %}
+{# Health > Garmin: what Oscar's Garmin measured, a day at a time, synced
+   from Garmin Connect. Before anything is synced, the page is the
+   sign-in; after, a day's page with its days to step through, as
+   Nutrition's is. The sheet is drawn again when a sync ends. #}
+<div class="garmin-page">
+  {% if has_history %}
+  <header class="day-header garmin-header">
+    <div class="day-title">
+      <h1 class="weekday">{% if is_today %}Today{% else %}{{ day.strftime("%A") }}{% endif %}</h1>
+      <nav class="day-nav" aria-label="Days">
+        <a class="day-step" href="/garmin/{{ prev_day.isoformat() }}" data-day-step="prev"
+           aria-label="Previous day" title="Previous day">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5 6.5 10l5.5 5.5"/></svg>
+        </a>
+        {% if not is_today %}<a class="day-today" href="/garmin">Today</a>{% endif %}
+        <a class="day-step" href="/garmin/{{ next_day.isoformat() }}" data-day-step="next"
+           aria-label="Next day" title="Next day">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4.5 13.5 10 8 15.5"/></svg>
+        </a>
+      </nav>
+    </div>
+    <div class="rest">{% if is_today %}{{ day.strftime("%A") }} {% endif %}{{ day.day }} {{ day.strftime("%B %Y") }}</div>
+    <p class="keys-hint"><kbd>←</kbd><kbd>→</kbd> days · <kbd>?</kbd> all keys</p>
+  </header>
+  {% else %}
+  <header class="page-header garmin-header">
+    <div>
+      <h1>Garmin</h1>
+      <p class="rest">Your watch's days, synced from Garmin Connect. Claude reads them too.</p>
+    </div>
+  </header>
+  {% endif %}
+
+  <div class="garmin-sheet ruled-sheet" id="garmin-sheet"
+       hx-get="/ui/garmin/{{ day.isoformat() }}/sheet" hx-trigger="garmin:synced from:body" hx-swap="innerHTML">
+    {% include "partials/garmin_sheet.html" %}
+  </div>
+</div>
+{% endblock %}

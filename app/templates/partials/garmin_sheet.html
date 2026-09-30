@@ -1,0 +1,93 @@
+{# Health > Garmin's sheet for a day: its figures, the night before it, its
+   activities, the fortnight ending on it, then the account. Before
+   anything is synced, or once Garmin has signed him out, the account's
+   sign-in comes first. #}
+{% if not connected %}{% include "partials/garmin_account.html" %}{% endif %}
+
+{% if has_history %}
+{% if figures or sleep %}
+{% if figures %}
+<section class="sheet-group" aria-labelledby="garmin-day">
+  <h2 class="sheet-row sheet-head" id="garmin-day">The day{% if is_today %} <span class="count">so far</span>{% endif %}</h2>
+  <dl class="garmin-figures">
+    {% for f in figures %}
+    <div class="sheet-row garmin-figure">
+      <dt class="garmin-label">{{ f.label }}</dt>
+      <dd class="garmin-value">
+        {% if f.value %}<span class="garmin-main">{{ f.value }}</span>{% endif %}
+        {% if f.detail %}<span class="garmin-detail">{{ f.detail }}</span>{% endif %}
+        {% if f.aside %}<span class="garmin-aside">{{ f.aside }}</span>{% endif %}
+      </dd>
+      {% if f.meter is not none %}
+      <dd class="garmin-meter" aria-hidden="true"><span style="width: {{ f.meter }}%"></span></dd>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </dl>
+</section>
+{% endif %}
+
+{% if sleep %}
+<section class="sheet-group" aria-labelledby="garmin-sleep">
+  <h2 class="sheet-row sheet-head" id="garmin-sleep">{% if is_today %}Last night{% else %}The night before{% endif %}</h2>
+  <dl class="garmin-figures">
+    {% for f in sleep %}
+    <div class="sheet-row garmin-figure">
+      <dt class="garmin-label">{{ f.label }}</dt>
+      <dd class="garmin-value">
+        {% if f.value %}<span class="garmin-main">{{ f.value }}</span>{% endif %}
+        {% if f.detail %}<span class="garmin-detail">{{ f.detail }}</span>{% endif %}
+      </dd>
+    </div>
+    {% endfor %}
+  </dl>
+</section>
+{% endif %}
+{% else %}
+<section class="sheet-group" aria-labelledby="garmin-none">
+  <h2 class="sheet-row sheet-head" id="garmin-none">Nothing synced for this day</h2>
+  <p class="sheet-row garmin-line">
+    {% if day > today %}This day has not come yet.
+    {% elif is_today %}Today's figures arrive once your watch syncs with the Garmin Connect app.
+    {% else %}Garmin had nothing for this day, or it is further back than the sync reaches.{% endif %}
+  </p>
+</section>
+{% endif %}
+
+{% if activities %}
+<section class="sheet-group" aria-labelledby="garmin-activities">
+  <h2 class="sheet-row sheet-head" id="garmin-activities">Activities <span class="count">{{ activities | length }}</span></h2>
+  <ul class="garmin-activities">
+    {% for a in activities %}
+    <li class="sheet-row garmin-figure">
+      <span class="garmin-label garmin-time">{{ a.time }}</span>
+      <span class="garmin-value">
+        <span class="garmin-main">{{ a.name }}</span>
+        {% if a.detail %}<span class="garmin-detail">{{ a.detail }}</span>{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="sheet-group garmin-trend" aria-labelledby="garmin-trend">
+  <h2 class="sheet-row sheet-head garmin-trend-row" id="garmin-trend">
+    <span class="garmin-trend-day">Last 14 days</span>
+    {% for name in trend_columns %}<span class="garmin-cell" data-col="{{ loop.index0 }}">{{ name }}</span>{% endfor %}
+  </h2>
+  <ol class="garmin-trend-days">
+    {% for row in trend %}
+    <li class="sheet-row garmin-trend-row{% if row.current %} is-current{% endif %}">
+      <a class="garmin-trend-day" href="/garmin/{{ row.day.isoformat() }}"{% if row.current %} aria-current="date"{% endif %}>{{ row.label }}</a>
+      {% for value in row.cells %}<span class="garmin-cell" data-col="{{ loop.index0 }}">{{ value }}</span>{% endfor %}
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+
+{% if connected %}{% include "partials/garmin_account.html" %}{% endif %}
+
+{# The empty rows under the last group, numbered on, to the sheet's foot. #}
+<div class="sheet-filler" aria-hidden="true"><ol>{% for _ in range(30) %}<li></li>{% endfor %}</ol></div>

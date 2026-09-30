@@ -1,6 +1,7 @@
 {# What follows from Me: age, BMI and daily energy, from the profile and the
-   latest weigh-in, a row each, then a row saying how. Drawn again after each
-   save, and after a weigh-in. #}
+   latest weigh-in, a row each (and the energy his Garmin measured, once it
+   has enough days), then a row saying how. Drawn again after each save, and
+   after a weigh-in. #}
 <section class="sheet-group me-context" id="me-context" aria-labelledby="me-glance"
          hx-get="/ui/me/context" hx-trigger="me:changed from:body" hx-swap="outerHTML">
   <h2 class="sheet-row sheet-head" id="me-glance">At a glance</h2>
@@ -21,6 +22,12 @@
       <dt class="me-label">Daily energy</dt>
       <dd class="me-value">{% if me.energy_kcal %}{{ "{:,}".format(me.energy_kcal) }} kcal{% else %}<span class="me-unset">Not yet</span>{% endif %}</dd>
     </div>
+    {% if me.measured_energy_kcal %}
+    <div class="sheet-row me-row">
+      <dt class="me-label">Energy burned</dt>
+      <dd class="me-value">{{ "{:,}".format(me.measured_energy_kcal) }} kcal <span class="me-when">a day, as your Garmin measured it over {{ me.measured_energy_days }} days</span></dd>
+    </div>
+    {% endif %}
   </dl>
   <p class="sheet-row me-note">
     {% if me.energy_kcal %}

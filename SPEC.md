@@ -21,6 +21,7 @@ Per [v1 phasing](tracker/tickets/002-v1-phasing.md):
 - **v4**: habits and routines. Habits came early (Oscar's call on 2026-09-27): written in the notepad as "/habit name" (see Today), kept as their own entity rather than recurring tasks, so they never crowd the task lists; a table of when each was done and missed is next.
 - **v5**: reviews and reflection flows.
 - **Health** (Oscar's call on 2026-09-28): a module beside the planner, its own group in the nav, starting with Nutrition (see [Nutrition chat](#nutrition-chat), Oscar's call on 2026-09-30) and Me, the context health advice needs: height, birth date, sex, activity level, goal and target weight, dietary pattern, allergies and intolerances, foods avoided and health notes, saved as they change, and weight as a log of weigh-ins, one a day; from them, age, BMI and an estimated daily energy to keep his weight (Mifflin-St Jeor times the activity's factor). Claude reads it through `get_health_profile`.
+  Then Garmin (Oscar's call on 2026-09-30, see [Garmin](#garmin)): what his watch measures, day by day, synced from Garmin Connect.
 
 Review flows are deliberately unspecified here; they sharpen as their phase nears (see the map's Not yet specified section).
 
@@ -216,6 +217,19 @@ Oscar's call on 2026-09-30: Nutrition is tracked by day, and a chat with Claude 
   A run goes on in its own thread after its page closes, and its answer is saved; one run at a time per day.
 - **The log stays readable.** After a run the day's file is read back; if it does not follow the format, Claude gets one unseen turn to fix it, and a file that still cannot be read is shown as such, with why.
 
+### Garmin
+
+Oscar's call on 2026-09-30: the app connects to his Garmin metrics.
+
+- **Through python-garminconnect, signed in as Garmin's own app.** Garmin's official API is for businesses only; the library signs in as the Garmin Connect mobile app does (garth, which it used before, is deprecated since Garmin changed its sign-in).
+  Connecting is in the app (Health > Garmin): email and password, then the code Garmin sends when the account asks for one.
+  The password signs in once and is never stored; Garmin's token is kept in `[garmin].token_dir` (git-ignored `local/garmin/`) and refreshed by the library.
+  When Garmin stops honouring it, the token is deleted and the page asks to sign in again; the days already synced stay.
+- **Kept by day in the database.** `garmin_days` holds each day's steps, energy burned (total and active), intensity minutes, resting heart rate, stress, body battery, the sleep that ended that morning with its stages and score, that night's HRV and the morning's training readiness; `garmin_activities` the activities.
+  A figure Garmin does not have is null, and a request that fails leaves what was kept before.
+- **Synced by the scheduler** every `[garmin].sync_minutes` (30) and on demand: the first sync reaches `backfill_days` (30) back, each later one from the day before its last, so yesterday settles and a gap while the app was off is caught up.
+- **Read by Claude.** `get_garmin(start, days)` over MCP; `get_health_profile` carries the energy his Garmin measured him burning a day (the average of his last 14 full days worn, from 7 of them), which Me shows beside the estimate; and Nutrition's chat gets the day's and the day before's figures in its prompt.
+
 ### Plan truth
 
 - The app database is canonical for cross-project plan state.
@@ -270,6 +284,7 @@ APScheduler inside the FastAPI process; jobs share app code and database session
 - Hook-spool ingestion at startup (v2).
 - Nudge trigger evaluation and morning digest.
 - Daily backup snapshot.
+- Garmin sync, every half hour while connected.
 
 ### Deployment and backups
 

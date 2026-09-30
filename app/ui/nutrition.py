@@ -6,7 +6,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import AsyncIterator
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -14,6 +14,7 @@ from fastapi.responses import RedirectResponse, StreamingResponse
 
 from app.config import get_settings
 from app.db import DbSession
+from app.services import garmin as garmin_svc
 from app.services import health as health_svc
 from app.services import nutrition_chat as chat_svc
 from app.services.nutrition_agent import Agent, claude_agent
@@ -79,7 +80,10 @@ def send_message(
     {"type": "done", "failed"}. The answer goes on, and is saved, if the
     page stops listening."""
     profile = health_svc.context(db, date.today())
-    run = chat_svc.start(db, day, message, agent=agent, profile=profile, now=datetime.now())
+    garmin = garmin_svc.report(db, day - timedelta(days=1), day)
+    run = chat_svc.start(
+        db, day, message, agent=agent, profile=profile, garmin=garmin, now=datetime.now()
+    )
     return StreamingResponse(_follow(run), media_type="application/x-ndjson")
 
 

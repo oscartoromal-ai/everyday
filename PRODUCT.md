@@ -24,6 +24,7 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 - Projects with milestones (target dates, computed progress).
 - Calendar: local events, read-only work events, deliberately scheduled task blocks, faded ghost outlines for today's missed blocks.
 - Nutrition: a day of eating, read from its Markdown file against the plan's targets, beside the day's chat with Claude, who writes that file from what Oscar says.
+- Garmin: what Oscar's watch measured, a day at a time (steps, energy burned, sleep, heart rate, HRV, stress, body battery, readiness, activities) with the fortnight before it, synced from Garmin Connect once he connects it on the page.
 
 ## Brand commitments (user-pinned 2026-09-26, replacing Brasa v2 from 2026-09-25 and the 2026-08-28 "calm paper planner")
 
