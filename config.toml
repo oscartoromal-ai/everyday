@@ -26,3 +26,11 @@ digest_time = "07:45"
 # Point this at a cloud-synced folder; actual path TBD by Oscar.
 dir = "backups"
 retain = 30
+
+[nutrition]
+# The Markdown files nutrition lives in (plan.md, meals/, log/), written by
+# Claude from Nutrition's chat.
+dir = "nutrition"
+# The Claude Code executable; empty finds it (see app/config.py).
+claude_cli = ""
+model = "claude-opus-5-5"

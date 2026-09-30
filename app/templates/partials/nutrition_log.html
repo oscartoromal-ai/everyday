@@ -1,0 +1,77 @@
+{# A day's log on the ruled sheet, drawn from its file: the day's totals
+   against the plan's targets, a group per meal with its items in columns,
+   then the file's notes, a row per line. Drawn again when Claude has
+   answered (nutrition:changed). #}
+{% set n = nutrition %}
+{% if n.error %}
+<section class="sheet-group" aria-labelledby="log-error">
+  <h2 class="sheet-row sheet-head nutrition-head" id="log-error">
+    <span>The day's log</span><span class="chip blocked">Cannot read it</span>
+  </h2>
+  <p class="sheet-row nutrition-line">{{ n.file }} in the nutrition folder: {{ n.error }}.</p>
+  <p class="sheet-row nutrition-line nutrition-quiet">Ask Claude to fix it, or fix the file by hand.</p>
+</section>
+{% elif not n.log %}
+<section class="sheet-group" aria-labelledby="log-empty">
+  <h2 class="sheet-row sheet-head" id="log-empty">Nothing logged yet</h2>
+  <p class="sheet-row nutrition-line nutrition-quiet">Tell Claude what you ate, and the day adds up here.</p>
+</section>
+{% else %}
+<section class="sheet-group" aria-labelledby="log-day">
+  <h2 class="sheet-row sheet-head" id="log-day">The day</h2>
+  <dl class="nutrition-totals">
+    {% for t in n.totals %}
+    <div class="sheet-row nutrition-total">
+      <dt class="nutrition-label">{{ t.label }}</dt>
+      <dd class="nutrition-figure">
+        <span class="nutrition-eaten">{{ t.eaten }}</span>
+        <span class="nutrition-of">{% if t.target %}{{ t.target }}{% else %}{{ t.unit }}{% endif %}</span>
+        {% if t.planned %}<span class="nutrition-planned">+{{ t.planned }} planned</span>{% endif %}
+        {% if t.badge %}<span class="chip {{ 'blocked' if t.badge[0] == 'err' else 'needs_review' }}">{{ t.badge[1] }}</span>{% endif %}
+      </dd>
+      {% if t.target %}
+      <dd class="nutrition-meter" aria-hidden="true">
+        <span class="meter-eaten" style="width: {{ t.eaten_pct }}%"></span><span class="meter-planned" style="width: {{ t.planned_pct }}%"></span>
+      </dd>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </dl>
+  {% if n.targets_error %}
+  <p class="sheet-row nutrition-line nutrition-quiet">The plan's targets cannot be read (plan.md: {{ n.targets_error }}).</p>
+  {% endif %}
+</section>
+
+{% for meal in n.meals %}
+<section class="sheet-group nutrition-meal{% if meal.planned %} is-planned{% endif %}" aria-label="{{ meal.name }}">
+  {% if loop.first %}
+  {# The columns' names, once, a header row above the first meal. #}
+  <div class="sheet-row nutrition-item nutrition-columns" aria-hidden="true">
+    <span class="nutrition-food">Meals</span>
+    {% for short in n.columns %}<span class="nutrition-cell" data-col="{{ loop.index0 }}">{{ short }}</span>{% endfor %}
+  </div>
+  {% endif %}
+  <h2 class="sheet-row sheet-head nutrition-item">
+    <span class="nutrition-food">{{ meal.name }}{% if meal.planned %} <span class="chip queued">Planned</span>{% endif %}</span>
+    {% for value in meal.cells %}<span class="nutrition-cell" data-col="{{ loop.index0 }}">{{ value }}</span>{% endfor %}
+  </h2>
+  {% for item in meal.entries %}
+  <div class="sheet-row nutrition-item">
+    <span class="nutrition-food">{{ item.food }}{% if item.amount or item.assumed %} <span class="nutrition-amount">{{ item.amount }}{% if item.assumed %}<span class="nutrition-assumed" title="No amount was given, so a typical one was assumed">assumed</span>{% endif %}</span>{% endif %}</span>
+    {% for value in item.cells %}<span class="nutrition-cell" data-col="{{ loop.index0 }}">{{ value }}</span>{% endfor %}
+  </div>
+  {% endfor %}
+</section>
+{% endfor %}
+
+{% for section in n.sections %}
+<section class="sheet-group" aria-label="{{ section.title }}">
+  <h2 class="sheet-row sheet-head">{{ section.title }}</h2>
+  {% for row in section.rows %}
+  <div class="sheet-row nutrition-line nutrition-{{ row.kind }}">{{ row.html }}</div>
+  {% endfor %}
+</section>
+{% endfor %}
+{% endif %}
+{# The empty rows under the last group, numbered on, to the sheet's foot. #}
+<div class="sheet-filler" aria-hidden="true"><ol>{% for _ in range(40) %}<li></li>{% endfor %}</ol></div>

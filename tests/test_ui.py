@@ -837,9 +837,9 @@ def test_health_is_its_own_nav_group_with_nutrition(client) -> None:
     assert '<div class="nav-group-label" id="nav-health">Health</div>' in group
     link = group.split('href="/nutrition"')[1].split("</a>")[0]
     assert 'aria-keyshortcuts="6"' in link and 'aria-current="page"' in link
-    # Empty for now.
+    # The day's log beside the day's chat with Claude (test_nutrition.py has the rest).
     main = page.split('<main class="main">')[1]
-    assert "<h1>Nutrition</h1>" in main and "Nothing here yet." in main
+    assert 'class="nutrition-page"' in main and 'id="chat-composer"' in main
 
 
 def test_me_saves_as_it_changes_and_says_what_follows(client, db) -> None:

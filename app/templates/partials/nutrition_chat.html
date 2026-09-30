@@ -1,0 +1,22 @@
+{# The day's chat with Claude, oldest first; while Claude is still
+   answering (the page was opened mid-answer), what it has said so far and
+   what it is doing, asked again every two seconds until it is done.
+   nutrition.js streams a new answer in place of this. #}
+{% if not chat.messages and not chat.pending %}
+<p class="chat-empty">Nothing said yet{% if day == today %} today{% endif %}. Try: "Breakfast was oats with soy milk and berries."</p>
+{% endif %}
+<ol class="chat-messages">
+  {% for m in chat.messages %}
+  <li class="chat-message from-{{ m.role }}{% if m.failed %} is-failed{% endif %}">
+    <div class="chat-who">{{ "You" if m.role == "oscar" else "Claude" }} <span class="chat-time">{{ m.time }}</span>{% if m.failed %} <span class="chip blocked">Did not finish</span>{% endif %}</div>
+    <div class="chat-text">{{ m.html }}</div>
+  </li>
+  {% endfor %}
+  {% if chat.pending %}
+  <li class="chat-message from-claude is-pending" id="chat-pending"
+      hx-get="/ui/nutrition/{{ day.isoformat() }}/chat" hx-trigger="every 2s" hx-target="#chat-log" hx-swap="innerHTML">
+    <div class="chat-who">Claude <span class="chat-status">{{ chat.pending.status }}…</span></div>
+    {% if chat.pending.text %}<div class="chat-text"><p class="chat-streaming">{{ chat.pending.text }}</p></div>{% endif %}
+  </li>
+  {% endif %}
+</ol>

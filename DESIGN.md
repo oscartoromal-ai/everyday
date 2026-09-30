@@ -190,6 +190,20 @@ Diet, allergies and foods avoided wrap as a notes row does, the row growing, and
 The Weight group's first row writes a weigh-in (the weight, "on" and its day, and a quiet Log; Enter logs it), and each weigh-in follows as a row: its day in the indent, the weight in ink at 500, and the rows' bin on hover.
 The page saves each field as it changes.
 
+**Nutrition** (Health).
+A day's page, wide as Today's: the day's header (its name at 24px, the chevrons, a pill back to Today on any other day, the date, and a key line), then at the left the day's log on a ruled sheet as Me's, and at the right, 400px, the day's chat with Claude, a glass card as tall as the window (sticky), as the timeline is on Today.
+The sheet's first group is The day: a row per nutrient (Energy, Protein, Fat, Saturated fat, Carbs, Fibre), its name in the 112px indent, what was eaten in ink at 500, then the plan's target in graphite ("of 2,500 kcal", "of at least 130 g", "of at most 20 g"), what is planned after it as a pewter caption ("+910 planned"), and at the row's right a 200px meter: a 4px hairline track, what is eaten in ink, what is planned after it in steel.
+A ceiling passed takes a badge: err "Over" when what was eaten passes it, warn "Over, with planned" when only what is planned would.
+Then a group per meal, the first opening with a header row naming the columns in pewter caption (Meals, kcal, protein, fat, sat fat, carbs, fibre); the meal's title row is its name at 600 (a neutral "Planned" badge when it is not eaten yet) and its sums in ink at 500, each item a row of its food in ink, its amount in graphite (wrapping as one piece) with "assumed" in pewter caption when no amount was given, and its figures in graphite, 56px right-aligned tabular columns.
+Then the file's notes: a group per section (Notes, Next), a row per line, graphite, a list item after a 4px steel square; a link to one of the folder's own files is its words.
+Nothing logged yet, the sheet says so; a file that cannot be read shows an err "Cannot read it" badge and why.
+On phones the columns keep energy and protein, and the meters go.
+
+The chat's header is "Claude" at 16px/600 over a pewter caption; its messages are rows divided by hairlines, each a 12px graphite name ("You", "Claude") and pewter time over the words in 14px ink (Oscar's at 500, Claude's as Markdown: paragraphs, lists, and tables in 12px whose cells break only between words).
+While Claude answers, its row names what it is doing in pewter ("Reading the plan…") and its words arrive as written; a failed answer keeps what was said, in graphite, with an err "Did not finish" badge.
+The composer ends the card: the message written on the line (a textarea that grows to eight lines), and the spark "Send", the card's one primary, faded while an answer is on its way.
+Under 1100px the page is one column: the header, the chat (its messages up to half the window's height), then the log.
+
 **Done fold.** Finished tasks fold away under a list: a pewter "Done" summary with its count and a steel chevron that turns when open, then the rows, checked and struck through, ready to untick.
 On Tasks it is the sheet's last group, noting "last 14 days".
 Which folds are open is remembered per tab (`sessionStorage` key `pc-open-folds`).
@@ -312,6 +326,13 @@ The notes save as a whole 600ms after a change, when the tab is hidden, and when
 A task row keeps the task it made through edits around it (its start mapped through each change) and loses it with its box; an undo that brings a task's rows back brings its task back with them.
 A save names the version it was made from; refused (another window saved since), the page stops saving and asks; returning to the tab shows a newer version when nothing here is unsaved.
 Esc outside a task steps out of the text; Left and Right, outside it, go a day back or on.
+
+**Nutrition's chat** (`app/static/nutrition.js`, vanilla).
+Enter sends and Shift+Enter starts a new line; Left and Right, outside the message, go a day back or on.
+Sending draws Oscar's message and Claude's row at once, then reads the answer as it streams (newline-delimited JSON: the words, what Claude is doing, then done), following it down the chat while the chat is scrolled to its end.
+Done, the chat and the log are drawn again from the server (`nutrition:changed`), the answer as Markdown and the log as Claude left it.
+A page opened while an answer is on its way shows it so far and asks after it every two seconds; once it lands, the log is drawn again too (`nutrition:answered`).
+A refused message (empty, or one while Claude is still answering) is said in the toast, and its words go back in the composer.
 
 **Assets.** Static URLs go through `asset()`, which appends the file's mtime (`?v=`), so a browser never pairs new templates with a stale stylesheet.
 The favicon is the Today icon in ink on a white tile, its dot the spark (Neon Signage's day pink, `#e5006e`).

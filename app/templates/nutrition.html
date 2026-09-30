@@ -1,11 +1,53 @@
 {% extends "base.html" %}
-{% block title %}Nutrition · Personal Calendar{% endblock %}
+{% block title %}Nutrition · {% if is_today %}Today{% else %}{{ day.strftime("%a") }} {{ day.day }} {{ day.strftime("%b") }}{% endif %} · Personal Calendar{% endblock %}
 {% block content %}
-{# Health's first page, empty for now: what it holds is still to be decided. #}
-<header class="page-header">
-  <div>
-    <h1>Nutrition</h1>
+{# Health > Nutrition: a day of eating, read from its Markdown file
+   (log/YYYY-MM-DD.md in the nutrition folder), beside the day's chat with
+   Claude, who writes that file from what Oscar says (nutrition.js). #}
+<div class="nutrition-page">
+  <header class="day-header nutrition-header">
+    <div class="day-title">
+      <h1 class="weekday">{% if is_today %}Today{% else %}{{ day.strftime("%A") }}{% endif %}</h1>
+      <nav class="day-nav" aria-label="Days">
+        <a class="day-step" href="/nutrition/{{ prev_day.isoformat() }}" data-day-step="prev"
+           aria-label="Previous day" title="Previous day">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5 6.5 10l5.5 5.5"/></svg>
+        </a>
+        {% if not is_today %}<a class="day-today" href="/nutrition">Today</a>{% endif %}
+        <a class="day-step" href="/nutrition/{{ next_day.isoformat() }}" data-day-step="next"
+           aria-label="Next day" title="Next day">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4.5 13.5 10 8 15.5"/></svg>
+        </a>
+      </nav>
+    </div>
+    <div class="rest">{% if is_today %}{{ day.strftime("%A") }} {% endif %}{{ day.day }} {{ day.strftime("%B %Y") }}</div>
+    <p class="keys-hint"><kbd>Enter</kbd> send · <kbd>Shift</kbd><kbd>Enter</kbd> new line · <kbd>←</kbd><kbd>→</kbd> days · <kbd>?</kbd> all keys</p>
+  </header>
+
+  <div class="nutrition-sheet ruled-sheet" id="nutrition-log"
+       hx-get="/ui/nutrition/{{ day.isoformat() }}/log" hx-trigger="nutrition:changed from:body, nutrition:answered from:body" hx-swap="innerHTML">
+    {% include "partials/nutrition_log.html" %}
   </div>
-</header>
-<p class="empty page-empty">Nothing here yet.</p>
+
+  <section class="nutrition-chat" aria-labelledby="chat-title">
+    <header class="chat-header">
+      <h2 id="chat-title">Claude</h2>
+      <p class="chat-sub">Tell it what you ate, or ask what to eat. It keeps the day's log.</p>
+    </header>
+    <div class="chat-log" id="chat-log" aria-live="polite"
+         hx-get="/ui/nutrition/{{ day.isoformat() }}/chat" hx-trigger="nutrition:changed from:body" hx-swap="innerHTML">
+      {% include "partials/nutrition_chat.html" %}
+    </div>
+    <form class="chat-composer" id="chat-composer" data-day="{{ day.isoformat() }}" action="/ui/nutrition/{{ day.isoformat() }}/chat" method="post">
+      {# Written on the line, as every input is. #}
+      <span class="field-line chat-field">
+        <textarea name="message" rows="1" maxlength="4000" autocomplete="off" required
+                  aria-label="Message to Claude"
+                  placeholder="{% if is_today %}What did you eat?{% else %}What did you eat that day?{% endif %}"></textarea>
+      </span>
+      <button type="submit" class="btn primary chat-send">Send</button>
+    </form>
+  </section>
+</div>
+<script src="{{ asset('nutrition.js') }}" defer></script>
 {% endblock %}

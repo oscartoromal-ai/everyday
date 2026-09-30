@@ -47,6 +47,17 @@ claude mcp add --scope user --transport http personal-calendar http://127.0.0.1:
 This gives any Claude Code session the planner tools (list/upsert projects and tasks, update task status, get the agenda, read the day's notes and a task's history, schedule a block, add an event) against the same database the web UI uses.
 No auth is required locally; the trust boundary is the network (localhost and the tailnet), not a token.
 
+## Nutrition chat setup
+
+Nutrition's chat runs Claude through the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk), which drives the Claude Code CLI installed and logged in on this machine: no API key is needed, and it runs on that login.
+
+1. Install Claude Code and log in once (`claude`, then `/login`).
+2. On Windows the SDK only runs a native `claude.exe`, never npm's `claude.cmd` shim.
+   With `[nutrition].claude_cli` empty in `config.toml`, the app finds `claude` on PATH and, when that is the npm shim, the `claude.exe` npm installed beside it; otherwise set `claude_cli` to a `claude.exe`.
+3. `[nutrition].dir` names the folder of Markdown files it reads and writes (`nutrition/` in the repo by default); `[nutrition].model` the model.
+
+The files are the record, outside the database and its backups: git keeps their history.
+
 ## Work-calendar setup
 
 The work calendar syncs in read-only, via a published ICS feed, subject/time/location only.

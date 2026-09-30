@@ -1655,3 +1655,129 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   .mg-head, .mg-week { min-width: 640px; }
   .plan-tray { position: static; max-height: none; }
 }
+
+/* ---------- Health > Nutrition: a day's log beside the day's chat with Claude ---------- */
+
+/* The day's page is wide, as Today is: the log on the ruled sheet at the
+   left, the chat a glass card at the right, as tall as the window. */
+.main:has(.nutrition-page) { max-width: 1600px; }
+.nutrition-page {
+  display: grid; grid-template-columns: minmax(0, 1fr) 400px;
+  grid-template-areas: "header chat" "sheet chat"; grid-template-rows: auto 1fr;
+  gap: 0 var(--s-8); min-height: calc(100vh - 2 * var(--s-8));
+}
+.nutrition-header { grid-area: header; margin-bottom: var(--s-4); }
+.nutrition-sheet { grid-area: sheet; }
+
+/* the log: a field's name in the row's indent, as Me's are */
+.nutrition-label {
+  flex: none; width: 112px; font-size: var(--t-caption); font-weight: 500; color: var(--graphite);
+}
+.nutrition-totals { margin: 0; }
+.nutrition-total { display: flex; align-items: flex-start; gap: 0 var(--s-3); }
+.nutrition-total > dd { margin: 0; }
+.nutrition-figure { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s-2); min-width: 0; }
+.nutrition-eaten { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.nutrition-of { color: var(--graphite); font-variant-numeric: tabular-nums; }
+.nutrition-planned { font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums; }
+.nutrition-figure .chip { align-self: center; }
+/* the meter: the target its full width, what is eaten in ink, what is
+   planned after it in steel */
+.nutrition-total > .nutrition-meter {
+  flex: 0 1 200px; display: flex; height: 4px; margin: calc(var(--pad-text) / 2 - 2px) 0 0 auto;
+  background: var(--hairline); overflow: hidden;
+}
+.meter-eaten { background: var(--ink); }
+.meter-planned { background: var(--steel); }
+
+/* a meal: its items in columns, the meal's sums on its title row */
+.nutrition-item { display: flex; align-items: baseline; gap: 0 var(--s-3); }
+.nutrition-food { flex: 1; min-width: 0; }
+.nutrition-item:not(.sheet-head) .nutrition-food { color: var(--ink); }
+/* the amount wraps as one piece, to the next line when it does not fit */
+.nutrition-amount { display: inline-block; color: var(--graphite); }
+.nutrition-assumed { margin-left: var(--s-2); font-size: var(--t-caption); color: var(--pewter); }
+.nutrition-cell {
+  flex: none; width: 56px; text-align: right;
+  color: var(--graphite); font-variant-numeric: tabular-nums;
+}
+.sheet-head .nutrition-cell { font-weight: 500; color: var(--ink); }
+.nutrition-columns :is(.nutrition-cell, .nutrition-food) { font-size: var(--t-caption); color: var(--pewter); }
+.nutrition-meal.is-planned .nutrition-item:not(.sheet-head) .nutrition-food { color: var(--graphite); }
+.sheet-head .chip { margin-left: var(--s-2); vertical-align: 1px; }
+.nutrition-head { display: flex; align-items: baseline; gap: var(--s-2); }
+
+/* the file's notes: a row per line; a list item after a small steel square */
+.nutrition-line { color: var(--graphite); overflow-wrap: anywhere; }
+.nutrition-quiet { color: var(--pewter); }
+.nutrition-bullet::before {
+  content: ""; display: inline-block; width: 4px; height: 4px; margin: 0 var(--s-3) 3px var(--s-1);
+  background: var(--steel);
+}
+.nutrition-line :is(strong, b) { color: var(--ink); font-weight: 600; }
+.nutrition-line code, .chat-text code { font-size: 0.93em; }
+.nutrition-block table, .chat-text table { border-collapse: collapse; margin: var(--s-1) 0; font-size: var(--t-caption); }
+.nutrition-block :is(th, td), .chat-text :is(th, td) {
+  padding: 2px var(--s-3) 2px 0; text-align: left; border-bottom: 1px solid var(--hairline);
+  font-variant-numeric: tabular-nums;
+}
+.nutrition-block th, .chat-text th { font-weight: 500; color: var(--ink); }
+/* a cell breaks between words, never inside one; a row's name stays whole */
+.chat-text :is(th, td) { overflow-wrap: normal; }
+.chat-text :is(th, td):first-child { white-space: nowrap; }
+
+/* the chat: a glass card at the right, as the day's timeline is on Today */
+.nutrition-chat {
+  grid-area: chat; position: sticky; top: var(--s-8);
+  display: flex; flex-direction: column; height: calc(100vh - 2 * var(--s-8)); min-height: 420px;
+  background: var(--glass-card); backdrop-filter: blur(20px) saturate(1.1);
+  border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
+}
+.chat-header { padding: var(--s-4) var(--s-4) var(--s-3); border-bottom: 1px solid var(--hairline-on-glass-strong); }
+.chat-header h2 { font-size: var(--t-body); font-weight: 600; }
+.chat-sub { margin: 2px 0 0; font-size: var(--t-caption); color: var(--pewter); }
+.chat-log { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.chat-empty { margin: 0; padding: var(--s-4); font-size: var(--t-body-sm); line-height: 22px; color: var(--pewter); }
+.chat-messages { margin: 0; padding: 0; list-style: none; }
+.chat-message { padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--hairline-on-glass); }
+.chat-who { font-size: var(--t-caption); font-weight: 500; color: var(--graphite); }
+.chat-time { margin-left: 2px; font-weight: 400; color: var(--pewter); font-variant-numeric: tabular-nums; }
+.chat-who .chip { margin-left: var(--s-1); }
+.chat-status { margin-left: 2px; font-weight: 400; color: var(--pewter); }
+.chat-text { margin-top: var(--s-1); font-size: var(--t-body-sm); line-height: 22px; color: var(--ink); overflow-wrap: anywhere; }
+.chat-text[hidden] { display: none; }
+.from-oscar .chat-text { font-weight: 500; }
+.chat-text :is(p, ul, ol, table) { margin: 0 0 var(--s-2); }
+.chat-text > :last-child { margin-bottom: 0; }
+.chat-text :is(ul, ol) { padding-left: 20px; }
+.chat-text li + li { margin-top: 2px; }
+.chat-text strong { font-weight: 600; }
+.chat-streaming { white-space: pre-wrap; }
+.chat-message.is-failed .chat-text { color: var(--graphite); }
+/* the composer: the message written on the line, Send beside it */
+.chat-composer {
+  display: flex; align-items: flex-end; gap: var(--s-3);
+  padding: var(--s-2) var(--s-4) var(--s-4); border-top: 1px solid var(--hairline-on-glass-strong);
+}
+.chat-field { flex: 1; min-width: 0; }
+.chat-field > textarea { min-height: 36px; max-height: calc(8 * 22px + 13px); overflow-y: auto; }
+.chat-send { flex: none; height: 36px; padding-block: 0; }
+.chat-send:disabled { opacity: 0.55; cursor: default; }
+
+@media (max-width: 1100px) {
+  /* one column: the day, its chat (where the day is written), then the log */
+  .nutrition-page {
+    grid-template-columns: minmax(0, 1fr); grid-template-areas: "header" "chat" "sheet";
+    grid-template-rows: auto; gap: var(--s-6) 0; min-height: 0;
+  }
+  .nutrition-header { margin-bottom: 0; }
+  .nutrition-chat { position: static; height: auto; min-height: 0; }
+  .chat-log { max-height: 50vh; }
+}
+@media (max-width: 720px) {
+  .nutrition-sheet { --pad-rows: 34px; --pad-gap: var(--s-2); }
+  /* energy and protein only; the log's file has the rest */
+  .nutrition-cell:not([data-col="0"], [data-col="1"]) { display: none; }
+  .nutrition-meter { display: none; }
+}
+@media (max-width: 540px) { .nutrition-label { width: 96px; } }

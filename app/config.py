@@ -57,6 +57,16 @@ class BackupConfig(BaseModel):
     retain: int = 30
 
 
+class NutritionConfig(BaseModel):
+    # The folder of Markdown files nutrition lives in: plan.md, meals/, log/.
+    dir: str = "nutrition"
+    # The Claude Code executable the chat runs. Empty: `claude` on PATH, or,
+    # when that is npm's claude.cmd (which the Agent SDK refuses to run), the
+    # native claude.exe npm installed beside it.
+    claude_cli: str = ""
+    model: str = "claude-opus-5-5"
+
+
 class Settings(BaseSettings):
     # Env vars override config.toml, e.g. PC_STORAGE__DB_PATH=...
     model_config = SettingsConfigDict(
@@ -70,6 +80,7 @@ class Settings(BaseSettings):
     work_calendar: WorkCalendarConfig = WorkCalendarConfig()
     push: PushConfig = PushConfig()
     backup: BackupConfig = BackupConfig()
+    nutrition: NutritionConfig = NutritionConfig()
 
     @classmethod
     def settings_customise_sources(
@@ -90,6 +101,11 @@ class Settings(BaseSettings):
     @property
     def backup_dir(self) -> Path:
         path = Path(self.backup.dir)
+        return path if path.is_absolute() else REPO_ROOT / path
+
+    @property
+    def nutrition_dir(self) -> Path:
+        path = Path(self.nutrition.dir)
         return path if path.is_absolute() else REPO_ROOT / path
 
     @property

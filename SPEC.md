@@ -20,7 +20,7 @@ Per [v1 phasing](tracker/tickets/002-v1-phasing.md):
 - **v3**: goals, which projects roll up into.
 - **v4**: habits and routines. Habits came early (Oscar's call on 2026-09-27): written in the notepad as "/habit name" (see Today), kept as their own entity rather than recurring tasks, so they never crowd the task lists; a table of when each was done and missed is next.
 - **v5**: reviews and reflection flows.
-- **Health** (Oscar's call on 2026-09-28): a module beside the planner, its own group in the nav, starting with Nutrition as an empty page (what it holds is still to be decided) and Me, the context health advice needs: height, birth date, sex, activity level, goal and target weight, dietary pattern, allergies and intolerances, foods avoided and health notes, saved as they change, and weight as a log of weigh-ins, one a day; from them, age, BMI and an estimated daily energy to keep his weight (Mifflin-St Jeor times the activity's factor). Claude reads it through `get_health_profile`.
+- **Health** (Oscar's call on 2026-09-28): a module beside the planner, its own group in the nav, starting with Nutrition (see [Nutrition chat](#nutrition-chat), Oscar's call on 2026-09-30) and Me, the context health advice needs: height, birth date, sex, activity level, goal and target weight, dietary pattern, allergies and intolerances, foods avoided and health notes, saved as they change, and weight as a log of weigh-ins, one a day; from them, age, BMI and an estimated daily energy to keep his weight (Mifflin-St Jeor times the activity's factor). Claude reads it through `get_health_profile`.
 
 Review flows are deliberately unspecified here; they sharpen as their phase nears (see the map's Not yet specified section).
 
@@ -200,6 +200,21 @@ Hook commands need a short HTTP timeout so a down app never delays sessions.
   `get_agenda` carries each day's page in brief too, so planning with Claude starts from what Oscar wrote.
   The notebook is read-only to Claude: it is Oscar's own writing.
 - `get_task_history(task_id)` reads how a task changed and who changed it; Claude's own changes are named as Claude's.
+
+### Nutrition chat
+
+Oscar's call on 2026-09-30: Nutrition is tracked by day, and a chat with Claude on the page keeps the record.
+
+- **Markdown is the record.** Nutrition lives in a folder of Markdown files (`[nutrition].dir`, `nutrition/` in the repo): `plan.md` (the plan, its daily targets in its YAML front matter, each an aim, a min or a max), `meals/` (recipes) and `log/YYYY-MM-DD.md`, one per day.
+  A day's front matter holds its meals, each eaten or planned, and each item's amount (marked when assumed) and six nutrients (kcal, protein, fat, saturated fat, carbs, fibre); under it, short Notes and Next sections.
+  The app never stores a total: it sums the items, so totals cannot drift from them.
+  The files are outside the database and its backups; git holds their history.
+- **Claude through the Agent SDK, on this machine's Claude Code login.** Each message is one stateless run of the Claude Agent SDK (`app/services/nutrition_agent.py`), driving the installed Claude Code CLI, so no API key is needed.
+  Its world is the nutrition folder: its tools are the file tools and web search, a PreToolUse hook denies any path outside the folder, and no setting, CLAUDE.md, skill or MCP server of the machine's reaches it.
+  The prompt carries the time, the day, Oscar's Health > Me profile and the day's chat so far; the files carry everything else.
+- **The chat is the day's.** Messages are stored by day (`nutrition_messages`); each day starts a fresh chat.
+  A run goes on in its own thread after its page closes, and its answer is saved; one run at a time per day.
+- **The log stays readable.** After a run the day's file is read back; if it does not follow the format, Claude gets one unseen turn to fix it, and a file that still cannot be read is shown as such, with why.
 
 ### Plan truth
 

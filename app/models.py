@@ -365,3 +365,25 @@ class WeightEntry(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     day: Mapped[date] = mapped_column(Date, unique=True)
     weight_kg: Mapped[float] = mapped_column(Float)
+
+
+class NutritionRole(enum.StrEnum):
+    oscar = "oscar"
+    claude = "claude"
+
+
+class NutritionMessage(Base):
+    """One message of a day's chat on Nutrition, Oscar's or Claude's. The
+    chat is the day's: each day starts a fresh one, the day's log file
+    carrying what came of the days before."""
+
+    __tablename__ = "nutrition_messages"
+    __table_args__ = (Index("ix_nutrition_messages_day", "day"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    day: Mapped[date] = mapped_column(Date)
+    role: Mapped[NutritionRole] = mapped_column(_enum(NutritionRole))
+    text: Mapped[str] = mapped_column(Text)
+    # Claude's answer did not finish (an error, or the run was cut short).
+    failed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
