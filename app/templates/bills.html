@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Bills · Personal Calendar{% endblock %}
+{% block content %}
+{# Finances > Bills: the bills and subscriptions that come round, what
+   they come to, what is due in the next 30 days, and whether each was
+   seen paid. One sheet, ruled as Me's is, drawn again after each change. #}
+<div class="me-page money-page">
+  <header class="page-header">
+    <div>
+      <h1>Bills</h1>
+      <p class="rest">Bills and subscriptions that come round, and whether each was paid. Claude reads them too.</p>
+    </div>
+  </header>
+  <div class="ruled-sheet money-bills-sheet">
+    {% include "partials/money_bills.html" %}
+    <div class="sheet-filler" aria-hidden="true"><ol>{% for _ in range(30) %}<li></li>{% endfor %}</ol></div>
+  </div>
+</div>
+{% endblock %}

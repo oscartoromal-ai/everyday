@@ -8,13 +8,14 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from markupsafe import Markup, escape
+from markupsafe import Markup
 from sqlalchemy.orm import Session
 
-from app.models import NutritionRole
+from app.markdown import render_inline, render_markdown
 from app.services import nutrition as nutrition_svc
 from app.services import nutrition_chat as chat_svc
 from app.services.nutrition import NUTRIENTS, NutritionFileError, Target
+from app.ui import chat_view
 
 
 def amount(value: float, unit: str) -> str:
@@ -66,7 +67,7 @@ def _sections(body: str) -> list[dict]:
 
     def close_table() -> None:
         if table and current is not None:
-            html = Markup(nutrition_svc.render_markdown("\n".join(table)))
+            html = Markup(render_markdown("\n".join(table)))
             current["rows"].append({"kind": "block", "html": html})
         table.clear()
 
@@ -90,7 +91,7 @@ def _sections(body: str) -> list[dict]:
             sections.append(current)
         kind = "bullet" if _BULLET.match(stripped) else "text"
         text = _BULLET.sub("", stripped) if kind == "bullet" else stripped
-        current["rows"].append({"kind": kind, "html": Markup(nutrition_svc.render_inline(text))})
+        current["rows"].append({"kind": kind, "html": Markup(render_inline(text))})
     close_table()
     return [s for s in sections if s["rows"]]
 
@@ -138,31 +139,14 @@ def log_ctx(folder: Path, day: date) -> dict[str, Any]:
     return ctx
 
 
-def _message_html(text: str, role: NutritionRole) -> Markup:
-    if role == NutritionRole.claude:
-        return Markup(nutrition_svc.render_markdown(text))
-    # Oscar's words as he wrote them, his line breaks kept.
-    lines = Markup("<br>").join(escape(line) for line in text.splitlines())
-    return Markup("<p>") + lines + Markup("</p>")
-
-
 def chat_ctx(db: Session, day: date) -> dict[str, Any]:
     """The day's chat, and the answer still being written, if one is."""
-    run = chat_svc.running(day)
-    pending = None
-    if run is not None:
-        statuses = [e["text"] for e in run.events if e["type"] == "status"]
-        said = "".join(e["text"] for e in run.events if e["type"] == "text")
-        pending = {"status": statuses[-1] if statuses else "Thinking", "text": said}
+    ctx = chat_view.chat_ctx(chat_svc.messages(db, day), chat_svc.running(day))
+    today = " today" if day == date.today() else ""
     return {
-        "messages": [
-            {
-                "role": m.role.value, "time": m.created_at.strftime("%H:%M"), "failed": m.failed,
-                "html": _message_html(m.text, m.role),
-            }
-            for m in chat_svc.messages(db, day)
-        ],
-        "pending": pending,
+        **ctx,
+        "url": f"/ui/nutrition/{day.isoformat()}/chat",
+        "empty": f'Nothing said yet{today}. Try: "Breakfast was oats with soy milk and berries."',
     }
 
 

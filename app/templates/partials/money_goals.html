@@ -1,0 +1,88 @@
+{# Goals' groups, drawn again in place after each change: each goal a group
+   of its own, its fields written on the line and saved as they change
+   (its name; its target and by when; the account it is kept in, or what
+   is saved counted by hand), then how far along it is. A new goal is
+   written in the first group. #}
+{% macro account_select(chosen, id) %}
+<select name="account_id" aria-label="Kept in"{% if id %} id="{{ id }}"{% endif %}>
+  <option value="">counted by hand</option>
+  {% for aid, name in accounts %}<option value="{{ aid }}" {% if chosen == aid %}selected{% endif %}>{{ name }}</option>{% endfor %}
+</select>
+{% endmacro %}
+<div class="money-groups" id="money-goals">
+<section class="sheet-group" aria-labelledby="goals-new">
+  <h2 class="sheet-row sheet-head" id="goals-new">New goal</h2>
+  <form hx-post="/ui/money/goals" hx-target="#money-goals" hx-swap="outerHTML">
+    <label class="sheet-row me-row">
+      <span class="me-label">Name</span>
+      <span class="sheet-field"><input name="name" autocomplete="off" required maxlength="80" placeholder="A trip, a buffer, a deposit…"></span>
+    </label>
+    <div class="sheet-row me-row">
+      <label class="me-label" for="goal-new-target">Target</label>
+      <span class="sheet-field">
+        <span class="money-of">$</span><input id="goal-new-target" name="target" inputmode="decimal" autocomplete="off" required placeholder="How much">
+        <span class="money-of">by</span>
+        <input type="date" name="by" min="{{ today.isoformat() }}" aria-label="By when">
+      </span>
+    </div>
+    <div class="sheet-row me-row">
+      <label class="me-label" for="goal-new-account">Kept in</label>
+      <span class="sheet-field">{{ account_select(none, "goal-new-account") }}</span>
+    </div>
+    <div class="sheet-row me-row">
+      <span class="me-label"></span>
+      <button type="submit" class="plan-btn money-go">Add goal</button>
+    </div>
+  </form>
+</section>
+
+{% for g in goals %}
+<section class="sheet-group money-goal" aria-label="{{ g.name }}">
+  <form hx-post="/ui/money/goals/{{ g.id }}" hx-trigger="change" hx-target="#money-goals" hx-swap="outerHTML">
+    <div class="sheet-row sheet-head me-row money-name-row">
+      <span class="sheet-field"><input id="goal-name-{{ g.id }}" name="name" autocomplete="off" required maxlength="80" value="{{ g.name }}" aria-label="Goal name"></span>
+      {% if g.reached %}<span class="chip ok">Reached</span>{% elif g.late %}<span class="chip warn">Past its day</span>{% endif %}
+      <button type="button" class="task-delete" title="Delete this goal"
+              aria-label="Delete the goal {{ g.name }}"
+              hx-post="/ui/money/goals/{{ g.id }}/delete" hx-target="#money-goals" hx-swap="outerHTML"
+              hx-confirm="Delete goal?"
+              data-confirm-title="Delete goal?"
+              data-confirm-name="{{ g.name }}"
+              data-confirm-detail="will be deleted. Its account and money stay."
+              data-confirm-action="Delete">{% include "partials/money_trash.html" %}</button>
+    </div>
+    <div class="sheet-row me-row">
+      <label class="me-label" for="goal-target-{{ g.id }}">Target</label>
+      <span class="sheet-field">
+        <span class="money-of">$</span><input id="goal-target-{{ g.id }}" name="target" inputmode="decimal" autocomplete="off" required value="{{ g.target }}">
+        <span class="money-of">by</span>
+        <input type="date" id="goal-by-{{ g.id }}" name="by" value="{{ g.by.isoformat() if g.by else '' }}" aria-label="By when">
+      </span>
+    </div>
+    <div class="sheet-row me-row">
+      <label class="me-label" for="goal-account-{{ g.id }}">Kept in</label>
+      <span class="sheet-field">
+        {{ account_select(g.account_id, "goal-account-" ~ g.id) }}
+        {% if not g.account_id %}
+        <span class="money-of">saved $</span><input id="goal-saved-{{ g.id }}" name="saved" inputmode="decimal" autocomplete="off" placeholder="0" value="{{ g.saved_input if g.saved_input != '0' else '' }}" aria-label="Saved so far, in dollars">
+        {% endif %}
+      </span>
+    </div>
+  </form>
+  <div class="sheet-row money-figure">
+    <span class="money-label">So far</span>
+    <span class="money-value">
+      <span class="money-main">{{ g.saved }}</span>
+      <span class="money-detail">of {{ g.of }}{% if g.as_of %}, as of {{ g.as_of }}{% endif %}</span>
+      {% if g.to_go %}<span class="money-aside">{{ g.to_go }} to go{% if g.per_month %} · {{ g.per_month }} a month gets there by {{ g.by_words }}{% endif %}</span>{% endif %}
+    </span>
+    <span class="money-meter" aria-hidden="true"><span style="width: {{ g.percent }}%"></span></span>
+  </div>
+</section>
+{% else %}
+<section class="sheet-group" aria-labelledby="goals-none">
+  <h2 class="sheet-row sheet-head" id="goals-none">No goals yet</h2>
+  <p class="sheet-row money-line money-quiet">Keep a goal in an account (a savings account, a Revolut pocket imported as its own account) and its balance is its progress; or count it by hand.</p>
+</section>
+{% endfor %}
+</div>

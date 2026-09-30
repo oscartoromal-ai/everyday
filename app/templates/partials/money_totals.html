@@ -1,0 +1,101 @@
+{# The month's figures: what was spent against the budgets, what came in,
+   what is left and what is not sorted; each spending category against its
+   budget, written on its line (saved as it changes); what came in, by
+   category. Drawn again when a transaction is sorted (money:sorted). #}
+{% set m = totals %}
+{% set key = month.strftime("%Y-%m") %}
+<div class="money-totals" id="money-totals"
+     hx-get="/ui/money/{{ key }}/totals" hx-trigger="money:sorted from:body" hx-swap="outerHTML">
+<section class="sheet-group" aria-labelledby="money-month">
+  <h2 class="sheet-row sheet-head" id="money-month">The month{% if m.so_far %} <span class="count">so far</span>{% endif %}</h2>
+  <dl class="money-figures">
+    <div class="sheet-row money-figure">
+      <dt class="money-label">Spent</dt>
+      <dd class="money-value">
+        <span class="money-main">{{ m.spent }}</span>
+        {% if m.budgeted %}<span class="money-detail">of {{ m.budgeted }} budgeted</span>{% endif %}
+        {% if m.over_budget %}<span class="chip err">Over</span>{% endif %}
+      </dd>
+      {% if m.spent_meter is not none %}<dd class="money-meter" aria-hidden="true"><span style="width: {{ m.spent_meter }}%"></span></dd>{% endif %}
+    </div>
+    <div class="sheet-row money-figure">
+      <dt class="money-label">Came in</dt>
+      <dd class="money-value"><span class="money-main">{{ m.came_in }}</span></dd>
+    </div>
+    <div class="sheet-row money-figure">
+      <dt class="money-label">Left over</dt>
+      <dd class="money-value">
+        <span class="money-main">{{ m.left }}</span>
+        {% if m.left_cents < 0 %}<span class="money-detail">more went out than came in</span>{% endif %}
+      </dd>
+    </div>
+    {% if m.transfers %}
+    <div class="sheet-row money-figure">
+      <dt class="money-label">Moved</dt>
+      <dd class="money-value"><span class="money-main">{{ m.transfers }}</span><span class="money-detail">between your accounts, neither spent nor earned</span></dd>
+    </div>
+    {% endif %}
+    {% if m.unsorted_count %}
+    <div class="sheet-row money-figure">
+      <dt class="money-label">Not sorted</dt>
+      <dd class="money-value">
+        <span class="money-main">{{ m.unsorted_count }} transaction{{ "s" if m.unsorted_count != 1 }}</span>
+        <span class="money-detail">{{ m.unsorted_out }} out · {{ m.unsorted_in }} in</span>
+        <span class="money-aside">Ask Claude to sort them</span>
+      </dd>
+    </div>
+    {% endif %}
+  </dl>
+</section>
+
+<section class="sheet-group money-budgets" aria-labelledby="money-budgets">
+  <h2 class="sheet-row sheet-head money-item" id="money-budgets">
+    <span class="money-what">Budgets</span>
+    <span class="money-column">a month</span>
+  </h2>
+  {% for b in m.budgets %}
+  <form class="sheet-row me-row money-budget{% if not b.count %} is-quiet{% endif %}"
+        hx-post="/ui/money/{{ key }}/budgets/{{ b.id }}" hx-trigger="change" hx-target="#money-totals" hx-swap="outerHTML">
+    <label class="me-label" for="budget-{{ b.id }}">{{ b.name }}</label>
+    <span class="sheet-field">
+      <span class="money-main">{{ b.spent or "$0" }}</span>
+      <span class="money-of">of $</span><input id="budget-{{ b.id }}" name="budget" inputmode="decimal" autocomplete="off" placeholder="no budget" value="{{ b.budget }}" aria-label="Budget for {{ b.name }}, a month">
+      {% if b.over %}<span class="chip err">Over</span>{% elif b.left %}<span class="money-aside">{{ b.left }} left</span>{% endif %}
+    </span>
+    {% if b.meter is not none %}<span class="money-meter" aria-hidden="true"><span style="width: {{ b.meter }}%"></span></span>{% endif %}
+    <button type="button" class="task-delete" title="Delete this category"
+            aria-label="Delete the category {{ b.name }}"
+            hx-post="/ui/money/{{ key }}/categories/{{ b.id }}/delete" hx-swap="none"
+            hx-confirm="Delete category?"
+            data-confirm-title="Delete category?"
+            data-confirm-name="{{ b.name }}"
+            data-confirm-detail="will be deleted, with its rules. Its transactions are left unsorted."
+            data-confirm-action="Delete">{% include "partials/money_trash.html" %}</button>
+  </form>
+  {% endfor %}
+  <form class="sheet-row me-row money-add" hx-post="/ui/money/{{ key }}/categories" hx-swap="none">
+    <label class="me-label" for="money-new-category">New category</label>
+    <span class="sheet-field">
+      <input id="money-new-category" name="name" autocomplete="off" required placeholder="Name it" maxlength="60">
+      <select name="kind" aria-label="What kind">
+        {% for value, word in m.kinds.items() %}<option value="{{ value.value }}">{{ word }}</option>{% endfor %}
+      </select>
+    </span>
+    <button type="submit" class="plan-btn">Add</button>
+  </form>
+</section>
+
+{% if m.income %}
+<section class="sheet-group" aria-labelledby="money-income">
+  <h2 class="sheet-row sheet-head" id="money-income">Came in</h2>
+  <dl class="money-figures">
+    {% for c in m.income %}
+    <div class="sheet-row money-figure">
+      <dt class="money-label">{{ c.name }}</dt>
+      <dd class="money-value"><span class="money-main">{{ c.amount }}</span></dd>
+    </div>
+    {% endfor %}
+  </dl>
+</section>
+{% endif %}
+</div>

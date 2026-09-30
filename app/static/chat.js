@@ -1,10 +1,11 @@
-/* Nutrition's chat (nutrition.html): a message goes to Claude, and its answer
-   streams in as it is written, with what Claude is doing meanwhile ("Reading
-   the plan"). The server sends newline-delimited JSON events; once Claude is
-   done, the chat and the day's log are drawn again from the server
-   (nutrition:changed), the answer as Markdown and the log as Claude left it.
-   Enter sends, Shift+Enter starts a new line; Left and Right, outside the
-   message, go a day back or on. */
+/* A chat with Claude (Nutrition's, Spending's): a message goes to Claude, and
+   its answer streams in as it is written, with what Claude is doing meanwhile
+   ("Reading the plan"). The server sends newline-delimited JSON events; once
+   Claude is done, the page's event (the composer's data-changed:
+   nutrition:changed, money:changed) draws the chat and what Claude changed
+   again from the server, the answer as Markdown. Enter sends, Shift+Enter
+   starts a new line; Left and Right, outside the message, go a day (or a
+   month) back or on, through shell.js. */
 (() => {
   const form = document.getElementById("chat-composer");
   if (!form) return;
@@ -61,8 +62,8 @@
     busy = false;
     form.classList.remove("is-busy");
     send.disabled = false;
-    // The chat as saved (the answer as Markdown) and the log as Claude left it.
-    htmx.trigger(document.body, "nutrition:changed");
+    // The chat as saved (the answer as Markdown) and what Claude changed.
+    htmx.trigger(document.body, form.dataset.changed);
   };
 
   const submit = async () => {

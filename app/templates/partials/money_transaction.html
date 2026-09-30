@@ -1,0 +1,23 @@
+{# A transaction: what the bank calls it (and which account, when there are
+   several), its category chosen on the line, and its amount. Choosing
+   sorts it at once and draws this again; the month's figures follow
+   (money:sorted). #}
+<form class="sheet-row money-item money-transaction{% if not row.category_id %} is-unsorted{% endif %}"
+      hx-post="/ui/money/transactions/{{ row.id }}/category" hx-trigger="change" hx-swap="outerHTML">
+  <span class="money-what">
+    <span class="money-description">{{ row.description }}</span>
+    {% if row.account %}<span class="money-account">{{ row.account }}</span>{% endif %}
+    {% if row.note %}<span class="money-note">{{ row.note }}</span>{% endif %}
+  </span>
+  <span class="sheet-field money-category">
+    <select name="category_id" aria-label="Category of {{ row.description }}">
+      <option value="">Not sorted</option>
+      {% for group in categories %}
+      <optgroup label="{{ group.kind }}">
+        {% for id, name in group.options %}<option value="{{ id }}" {% if row.category_id == id %}selected{% endif %}>{{ name }}</option>{% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+  </span>
+  <span class="money-amount{% if row.in %} is-in{% endif %}">{{ row.amount }}</span>
+</form>

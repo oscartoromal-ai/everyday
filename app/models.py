@@ -200,6 +200,8 @@ class NudgeType(enum.StrEnum):
     due_soon = "due_soon"
     milestone_soon = "milestone_soon"
     needs_review = "needs_review"
+    # A bill of Finances coming due, not yet paid.
+    bill_due = "bill_due"
 
 
 class Nudge(Base):
@@ -367,7 +369,7 @@ class WeightEntry(Base):
     weight_kg: Mapped[float] = mapped_column(Float)
 
 
-class NutritionRole(enum.StrEnum):
+class ChatRole(enum.StrEnum):
     oscar = "oscar"
     claude = "claude"
 
@@ -382,7 +384,7 @@ class NutritionMessage(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     day: Mapped[date] = mapped_column(Date)
-    role: Mapped[NutritionRole] = mapped_column(_enum(NutritionRole))
+    role: Mapped[ChatRole] = mapped_column(_enum(ChatRole))
     text: Mapped[str] = mapped_column(Text)
     # Claude's answer did not finish (an error, or the run was cut short).
     failed: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -466,3 +468,188 @@ class GarminActivity(Base):
     kcal: Mapped[int | None] = mapped_column(Integer, default=None)
     avg_hr: Mapped[int | None] = mapped_column(Integer, default=None)
     max_hr: Mapped[int | None] = mapped_column(Integer, default=None)
+
+
+# ---- Finances (SPEC.md, Finances): money in whole cents, Australian dollars ----
+
+
+class AccountKind(enum.StrEnum):
+    everyday = "everyday"
+    savings = "savings"
+    credit_card = "credit_card"
+    loan = "loan"
+    super = "super"
+    investment = "investment"
+    other = "other"
+
+
+# What is owed rather than owned: its balance counts against net worth.
+LIABILITY_KINDS = frozenset({AccountKind.credit_card, AccountKind.loan})
+
+
+class CategoryKind(enum.StrEnum):
+    spending = "spending"
+    income = "income"
+    # Money moved between his own accounts: neither spent nor earned.
+    transfer = "transfer"
+
+
+class BillCadence(enum.StrEnum):
+    weekly = "weekly"
+    fortnightly = "fortnightly"
+    monthly = "monthly"
+    quarterly = "quarterly"
+    yearly = "yearly"
+
+
+class MoneyAccount(Base):
+    """An account of Oscar's: a bank account (Revolut, ING), a card, a loan,
+    his super or his shares."""
+
+    __tablename__ = "money_accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(80), unique=True)
+    kind: Mapped[AccountKind] = mapped_column(_enum(AccountKind), default=AccountKind.everyday)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class MoneyBalance(Base):
+    """An account's balance at the end of a day, in cents: read from an
+    import's last row, or written by hand. Owed is negative."""
+
+    __tablename__ = "money_balances"
+    __table_args__ = (UniqueConstraint("account_id", "day"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("money_accounts.id", ondelete="CASCADE"))
+    day: Mapped[date] = mapped_column(Date)
+    cents: Mapped[int] = mapped_column(Integer)
+    # "import" or "hand".
+    source: Mapped[str] = mapped_column(String(16), default="hand")
+
+
+class MoneyCategory(Base):
+    """What money is spent on (Groceries), comes from (Salary), or a move
+    between his own accounts; a spending category may have a budget a month."""
+
+    __tablename__ = "money_categories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(60), unique=True)
+    kind: Mapped[CategoryKind] = mapped_column(_enum(CategoryKind), default=CategoryKind.spending)
+    budget_cents: Mapped[int | None] = mapped_column(Integer, default=None)
+
+
+class MoneyImport(Base):
+    """A bank's CSV export, imported into an account."""
+
+    __tablename__ = "money_imports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("money_accounts.id", ondelete="CASCADE"))
+    filename: Mapped[str] = mapped_column(Text, default="")
+    # Whose format it was: "revolut" or "ing".
+    bank: Mapped[str] = mapped_column(String(16))
+    imported_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    added: Mapped[int] = mapped_column(Integer, default=0)
+    # Rows already imported before, and rows left out (pending, declined,
+    # another currency).
+    known: Mapped[int] = mapped_column(Integer, default=0)
+    skipped: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class MoneyTransaction(Base):
+    """Money in (positive) or out (negative) of an account on a day, as the
+    bank's export has it, and what it was for."""
+
+    __tablename__ = "money_transactions"
+    __table_args__ = (
+        UniqueConstraint("account_id", "fingerprint"),
+        Index("ix_money_transactions_day", "day"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("money_accounts.id", ondelete="CASCADE"))
+    day: Mapped[date] = mapped_column(Date)
+    description: Mapped[str] = mapped_column(Text)
+    cents: Mapped[int] = mapped_column(Integer)
+    # The bank's own word for it, when it gives one (Revolut: CARD_PAYMENT,
+    # TOPUP, TRANSFER...).
+    bank_type: Mapped[str] = mapped_column(String(32), default="")
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("money_categories.id", ondelete="SET NULL"), default=None
+    )
+    note: Mapped[str] = mapped_column(Text, default="")
+    # The row's identity within its account, so an export imported twice,
+    # or two that overlap, add each transaction once.
+    fingerprint: Mapped[str] = mapped_column(String(40))
+    import_id: Mapped[int | None] = mapped_column(
+        ForeignKey("money_imports.id", ondelete="SET NULL"), default=None
+    )
+
+    category: Mapped[MoneyCategory | None] = relationship(lazy="joined")
+    account: Mapped[MoneyAccount] = relationship(lazy="joined")
+
+
+class MoneyRule(Base):
+    """A transaction whose description holds `pattern` (in any case) is
+    sorted into the rule's category as it is imported."""
+
+    __tablename__ = "money_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pattern: Mapped[str] = mapped_column(String(120), unique=True)
+    category_id: Mapped[int] = mapped_column(ForeignKey("money_categories.id", ondelete="CASCADE"))
+
+    category: Mapped[MoneyCategory] = relationship(lazy="joined")
+
+
+class MoneyBill(Base):
+    """A bill or subscription that comes round: its amount, how often, and
+    when it is next due. A transaction whose description holds `match`
+    near a due day pays it."""
+
+    __tablename__ = "money_bills"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(80))
+    cents: Mapped[int] = mapped_column(Integer)
+    cadence: Mapped[BillCadence] = mapped_column(_enum(BillCadence), default=BillCadence.monthly)
+    # A day it falls due; every other follows from it by the cadence.
+    due: Mapped[date] = mapped_column(Date)
+    match: Mapped[str] = mapped_column(String(120), default="")
+
+
+class MoneyGoal(Base):
+    """Money to save toward: kept in an account (its balance is the
+    progress), or counted by hand."""
+
+    __tablename__ = "money_goals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(80))
+    target_cents: Mapped[int] = mapped_column(Integer)
+    by: Mapped[date | None] = mapped_column(Date, default=None)
+    account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("money_accounts.id", ondelete="SET NULL"), default=None
+    )
+    saved_cents: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    account: Mapped[MoneyAccount | None] = relationship(lazy="joined")
+
+
+class MoneyMessage(Base):
+    """One message of a month's chat on Spending, Oscar's or Claude's."""
+
+    __tablename__ = "money_messages"
+    __table_args__ = (Index("ix_money_messages_month", "month"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # The month's first day.
+    month: Mapped[date] = mapped_column(Date)
+    role: Mapped[ChatRole] = mapped_column(_enum(ChatRole))
+    text: Mapped[str] = mapped_column(Text)
+    failed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

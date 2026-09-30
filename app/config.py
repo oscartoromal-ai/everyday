@@ -57,13 +57,21 @@ class BackupConfig(BaseModel):
     retain: int = 30
 
 
+class ClaudeConfig(BaseModel):
+    # The Claude Code executable the chats run (Nutrition, Spending). Empty:
+    # `claude` on PATH, or, when that is npm's claude.cmd (which the Agent
+    # SDK refuses to run), the native claude.exe npm installed beside it.
+    cli: str = ""
+
+
 class NutritionConfig(BaseModel):
     # The folder of Markdown files nutrition lives in: plan.md, meals/, log/.
     dir: str = "nutrition"
-    # The Claude Code executable the chat runs. Empty: `claude` on PATH, or,
-    # when that is npm's claude.cmd (which the Agent SDK refuses to run), the
-    # native claude.exe npm installed beside it.
-    claude_cli: str = ""
+    model: str = "claude-opus-5-5"
+
+
+class MoneyConfig(BaseModel):
+    # The model behind Spending's chat.
     model: str = "claude-opus-5-5"
 
 
@@ -89,7 +97,9 @@ class Settings(BaseSettings):
     work_calendar: WorkCalendarConfig = WorkCalendarConfig()
     push: PushConfig = PushConfig()
     backup: BackupConfig = BackupConfig()
+    claude: ClaudeConfig = ClaudeConfig()
     nutrition: NutritionConfig = NutritionConfig()
+    money: MoneyConfig = MoneyConfig()
     garmin: GarminConfig = GarminConfig()
 
     @classmethod

@@ -3,9 +3,9 @@
 {% block content %}
 {# Health > Nutrition: a day of eating, read from its Markdown file
    (log/YYYY-MM-DD.md in the nutrition folder), beside the day's chat with
-   Claude, who writes that file from what Oscar says (nutrition.js). #}
-<div class="nutrition-page">
-  <header class="day-header nutrition-header">
+   Claude, who writes that file from what Oscar says (chat.js). #}
+<div class="chat-page nutrition-page">
+  <header class="day-header chat-page-header">
     <div class="day-title">
       <h1 class="weekday">{% if is_today %}Today{% else %}{{ day.strftime("%A") }}{% endif %}</h1>
       <nav class="day-nav" aria-label="Days">
@@ -29,16 +29,16 @@
     {% include "partials/nutrition_log.html" %}
   </div>
 
-  <section class="nutrition-chat" aria-labelledby="chat-title">
+  <section class="chat-card" aria-labelledby="chat-title">
     <header class="chat-header">
       <h2 id="chat-title">Claude</h2>
       <p class="chat-sub">Tell it what you ate, or ask what to eat. It keeps the day's log.</p>
     </header>
     <div class="chat-log" id="chat-log" aria-live="polite"
          hx-get="/ui/nutrition/{{ day.isoformat() }}/chat" hx-trigger="nutrition:changed from:body" hx-swap="innerHTML">
-      {% include "partials/nutrition_chat.html" %}
+      {% include "partials/chat.html" %}
     </div>
-    <form class="chat-composer" id="chat-composer" data-day="{{ day.isoformat() }}" action="/ui/nutrition/{{ day.isoformat() }}/chat" method="post">
+    <form class="chat-composer" id="chat-composer" data-changed="nutrition:changed" action="/ui/nutrition/{{ day.isoformat() }}/chat" method="post">
       {# Written on the line, as every input is. #}
       <span class="field-line chat-field">
         <textarea name="message" rows="1" maxlength="4000" autocomplete="off" required
@@ -49,5 +49,5 @@
     </form>
   </section>
 </div>
-<script src="{{ asset('nutrition.js') }}" defer></script>
+<script src="{{ asset('chat.js') }}" defer></script>
 {% endblock %}

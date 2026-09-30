@@ -1666,18 +1666,18 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   .plan-tray { position: static; max-height: none; }
 }
 
-/* ---------- Health > Nutrition: a day's log beside the day's chat with Claude ---------- */
+/* ---------- The chat pages (Nutrition, Spending): a sheet beside a chat with Claude ---------- */
 
-/* The day's page is wide, as Today is: the log on the ruled sheet at the
+/* A chat page is wide, as Today is: the day or month on the ruled sheet at the
    left, the chat a glass card at the right, as tall as the window. */
-.main:has(.nutrition-page) { max-width: 1600px; }
-.nutrition-page {
+.main:has(.chat-page) { max-width: 1600px; }
+.chat-page {
   display: grid; grid-template-columns: minmax(0, 1fr) 400px;
   grid-template-areas: "header chat" "sheet chat"; grid-template-rows: auto 1fr;
   gap: 0 var(--s-8); min-height: calc(100vh - 2 * var(--s-8));
 }
-.nutrition-header { grid-area: header; margin-bottom: var(--s-4); }
-.nutrition-sheet { grid-area: sheet; }
+.chat-page-header { grid-area: header; margin-bottom: var(--s-4); }
+.chat-page .ruled-sheet { grid-area: sheet; }
 
 /* the log: a field's name in the row's indent, as Me's are */
 .nutrition-label {
@@ -1737,7 +1737,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .chat-text :is(th, td):first-child { white-space: nowrap; }
 
 /* the chat: a glass card at the right, as the day's timeline is on Today */
-.nutrition-chat {
+.chat-card {
   grid-area: chat; position: sticky; top: var(--s-8);
   display: flex; flex-direction: column; height: calc(100vh - 2 * var(--s-8)); min-height: 420px;
   background: var(--glass-card); backdrop-filter: blur(20px) saturate(1.1);
@@ -1776,16 +1776,16 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 
 @media (max-width: 1100px) {
   /* one column: the day, its chat (where the day is written), then the log */
-  .nutrition-page {
+  .chat-page {
     grid-template-columns: minmax(0, 1fr); grid-template-areas: "header" "chat" "sheet";
     grid-template-rows: auto; gap: var(--s-6) 0; min-height: 0;
   }
-  .nutrition-header { margin-bottom: 0; }
-  .nutrition-chat { position: static; height: auto; min-height: 0; }
+  .chat-page-header { margin-bottom: 0; }
+  .chat-card { position: static; height: auto; min-height: 0; }
   .chat-log { max-height: 50vh; }
 }
 @media (max-width: 720px) {
-  .nutrition-sheet { --pad-rows: 34px; --pad-gap: var(--s-2); }
+  .chat-page .ruled-sheet { --pad-rows: 34px; --pad-gap: var(--s-2); }
   /* energy and protein only; the log's file has the rest */
   .nutrition-cell:not([data-col="0"], [data-col="1"]) { display: none; }
   .nutrition-meter { display: none; }
@@ -1849,3 +1849,135 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
   .garmin-trend-day { white-space: nowrap; }
 }
 @media (max-width: 540px) { .garmin-label { width: 88px; } }
+
+/* ---------- Finances: Spending (a month beside its chat, as Nutrition's
+   day is), Accounts, Bills and Goals (ruled sheets, as Me's is) ---------- */
+
+.chip.ok { color: var(--ok-fg); background: var(--badge-ok-glass); }
+.chip.warn { color: var(--warn-fg); background: var(--badge-warn-glass); }
+.chip.err { color: var(--err-fg); background: var(--badge-err-glass); }
+.money-page .page-header { margin-bottom: var(--s-4); }
+
+/* a figure: its name in the row's indent, as Me's are; the figure in ink,
+   what qualifies it in graphite, an aside in pewter; a meter at the end */
+.money-figures, .money-list { margin: 0; padding: 0; list-style: none; }
+.money-figure { display: flex; align-items: flex-start; gap: 0 var(--s-3); }
+.money-figure > dd { margin: 0; }
+.money-label {
+  flex: none; width: 112px; font-size: var(--t-caption); font-weight: 500; color: var(--graphite);
+  font-variant-numeric: tabular-nums;
+}
+.money-value { flex: 1; min-width: 0; margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s-2); }
+.money-main { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.money-detail, .money-of { color: var(--graphite); font-variant-numeric: tabular-nums; }
+.money-aside { font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums; }
+.money-value .chip, .me-row .sheet-field .chip { align-self: center; }
+.money-meter {
+  flex: 0 1 160px; display: flex; height: 4px; margin: calc(var(--pad-text) / 2 - 2px) 0 0 auto;
+  background: var(--hairline); overflow: hidden;
+}
+.me-row > .money-meter { margin-top: calc(var(--pad-above) + var(--pad-text) / 2 - 2px); }
+.money-meter > span { background: var(--ink); }
+.money-line { color: var(--graphite); overflow-wrap: anywhere; }
+.money-line a { color: var(--ink); text-underline-offset: 3px; }
+.money-quiet { color: var(--pewter); }
+.money-error { color: var(--err-fg); }
+.money-name { font-weight: 400; }
+.money-pattern { font-family: var(--font-num); color: var(--ink); }
+
+/* a row of columns: what, then an amount at the right, tabular */
+.money-item { display: flex; align-items: baseline; gap: 0 var(--s-3); }
+.money-what { flex: 1; min-width: 0; }
+.money-amount {
+  flex: none; min-width: 96px; text-align: right;
+  color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.sheet-head .money-amount { font-weight: 500; color: var(--graphite); }
+.money-column { flex: none; font-size: var(--t-caption); font-weight: 500; color: var(--pewter); }
+.money-figure > .money-amount { color: var(--graphite); }
+
+/* a transaction: its words in ink (its account and note after them in
+   pewter), its category chosen on the line, its amount; unsorted, the
+   category is a pewter "Not sorted" */
+.money-transaction { align-items: flex-start; }
+.money-transaction:hover { background: var(--glass-row-hover); }
+.money-transaction .money-what { color: var(--ink); overflow-wrap: anywhere; }
+.money-account, .money-note { margin-left: var(--s-2); font-size: var(--t-caption); color: var(--pewter); }
+.money-category { flex: none; width: 180px; display: flex; }
+.money-category > select:not([hidden]) {
+  width: 100%; height: var(--pad-text); padding-block: 0; color: var(--graphite);
+}
+.money-transaction.is-unsorted .money-category > select { color: var(--pewter); }
+.money-transaction .money-amount.is-in { font-weight: 500; }
+
+/* budgets: Me's rows; what was spent in ink, the budget written on the
+   line after "of $", the meter, and the row's bin on hover */
+.money-budget .money-main { margin-right: var(--s-1); }
+.money-budget .sheet-field > input { min-width: 9ch; }
+.money-budget .sheet-field:has(> input:placeholder-shown:not(:focus)) > .money-of { display: none; }
+.money-budget .sheet-field > input:placeholder-shown:not(:focus) { color: var(--pewter); }
+.money-budget.is-quiet .me-label { color: var(--pewter); }
+.money-budget.is-quiet .money-main { color: var(--pewter); font-weight: 400; }
+.money-budget:hover, .money-hover:hover, .money-account:hover { background: var(--glass-row-hover); }
+:is(.money-budget, .money-hover, .money-account, .money-name-row) .task-delete {
+  flex: none; width: 24px; height: 24px; margin: calc(var(--pad-above) - 1px) -4px 0 0;
+}
+.money-hover .task-delete { margin-top: -1px; }
+:is(.money-budget, .money-hover, .money-account, .money-name-row):is(:hover, :focus-within) .task-delete { opacity: 1; }
+.money-add .plan-btn, .money-go { flex: none; height: 24px; margin-top: calc(var(--pad-above) - 1px); }
+/* a form's own button, its word in line with the fields above it */
+.money-go { margin-left: calc(-1 * var(--s-2)); }
+.me-row .sheet-field > input[type="file"] { height: auto; max-width: 260px; font-size: var(--t-caption); color: var(--graphite); }
+.me-row .sheet-field > input[type="file"]::file-selector-button {
+  margin-right: var(--s-2); padding: 1px var(--s-2);
+  font: inherit; color: var(--ink); background: var(--glass-btn); border: 1px solid var(--glass-border); border-radius: 0;
+  cursor: pointer;
+}
+.money-import .money-busy, .money-import.htmx-request .money-idle { display: none; }
+.money-import.htmx-request .money-busy { display: inline; }
+
+/* accounts: each account's name and kind written on the line, its
+   balance at the right */
+.money-account .sheet-field > input { font-weight: 500; min-width: 8ch; }
+.money-account .sheet-field > select { color: var(--graphite); }
+.money-balance { flex: none; padding: var(--pad-above) 0 var(--pad-below); text-align: right; }
+
+/* a bill or a goal: a group of its own, its name the head row, written on
+   the line in 600 ink */
+.money-name-row { align-items: flex-start; }
+.money-name-row .sheet-field > input { font-weight: 600; color: var(--ink); min-width: 12ch; }
+.money-name-row > .chip { flex: none; align-self: flex-start; margin-top: calc(var(--pad-above) + 2px); }
+.money-bill .me-row .sheet-field > input[name="match"], .money-bill-form input[name="match"] { flex: 1; }
+
+@media (max-width: 720px) {
+  .money-sheet { --pad-rows: 34px; --pad-gap: var(--s-2); }
+  .money-category { width: 132px; }
+  .money-amount { min-width: 80px; }
+  .money-meter { display: none; }
+}
+@media (max-width: 540px) {
+  .money-label { width: 88px; }
+  /* the category under the words, the amount beside them */
+  .money-transaction { flex-wrap: wrap; }
+  .money-transaction .money-what { flex-basis: calc(100% - 80px - var(--s-3)); }
+  .money-transaction .money-category { order: 3; width: 100%; }
+}
+
+/* the phone's tab bar holds every page: past its width it scrolls
+   sideways, each tab a 44px target */
+@media (max-width: 600px) {
+  .nav {
+    display: flex; flex-direction: row; gap: 0; flex: 1; min-width: 0;
+    overflow-x: auto; overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  /* tabs past an edge fade into it (shell.js marks which edges have more) */
+  .nav[data-more~="end"] { mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent); }
+  .nav[data-more~="start"] { mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent); }
+  .nav[data-more~="start"][data-more~="end"] {
+    mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+  }
+  .nav a { flex: 1 0 44px; }
+  .nav a[aria-current="page"]::before { top: 0; }
+}

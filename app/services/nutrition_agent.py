@@ -16,26 +16,17 @@ fake for Claude.
 from __future__ import annotations
 
 import json
-import shutil
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from app.config import get_settings
+from app.services import claude_sdk
+from app.services.claude_sdk import AgentEvent, AgentFailed, resolve_cli
 
-
-class AgentFailed(Exception):
-    """Claude could not run, or stopped with an error; the message says why."""
-
-
-@dataclass(frozen=True)
-class AgentEvent:
-    # "text": words of the answer, as they come; "status": what Claude is
-    # doing meanwhile ("Reading the plan").
-    kind: Literal["text", "status"]
-    text: str
+__all__ = ["AgentEvent", "AgentFailed", "AgentRequest", "claude_agent", "resolve_cli"]
 
 
 @dataclass(frozen=True)
@@ -165,33 +156,6 @@ def build_prompt(request: AgentRequest) -> str:
     return "\n".join(lines)
 
 
-def resolve_cli(configured: str = "") -> Path:
-    """The Claude Code executable to run. Windows will only run a native
-    claude.exe for the SDK (a .cmd would go through cmd.exe), so npm's
-    claude.cmd shim leads to the claude.exe npm installed beside it."""
-    if configured:
-        path = Path(configured)
-        if not path.is_file():
-            raise AgentFailed(f"No Claude Code at {configured} ([nutrition].claude_cli)")
-        return path
-    found = shutil.which("claude")
-    if found is None:
-        raise AgentFailed(
-            "Claude Code is not installed here: install it, or set [nutrition].claude_cli"
-        )
-    path = Path(found)
-    if path.suffix.lower() in (".cmd", ".bat"):
-        package = path.parent / "node_modules" / "@anthropic-ai" / "claude-code"
-        native = package / "bin" / "claude.exe"
-        if not native.is_file():
-            raise AgentFailed(
-                f"Claude Code at {path} is a script the SDK cannot run: "
-                "set [nutrition].claude_cli to a claude.exe"
-            )
-        return native
-    return path
-
-
 # The file tools, and where in their input each names a path.
 FILE_TOOLS = {"Read": "file_path", "Write": "file_path", "Edit": "file_path",
               "Glob": "path", "Grep": "path"}
@@ -240,17 +204,7 @@ def _status(tool: str, tool_input: dict[str, Any], request: AgentRequest) -> str
 async def claude_agent(request: AgentRequest) -> AsyncIterator[AgentEvent]:
     """Claude, through the Agent SDK: the answer as it is written, and a
     status for each tool call. Raises AgentFailed when the run fails."""
-    from claude_agent_sdk import (
-        AssistantMessage,
-        ClaudeAgentOptions,
-        ClaudeSDKError,
-        HookMatcher,
-        ResultMessage,
-        StreamEvent,
-        TextBlock,
-        ToolUseBlock,
-        query,
-    )
+    from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
 
     settings = get_settings()
     folder = request.folder
@@ -269,7 +223,7 @@ async def claude_agent(request: AgentRequest) -> AsyncIterator[AgentEvent]:
         system_prompt=SYSTEM_PROMPT,
         model=settings.nutrition.model,
         cwd=folder,
-        cli_path=resolve_cli(settings.nutrition.claude_cli),
+        cli_path=resolve_cli(settings.claude.cli),
         tools=TOOLS,
         allowed_tools=TOOLS,
         permission_mode="dontAsk",
@@ -281,34 +235,8 @@ async def claude_agent(request: AgentRequest) -> AsyncIterator[AgentEvent]:
         max_turns=40,
     )
 
-    said = False  # any words yet, so a later block starts a new paragraph
-    streamed = False  # the current text block came as deltas
-    try:
-        async for message in query(prompt=build_prompt(request), options=options):
-            if isinstance(message, StreamEvent):
-                event = message.event
-                kind = event.get("type")
-                if kind == "content_block_start" and event["content_block"]["type"] == "text":
-                    streamed = False
-                    if said:
-                        yield AgentEvent("text", "\n\n")
-                elif kind == "content_block_delta" and event["delta"]["type"] == "text_delta":
-                    streamed = said = True
-                    yield AgentEvent("text", event["delta"]["text"])
-            elif isinstance(message, AssistantMessage):
-                # Each block arrives whole after its deltas; one that did not
-                # stream is said whole.
-                for block in message.content:
-                    if isinstance(block, TextBlock) and not streamed and block.text:
-                        if said:
-                            yield AgentEvent("text", "\n\n")
-                        said = True
-                        yield AgentEvent("text", block.text)
-                    elif isinstance(block, ToolUseBlock):
-                        yield AgentEvent("status", _status(block.name, block.input, request))
-                streamed = False
-            elif isinstance(message, ResultMessage) and message.is_error:
-                detail = "; ".join(message.errors or []) or message.result or message.subtype
-                raise AgentFailed(f"Claude stopped with an error: {detail}")
-    except ClaudeSDKError as exc:
-        raise AgentFailed(f"Claude could not run: {exc}") from exc
+    def status(tool: str, tool_input: dict[str, Any]) -> str:
+        return _status(tool, tool_input, request)
+
+    async for event in claude_sdk.run(build_prompt(request), options, status):
+        yield event

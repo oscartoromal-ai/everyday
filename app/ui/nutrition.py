@@ -60,7 +60,7 @@ def nutrition_log(request: Request, day: date):
 def nutrition_chat(request: Request, db: DbSession, day: date):
     chat = chat_ctx(db, day)
     ctx = {"request": request, "day": day, "today": date.today(), "chat": chat}
-    response = templates.TemplateResponse(request, "partials/nutrition_chat.html", ctx)
+    response = templates.TemplateResponse(request, "partials/chat.html", ctx)
     # A page that opened mid-answer asks after it (#chat-pending); once it
     # has landed, the log is drawn again too, as Claude left it.
     if request.headers.get("HX-Trigger") == "chat-pending" and chat["pending"] is None:

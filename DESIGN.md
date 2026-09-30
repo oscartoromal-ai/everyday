@@ -74,13 +74,14 @@ The shell is a 240px matte sidebar plus a content column on the canvas.
 The wordmark is Brasa's pattern: the name in 600 followed by a spark period, "Personal Calendar.".
 At night the name carries a faint halo (`--ink-glow-text`) and the period glows and strikes once on load, three stutters and then steady, like a tube coming on (`--spark-entrance`).
 Nav items are 14px/500 graphite; the active one is ink 600 with Brasa's 3px spark bar, glowing at night, inset 8px from the viewport edge.
-Nav is grouped in the Brasa manner: the planning pages (Tasks, Today, Calendar, Weeks) sit under a 12px pewter "Planner" group label, Tasks first since the app opens on it; Projects follows as a second group, and Health (Nutrition, Me) as a third, under its own label.
+Nav is grouped in the Brasa manner: the planning pages (Tasks, Today, Calendar, Weeks) sit under a 12px pewter "Planner" group label, Tasks first since the app opens on it; Projects follows as a second group, Health (Nutrition, Me, Garmin) a third, and Finances (Spending, Accounts, Bills, Goals) a fourth, each under its own label.
 The foot carries Brasa's shipped light/dark toggle: the current mode's sun or moon, which rotates and fades into the other, beside the mode's name in 12px pewter.
 The names are the installed system's own, read from `design-language.json`: "Day" and "Night" for Neon Signage.
 A panel icon beside the wordmark collapses the sidebar to a 64px icon rail (`data-rail="collapsed"` on `<html>`, saved as `pc-rail`, applied before paint).
 The shell animates its column width on `--ease` over 220ms.
 When collapsed, the wordmark and labels hide, each link keeps its name as a tooltip, group labels become hairlines, and the spark bar stays.
 Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the spark bar moves above the active tab's icon, and the mode toggle ends the bar as a 44px sun or moon icon past a hairline, with no label; the collapse control stays desktop-only.
+Under 600px each tab is its icon, 44px wide; the tabs scroll sideways past the bar's width, it opens with the current page's tab in its middle, and an edge with tabs past it fades (`data-more`, `shell.js`).
 Content is 800px wide for list pages (Tasks, Projects), where more width only lengthens a row, and up to 1600px for Today, Calendar and Weeks, so a wide window or a zoomed-out page widens them rather than their margins.
 Compact rows (the rail's toggle above the mode's, or C) set Tasks' sheet and Today's notes 28px a row rather than 36px, the text its size: 3px above a 20px line, 4px below; the toggle's three lines close up while it is on, its label the state (Roomy, Compact).
 On Today a panel icon at the day header's right (or Ctrl+\) folds the timeline away, the notes taking its column, and back.
@@ -203,6 +204,19 @@ The chat's header is "Claude" at 16px/600 over a pewter caption; its messages ar
 While Claude answers, its row names what it is doing in pewter ("Reading the plan…") and its words arrive as written; a failed answer keeps what was said, in graphite, with an err "Did not finish" badge.
 The composer ends the card: the message written on the line (a textarea that grows to eight lines), and the spark "Send", the card's one primary, faded while an answer is on its way.
 Under 1100px the page is one column: the header, the chat (its messages up to half the window's height), then the log.
+
+**Finances.**
+Spending is a month's page laid out as Nutrition's day is (the chat page, `.chat-page`): the month's header ("This month", or the month's name, the chevrons, a pill back to This month, the month and year, and a key line), the month on a ruled sheet at the left, and the month's chat with Claude at the right, the same card as Nutrition's.
+The sheet's first group is The month: Spent (with "of $X budgeted" in graphite, a 160px meter and an err "Over" once past it), Came in, Left over, Moved (only when money moved between his accounts) and Not sorted (the count in ink, what is out and in in graphite, "Ask Claude to sort them" in pewter caption), a row each, the name in the 112px indent.
+Then Budgets: a spending category a row, those spent in first, most first, the rest by name in pewter; what was spent in ink at 500, then the budget written on the line after "of $" (an empty one is its pewter placeholder, "no budget", alone), what is left in pewter caption or an err "Over", the meter, and the rows' bin on hover; the group ends in a row to add a category.
+Came in lists the income categories that had money.
+Then a group a day, newest first: its title row the day ("Yesterday", "Mon 28 Sep") and its sum at the right; each transaction a row of its words in ink (its account in pewter caption when there are several), its category chosen on the line (a 180px select in graphite, "Not sorted" in pewter), and its amount at the right, signed, tabular, money in at 500.
+Choosing a category saves it and the month's figures follow; on phones the category goes under the words.
+Accounts, Bills and Goals are ruled sheets as Me's is, redrawn in place after each change.
+Accounts: At a glance (net worth with its change since last month, what he has, what he owes), Import (the file, the account it goes into, Import; then what the import did, or why the file cannot be read in err text, and the latest imports), each account's name and kind written on the line with its balance at the right, balances written by hand, net worth by month, and the sorting rules (their words in `--font-num` ink, their category in graphite).
+Bills: At a glance (a month, the next 30 days), Coming up (each payment in the next 30 days, its day in the indent), a group to write a new bill, then a group a bill: its name the head row, written in 600 ink, with an ok "Paid Mon 14 Sep", a warn "Not seen yet" or an err "Not seen for ..." badge; its amount, cadence and next due day on one row (a non-monthly bill's cost a month in pewter caption); and the words its payment says.
+Goals: a group to write a new goal, then a group a goal: its name, its target and by when, where it is kept (an account, or "counted by hand" with what is saved), and So far: what is saved in ink, "of $X" in graphite, what is to go and what a month gets there in pewter caption, and a meter; an ok "Reached" or a warn "Past its day" badge on its name.
+The ok, warn and err badges are `.chip.ok`, `.chip.warn` and `.chip.err`.
 
 **Done fold.** Finished tasks fold away under a list: a pewter "Done" summary with its count and a steel chevron that turns when open, then the rows, checked and struck through, ready to untick.
 On Tasks it is the sheet's last group, noting "last 14 days".
@@ -327,11 +341,11 @@ A task row keeps the task it made through edits around it (its start mapped thro
 A save names the version it was made from; refused (another window saved since), the page stops saving and asks; returning to the tab shows a newer version when nothing here is unsaved.
 Esc outside a task steps out of the text; Left and Right, outside it, go a day back or on.
 
-**Nutrition's chat** (`app/static/nutrition.js`, vanilla).
-Enter sends and Shift+Enter starts a new line; Left and Right, outside the message, go a day back or on.
+**The chats** (`app/static/chat.js`, vanilla; Nutrition's and Spending's).
+Enter sends and Shift+Enter starts a new line; Left and Right, outside the message, go a day (a month, on Spending) back or on.
 Sending draws Oscar's message and Claude's row at once, then reads the answer as it streams (newline-delimited JSON: the words, what Claude is doing, then done), following it down the chat while the chat is scrolled to its end.
-Done, the chat and the log are drawn again from the server (`nutrition:changed`), the answer as Markdown and the log as Claude left it.
-A page opened while an answer is on its way shows it so far and asks after it every two seconds; once it lands, the log is drawn again too (`nutrition:answered`).
+Done, the chat and what Claude changed are drawn again from the server (the composer's `data-changed` event: `nutrition:changed`, `money:changed`), the answer as Markdown and the log or the month as Claude left it.
+A page opened while an answer is on its way shows it so far and asks after it every two seconds; once it lands, the log or the month is drawn again too (`nutrition:answered`, `money:answered`).
 A refused message (empty, or one while Claude is still answering) is said in the toast, and its words go back in the composer.
 
 **Assets.** Static URLs go through `asset()`, which appends the file's mtime (`?v=`), so a browser never pairs new templates with a stale stylesheet.

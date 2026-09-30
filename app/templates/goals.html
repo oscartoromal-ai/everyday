@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Goals · Personal Calendar{% endblock %}
+{% block content %}
+{# Finances > Goals: money to save toward, kept in an account (its balance
+   the progress) or counted by hand, with what a month gets there. One
+   sheet, ruled as Me's is, drawn again after each change. #}
+<div class="me-page money-page">
+  <header class="page-header">
+    <div>
+      <h1>Goals</h1>
+      <p class="rest">What you are saving for, and what a month gets you there. Claude reads them too.</p>
+    </div>
+  </header>
+  <div class="ruled-sheet money-goals-sheet">
+    {% include "partials/money_goals.html" %}
+    <div class="sheet-filler" aria-hidden="true"><ol>{% for _ in range(30) %}<li></li>{% endfor %}</ol></div>
+  </div>
+</div>
+{% endblock %}

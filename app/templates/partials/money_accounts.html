@@ -1,0 +1,188 @@
+{# Accounts' groups, drawn again in place after each change: At a glance,
+   Import (the file, the account it goes into, and what the last import
+   did), the accounts themselves (name and kind written on the line, saved
+   as they change), balances, net worth by month, and the sorting rules. #}
+<div class="money-groups" id="money-accounts">
+{% if known %}
+<section class="sheet-group" aria-labelledby="money-glance">
+  <h2 class="sheet-row sheet-head" id="money-glance">At a glance</h2>
+  <dl class="money-figures">
+    <div class="sheet-row money-figure">
+      <dt class="money-label">Net worth</dt>
+      <dd class="money-value">
+        <span class="money-main">{{ net_worth }}</span>
+        {% if change %}<span class="money-detail">{{ change }} since the end of {{ last_month }}</span>{% endif %}
+      </dd>
+    </div>
+    <div class="sheet-row money-figure">
+      <dt class="money-label">You have</dt>
+      <dd class="money-value"><span class="money-main">{{ owned }}</span></dd>
+    </div>
+    <div class="sheet-row money-figure">
+      <dt class="money-label">You owe</dt>
+      <dd class="money-value"><span class="money-main">{{ owed }}</span></dd>
+    </div>
+  </dl>
+</section>
+{% endif %}
+
+<section class="sheet-group" aria-labelledby="money-import">
+  <h2 class="sheet-row sheet-head" id="money-import">Import</h2>
+  <form class="sheet-row me-row money-add money-import" hx-post="/ui/money/import" hx-encoding="multipart/form-data"
+        hx-target="#money-accounts" hx-swap="outerHTML" hx-disabled-elt="find button">
+    <label class="me-label" for="money-export">Export</label>
+    <span class="sheet-field">
+      <input type="file" id="money-export" name="export" accept=".csv,text/csv" required>
+      <span class="money-of">into</span>
+      <select name="account_id" aria-label="Into which account">
+        <option value="">A new account</option>
+        {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+      </select>
+    </span>
+    <button type="submit" class="plan-btn"><span class="money-idle">Import</span><span class="money-busy">Importing…</span></button>
+  </form>
+  {% if import_error %}<p class="sheet-row money-line money-error" role="alert">{{ import_error }}</p>{% endif %}
+  {% if imported %}
+  <p class="sheet-row money-line" role="status">{{ imported.text }} {{ imported.closing }}
+    {% if imported.month %}<a href="/spending/{{ imported.month.strftime('%Y-%m') }}">See {{ imported.month.strftime("%B") }}</a>{% endif %}</p>
+  {% endif %}
+  {% if not import_error and not imported %}
+  <p class="sheet-row money-line money-quiet">The CSV your bank exports: Revolut's or ING's. Importing one again, or one that overlaps, adds only what is new.</p>
+  {% endif %}
+  {% for i in imports %}
+  <div class="sheet-row money-figure">
+    <span class="money-label">{{ i.when }}</span>
+    <span class="money-value"><span class="money-main">{{ i.added }} added</span><span class="money-detail">{{ i.account }}{% if i.file %} · {{ i.file }}{% endif %}{% if i.known %} · {{ i.known }} already here{% endif %}</span></span>
+  </div>
+  {% endfor %}
+</section>
+
+<section class="sheet-group" aria-labelledby="money-accounts-title">
+  <h2 class="sheet-row sheet-head money-item" id="money-accounts-title">
+    <span class="money-what">Accounts</span>
+    <span class="money-column">balance</span>
+  </h2>
+  {% for a in accounts %}
+  <form class="sheet-row me-row money-account" hx-post="/ui/money/accounts/{{ a.id }}" hx-trigger="change"
+        hx-target="#money-accounts" hx-swap="outerHTML">
+    <span class="sheet-field">
+      <input id="account-name-{{ a.id }}" name="name" autocomplete="off" required maxlength="80" value="{{ a.name }}" aria-label="Account name">
+      <select id="account-kind-{{ a.id }}" name="kind" aria-label="Kind of account">
+        {% for value, word in account_words.items() %}<option value="{{ value }}" {% if a.kind == value %}selected{% endif %}>{{ word }}</option>{% endfor %}
+      </select>
+    </span>
+    <span class="money-balance">{% if a.balance %}<span class="money-main">{{ a.balance }}</span> <span class="money-aside">{{ a.as_of }}</span>{% else %}<span class="money-aside">No balance yet</span>{% endif %}</span>
+    <button type="button" class="task-delete" title="Delete this account"
+            aria-label="Delete the account {{ a.name }}"
+            hx-post="/ui/money/accounts/{{ a.id }}/delete" hx-target="#money-accounts" hx-swap="outerHTML"
+            hx-confirm="Delete account?"
+            data-confirm-title="Delete account?"
+            data-confirm-name="{{ a.name }}"
+            data-confirm-detail="will be deleted, with its transactions and balances. This can't be undone."
+            data-confirm-action="Delete">{% include "partials/money_trash.html" %}</button>
+  </form>
+  {% endfor %}
+  <form class="sheet-row me-row money-add" hx-post="/ui/money/accounts" hx-target="#money-accounts" hx-swap="outerHTML">
+    <label class="me-label" for="money-new-account">New account</label>
+    <span class="sheet-field">
+      <input id="money-new-account" name="name" autocomplete="off" required maxlength="80" placeholder="Name it">
+      <select name="kind" aria-label="Kind of account">
+        {% for value, word in account_words.items() %}<option value="{{ value }}">{{ word }}</option>{% endfor %}
+      </select>
+    </span>
+    <button type="submit" class="plan-btn">Add</button>
+  </form>
+</section>
+
+{% if accounts %}
+<section class="sheet-group" aria-labelledby="money-balances">
+  <h2 class="sheet-row sheet-head" id="money-balances">Balances</h2>
+  <form class="sheet-row me-row money-add" hx-post="/ui/money/balances" hx-target="#money-accounts" hx-swap="outerHTML">
+    <label class="me-label" for="money-balance">Write one</label>
+    <span class="sheet-field">
+      <select name="account_id" aria-label="Account">
+        {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+      </select>
+      <span class="money-of">$</span><input id="money-balance" name="amount" inputmode="decimal" autocomplete="off" required placeholder="Balance" aria-label="Balance in dollars">
+      <span class="money-of">on</span>
+      <input type="date" name="day" max="{{ today.isoformat() }}" value="{{ today.isoformat() }}" aria-label="Day">
+    </span>
+    <button type="submit" class="plan-btn">Log</button>
+  </form>
+  {% if balances %}
+  <ul class="money-list">
+    {% for b in balances %}
+    <li class="sheet-row money-figure money-hover">
+      <span class="money-label">{{ b.label }}</span>
+      <span class="money-value"><span class="money-main">{{ b.amount }}</span><span class="money-detail">{{ b.account }}</span></span>
+      <button type="button" class="task-delete" title="Delete this balance"
+              aria-label="Delete the balance of {{ b.account }}, {{ b.label }}"
+              hx-post="/ui/money/balances/{{ b.id }}/delete" hx-target="#money-accounts" hx-swap="outerHTML"
+              hx-confirm="Delete balance?"
+              data-confirm-title="Delete balance?"
+              data-confirm-name="{{ b.amount }}, {{ b.account }}, {{ b.label }}"
+              data-confirm-detail="will be deleted. This can't be undone."
+              data-confirm-action="Delete">{% include "partials/money_trash.html" %}</button>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="sheet-row money-line money-quiet">An import keeps its account's balance, day by day; write the others here, such as super and shares.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if months | length > 1 %}
+<section class="sheet-group" aria-labelledby="money-trend">
+  <h2 class="sheet-row sheet-head money-item" id="money-trend">
+    <span class="money-what">Net worth by month</span>
+    <span class="money-column">change</span>
+  </h2>
+  {% for row in months %}
+  <div class="sheet-row money-figure">
+    <span class="money-label">{{ row.label }}</span>
+    <span class="money-value"><span class="money-main">{{ row.total }}</span></span>
+    <span class="money-amount">{{ row.change }}</span>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section class="sheet-group" aria-labelledby="money-rules">
+  <h2 class="sheet-row sheet-head" id="money-rules">Sorting rules</h2>
+  <form class="sheet-row me-row money-add" hx-post="/ui/money/rules" hx-target="#money-accounts" hx-swap="outerHTML">
+    <label class="me-label" for="money-rule">New rule</label>
+    <span class="sheet-field">
+      <input id="money-rule" name="pattern" autocomplete="off" required minlength="3" maxlength="120" placeholder="Words it says">
+      <span class="money-of">go in</span>
+      <select name="category_id" aria-label="Category">
+        {% for group in categories %}
+        <optgroup label="{{ group.kind }}">{% for id, name in group.options %}<option value="{{ id }}">{{ name }}</option>{% endfor %}</optgroup>
+        {% endfor %}
+      </select>
+    </span>
+    <button type="submit" class="plan-btn">Add</button>
+  </form>
+  {% if rule_sorted %}<p class="sheet-row money-line" role="status">It sorted {{ rule_sorted }} transaction{{ "s" if rule_sorted != 1 }} already here.</p>{% endif %}
+  {% if rules %}
+  <ul class="money-list">
+    {% for r in rules %}
+    <li class="sheet-row money-figure money-hover">
+      <span class="money-label money-pattern">{{ r.pattern }}</span>
+      <span class="money-value"><span class="money-detail">{{ r.category }}</span></span>
+      <button type="button" class="task-delete" title="Delete this rule"
+              aria-label="Delete the rule for {{ r.pattern }}"
+              hx-post="/ui/money/rules/{{ r.id }}/delete" hx-target="#money-accounts" hx-swap="outerHTML"
+              hx-confirm="Delete rule?"
+              data-confirm-title="Delete rule?"
+              data-confirm-name="{{ r.pattern }}, into {{ r.category }},"
+              data-confirm-detail="will be deleted. What it sorted stays sorted."
+              data-confirm-action="Delete">{% include "partials/money_trash.html" %}</button>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="sheet-row money-line money-quiet">A transaction whose description holds a rule's words goes in its category as it is imported. Claude adds rules as it sorts.</p>
+  {% endif %}
+</section>
+</div>

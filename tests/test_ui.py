@@ -839,7 +839,7 @@ def test_health_is_its_own_nav_group_with_nutrition(client) -> None:
     assert 'aria-keyshortcuts="6"' in link and 'aria-current="page"' in link
     # The day's log beside the day's chat with Claude (test_nutrition.py has the rest).
     main = page.split('<main class="main">')[1]
-    assert 'class="nutrition-page"' in main and 'id="chat-composer"' in main
+    assert 'class="chat-page nutrition-page"' in main and 'id="chat-composer"' in main
 
 
 def test_me_saves_as_it_changes_and_says_what_follows(client, db) -> None:

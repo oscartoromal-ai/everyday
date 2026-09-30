@@ -10,7 +10,8 @@ from pathlib import Path
 import pytest
 
 from app.config import get_settings
-from app.models import NutritionMessage, NutritionRole
+from app.markdown import render_inline, render_markdown
+from app.models import ChatRole, NutritionMessage
 from app.services import nutrition as nutrition_svc
 from app.services import nutrition_chat as chat_svc
 from app.services.nutrition import NutritionFileError
@@ -132,12 +133,12 @@ def test_the_plans_targets_are_one_kind_each(folder: Path) -> None:
 
 
 def test_markdown_never_passes_raw_html_through() -> None:
-    assert "<script>" not in nutrition_svc.render_markdown("<script>alert(1)</script>")
+    assert "<script>" not in render_markdown("<script>alert(1)</script>")
 
 
 def test_a_link_to_the_folders_own_files_stays_words() -> None:
     line = "The [one-pan salmon](../meals/one-pan-salmon.md), see [HF](https://example.org)."
-    assert nutrition_svc.render_inline(line) == (
+    assert render_inline(line) == (
         'The one-pan salmon, see <a href="https://example.org" target="_blank"'
         ' rel="noopener noreferrer">HF</a>.'
     )
@@ -204,7 +205,7 @@ def test_the_cli_is_found_as_a_native_executable(tmp_path: Path, monkeypatch) ->
     (npm / "claude.cmd").write_text("")
     monkeypatch.setattr("shutil.which", lambda name: str(npm / "claude.cmd"))
     assert resolve_cli() == exe
-    with pytest.raises(AgentFailed, match="claude_cli"):
+    with pytest.raises(AgentFailed, match=r"[claude].cli"):
         resolve_cli(str(tmp_path / "nowhere.exe"))
     monkeypatch.setattr("shutil.which", lambda name: None)
     with pytest.raises(AgentFailed, match="not installed"):
@@ -275,8 +276,8 @@ def test_a_message_streams_claudes_answer_and_logs_the_day(chat_client, db, fold
     db.expire_all()
     said = chat_svc.messages(db, DAY)
     assert [(m.role, m.text, m.failed) for m in said] == [
-        (NutritionRole.oscar, "Breakfast was oats", False),
-        (NutritionRole.claude, "Logged your oats.", False),
+        (ChatRole.oscar, "Breakfast was oats", False),
+        (ChatRole.claude, "Logged your oats.", False),
     ]
     # The next message carries the chat so far.
     stream(chat_client, DAY, "And a coffee")
@@ -373,7 +374,7 @@ def test_the_page_before_anything_is_logged(chat_client, folder) -> None:
 
 
 def test_messages_are_stored_by_day(db) -> None:
-    db.add(NutritionMessage(day=DAY, role=NutritionRole.oscar, text="Oats"))
-    db.add(NutritionMessage(day=date(2026, 10, 1), role=NutritionRole.oscar, text="Eggs"))
+    db.add(NutritionMessage(day=DAY, role=ChatRole.oscar, text="Oats"))
+    db.add(NutritionMessage(day=date(2026, 10, 1), role=ChatRole.oscar, text="Eggs"))
     db.flush()
     assert [m.text for m in chat_svc.messages(db, DAY)] == ["Oats"]

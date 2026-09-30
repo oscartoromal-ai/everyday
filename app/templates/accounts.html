@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Accounts · Personal Calendar{% endblock %}
+{% block content %}
+{# Finances > Accounts: net worth and what makes it, his banks' exports
+   imported, balances written by hand (super, shares), net worth month by
+   month, and the rules that sort what is imported. One sheet, ruled as
+   Me's is, drawn again after each change. #}
+<div class="me-page money-page">
+  <header class="page-header">
+    <div>
+      <h1>Accounts</h1>
+      <p class="rest">What you have and owe, and your banks' exports. Claude reads them too.</p>
+    </div>
+  </header>
+  <div class="ruled-sheet money-accounts-sheet">
+    {% set imported = none %}{% set import_error = "" %}
+    {% include "partials/money_accounts.html" %}
+    <div class="sheet-filler" aria-hidden="true"><ol>{% for _ in range(30) %}<li></li>{% endfor %}</ol></div>
+  </div>
+</div>
+{% endblock %}

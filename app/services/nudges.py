@@ -7,7 +7,7 @@ trigger (activity without plan update) arrives with v2 session capture.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -18,12 +18,14 @@ from app.models import (
     BlockState,
     Milestone,
     MilestoneStatus,
+    MoneyBill,
     Nudge,
     NudgeType,
     Task,
     TaskStatus,
 )
 from app.services import events as events_svc
+from app.services import money as money_svc
 from app.services import tasks as tasks_svc
 
 DUE_LOOKAHEAD_DAYS = 3
@@ -131,7 +133,29 @@ def evaluate(db: Session, now: datetime) -> list[Nudge]:
             )
             if nudge:
                 created.append(nudge)
+    # 5. Bills of Finances coming due, not yet seen paid.
+    for day, bill in money_svc.upcoming(db, today, DUE_LOOKAHEAD_DAYS + 1):
+        if money_svc.payment(db, bill, day) is not None:
+            continue
+        nudge = _raise_nudge(
+            db,
+            type_=NudgeType.bill_due,
+            dedup_key=f"bill:{bill.id}:{day.isoformat()}",
+            message=f"{bill.name}, {money_svc.money(bill.cents)}, is due {short_date(day, today)}.",
+        )
+        if nudge:
+            created.append(nudge)
     return created
+
+
+def _bill_still_due(db: Session, nudge: Nudge) -> bool:
+    """A bill's nudge asks until the bill is paid, changed or gone."""
+    _, bill_id, day = nudge.dedup_key.split(":")
+    bill = db.get(MoneyBill, int(bill_id))
+    due = date.fromisoformat(day)
+    if bill is None or due not in money_svc.occurrences(bill, due, due):
+        return False
+    return money_svc.payment(db, bill, due) is None
 
 
 def _still_holds(nudge: Nudge, now: datetime) -> bool:
@@ -155,7 +179,10 @@ def active_nudges(db: Session, now: datetime) -> list[Nudge]:
         .where(Nudge.dismissed_at.is_(None))
         .order_by(Nudge.created_at.desc())
     )
-    return [n for n in nudges if _still_holds(n, now)]
+    return [
+        n for n in nudges
+        if (_bill_still_due(db, n) if n.type == NudgeType.bill_due else _still_holds(n, now))
+    ]
 
 
 def dismiss(db: Session, nudge_id: int, now: datetime | None = None) -> None:
@@ -208,6 +235,19 @@ def build_morning_digest(db: Session, now: datetime) -> str:
         )
     if review:
         lines.append(f"{len(review)} task(s) waiting for review.")
+    bills = [
+        (day, bill) for day, bill in money_svc.upcoming(db, today, DUE_LOOKAHEAD_DAYS + 1)
+        if money_svc.payment(db, bill, day) is None
+    ]
+    if bills:
+        lines.append(
+            "Bills due: "
+            + "; ".join(
+                f"{b.name} {money_svc.money(b.cents)} ({short_date(d, today)})"
+                for d, b in bills[:5]
+            )
+            + "."
+        )
     if len(lines) == 2 and not planned:
         lines.append("A clear day.")
     return "\n".join(lines)

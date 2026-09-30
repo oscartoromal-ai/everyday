@@ -1,0 +1,100 @@
+{# Bills' groups, drawn again in place after each change: At a glance, the
+   next 30 days, then each bill as a group of its own, its fields written
+   on the line and saved as they change: its name and amount, how often and
+   when next, and the words its payment says, with whether its last due
+   day was seen paid. A new bill is written in the first group. #}
+{% macro cadence_select(chosen, id) %}
+<select name="cadence" aria-label="How often"{% if id %} id="{{ id }}"{% endif %}>
+  {% for value, word in cadences.items() %}<option value="{{ value }}" {% if chosen == value %}selected{% endif %}>{{ word }}</option>{% endfor %}
+</select>
+{% endmacro %}
+<div class="money-groups" id="money-bills">
+{% if bills %}
+<section class="sheet-group" aria-labelledby="bills-glance">
+  <h2 class="sheet-row sheet-head" id="bills-glance">At a glance</h2>
+  <dl class="money-figures">
+    <div class="sheet-row money-figure">
+      <dt class="money-label">A month</dt>
+      <dd class="money-value"><span class="money-main">{{ a_month }}</span><span class="money-detail">across {{ bills | length }} bill{{ "s" if bills | length != 1 }}</span></dd>
+    </div>
+    <div class="sheet-row money-figure">
+      <dt class="money-label">Next 30 days</dt>
+      <dd class="money-value"><span class="money-main">{{ coming_total }}</span><span class="money-detail">{{ coming | length }} payment{{ "s" if coming | length != 1 }}</span></dd>
+    </div>
+  </dl>
+</section>
+
+{% if coming %}
+<section class="sheet-group" aria-labelledby="bills-coming">
+  <h2 class="sheet-row sheet-head" id="bills-coming">Coming up</h2>
+  {% for c in coming %}
+  <div class="sheet-row money-figure">
+    <span class="money-label">{{ c.label }}</span>
+    <span class="money-value"><span class="money-main money-name">{{ c.name }}</span></span>
+    <span class="money-amount">{{ c.amount }}</span>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+{% endif %}
+
+<section class="sheet-group" aria-labelledby="bills-new">
+  <h2 class="sheet-row sheet-head" id="bills-new">New bill</h2>
+  <form class="money-bill-form" hx-post="/ui/money/bills" hx-target="#money-bills" hx-swap="outerHTML">
+    <label class="sheet-row me-row">
+      <span class="me-label">Name</span>
+      <span class="sheet-field"><input name="name" autocomplete="off" required maxlength="80" placeholder="Netflix, rent, phone…"></span>
+    </label>
+    <div class="sheet-row me-row">
+      <label class="me-label" for="bill-new-amount">Amount</label>
+      <span class="sheet-field">
+        <span class="money-of">$</span><input id="bill-new-amount" name="amount" inputmode="decimal" autocomplete="off" required placeholder="Each time">
+        {{ cadence_select("monthly", "") }}
+        <span class="money-of">next due</span>
+        <input type="date" name="due" required value="{{ today.isoformat() }}" aria-label="Next due">
+      </span>
+    </div>
+    <label class="sheet-row me-row">
+      <span class="me-label">Paid when it says</span>
+      <span class="sheet-field"><input name="match" autocomplete="off" maxlength="120" placeholder="Words its payment's description holds, to see it paid"></span>
+    </label>
+    <div class="sheet-row me-row">
+      <span class="me-label"></span>
+      <button type="submit" class="plan-btn money-go">Add bill</button>
+    </div>
+  </form>
+</section>
+
+{% for b in bills %}
+<section class="sheet-group money-bill" aria-label="{{ b.name }}">
+  <form hx-post="/ui/money/bills/{{ b.id }}" hx-trigger="change" hx-target="#money-bills" hx-swap="outerHTML">
+    <div class="sheet-row sheet-head me-row money-name-row">
+      <span class="sheet-field"><input id="bill-name-{{ b.id }}" name="name" autocomplete="off" required maxlength="80" value="{{ b.name }}" aria-label="Bill name"></span>
+      {% if b.status %}<span class="chip {{ b.status[0] }}">{{ b.status[1] }}</span>{% endif %}
+      <button type="button" class="task-delete" title="Delete this bill"
+              aria-label="Delete the bill {{ b.name }}"
+              hx-post="/ui/money/bills/{{ b.id }}/delete" hx-target="#money-bills" hx-swap="outerHTML"
+              hx-confirm="Delete bill?"
+              data-confirm-title="Delete bill?"
+              data-confirm-name="{{ b.name }}"
+              data-confirm-detail="will be deleted. Its payments stay in your transactions."
+              data-confirm-action="Delete">{% include "partials/money_trash.html" %}</button>
+    </div>
+    <div class="sheet-row me-row">
+      <label class="me-label" for="bill-amount-{{ b.id }}">Amount</label>
+      <span class="sheet-field">
+        <span class="money-of">$</span><input id="bill-amount-{{ b.id }}" name="amount" inputmode="decimal" autocomplete="off" required value="{{ b.amount }}">
+        {{ cadence_select(b.cadence, "bill-cadence-" ~ b.id) }}
+        <span class="money-of">next due</span>
+        <input type="date" id="bill-due-{{ b.id }}" name="due" required value="{{ b.next_due.isoformat() }}" aria-label="Next due">
+        {% if b.per_month %}<span class="money-aside">{{ b.per_month }} a month</span>{% endif %}
+      </span>
+    </div>
+    <label class="sheet-row me-row">
+      <span class="me-label">Paid when it says</span>
+      <span class="sheet-field"><input id="bill-match-{{ b.id }}" name="match" autocomplete="off" maxlength="120" value="{{ b.match }}" placeholder="Words its payment's description holds, to see it paid"></span>
+    </label>
+  </form>
+</section>
+{% endfor %}
+</div>

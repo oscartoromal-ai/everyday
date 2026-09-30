@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Spending · {% if is_current %}This month{% else %}{{ month.strftime("%B %Y") }}{% endif %} · Personal Calendar{% endblock %}
+{% block content %}
+{# Finances > Spending: a month of money, its figures against the budgets
+   and its transactions a day at a time, beside the month's chat with
+   Claude, who sorts, budgets and keeps the bills and goals with Oscar
+   (chat.js). #}
+<div class="chat-page spending-page">
+  <header class="day-header chat-page-header">
+    <div class="day-title">
+      <h1 class="weekday">{% if is_current %}This month{% else %}{{ month.strftime("%B") }}{% endif %}</h1>
+      <nav class="day-nav" aria-label="Months">
+        <a class="day-step" href="/spending/{{ prev_month.strftime('%Y-%m') }}" data-day-step="prev"
+           aria-label="Previous month" title="Previous month">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5 6.5 10l5.5 5.5"/></svg>
+        </a>
+        {% if not is_current %}<a class="day-today" href="/spending">This month</a>{% endif %}
+        <a class="day-step" href="/spending/{{ next_month.strftime('%Y-%m') }}" data-day-step="next"
+           aria-label="Next month" title="Next month">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4.5 13.5 10 8 15.5"/></svg>
+        </a>
+      </nav>
+    </div>
+    <div class="rest">{{ month.strftime("%B %Y") }}</div>
+    <p class="keys-hint"><kbd>Enter</kbd> send · <kbd>Shift</kbd><kbd>Enter</kbd> new line · <kbd>←</kbd><kbd>→</kbd> months · <kbd>?</kbd> all keys</p>
+  </header>
+
+  <div class="money-sheet ruled-sheet" id="money-sheet"
+       hx-get="/ui/money/{{ month.strftime('%Y-%m') }}/sheet" hx-trigger="money:changed from:body, money:answered from:body" hx-swap="innerHTML">
+    {% include "partials/money_sheet.html" %}
+  </div>
+
+  <section class="chat-card" aria-labelledby="chat-title">
+    <header class="chat-header">
+      <h2 id="chat-title">Claude</h2>
+      <p class="chat-sub">Ask about your spending. It sorts, budgets and keeps your bills and goals.</p>
+    </header>
+    <div class="chat-log" id="chat-log" aria-live="polite"
+         hx-get="{{ chat.url }}" hx-trigger="money:changed from:body" hx-swap="innerHTML">
+      {% include "partials/chat.html" %}
+    </div>
+    <form class="chat-composer" id="chat-composer" data-changed="money:changed" action="{{ chat.url }}" method="post">
+      {# Written on the line, as every input is. #}
+      <span class="field-line chat-field">
+        <textarea name="message" rows="1" maxlength="4000" autocomplete="off" required
+                  aria-label="Message to Claude"
+                  placeholder="{% if is_current %}How is this month going?{% else %}How did that month go?{% endif %}"></textarea>
+      </span>
+      <button type="submit" class="btn primary chat-send">Send</button>
+    </form>
+  </section>
+</div>
+<script src="{{ asset('chat.js') }}" defer></script>
+{% endblock %}

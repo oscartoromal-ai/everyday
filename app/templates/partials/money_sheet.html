@@ -1,0 +1,32 @@
+{# Spending's sheet for a month: its figures (money_totals), then its
+   transactions a day at a time, newest first, each sorted into a category
+   on its line. Drawn again when Claude has answered (money:changed). #}
+{% if not has_accounts %}
+<section class="sheet-group" aria-labelledby="money-none">
+  <h2 class="sheet-row sheet-head" id="money-none">No accounts yet</h2>
+  <p class="sheet-row money-line">Import your Revolut export on <a href="/accounts">Accounts</a>, and the month adds up here.</p>
+  <p class="sheet-row money-line money-quiet">Your ING export too, for its balance and what moves between the two.</p>
+</section>
+{% else %}
+{% include "partials/money_totals.html" %}
+
+{% set t = transactions %}{% set categories = t.categories %}
+{% if t.days %}
+{% for d in t.days %}
+<section class="sheet-group money-day" aria-labelledby="money-day-{{ d.day.isoformat() }}">
+  <h2 class="sheet-row sheet-head money-item" id="money-day-{{ d.day.isoformat() }}">
+    <span class="money-what">{{ d.label }}</span>
+    <span class="money-amount">{{ d.total }}</span>
+  </h2>
+  {% for row in d.rows %}{% include "partials/money_transaction.html" %}{% endfor %}
+</section>
+{% endfor %}
+{% else %}
+<section class="sheet-group" aria-labelledby="money-empty">
+  <h2 class="sheet-row sheet-head" id="money-empty">No transactions this month</h2>
+  <p class="sheet-row money-line money-quiet">Import this month's export on <a href="/accounts">Accounts</a>, and its transactions show here.</p>
+</section>
+{% endif %}
+{% endif %}
+{# The empty rows under the last group, numbered on, to the sheet's foot. #}
+<div class="sheet-filler" aria-hidden="true"><ol>{% for _ in range(30) %}<li></li>{% endfor %}</ol></div>

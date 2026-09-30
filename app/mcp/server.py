@@ -42,7 +42,8 @@ mcp = FastMCP(
         "weigh-ins, estimated daily energy), for anything about what he eats: "
         "get_health_profile. What his Garmin watch measured day by day (steps, energy "
         "burned, sleep, resting heart rate, HRV, stress, body battery, readiness, "
-        "activities): get_garmin."
+        "activities): get_garmin. His money (a month's spending against budgets, "
+        "accounts and net worth, bills, savings goals): get_finances."
     ),
 )
 
@@ -304,6 +305,29 @@ def get_garmin(start: date | None = None, days: int = 7) -> dict[str, Any]:
             "synced_at": link.synced_at.isoformat(timespec="minutes")
             if link and link.synced_at else None,
             "days": garmin_svc.report(db, first, first + timedelta(days=days - 1)),
+        }
+
+
+@mcp.tool
+def get_finances(month: str | None = None) -> dict[str, Any]:
+    """Oscar's finances (Finances in the app), in Australian dollars, out
+    negative: the month's money (YYYY-MM, default this month) spent by
+    category against each budget, what came in, what is left and what is
+    unsorted; his accounts, their latest balances and net worth (and by
+    month); his bills and subscriptions, each with its next due day and
+    whether its last was seen paid; and his savings goals. For a month's
+    transactions, find them in the app's Spending chat, which also sorts and
+    budgets. Read-only."""
+    from app.services import money as money_svc
+    from app.services import money_tools
+
+    with session_scope("claude") as db:
+        chosen = month or money_svc.month_of(date.today()).strftime("%Y-%m")
+        return {
+            "month": money_tools.get_month(db, {"month": chosen}),
+            **money_tools.get_accounts(db, {}),
+            **money_tools.get_bills(db, {}),
+            **money_tools.get_goals(db, {}),
         }
 
 

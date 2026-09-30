@@ -22,6 +22,7 @@ Per [v1 phasing](tracker/tickets/002-v1-phasing.md):
 - **v5**: reviews and reflection flows.
 - **Health** (Oscar's call on 2026-09-28): a module beside the planner, its own group in the nav, starting with Nutrition (see [Nutrition chat](#nutrition-chat), Oscar's call on 2026-09-30) and Me, the context health advice needs: height, birth date, sex, activity level, goal and target weight, dietary pattern, allergies and intolerances, foods avoided and health notes, saved as they change, and weight as a log of weigh-ins, one a day; from them, age, BMI and an estimated daily energy to keep his weight (Mifflin-St Jeor times the activity's factor). Claude reads it through `get_health_profile`.
   Then Garmin (Oscar's call on 2026-09-30, see [Garmin](#garmin)): what his watch measures, day by day, synced from Garmin Connect.
+- **Finances** (Oscar's call on 2026-09-30, see [Finances](#finances)): a module of its own in the nav, beside Health: Spending (a month against its budgets, beside a chat with Claude), Accounts (net worth, balances, his banks' exports), Bills and Goals.
 
 Review flows are deliberately unspecified here; they sharpen as their phase nears (see the map's Not yet specified section).
 
@@ -230,6 +231,31 @@ Oscar's call on 2026-09-30: the app connects to his Garmin metrics.
 - **Synced by the scheduler** every `[garmin].sync_minutes` (30) and on demand: the first sync reaches `backfill_days` (30) back, each later one from the day before its last, so yesterday settles and a gap while the app was off is caught up.
 - **Read by Claude.** `get_garmin(start, days)` over MCP; `get_health_profile` carries the energy his Garmin measured him burning a day (the average of his last 14 full days worn, from 7 of them), which Me shows beside the estimate; and Nutrition's chat gets the day's and the day before's figures in its prompt.
 
+### Finances
+
+Oscar's call on 2026-09-30: the app keeps his money, fed by his banks' CSV exports, with Claude in a chat on Spending.
+
+- **The database is the record**, unlike Nutrition's files: exports become rows, amounts whole cents in Australian dollars (out negative), in `money_*` tables backed up with the rest.
+- **His banks' exports, imported by hand on Accounts.** Revolut and ING Australia, told apart by their header line (`app/sources/bank_csv.py`).
+  Revolut rows count once COMPLETED and in AUD, a fee taken off its row; the others are counted as left out, with why.
+  Each row's fingerprint is its day, amount and description with how many identical rows came before it in the file, so importing an export twice, or two that overlap, adds each transaction once.
+  Every day's closing balance in an export becomes its account's balance that day, so net worth has its history from the first import.
+  The column layouts come from the banks' published formats; the first real export of each confirms them.
+- **Sorted into categories**: spending, income, or transfer (money between his own accounts, in neither).
+  A rule sorts every transaction whose description holds its words as it is imported (the longest match wins), and the unsorted ones when it is added; a Revolut top-up is a transfer.
+  Categories begin from a starting set on first use; a spending category may have a budget a month.
+- **A month** is what was spent by category against its budget, what came in, what is left, what moved between accounts (counted once when both sides are imported), and what is not sorted yet, unsorted money counting in the totals.
+- **Net worth** is each account's latest balance summed, a card's or loan's as owed; balances without an export (super, shares) are written by hand.
+- **Bills** come round by their cadence from any one due day (weekly, fortnightly, monthly on the day or the month's last, quarterly, yearly).
+  A bill is seen paid by money out within five days of a due day whose description holds its words.
+  A bill due within three days and not seen paid raises a nudge, and is in the morning digest.
+- **Goals** are a target, by a day or not, kept in an account (its balance is the progress) or counted by hand, with what a month gets there.
+- **Claude through the Agent SDK**, as Nutrition's chat is (`app/services/money_agent.py`), one stateless run per message, the month's chat so far in its prompt.
+  Its world is the tools of `app/services/money_tools.py`, run in the app's process on its database: read a month, find transactions, sort them, add rules, categories and budgets, write balances, and keep bills and goals.
+  It has no files and no shell, and no setting, CLAUDE.md, skill or MCP server of the machine's; it can search the web.
+  The chat is the month's (`money_messages`); a run goes on after its page closes, one at a time per month.
+- **Read by Claude elsewhere** through `get_finances(month)` over MCP.
+
 ### Plan truth
 
 - The app database is canonical for cross-project plan state.
@@ -248,6 +274,7 @@ Per [Decision: AI nudging and notifications](tracker/tickets/013-ai-nudging.md):
   2. Activity without plan update (arrives with v2 data): sessions ran in a project but no MCP plan update followed.
   3. Upcoming due dates and milestone target dates within about 3 days, task not done.
   4. Needs-review backlog: tasks sitting in needs_review beyond a threshold.
+  5. A bill of Finances due within about 3 days and not yet seen paid; its nudge retires once a payment is seen.
 - Nudges are templated by APScheduler jobs; Claude remains the planner Oscar talks to, not a background voice.
 - A task's nudge shows only while its fact still holds: replanning a missed task, finishing a task, or clearing its review retires the nudge without a dismissal.
 - **Channels**: an in-app nudge center (inbox/banner, each nudge dismissable or actionable) plus phone push via a relay.
@@ -273,7 +300,7 @@ Per [Architecture](tracker/tickets/009-architecture.md) and [Decision: security 
 ### Frontend
 
 - Server-rendered: Jinja templates plus HTMX for pages, lists, and forms; no build step, state server-side.
-- Real client JS is limited to a few focused vanilla islands, each built well once: the drag-to-slot calendar (week grid and Today's timeline), drag-to-replan on the Weeks view, the task sheet (one editor for adding and editing, with its line-based description editor), and Today's notebook (the same line editor in prose mode, with the sheet as its task box).
+- Real client JS is limited to a few focused vanilla islands, each built well once: the drag-to-slot calendar (week grid and Today's timeline), drag-to-replan on the Weeks view, the task sheet (one editor for adding and editing, with its line-based description editor), Today's notebook (the same line editor in prose mode, with the sheet as its task box), and the chats with Claude on Nutrition and Spending (the answer streamed as it is written).
 
 ### Background jobs
 

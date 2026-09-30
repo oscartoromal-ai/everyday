@@ -2,7 +2,7 @@
 local/
 
 # Runtime data: SQLite database, WAL files, hook spool.
-data/
+/data/
 
 # Daily backup snapshots.
 backups/

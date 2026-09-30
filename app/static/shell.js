@@ -153,7 +153,7 @@
     toastTimer = setTimeout(() => el.classList.remove("show"), action && run ? 6000 : 2600);
   };
 
-  /* ---- keys that work on every page: 1-7 go to the nav's pages in order,
+  /* ---- keys that work on every page: 1-9 go to the nav's pages that have a key, in order,
      ? shows every key (#keys-dialog), and N or Shift+N writes a new task (on
      the list pages, tasks.js puts it in the page's own list; elsewhere it
      opens #capture-dialog). Never while typing, or over a dialog. ---- */
@@ -296,4 +296,26 @@
   document.addEventListener("htmx:load", (e) => markDates(e.detail.elt));
   // A form's reset event comes before its fields go back.
   document.addEventListener("reset", (e) => setTimeout(() => markDates(e.target)));
+
+  /* ---- the phone's tab bar scrolls sideways once it holds more tabs than
+     fit: it opens on the current page's tab, and marks the edges that have
+     more past them (data-more), which fade ---- */
+  const nav = document.querySelector(".nav");
+  if (nav) {
+    const markMore = () => {
+      const more = [];
+      if (nav.scrollLeft > 1) more.push("start");
+      if (nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 1) more.push("end");
+      if (more.length) nav.dataset.more = more.join(" ");
+      else delete nav.dataset.more;
+    };
+    const current = nav.querySelector('a[aria-current="page"]');
+    if (current && nav.scrollWidth > nav.clientWidth) {
+      const middle = current.offsetLeft - nav.offsetLeft + current.offsetWidth / 2;
+      nav.scrollLeft = middle - nav.clientWidth / 2;
+    }
+    markMore();
+    nav.addEventListener("scroll", markMore, { passive: true });
+    window.addEventListener("resize", markMore);
+  }
 })();
