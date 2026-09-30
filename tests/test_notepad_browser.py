@@ -899,3 +899,42 @@ def test_compact_rows_and_a_folded_timeline_are_kept(page, live) -> None:
     page.locator(".density-toggle").click()
     assert page.locator(".today-timeline").is_visible()
     assert row_height() == 36
+
+
+def test_a_task_added_as_the_page_is_left_is_added_once(page, live, app_db) -> None:
+    """A task row still being written when the page is left is added by the
+    notes' own save, linked to its row: coming back and writing in it again,
+    then leaving again, writes to that task and adds no second one."""
+    from app.services import tasks as tasks_svc
+
+    def tasks() -> list:
+        with app_db() as db:
+            return [(t.id, t.title, t.notes) for t in tasks_svc.list_tasks(db)]
+
+    def settled(check) -> None:  # noqa: ANN001
+        end = time.monotonic() + 5
+        while not check() and time.monotonic() < end:
+            time.sleep(0.1)
+        assert check()
+
+    page.goto(f"{live}/today")
+    write_in(page)
+    page.keyboard.type("- [ ] Note app")
+    page.keyboard.press("Enter")
+    page.keyboard.type("- Improve")
+    page.goto(f"{live}/")  # left with the task row still open
+
+    settled(lambda: [(title, notes) for _, title, notes in tasks()] == [("Note app", "- Improve")])
+    [(task_id, _, _)] = tasks()
+    settled(lambda: stored(app_db) == [
+        {"kind": "text", "text": "- [ ] Note app\n\t- Improve", "links": {"0": task_id}},
+    ])
+
+    page.goto(f"{live}/today")
+    write_in(page)
+    page.keyboard.press("Control+End")
+    page.keyboard.type(" tasks screen")
+    page.goto(f"{live}/")
+    settled(lambda: tasks() == [(task_id, "Note app", "- Improve tasks screen")])
+    time.sleep(0.5)
+    assert tasks() == [(task_id, "Note app", "- Improve tasks screen")]

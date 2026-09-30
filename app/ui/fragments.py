@@ -84,6 +84,44 @@ def _row_response(
     return templates.TemplateResponse(request, "partials/task_row.html", context)
 
 
+def _add_task(
+    db,  # noqa: ANN001
+    *,
+    title: str,
+    notes: str = "",
+    planned_for: str = "",
+    time_range: str = "",
+    due: str = "",
+    repeat: str = "none",
+    project_id: str = "",
+    milestone_id: str = "",
+    list_day: str = "",
+    done: bool = False,
+):
+    """A new task as written (quick-add, the task sheet, the notepad's rows),
+    its time booked and its repeat set. Returns it, and whether it was given
+    a time."""
+    start, end = _time_range(time_range)
+    day = date.fromisoformat(planned_for) if planned_for else None
+    if start is not None and day is None:
+        # A time needs a day: the list's, else today.
+        day = date.fromisoformat(list_day) if list_day else date.today()
+    task = tasks_svc.create_task(
+        db,
+        title=title,
+        notes=notes,
+        planned_for=day,
+        due=date.fromisoformat(due) if due else None,
+        project_id=int(project_id) if project_id else None,
+        milestone_id=int(milestone_id) if milestone_id else None,
+        status=TaskStatus.done if done else TaskStatus.todo,
+    )
+    _apply_task_repeat(db, task, repeat)
+    if start is not None:
+        blocks_svc.set_day_time(db, task, day, start, end)
+    return task, start is not None
+
+
 @router.post("/tasks/quick-add")
 def quick_add(
     request: Request,
@@ -100,25 +138,13 @@ def quick_add(
     title = title.strip()
     if not title:
         return HTMLResponse("")
-    start, end = _time_range(time_range)
-    day = date.fromisoformat(planned_for) if planned_for else None
-    if start is not None and day is None:
-        # A time needs a day: the list's, else today.
-        day = date.fromisoformat(list_day) if list_day else date.today()
-    task = tasks_svc.create_task(
-        db,
-        title=title,
-        notes=notes,
-        planned_for=day,
-        due=date.fromisoformat(due) if due else None,
-        project_id=int(project_id) if project_id else None,
+    task, timed = _add_task(
+        db, title=title, notes=notes, planned_for=planned_for, time_range=time_range,
+        due=due, repeat=repeat, project_id=project_id, list_day=list_day,
     )
-    _apply_task_repeat(db, task, repeat)
-    if start is not None:
-        blocks_svc.set_day_time(db, task, day, start, end)
     db.commit()
-    triggers = ["calendar:refresh"] if start is not None else []
-    if list_day and day != date.fromisoformat(list_day):
+    triggers = ["calendar:refresh"] if timed else []
+    if list_day and task.planned_for != date.fromisoformat(list_day):
         # Dated away from the list it was written in: it does not join that
         # list, and the page regroups; tasks.js carries the composer.
         response = HTMLResponse("")
@@ -493,23 +519,66 @@ def toggle_milestone(request: Request, db: DbSession, milestone_id: int):
 @router.post("/notebook/{day}")
 async def save_notebook(request: Request, db: DbSession, day: date):
     """Save a day's page (notepad.js): {"version": the copy's version,
-    "blocks": [...]}. Answers the new version, or 409 with the page's
-    current one when it was saved elsewhere since."""
+    "blocks": [...]}. A text block's `new`, {row: task as written}, names
+    task rows not yet added (the page was being left): each is added here
+    and linked to its row, in the same save, since a page being left never
+    hears back which task a separate add made. Answers the new version, or
+    409 with the page's current one when it was saved elsewhere since (and
+    adds nothing)."""
     from app.services import notebook as notebook_svc
 
     body = await request.json()
     if not isinstance(body, dict):
         raise DomainError("Expected a page")
-    try:
-        page = notebook_svc.save_page(
-            db, day, body.get("blocks"), version=int(body.get("version", -1))
+    version = int(body.get("version", -1))
+    blocks = body.get("blocks")
+    if version != notebook_svc.version_of(db, day):
+        return JSONResponse(
+            {"detail": "This page was changed in another window.",
+             "version": notebook_svc.version_of(db, day)},
+            status_code=409,
         )
+    if isinstance(blocks, list):
+        blocks = [_add_new_rows(db, b) for b in blocks]
+    try:
+        page = notebook_svc.save_page(db, day, blocks, version=version)
     except notebook_svc.StalePage as exc:
         return JSONResponse(
             {"detail": str(exc), "version": notebook_svc.version_of(db, day)}, status_code=409
         )
     db.commit()
     return JSONResponse({"version": page.version})
+
+
+NEW_ROW_FIELDS = ("planned_for", "time", "due", "repeat", "project_id", "milestone_id")
+
+
+def _add_new_rows(db, block):  # noqa: ANN001, ANN202
+    """A text block with its `new` rows added as tasks and put in its links."""
+    if not isinstance(block, dict) or "new" not in block:
+        return block
+    block = dict(block)
+    new = block.pop("new")
+    if not isinstance(new, dict):
+        raise DomainError("A text block's new rows map its rows to tasks")
+    links = dict(block.get("links") or {})
+    for row, written in new.items():
+        if not isinstance(written, dict) or str(row) in {str(r) for r in links}:
+            continue
+        title = str(written.get("title", "")).strip()
+        if not title:
+            continue
+        fields = {name: str(written.get(name) or "") for name in NEW_ROW_FIELDS}
+        task, _ = _add_task(
+            db, title=title, notes=str(written.get("notes", "")),
+            planned_for=fields["planned_for"], time_range=fields["time"], due=fields["due"],
+            repeat=fields["repeat"] or "none", project_id=fields["project_id"],
+            milestone_id=fields["milestone_id"], done=written.get("done") is True,
+        )
+        links[str(row)] = task.id
+    if links:
+        block["links"] = links
+    return block
 
 
 @router.get("/notebook/{day}/version")

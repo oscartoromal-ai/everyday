@@ -1047,14 +1047,37 @@
   let theirs = 0;
   const loading = Annotation.define(); // the notes being taken up, not written
 
+  // A task row not added yet, as its add would write it: null when there is
+  // nothing to add (no title, or words the notes already had when they were
+  // taken up, which stay text until written in).
+  const toAdd = (block) => {
+    const m = block.m;
+    if (m.id) return null;
+    const { title, notes } = contentOf(block);
+    if (!title || (m.saved && m.saved.title === title && m.saved.notes === notes)) return null;
+    const { planned_for, time, due, repeat, project_id, milestone_id } = m.fields;
+    return { title, notes, planned_for, time, due, repeat, project_id, milestone_id, done: isDone(block) };
+  };
+
   // The notes as the page's blocks: the text between reflections and
   // habits (each with the rows that made tasks, by row), each reflection's
   // words, and each habit (by name, done or not, its note). A habit row
   // whose name is not one (empty, or with other signs) stays text.
-  const serialize = () => {
+  // `adding`: the page is being left, so the task rows not added yet go
+  // with the notes (a text block's `new`, by row), the server adding and
+  // linking them in the same save; a separate add's answer, naming the
+  // task it made, would never reach a page that is gone.
+  const serialize = ({ adding = false } = {}) => {
     const { state } = view;
     const doc = state.doc;
     const tasks = new Map(state.field(tasksField).map(({ pos, m }) => [pos, m]));
+    const unadded = new Map();
+    if (adding) {
+      for (const block of blocks()) {
+        const task = toAdd(block);
+        if (task) unadded.set(block.m, task);
+      }
+    }
     const written = new Map(writtenOf(state).map((r) => [r.first, r]));
     const foldable = new Set(blocksOf(state).filter((b) => b.last > b.first).map((b) => b.first));
     const out = [];
@@ -1063,6 +1086,7 @@
       if (!text) return;
       const block = { kind: "text", text: text.text };
       if (Object.keys(text.links).length) block.links = text.links;
+      if (Object.keys(text.new).length) block.new = text.new;
       if (text.folded.length) block.folded = text.folded;
       out.push(block);
       text = null;
@@ -1081,9 +1105,10 @@
         n = block.last;
         continue;
       }
-      if (!text) text = { kind: "text", text: null, links: {}, folded: [], rows: [] };
+      if (!text) text = { kind: "text", text: null, links: {}, new: {}, folded: [], rows: [] };
       const m = tasks.get(line.from);
       if (m?.id) text.links[text.rows.length] = m.id;
+      else if (m && unadded.has(m)) text.new[text.rows.length] = unadded.get(m);
       if (m?.folded && foldable.has(n)) text.folded.push(text.rows.length);
       text.rows.push(line.text);
       text.text = text.rows.join("\n");
@@ -1100,12 +1125,12 @@
 
   async function flush({ leaving = false } = {}) {
     clearTimeout(timer);
-    if (!view || stale || !pending()) return;
+    if (!view || stale || !(pending() || (leaving && blocks().some(toAdd)))) return;
     if (inflight && !leaving) {
       again = true;
       return;
     }
-    const page = serialize();
+    const page = serialize({ adding: leaving });
     const state = JSON.stringify(page);
     const request = fetch(`/ui/notebook/${day}`, {
       method: "POST",
@@ -1365,11 +1390,12 @@
     link.click();
   });
 
-  // Leaving the page: what is written goes, and every task written or changed with it.
+  // Leaving the page: what is written goes, every task changed with it, and
+  // every task row not added yet is added by that same save.
   window.addEventListener("pagehide", () => {
     if (!view) return;
-    for (const block of blocks()) saveTask(block, { leaving: true });
-    if (pending()) flush({ leaving: true });
+    for (const block of blocks()) if (block.m.id) saveTask(block, { leaving: true });
+    flush({ leaving: true });
   });
 
   /* ---- the day's stay, under the date ---- */
