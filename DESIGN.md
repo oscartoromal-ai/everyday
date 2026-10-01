@@ -364,6 +364,7 @@ Esc outside a task steps out of the text; Left and Right, outside it, go a day b
 A roving cell cursor (the cursor's cell alone is in the tab order), kept through every redraw by row key and column, and scrolled clear of the frozen pane and header.
 Every edit is one JSON POST of ops (`/ui/projects/<id>/gantt`, `app.services.gantt.apply`), answered with the sheet drawn again; requests go one at a time, and a sheet that now starts earlier keeps the same weeks in view.
 Right (or Tab) from Due enters the time where the row's work is, not at the sheet's first column: a task's start (or its due), a workstream's first day, and for a task with no days, or a group's add row, the next workday after the dated task above it in its group, never before today (today with none); a day out of sight scrolls in a lead from the pane.
+Ctrl+arrows go as a spreadsheet's do: from a filled cell along its run to the run's last, from an empty one to the next filled, else to the sheet's edge; a column of time is filled under a bar, tick or lane, a pane cell by its box or words.
 Typing writes over a cell and the arrows then leave it (Excel's Enter mode); Enter, F2 or a double-click write in it with the arrows moving in the words; Enter keeps it and goes down, Tab across, Esc drops it, and a click elsewhere keeps it.
 A value the server refuses is said in the toast and the cell opens again on the words.
 Every printable key is the sheet's while it has focus (the page's number and letter keys do not fire), except ? for the keys.

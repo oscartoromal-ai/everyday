@@ -128,6 +128,43 @@
     moveTo(row.dataset.key, Math.max(0, Math.min(colCount() - 1, cursor.col + dCol)), options);
   };
 
+  /* ---- Ctrl+arrows: to the edges of what is there ---- */
+
+  // A cell with something in it: a column of time under a bar, tick or
+  // lane, or a box or words in the pane (a row to write in is empty).
+  const filled = (row, col) => {
+    if (!isTime(col)) {
+      const cell = cellAt(row, col);
+      if (!cell || cell.querySelector(".placeholder")) return false;
+      return cell.hasAttribute("data-toggle") || cell.textContent.trim() !== "";
+    }
+    const c = col - FROZEN;
+    const v = (el, name) => parseFloat(el.style.getPropertyValue(name));
+    return [...row.querySelectorAll(".gantt-bar, .gantt-summary")].some((el) => c + 1 > v(el, "--s") && c < v(el, "--s") + v(el, "--n"))
+      || [...row.querySelectorAll(".gantt-tick")].some((el) => Math.floor(v(el, "--x")) === c);
+  };
+
+  // As a spreadsheet's: along a run of filled cells to its last, else on
+  // to the next filled one, else to the sheet's edge.
+  const jump = (dRow, dCol, options) => {
+    const all = rows();
+    const here = all.findIndex((r) => r.dataset.key === cursor.key);
+    const cellOf = (i) => (dRow ? [all[i], cursor.col] : [all[here], i]);
+    const full = (i) => filled(...cellOf(i));
+    const by = dRow || dCol;
+    const edge = by < 0 ? 0 : (dRow ? all.length - 1 : colCount() - 1);
+    let i = dRow ? here : cursor.col;
+    if (i === edge) return;
+    if (full(i) && full(i + by)) {
+      while (i !== edge && full(i + by)) i += by;
+    } else {
+      i += by;
+      while (i !== edge && !full(i)) i += by;
+    }
+    const [row, col] = cellOf(i);
+    moveTo(row.dataset.key, col, options);
+  };
+
   /* ---- into the time from Due: where the row's work is ---- */
 
   // A day's column, kept on the sheet.
@@ -612,8 +649,8 @@
       if (key === "-" || key === "Delete") { handled(); remove(); return; }
       if (key === "Home") { handled(); moveTo(rows()[0].dataset.key, TITLE, { extend: e.shiftKey }); return; }
       if (key === "End") { const all = rows(); handled(); moveTo(all[all.length - 1].dataset.key, colCount() - 1, { extend: e.shiftKey }); return; }
-      const jump = { ArrowUp: [-1e4, 0], ArrowDown: [1e4, 0], ArrowLeft: [0, -1e4], ArrowRight: [0, 1e4] }[key];
-      if (jump) { handled(); step(...jump, { extend: e.shiftKey }); }
+      const to = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[key];
+      if (to) { handled(); jump(...to, { extend: e.shiftKey }); }
       return; // Ctrl+V comes as a paste event; other Ctrl keys stay the browser's
     }
     if (e.altKey) {

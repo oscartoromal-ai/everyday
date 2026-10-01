@@ -213,7 +213,8 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         </dl>
         <h3>A project's Gantt</h3>
         <dl>
-          <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> <span class="or">or</span> <kbd>Tab</kbd></dt><dd>Move between cells; with Shift, hold a range</dd>
+          <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> <span class="or">or</span> <kbd>Tab</kbd></dt><dd>Move between cells; with Shift, hold a range. Right from Due goes to the row's own days</dd>
+          <dt><kbd>Ctrl</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>To the end of the bars (or words) the cursor is on, else the next ones, else the sheet's edge</dd>
           <dt>Typing, <kbd>Enter</kbd> <span class="or">or</span> <kbd>F2</kbd></dt><dd>Write in the cell: a task, W42, 12 Oct or next week, a length (3, 3w, 10d); Enter keeps it and goes down, Tab across, Esc drops it</dd>
           <dt><kbd>V</kbd></dt><dd>Weeks or days (outside the sheet's cells)</dd>
           <dt><kbd>Space</kbd></dt><dd>On the time: the bar over the weeks or days held; on the box: done, or not</dd>
