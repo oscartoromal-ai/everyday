@@ -901,6 +901,22 @@ def test_compact_rows_and_a_folded_timeline_are_kept(page, live) -> None:
     assert row_height() == 36
 
 
+def test_the_density_and_mode_toggles_each_switch_only_their_own(page, live) -> None:
+    def dark() -> bool:
+        return page.evaluate("document.documentElement.dataset.theme === 'dark'")
+
+    page.goto(f"{live}/today")
+    mode = page.locator(".theme-toggle")
+    was_dark = dark()
+    page.locator(".density-toggle").click()
+    assert page.evaluate("document.documentElement.dataset.density") == "compact"
+    assert dark() == was_dark
+    mode.click()
+    assert dark() != was_dark
+    assert mode.get_attribute("aria-pressed") == str(not was_dark).lower()
+    assert page.locator(".density-toggle").get_attribute("aria-pressed") == "true"
+
+
 def test_a_task_added_as_the_page_is_left_is_added_once(page, live, app_db) -> None:
     """A task row still being written when the page is left is added by the
     notes' own save, linked to its row: coming back and writing in it again,

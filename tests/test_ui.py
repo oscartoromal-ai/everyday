@@ -693,7 +693,8 @@ def test_shell_has_theme_toggle_and_collapse_control(client) -> None:
     page = client.get("/today").text
     # the toggle names the modes the installed design system names
     modes = design_system()["modes"]
-    assert 'class="theme-toggle"' in page and modes["light"] in page and modes["dark"] in page
+    assert 'class="rail-button theme-toggle"' in page
+    assert modes["light"] in page and modes["dark"] in page
     assert 'class="rail-collapse"' in page and 'aria-controls="main-nav"' in page
     assert "/static/shell.js?v=" in page
     # the saved theme and rail state apply in <head>, before the stylesheet paints

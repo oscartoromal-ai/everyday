@@ -126,16 +126,16 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
   width: 3px; border-radius: 0; background: var(--spark); box-shadow: var(--spark-glow);
 }
 
-/* foot: Brasa's shipped light/dark toggle, bottom left */
+/* foot: compact rows and Brasa's shipped light/dark toggle, bottom left, drawn alike */
 .rail-foot { margin-top: auto; padding-top: var(--s-3); border-top: 1px solid var(--chrome-flank-border); }
-.theme-toggle {
+.rail-button {
   display: flex; align-items: center; gap: var(--s-2);
   width: 100%; padding: var(--s-2) var(--s-3);
   border-radius: var(--r-ctl);
   color: var(--pewter); white-space: nowrap;
   transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
-.theme-toggle:hover { color: var(--ink); background: var(--glass-hover); }
+.rail-button:hover { color: var(--ink); background: var(--glass-hover); }
 .theme-toggle__icon-stack { position: relative; flex: none; width: 16px; height: 16px; }
 .theme-toggle__icon {
   position: absolute; inset: 0; width: 16px; height: 16px;
@@ -147,7 +147,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 .theme-toggle__icon--moon { transform: rotate(70deg) scale(0.4); }
 :root:not([data-theme="dark"]) .theme-toggle__icon--sun,
 :root[data-theme="dark"] .theme-toggle__icon--moon { opacity: 1; transform: rotate(0deg) scale(1); }
-.theme-toggle__label { font-size: var(--t-caption); font-weight: 500; }
+.rail-button__label { font-size: var(--t-caption); font-weight: 500; }
 :root[data-theme="dark"] .theme-toggle__label--light,
 :root:not([data-theme="dark"]) .theme-toggle__label--dark { display: none; }
 
@@ -155,11 +155,11 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 :root[data-rail="collapsed"] .rail-head { flex-direction: column; align-items: center; }
 :root[data-rail="collapsed"] .wordmark,
 :root[data-rail="collapsed"] .nav-label,
-:root[data-rail="collapsed"] .theme-toggle__label { display: none; }
+:root[data-rail="collapsed"] .rail-button__label { display: none; }
 :root[data-rail="collapsed"] .nav-group-label { height: 0; margin: 0 var(--s-1) var(--s-3); padding: 0; border-top: 1px solid var(--chrome-flank-border); font-size: 0; }
 :root[data-rail="collapsed"] .nav a,
-:root[data-rail="collapsed"] .theme-toggle { justify-content: center; padding-inline: 0; }
-/* compact rows' toggle: drawn as the mode toggle, three lines that close up when on */
+:root[data-rail="collapsed"] .rail-button { justify-content: center; padding-inline: 0; }
+/* compact rows' toggle: three lines that close up when on */
 .density-toggle__icon {
   flex: none; width: 16px; height: 16px;
   fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round;
@@ -185,9 +185,9 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
   }
   .rail-head, .nav-group-label { display: none; }
   .rail-foot { display: flex; align-self: center; margin: 0; padding: 0 0 0 var(--s-1); border-top: none; border-left: 1px solid var(--chrome-flank-border); }
-  .theme-toggle { width: 44px; height: 44px; padding: 0; justify-content: center; }
-  .theme-toggle:hover { background: none; }
-  .theme-toggle__label { display: none; }
+  .rail-button { width: 44px; height: 44px; padding: 0; justify-content: center; }
+  .rail-button:hover { background: none; }
+  .rail-button__label { display: none; }
   .theme-toggle__icon-stack, .theme-toggle__icon { width: 20px; height: 20px; }
   :root[data-rail="collapsed"] .nav-label { display: inline; }
   .nav, .nav-group { display: contents; }
