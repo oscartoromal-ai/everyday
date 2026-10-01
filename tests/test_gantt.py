@@ -330,7 +330,8 @@ def test_the_gantt_page_draws_the_plan(client, db) -> None:
     # A workstream's lane: its tasks' summary, its Due their last due, no dates of its own.
     assert 'class="gantt-summary"' in page and 'data-key="w' in page
     # The Projects card opens it.
-    assert f'href="/projects/{project.id}"' in client.get("/projects").text
+    projects = client.get("/projects").text
+    assert f'<a class="project-name" href="/projects/{project.id}"' in projects
 
 
 def test_the_sheet_is_edited_through_one_request(client, db) -> None:

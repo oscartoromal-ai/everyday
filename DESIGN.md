@@ -275,7 +275,7 @@ The add-a-task plus shows on hover, or always on touch, and opens an opaque popo
 On Tasks a task in a project also has its rule below it in that colour, 55% into the paper (the colour itself under the keyboard's cursor).
 A new project takes the hue fewest open projects have; the project editor offers the eight flags in a row, the chosen one ringed in its colour.
 
-**Project cards.** The title is 20px/600, after the project's flag, followed by the open count, a secondary-style status select, and a ghost pencil that swaps in the inline editor.
+**Project cards.** The title is 20px/600, after the project's flag, and opens the project's Gantt (underlined on hover, as a task's title is); it is followed by the open count, a secondary-style status select, and a ghost pencil that swaps in the inline editor.
 Workstream rows are 14px/600 with steel circles that turn ink when done (the name then pewter at 500), and their done count.
 Each workstream's open tasks are indented beneath it; the other tasks follow under a pewter caption, then the project's task sheet for adding.
 Paused and done projects sit on collapsible shelves.
