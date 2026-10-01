@@ -368,3 +368,19 @@ def test_a_key_racing_a_list_refresh_still_opens_its_row(page, live, app_db, tas
     with app_db() as db:
         task = next(t for t in tasks_svc.list_tasks(db) if t.title == on)
         assert task.workstream is not None and task.workstream.name == "Garden"
+
+
+def test_left_and_right_step_the_calendar_a_week(page, live) -> None:
+    from datetime import date, timedelta
+
+    this = date.today() - timedelta(days=date.today().weekday())
+    page.goto(f"{live}/")
+    # From Tasks, 3 opens the Calendar on this week; Right goes on a week.
+    page.keyboard.press("3")
+    page.wait_for_url("**/calendar")
+    page.keyboard.press("ArrowRight")
+    page.wait_for_url(f"**/calendar?week={(this + timedelta(days=7)).isoformat()}")
+    page.keyboard.press("ArrowLeft")
+    page.wait_for_url(f"**/calendar?week={this.isoformat()}")
+    page.keyboard.press("ArrowLeft")
+    page.wait_for_url(f"**/calendar?week={(this - timedelta(days=7)).isoformat()}")
