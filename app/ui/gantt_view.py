@@ -232,6 +232,7 @@ def gantt_ctx(db: Session, project: Project, today: date, scale: str = "weeks") 
         "first_day": first.isoformat(),
         "column_days": SCALE_DAYS[scale],
         "this_col": this_col,
+        "today_iso": today.isoformat(),
         "lead": LEAD[scale],
         # The now-line: the middle of today.
         "now": place.middle(today),

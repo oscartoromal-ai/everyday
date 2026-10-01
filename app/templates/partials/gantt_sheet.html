@@ -53,7 +53,7 @@
 {%- endmacro %}
 
 <div class="gantt-table" data-scale="{{ scale }}" data-unit="{{ unit }}" data-first-day="{{ first_day }}"
-     data-column-days="{{ column_days }}" data-col-count="{{ columns | length }}" data-lead="{{ lead }}"
+     data-column-days="{{ column_days }}" data-col-count="{{ columns | length }}" data-lead="{{ lead }}" data-today="{{ today_iso }}"
      style="--cols: {{ columns | length }}; --this-col: {{ this_col }}; --now: {{ now }}">
   <div class="gantt-row gantt-head" role="row">
     <div class="gantt-pane" role="presentation">

@@ -121,10 +121,54 @@
   };
 
   const step = (dRow, dCol, options) => {
+    if (!dRow && dCol === 1 && cursor.col === DUE && !options?.extend) { enterTime(cursor.key); return; }
     const all = rows();
     const at = all.findIndex((r) => r.dataset.key === cursor.key);
     const row = all[Math.max(0, Math.min(all.length - 1, at + dRow))];
     moveTo(row.dataset.key, Math.max(0, Math.min(colCount() - 1, cursor.col + dCol)), options);
+  };
+
+  /* ---- into the time from Due: where the row's work is ---- */
+
+  // A day's column, kept on the sheet.
+  const colOf = (iso) => {
+    const days = Math.round((new Date(`${iso}T12:00:00`) - new Date(`${firstDay()}T12:00:00`)) / DAY_MS);
+    return Math.max(FROZEN, Math.min(colCount() - 1, FROZEN + Math.floor(days / colDays())));
+  };
+  const nextWorkday = (iso) => {
+    let day = addDays(iso, 1);
+    while ([0, 6].includes(new Date(`${day}T12:00:00`).getDay())) day = addDays(day, 1);
+    return day;
+  };
+
+  // A task's start, or its due; a workstream's first day; for a task with
+  // no days, or the row to write one, the next workday after the dated task
+  // above it in its group, as the next step would go, never before today.
+  const entryDay = (row) => {
+    const today = table().dataset.today;
+    const d = row.dataset;
+    if (d.kind === "task" && (d.startsOn || d.due)) return d.startsOn || d.due;
+    const group = row.closest(".gantt-group");
+    const tasks = group ? [...group.querySelectorAll(".gantt-row.kind-task")] : [];
+    if (d.kind === "workstream") {
+      return tasks.map((r) => r.dataset.startsOn || r.dataset.due).filter(Boolean).sort()[0] || today;
+    }
+    if (d.kind !== "task" && d.kind !== "add") return today;
+    const above = tasks.filter((r) => r.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const last = above.reverse().find((r) => r.dataset.due || r.dataset.startsOn);
+    const next = last && nextWorkday(last.dataset.due || last.dataset.startsOn);
+    return next && next > today ? next : today;
+  };
+
+  // Lands on the row's day; one out of sight is brought in a lead from the pane.
+  const enterTime = (key) => {
+    const col = colOf(entryDay(rowOf(key)));
+    const left = (col - FROZEN) * colWidth();
+    const width = sheet.clientWidth - paneWidth();
+    if (left < sheet.scrollLeft || left + colWidth() > sheet.scrollLeft + width) {
+      sheet.scrollLeft = Math.max(0, left - Number(table().dataset.lead) * colWidth());
+    }
+    moveTo(key, col);
   };
 
   /* ---- sending edits, one at a time ---- */
@@ -592,7 +636,7 @@
       const col = cursor.col + (e.shiftKey ? -1 : 1);
       if (col < 0 || col >= colCount()) return;
       handled();
-      moveTo(cursor.key, col);
+      step(0, e.shiftKey ? -1 : 1);
       return;
     }
     if (key === "Escape") {

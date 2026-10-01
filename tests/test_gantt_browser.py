@@ -183,6 +183,50 @@ def test_weeks_drill_down_to_days_and_back(page, live, project) -> None:
     assert page.locator(".gantt-head .gantt-length").inner_text() == "Wks"
 
 
+def test_right_from_due_lands_where_the_row_works(page, live, app_db) -> None:
+    """Right from Due enters the time where the row's work is: a task's
+    start (or its due), a workstream's first day, and for a task with no
+    days the next workday after the dated task above it, never before today."""
+    today = date.today()
+    with app_db() as db:
+        project = projects_svc.create_project(db, name="Gamma")
+        lane = projects_svc.create_workstream(db, project_id=project.id, name="Launch")
+        made = {"project_id": project.id, "workstream_id": lane.id}
+        spec = {"starts_on": THIS + timedelta(days=16), "due": THIS + timedelta(days=18)}
+        tasks_svc.create_task(db, title="Spec", **spec, **made)
+        tasks_svc.create_task(db, title="Review", due=THIS + timedelta(days=25), **made)
+        tasks_svc.create_task(db, title="Polish", **made)
+        tasks_svc.create_task(db, title="Loose end", project_id=project.id)
+        db.commit()
+        project_id = project.id
+
+    def lands_from_due(row) -> str:  # noqa: ANN001
+        row.locator(".gantt-due").click()
+        page.keyboard.press("ArrowRight")
+        return page.evaluate("document.activeElement.dataset.day")
+
+    page.goto(f"{live}/projects/{project_id}?scale=days")
+    assert lands_from_due(_row(page, "Spec")) == (THIS + timedelta(days=16)).isoformat()
+    assert lands_from_due(_row(page, "Review")) == (THIS + timedelta(days=25)).isoformat()
+    # Review is due on a Friday: Polish follows it on the Monday.
+    assert lands_from_due(_row(page, "Polish")) == (THIS + timedelta(days=28)).isoformat()
+    assert lands_from_due(page.locator(".gantt-row.kind-workstream")) == (
+        THIS + timedelta(days=16)
+    ).isoformat()
+    assert lands_from_due(_row(page, "Loose end")) == today.isoformat()
+    # The day landed on is in sight, clear of the frozen pane.
+    _row(page, "Polish").locator(".gantt-due").click()
+    page.keyboard.press("Tab")
+    assert page.evaluate("document.activeElement.dataset.day") == (
+        THIS + timedelta(days=28)
+    ).isoformat()
+    pane = page.locator(".gantt-head .gantt-pane").bounding_box()
+    sheet = page.locator("#gantt").bounding_box()
+    cell = page.locator(".gantt-cell.is-cursor").bounding_box()
+    assert cell["x"] >= pane["x"] + pane["width"] - 1
+    assert cell["x"] + cell["width"] <= sheet["x"] + sheet["width"] + 1
+
+
 def test_a_row_is_dragged_into_a_workstream(page, live, project) -> None:
     page.goto(f"{live}/projects/{project}")
     grip = _row(page, "Loose end").locator("[data-row-grip]").bounding_box()
