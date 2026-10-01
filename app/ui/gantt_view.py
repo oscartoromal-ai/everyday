@@ -1,6 +1,7 @@
-"""View-model for a project's Gantt (partials/gantt_sheet.html): its weeks
-as columns, and a row per milestone, task and place to write one, each
-with its cells as the sheet shows them and its bar in weeks."""
+"""View-model for a project's Gantt (partials/gantt_sheet.html): its time
+as columns, a week or a day each (its scale), and a row per milestone, task
+and place to write one, each with its cells as the sheet shows them and its
+bar in columns. Bars are drawn to the day in either scale."""
 
 from __future__ import annotations
 
@@ -15,28 +16,29 @@ from app.services import gantt as gantt_svc
 from app.ui.views import DUE_SOON_DAYS
 
 WEEK = timedelta(days=7)
+SCALES = ("weeks", "days")
+# A column's days, and the unit an edit in that scale moves by.
+SCALE_DAYS = {"weeks": 7, "days": 1}
+SCALE_UNIT = {"weeks": "week", "days": "day"}
 # At the least, the sheet shows from the week before this one to this many after.
 WEEKS_AHEAD = 19
 # And this many weeks past the plan's last, so a bar can be drawn beyond it.
 WEEKS_PAST_PLAN = 4
-# The frozen columns before the weeks: the box, Task, Start, Wks, Due.
+# The frozen columns before the time: the box, Task, Start, the length, Due.
 FROZEN = 5
+# Columns before today's left in view as the sheet opens, in each scale.
+LEAD = {"weeks": 1, "days": 3}
 
 
-def _due_label(value: date, today: date) -> str:
+def _day_label(value: date, today: date) -> str:
     """'Fri 16 Oct', and its year's last two digits outside this year."""
     label = f"{value:%a} {value.day} {value:%b}"
     return label if value.year == today.year else f"{label} '{value.year % 100:02d}"
 
 
-def _at(value: date, first: date) -> float:
-    """Where a day falls on the weeks, in weeks from the first: the middle of it."""
-    return (value - first).days / 7 + 1 / 14
-
-
 def _week_range(dates: list[date], today: date) -> tuple[date, int]:
     """The first week shown and how many: this week's neighbourhood and the
-    whole plan, with room after it."""
+    whole plan, with room after it. Both scales show the same weeks."""
     this = monday(today)
     first = min([this - WEEK, *(monday(d) for d in dates)])
     last = max([this + WEEK * WEEKS_AHEAD, *(monday(d) + WEEK * WEEKS_PAST_PLAN for d in dates)])
@@ -44,37 +46,75 @@ def _week_range(dates: list[date], today: date) -> tuple[date, int]:
     return first, count
 
 
-def _weeks(first: date, count: int, today: date) -> list[dict[str, Any]]:
-    """The week columns: the ISO week, and its Monday's day, with the month
-    where it changes (and in the first column)."""
-    this = monday(today)
+def _columns(first: date, weeks: int, scale: str, today: date) -> list[dict[str, Any]]:
+    """The time's columns. A week's head is its ISO week over its Monday's
+    day (with the month where it turns, and in the first column); a day's is
+    its weekday's initial and its date, under its week's name on Mondays."""
     out = []
-    for i in range(count):
-        start = first + WEEK * i
-        new_month = i == 0 or start.month != (start - WEEK).month
+    if scale == "weeks":
+        this = monday(today)
+        for i in range(weeks):
+            start = first + WEEK * i
+            new_month = i == 0 or start.month != (start - WEEK).month
+            out.append({
+                "iso": start.isoformat(),
+                "top": week_label(start, today),
+                "bottom": f"{start.day} {start:%b}" if new_month else str(start.day),
+                "new_month": new_month,
+                "current": start == this,
+                "aria": f"Week {start.isocalendar()[1]}, from {start.day} {start:%B}"
+                        + (", this week" if start == this else ""),
+            })
+        return out
+    for i in range(weeks * 7):
+        day = first + timedelta(days=i)
         out.append({
-            "iso": start.isoformat(),
-            "label": week_label(start, today),
-            "day": f"{start.day} {start:%b}" if new_month else str(start.day),
-            "new_month": new_month,
-            "current": start == this,
-            "aria": f"Week {start.isocalendar()[1]}, from {start.day} {start:%B}"
-                    + (", this week" if start == this else ""),
+            "iso": day.isoformat(),
+            "top": f"{week_label(day, today)} · {day.day} {day:%b}" if day.weekday() == 0 else "",
+            "initial": f"{day:%a}"[0],
+            "bottom": str(day.day),
+            "new_month": day.day == 1,
+            "week_start": day.weekday() == 0,
+            "weekend": day.weekday() >= 5,
+            "current": day == today,
+            "aria": f"{day:%A} {day.day} {day:%B}" + (", today" if day == today else ""),
         })
     return out
 
 
-def _task_row(task: Task, first: date, today: date, indent: bool) -> dict[str, Any]:
-    weeks = gantt_svc.weeks_of(task)
+class _Place:
+    """Where days fall on the columns, in columns from the first."""
+
+    def __init__(self, first: date, scale: str) -> None:
+        self.first, self.days = first, SCALE_DAYS[scale]
+
+    def at(self, day: date) -> float:
+        """A day's start."""
+        return round((day - self.first).days / self.days, 4)
+
+    def middle(self, day: date) -> float:
+        return round(((day - self.first).days + 0.5) / self.days, 4)
+
+    def span(self, start: date, end: date) -> dict[str, float]:
+        """A bar over these days, both included."""
+        return {"s": self.at(start), "n": round(((end - start).days + 1) / self.days, 4)}
+
+
+def _task_row(task: Task, place: _Place, scale: str, today: date, indent: bool) -> dict:
+    unit = SCALE_UNIT[scale]
+    length = gantt_svc.length_of(task, unit)
     done = task.status == TaskStatus.done
-    bar = None
-    if weeks is not None:
-        bar = {"s": (task.starts_on - first).days // 7, "n": weeks}
+    has_bar = length is not None
+    start_label = ""
+    if task.starts_on:
+        start_label = (
+            week_label(task.starts_on, today) if scale == "weeks"
+            else _day_label(task.starts_on, today)
+        )
     span = (
-        f"{week_label(task.starts_on, today)} to {week_label(monday(task.due), today)}"
-        if weeks else ""
+        f"{_day_label(task.starts_on, today)} to {_day_label(task.due, today)}" if has_bar else ""
     )
-    due_label = _due_label(task.due, today) if task.due else ""
+    due_label = _day_label(task.due, today) if task.due else ""
     return {
         "kind": "task",
         "key": f"t{task.id}",
@@ -85,15 +125,16 @@ def _task_row(task: Task, first: date, today: date, indent: bool) -> dict[str, A
         "status": task.status.value,
         "starts_on": task.starts_on.isoformat() if task.starts_on else "",
         "due": task.due.isoformat() if task.due else "",
-        "start_label": week_label(task.starts_on, today) if task.starts_on else "",
-        "weeks": weeks or "",
+        "start_label": start_label,
+        "start_title": _day_label(task.starts_on, today) if task.starts_on else "",
+        "length": length or "",
         "due_label": due_label,
         "due_soon": bool(
             not done and task.due and task.due <= today + timedelta(days=DUE_SOON_DAYS)
         ),
-        "bar": bar,
-        # A task due with no start week: a tick on its due.
-        "tick": _at(task.due, first) if task.due and weeks is None else None,
+        "bar": place.span(task.starts_on, task.due) if has_bar else None,
+        # A task due with no start: a tick on its due.
+        "tick": place.middle(task.due) if task.due and not has_bar else None,
         "describe": ", ".join(
             p for p in (task.title, span, f"due {due_label}" if due_label else "",
                         "done" if done else "") if p
@@ -101,21 +142,29 @@ def _task_row(task: Task, first: date, today: date, indent: bool) -> dict[str, A
     }
 
 
-def _milestone_row(milestone: Milestone, tasks: list[Task], first: date, today: date) -> dict:
+def _milestone_row(
+    milestone: Milestone, tasks: list[Task], place: _Place, scale: str, today: date
+) -> dict:
     """A milestone: its diamond on its target, and over its tasks' bars a
-    summary from the first's start to the last's end, its Start and Wks
+    summary from the first's start to the last's end, its Start and length
     theirs (read-only)."""
     spans = [(t.starts_on, t.due) for t in tasks if t.starts_on and t.due]
     summary = start = None
-    weeks = ""
+    length = ""
     if spans:
         start = min(s for s, _ in spans)
-        end = monday(max(d for _, d in spans))
-        weeks = (end - start).days // 7 + 1
-        summary = {"s": (start - first).days // 7, "n": weeks}
+        end = max(d for _, d in spans)
+        length = (
+            (end - start).days + 1 if scale == "days"
+            else (monday(end) - monday(start)).days // 7 + 1
+        )
+        summary = place.span(start, end)
     target = milestone.target_date
     reached = milestone.status == MilestoneStatus.reached
-    target_label = _due_label(target, today) if target else ""
+    target_label = _day_label(target, today) if target else ""
+    start_label = ""
+    if start:
+        start_label = week_label(start, today) if scale == "weeks" else _day_label(start, today)
     return {
         "kind": "milestone",
         "key": f"m{milestone.id}",
@@ -124,14 +173,14 @@ def _milestone_row(milestone: Milestone, tasks: list[Task], first: date, today: 
         "reached": reached,
         "status": milestone.status.value,
         "target": target.isoformat() if target else "",
-        "start_label": week_label(start, today) if start else "",
-        "weeks": weeks,
+        "start_label": start_label,
+        "length": length,
         "due_label": target_label,
         "due_soon": bool(
             not reached and target and target <= today + timedelta(days=DUE_SOON_DAYS)
         ),
         "summary": summary,
-        "diamond": _at(target, first) if target else None,
+        "diamond": place.middle(target) if target else None,
         "describe": ", ".join(
             p for p in (f"Milestone {milestone.name}",
                         f"target {target_label}" if target else "",
@@ -140,26 +189,28 @@ def _milestone_row(milestone: Milestone, tasks: list[Task], first: date, today: 
     }
 
 
-def gantt_ctx(db: Session, project: Project, today: date) -> dict[str, Any]:
-    """The Gantt sheet: its week columns, and its groups of rows: each
-    milestone's row, its tasks and a row to write one more; then the other
-    tasks (under a heading when there are milestones), and a row to write a
-    milestone."""
+def gantt_ctx(db: Session, project: Project, today: date, scale: str = "weeks") -> dict:
+    """The Gantt sheet in its scale: its columns, and its groups of rows:
+    each milestone's row, its tasks and a row to write one more; then the
+    other tasks (under a heading when there are milestones), and a row to
+    write a milestone."""
+    scale = scale if scale in SCALES else SCALES[0]
     groups = gantt_svc.groups(db, project, today)
     tasks = [t for g in groups for t in g.tasks]
     dates = [d for t in tasks for d in (t.starts_on, t.due) if d]
     dates += [g.milestone.target_date for g in groups if g.milestone and g.milestone.target_date]
-    first, count = _week_range(dates, today)
+    first, weeks = _week_range(dates, today)
+    place = _Place(first, scale)
     has_milestones = len(groups) > 1
     out = []
     for group in groups:
         m = group.milestone
         rows = []
         if m is not None:
-            rows.append(_milestone_row(m, group.tasks, first, today))
+            rows.append(_milestone_row(m, group.tasks, place, scale, today))
         elif has_milestones:
             rows.append({"kind": "heading", "key": "other", "title": "Other tasks"})
-        rows += [_task_row(t, first, today, indent=m is not None) for t in group.tasks]
+        rows += [_task_row(t, place, scale, today, indent=m is not None) for t in group.tasks]
         rows.append({
             "kind": "add",
             "key": f"add-m{m.id}" if m else "add",
@@ -167,29 +218,35 @@ def gantt_ctx(db: Session, project: Project, today: date) -> dict[str, Any]:
             "indent": m is not None,
             "placeholder": f"Add a task to {m.name}…" if m else "Add a task…",
         })
-        out.append({"key": f"m{m.id}" if m else "other", "rows": rows})
+        out.append({"key": f"m{m.id}" if m else "other", "milestone_id": m.id if m else "",
+                    "rows": rows})
     number = 0
     for group in out:
         for row in group["rows"]:
             number += 1
             row["number"] = number
     spans = [t for t in tasks if t.starts_on]
-    this = monday(today)
+    this_col = int(place.at(today))
     return {
         "project": project,
-        "weeks": _weeks(first, count, today),
-        "first_week": first.isoformat(),
-        "this_week": (this - first).days // 7,
-        # The now-line: today's place in its week.
-        "now": _at(today, first),
+        "scale": scale,
+        "unit": SCALE_UNIT[scale],
+        "columns": _columns(first, weeks, scale, today),
+        "first_day": first.isoformat(),
+        "column_days": SCALE_DAYS[scale],
+        "this_col": this_col,
+        "lead": LEAD[scale],
+        # The now-line: the middle of today.
+        "now": place.middle(today),
         "groups": out,
         "milestone_row": number + 1,
         "frozen": FROZEN,
+        "length_head": ("Wks", "Weeks") if scale == "weeks" else ("Days", "Days"),
         "task_count": len(tasks),
         "open_count": sum(1 for t in tasks if t.status != TaskStatus.done),
         "plan_span": (
             f"{week_label(min(t.starts_on for t in spans), today)} to "
-            f"{week_label(monday(max(t.due for t in spans)), today)}"
+            f"{week_label(max(t.due for t in spans), today)}"
             if spans else ""
         ),
     }

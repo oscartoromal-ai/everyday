@@ -136,8 +136,8 @@ class Task(Base):
     milestone_id: Mapped[int | None] = mapped_column(ForeignKey("milestones.id"), default=None)
     planned_for: Mapped[date | None] = mapped_column(Date, default=None)
     due: Mapped[date | None] = mapped_column(Date, default=None)
-    # The Monday of the week its work starts, on its project's Gantt: its bar
-    # runs from that week to its due's, so a task with one always has a due.
+    # The day its work starts, on its project's Gantt: its bar runs from that
+    # day to its due, so a task with one always has a due.
     starts_on: Mapped[date | None] = mapped_column(Date, default=None)
     # Its place among its milestone's tasks (or its project's other tasks) on
     # the Gantt, lowest first; None for one never moved, after those, oldest first.

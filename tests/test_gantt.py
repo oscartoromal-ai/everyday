@@ -19,19 +19,22 @@ W40 = date(2026, 9, 28)
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("40", W40),
-        ("W40", W40),
-        ("w 41", W40 + timedelta(weeks=1)),
-        ("2026-W40", W40),
-        ("this week", W40),
-        ("next week", W40 + timedelta(weeks=1)),
-        ("1", date(2027, 1, 4)),  # 2027's week 1, nearer than 2026's
-        ("1 oct", W40),
-        ("16/10", date(2026, 10, 12)),
-        ("2026-10-14", date(2026, 10, 12)),
+        # A week starts on its Monday...
+        ("40", (W40, True)),
+        ("W40", (W40, True)),
+        ("w 41", (W40 + timedelta(weeks=1), True)),
+        ("2026-W40", (W40, True)),
+        ("this week", (W40, True)),
+        ("next week", (W40 + timedelta(weeks=1), True)),
+        ("1", (date(2027, 1, 4), True)),  # 2027's week 1, nearer than 2026's
+        # ...and a day on itself.
+        ("1 oct", (date(2026, 10, 1), False)),
+        ("16/10", (date(2026, 10, 16), False)),
+        ("2026-10-14", (date(2026, 10, 14), False)),
+        ("thu", (date(2026, 10, 1), False)),
     ],
 )
-def test_a_start_is_the_monday_of_the_week_written(text, expected) -> None:
+def test_a_start_is_the_week_or_the_day_written(text, expected) -> None:
     assert gantt_svc.parse_start(text, TODAY) == expected
 
 
@@ -60,18 +63,24 @@ def test_what_is_not_a_date_is_refused(text) -> None:
         gantt_svc.parse_due(text, TODAY)
 
 
-def test_weeks_are_a_whole_number() -> None:
-    assert gantt_svc.parse_weeks("3") == 3
-    assert gantt_svc.parse_weeks(" 2w ") == 2
-    for bad in ("0", "-1", "1.5", "lots", "999"):
+def test_a_length_is_a_whole_number_of_the_view_s_unit_or_the_one_named() -> None:
+    assert gantt_svc.parse_length("3", "week") == (3, "week")
+    assert gantt_svc.parse_length(" 2w ", "day") == (2, "week")
+    assert gantt_svc.parse_length("10d", "week") == (10, "day")
+    assert gantt_svc.parse_length("5 days", "week") == (5, "day")
+    assert gantt_svc.parse_length("400", "day") == (400, "day")
+    for bad in ("0", "-1", "1.5", "lots", "999", "3x"):
         with pytest.raises(DomainError):
-            gantt_svc.parse_weeks(bad)
+            gantt_svc.parse_length(bad, "week")
 
 
 def test_a_span_stays_whole(db) -> None:
-    # A start alone ends that week's Friday, on its Monday whatever day was given.
+    # A start alone keeps its day, and ends that week's Friday.
     task = tasks_svc.create_task(db, title="Spec", starts_on=W40 + timedelta(days=2))
-    assert (task.starts_on, task.due) == (W40, date(2026, 10, 2))
+    assert (task.starts_on, task.due) == (date(2026, 9, 30), date(2026, 10, 2))
+    # At a weekend, it ends on itself.
+    weekend = tasks_svc.create_task(db, title="Sat", starts_on=date(2026, 10, 3))
+    assert weekend.due == date(2026, 10, 3)
     # A due moved before the start pulls the start back to its week.
     tasks_svc.update_task(db, task.id, due=date(2026, 9, 22))
     assert task.starts_on == date(2026, 9, 21)
@@ -99,11 +108,13 @@ def test_cells_write_a_bar_in_weeks(db) -> None:
         gantt_svc.apply(db, project, [{"op": "task", "id": task.id, **op}], TODAY)
 
     edit(start="40")
-    assert (task.starts_on, task.due, gantt_svc.weeks_of(task)) == (W40, date(2026, 10, 2), 1)
+    assert (task.starts_on, task.due, gantt_svc.length_of(task, "week")) == (
+        W40, date(2026, 10, 2), 1)
+    assert gantt_svc.length_of(task, "day") == 5
 
     # Weeks stretch it from its start, its due keeping its weekday.
-    edit(weeks="3")
-    assert (task.due, gantt_svc.weeks_of(task)) == (date(2026, 10, 16), 3)
+    edit(length="3")
+    assert (task.due, gantt_svc.length_of(task, "week")) == (date(2026, 10, 16), 3)
 
     # A new start moves the bar whole.
     edit(start="W42")
@@ -123,7 +134,7 @@ def test_cells_write_a_bar_in_weeks(db) -> None:
     edit(grow=-5)
     assert task.due == date(2026, 10, 14)
     edit(grow=-2)
-    assert (task.due, gantt_svc.weeks_of(task)) == (date(2026, 9, 30), 1)
+    assert (task.due, gantt_svc.length_of(task, "week")) == (date(2026, 9, 30), 1)
 
     # Cleared: the span, then the due.
     edit(clear="span")
@@ -132,10 +143,96 @@ def test_cells_write_a_bar_in_weeks(db) -> None:
     assert task.due is None
 
 
+def test_cells_write_a_bar_in_days(db) -> None:
+    project, _ = _project(db)
+    task = tasks_svc.create_task(db, title="Spec", project_id=project.id)
+
+    def edit(**op) -> None:
+        gantt_svc.apply(db, project, [{"op": "task", "id": task.id, "unit": "day", **op}], TODAY)
+
+    # A day for its start, days for its length.
+    edit(start="wed")
+    assert (task.starts_on, task.due) == (TODAY, date(2026, 10, 2))
+    edit(length="4")
+    assert (task.due, gantt_svc.length_of(task, "day")) == (date(2026, 10, 3), 4)
+    # A week for its start keeps the weekday it started on, and its length.
+    edit(start="W42")
+    assert (task.starts_on, task.due) == (date(2026, 10, 14), date(2026, 10, 17))
+    # Drawn over days: exactly those days.
+    edit(span=["2026-10-06", "2026-10-08"])
+    assert (task.starts_on, task.due) == (date(2026, 10, 6), date(2026, 10, 8))
+    # Moved, stretched and started by days; never shorter than a day.
+    edit(shift=2)
+    assert (task.starts_on, task.due) == (date(2026, 10, 8), date(2026, 10, 10))
+    edit(grow=-1)
+    assert task.due == date(2026, 10, 9)
+    edit(move_start=1)
+    assert task.starts_on == date(2026, 10, 9)
+    edit(move_start=1)
+    assert task.starts_on == date(2026, 10, 9)
+    # A length in weeks, named, in the Days view.
+    edit(length="2w")
+    assert (task.starts_on, task.due) == (date(2026, 10, 9), date(2026, 10, 16))
+
+
+def test_rows_are_dropped_into_another_place_and_milestone(db) -> None:
+    project, launch = _project(db)
+    made = gantt_svc.apply(
+        db, project,
+        [{"op": "create", "milestone_id": launch.id, "title": t} for t in ("Spec", "Build")]
+        + [{"op": "create", "milestone_id": "", "title": t} for t in ("Docs", "Ship")],
+        TODAY,
+    )
+    spec, build, docs, ship = (tasks_svc.get_task(db, i) for i in made)
+
+    def order():
+        return [[t.title for t in g.tasks] for g in gantt_svc.groups(db, project, TODAY)]
+
+    def place(task, milestone_id, before=None) -> None:
+        gantt_svc.apply(
+            db, project,
+            [{"op": "place", "id": task.id, "milestone_id": milestone_id,
+              "before": before.id if before else None}],
+            TODAY,
+        )
+
+    # Into the milestone, between its tasks.
+    place(ship, launch.id, before=build)
+    assert order() == [["Spec", "Ship", "Build"], ["Docs"]]
+    assert ship.milestone_id == launch.id
+    # Out of it, to the other tasks' end.
+    place(spec, "")
+    assert order() == [["Ship", "Build"], ["Docs", "Spec"]]
+    assert spec.milestone_id is None
+    # Within its group, to the top.
+    place(spec, "", before=docs)
+    assert order() == [["Ship", "Build"], ["Spec", "Docs"]]
+    # A milestone of another project is refused.
+    other = projects_svc.create_project(db, name="Other")
+    elsewhere = projects_svc.create_milestone(db, project_id=other.id, name="Elsewhere")
+    with pytest.raises(DomainError):
+        place(spec, elsewhere.id)
+
+
+def test_the_days_view_has_a_column_a_day(client, db) -> None:
+    project, launch = _project(db)
+    today = date.today()
+    tasks_svc.create_task(
+        db, title="Spec", project_id=project.id, starts_on=today, due=today + timedelta(days=2),
+    )
+    db.commit()
+    page = client.get(f"/projects/{project.id}?scale=days").text
+    assert 'data-scale="days"' in page and '<abbr title="Days">Days</abbr>' in page
+    assert f'data-day="{today.isoformat()}"' in page and "--n: 3.0" in page
+    # Remembered: the sheet comes back in days.
+    assert 'data-scale="days"' in client.get(f"/ui/projects/{project.id}/gantt").text
+    assert 'data-scale="weeks"' in client.get(f"/projects/{project.id}?scale=weeks").text
+
+
 def test_weeks_on_a_task_due_reach_back_from_its_due(db) -> None:
     project, _ = _project(db)
     task = tasks_svc.create_task(db, title="Ship", project_id=project.id, due=date(2026, 10, 21))
-    gantt_svc.apply(db, project, [{"op": "task", "id": task.id, "weeks": "2"}], TODAY)
+    gantt_svc.apply(db, project, [{"op": "task", "id": task.id, "length": "2"}], TODAY)
     assert (task.starts_on, task.due) == (date(2026, 10, 12), date(2026, 10, 21))
 
 
@@ -153,7 +250,7 @@ def test_rows_are_written_moved_and_undone(db) -> None:
         db, project,
         [
             {"op": "create", "milestone_id": launch.id, "title": "Spec", "start": "40",
-             "weeks": "2"},
+             "length": "2"},
             {"op": "create", "milestone_id": launch.id, "title": "Build"},
             {"op": "create", "milestone_id": "", "title": "Docs", "due": "W43"},
         ],
@@ -224,7 +321,8 @@ def test_the_gantt_page_draws_the_plan(client, db) -> None:
     assert "Beta" in page and 'role="grid"' in page
     assert 'data-edit="title"' in page and "Spec" in page and "Loose end" in page
     assert "Other tasks" in page and "Add a task to Launch…" in page
-    assert 'class="gantt-bar"' in page and "--n: 2" in page
+    # In weeks, a bar is drawn to the day: twelve days are 12/7 of a column.
+    assert 'class="gantt-bar"' in page and "--n: 1.7143" in page
     assert 'class="gantt-diamond' in page
     # The Projects card opens it.
     assert f'href="/projects/{project.id}"' in client.get("/projects").text
@@ -236,14 +334,14 @@ def test_the_sheet_is_edited_through_one_request(client, db) -> None:
     response = client.post(
         f"/ui/projects/{project.id}/gantt",
         json={"ops": [{"op": "create", "milestone_id": launch.id, "title": "Spec",
-                       "start": "next week", "weeks": "2"}]},
+                       "start": "next week", "length": "2"}]},
     )
     assert response.status_code == 200
     (made,) = map(int, response.headers["X-Gantt-Made"].split(","))
-    assert f'data-key="t{made}"' in response.text and "--n: 2" in response.text
+    assert f'data-key="t{made}"' in response.text and "--n: 1.7143" in response.text
 
     refused = client.post(
         f"/ui/projects/{project.id}/gantt",
-        json={"ops": [{"op": "task", "id": made, "weeks": "many"}]},
+        json={"ops": [{"op": "task", "id": made, "length": "many"}]},
     )
     assert refused.status_code == 422 and "1 to 260 weeks" in refused.json()["detail"]

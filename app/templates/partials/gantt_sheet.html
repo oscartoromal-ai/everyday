@@ -1,30 +1,34 @@
 {# A project's Gantt sheet (gantt_view.gantt_ctx), drawn again after every
-   edit. A row is its frozen pane (its number, then the box, Task, Start,
-   Wks and Due cells), then a cell per week, with its bar laid over them.
-   Cells are the grid's, in columns counted from the box (data-col); a cell
-   that can be written names what it writes (data-edit). #}
+   edit, in weeks or drilled down to days (its scale). A row is its frozen
+   pane (its number, then the box, Task, Start, the length and Due cells),
+   then a cell per column of time, with its bar laid over them. Cells are
+   the grid's, in columns counted from the box (data-col); a cell that can
+   be written names what it writes (data-edit). A task's number is the
+   handle that drags its row to another place or milestone. #}
 {% macro pane(row) -%}
 <div class="gantt-pane" role="presentation">
-  <span class="gantt-num" aria-hidden="true">{{ row.number }}</span>
   {%- if row.kind == "task" %}
+  <span class="gantt-num" data-row-grip aria-hidden="true" title="Drag to move the row">{{ row.number }}</span>
   <span class="gantt-cell gantt-box" role="gridcell" data-col="0" data-toggle tabindex="-1"
         aria-label="{{ 'Done' if row.done else 'Not done' }}"><span class="gantt-check" aria-hidden="true"></span></span>
   <span class="gantt-cell gantt-title" role="rowheader" data-col="1" data-edit="title" tabindex="-1"><span class="gantt-text">{{ row.title }}</span></span>
-  <span class="gantt-cell gantt-start" role="gridcell" data-col="2" data-edit="start" tabindex="-1">{{ row.start_label }}</span>
-  <span class="gantt-cell gantt-wks" role="gridcell" data-col="3" data-edit="weeks" tabindex="-1">{{ row.weeks }}</span>
+  <span class="gantt-cell gantt-start" role="gridcell" data-col="2" data-edit="start" tabindex="-1"{% if row.start_title %} title="Starts {{ row.start_title }}"{% endif %}>{{ row.start_label }}</span>
+  <span class="gantt-cell gantt-length" role="gridcell" data-col="3" data-edit="length" tabindex="-1">{{ row.length }}</span>
   <span class="gantt-cell gantt-due" role="gridcell" data-col="4" data-edit="due" tabindex="-1">
     {%- if row.due_soon %}<span class="gantt-soon">{{ row.due_label }}</span>{% else %}{{ row.due_label }}{% endif -%}
   </span>
   {%- elif row.kind == "milestone" %}
+  <span class="gantt-num" aria-hidden="true">{{ row.number }}</span>
   <span class="gantt-cell gantt-box" role="gridcell" data-col="0" data-toggle tabindex="-1"
         aria-label="{{ 'Reached' if row.reached else 'Not reached' }}"><span class="gantt-diamond-mark" aria-hidden="true"></span></span>
   <span class="gantt-cell gantt-title" role="rowheader" data-col="1" data-edit="name" tabindex="-1"><span class="gantt-text">{{ row.title }}</span></span>
   <span class="gantt-cell gantt-start derived" role="gridcell" data-col="2" tabindex="-1">{{ row.start_label }}</span>
-  <span class="gantt-cell gantt-wks derived" role="gridcell" data-col="3" tabindex="-1">{{ row.weeks }}</span>
+  <span class="gantt-cell gantt-length derived" role="gridcell" data-col="3" tabindex="-1">{{ row.length }}</span>
   <span class="gantt-cell gantt-due" role="gridcell" data-col="4" data-edit="target" tabindex="-1">
     {%- if row.due_soon %}<span class="gantt-soon">{{ row.due_label }}</span>{% else %}{{ row.due_label }}{% endif -%}
   </span>
   {%- else %}
+  <span class="gantt-num" aria-hidden="true">{{ row.number }}</span>
   <span class="gantt-cell gantt-box" role="gridcell" data-col="0" tabindex="-1">
     {%- if row.kind != "heading" %}<svg class="gantt-plus" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 3.5v11M3.5 9h11"/></svg>{% endif -%}
   </span>
@@ -33,34 +37,38 @@
     {%- if row.kind == "heading" %}<span class="gantt-text">{{ row.title }}</span>{% else %}<span class="gantt-text placeholder">{{ row.placeholder }}</span>{% endif -%}
   </span>
   <span class="gantt-cell gantt-start" role="gridcell" data-col="2" tabindex="-1"></span>
-  <span class="gantt-cell gantt-wks" role="gridcell" data-col="3" tabindex="-1"></span>
+  <span class="gantt-cell gantt-length" role="gridcell" data-col="3" tabindex="-1"></span>
   <span class="gantt-cell gantt-due" role="gridcell" data-col="4" tabindex="-1"></span>
   {%- endif %}
 </div>
 {%- endmacro %}
 
-{% macro week_cells() -%}
-{% for w in weeks %}<span class="gantt-cell gantt-wk{% if w.current %} is-current{% endif %}" role="gridcell" data-col="{{ frozen + loop.index0 }}" data-week="{{ w.iso }}" tabindex="-1"></span>{% endfor %}
+{% macro time_cells() -%}
+{% for c in columns %}<span class="gantt-cell gantt-wk{% if c.current %} is-current{% endif %}" role="gridcell" data-col="{{ frozen + loop.index0 }}" data-day="{{ c.iso }}" tabindex="-1"></span>{% endfor %}
 {%- endmacro %}
 
-<div class="gantt-table" data-first-week="{{ first_week }}" data-week-count="{{ weeks | length }}"
-     style="--weeks: {{ weeks | length }}; --this-week: {{ this_week }}; --now: {{ now }}">
+<div class="gantt-table" data-scale="{{ scale }}" data-unit="{{ unit }}" data-first-day="{{ first_day }}"
+     data-column-days="{{ column_days }}" data-col-count="{{ columns | length }}" data-lead="{{ lead }}"
+     style="--cols: {{ columns | length }}; --this-col: {{ this_col }}; --now: {{ now }}">
   <div class="gantt-row gantt-head" role="row">
     <div class="gantt-pane" role="presentation">
       <span class="gantt-num" aria-hidden="true"></span>
       <span class="gantt-cell gantt-box" role="columnheader" aria-label="Done"></span>
       <span class="gantt-cell gantt-title" role="columnheader">Task<span class="gantt-resize" data-gantt-resize aria-hidden="true" title="Drag to widen"></span></span>
       <span class="gantt-cell gantt-start" role="columnheader">Start</span>
-      <span class="gantt-cell gantt-wks" role="columnheader" title="Weeks"><abbr title="Weeks">Wks</abbr></span>
+      <span class="gantt-cell gantt-length" role="columnheader"><abbr title="{{ length_head[1] }}">{{ length_head[0] }}</abbr></span>
       <span class="gantt-cell gantt-due" role="columnheader">Due</span>
     </div>
     <div class="gantt-weeks" role="presentation">
-      {% for w in weeks %}<span class="gantt-wk-head{% if w.current %} is-current{% endif %}{% if w.new_month %} new-month{% endif %}" role="columnheader" aria-label="{{ w.aria }}" data-col="{{ frozen + loop.index0 }}"><b>{{ w.label }}</b><small>{{ w.day }}</small></span>{% endfor %}
+      {% for c in columns %}<span class="gantt-wk-head{% if c.current %} is-current{% endif %}{% if c.new_month %} new-month{% endif %}{% if c.week_start %} week-start{% endif %}{% if c.weekend %} weekend{% endif %}" role="columnheader" aria-label="{{ c.aria }}" data-col="{{ frozen + loop.index0 }}">
+        {%- if scale == "weeks" %}<b>{{ c.top }}</b><small>{{ c.bottom }}</small>
+        {%- else %}<b>{{ c.top }}</b><small><i>{{ c.initial }}</i> {{ c.bottom }}</small>{% endif -%}
+      </span>{% endfor %}
     </div>
   </div>
 
   {% for group in groups %}
-  <div class="gantt-group" role="rowgroup" data-group="{{ group.key }}">
+  <div class="gantt-group" role="rowgroup" data-group="{{ group.key }}" data-milestone="{{ group.milestone_id }}">
     {% for row in group.rows %}
     <div class="gantt-row kind-{{ row.kind }}{% if row.done or row.reached %} is-done{% endif %}{% if row.indent %} indent{% endif %}"
          role="row" data-key="{{ row.key }}" data-kind="{{ row.kind }}"
@@ -71,7 +79,7 @@
          {% if row.describe %}aria-label="{{ row.describe }}"{% endif %}>
       {{ pane(row) }}
       <div class="gantt-weeks" role="presentation">
-        {{ week_cells() }}
+        {{ time_cells() }}
         {%- if row.bar %}<span class="gantt-bar" style="--s: {{ row.bar.s }}; --n: {{ row.bar.n }}" title="{{ row.describe }}" aria-hidden="true"><span class="gantt-grip" data-grip="start"></span><span class="gantt-grip" data-grip="end"></span></span>{% endif %}
         {%- if row.tick is number %}<span class="gantt-tick" style="--x: {{ row.tick }}" title="{{ row.describe }}" aria-hidden="true"></span>{% endif %}
         {%- if row.summary %}<span class="gantt-summary" style="--s: {{ row.summary.s }}; --n: {{ row.summary.n }}" aria-hidden="true"></span>{% endif %}
@@ -85,13 +93,13 @@
   {% with row = {"kind": "add-milestone", "key": "add-milestone", "number": milestone_row, "placeholder": "Add a milestone…"} %}
   <div class="gantt-row kind-add-milestone" role="row" data-key="add-milestone" data-kind="add-milestone">
     {{ pane(row) }}
-    <div class="gantt-weeks" role="presentation">{{ week_cells() }}</div>
+    <div class="gantt-weeks" role="presentation">{{ time_cells() }}</div>
   </div>
   {% endwith %}
 
   {# Empty numbered rows fill the sheet under the last, as on every ruled sheet. #}
   <div class="gantt-filler" aria-hidden="true">
-    {% for i in range(40) %}<div class="gantt-row"><div class="gantt-pane"><span class="gantt-num">{{ milestone_row + 1 + i }}</span><span class="gantt-cell gantt-box"></span><span class="gantt-cell gantt-title"></span><span class="gantt-cell gantt-start"></span><span class="gantt-cell gantt-wks"></span><span class="gantt-cell gantt-due"></span></div></div>{% endfor %}
+    {% for i in range(40) %}<div class="gantt-row"><div class="gantt-pane"><span class="gantt-num">{{ milestone_row + 1 + i }}</span><span class="gantt-cell gantt-box"></span><span class="gantt-cell gantt-title"></span><span class="gantt-cell gantt-start"></span><span class="gantt-cell gantt-length"></span><span class="gantt-cell gantt-due"></span></div></div>{% endfor %}
   </div>
 
   <span class="gantt-now" aria-hidden="true"></span>

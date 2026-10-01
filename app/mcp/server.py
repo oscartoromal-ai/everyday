@@ -134,10 +134,10 @@ class TaskUpsert(BaseModel):
 def upsert_tasks(tasks: list[TaskUpsert]) -> list[dict[str, Any]]:
     """Create or update tasks in bulk. Items with task_id update that task; items
     without create a new one (title required). planned_for is the intended do-date;
-    due is the deadline. starts_on is the week its work starts on its project's
-    Gantt (any day of it; kept as the Monday): its bar runs from there to the
-    week of its due, so give a due with it (alone it ends that week's Friday);
-    null clears it. owner is oscar or claude. notes is the description: write
+    due is the deadline. starts_on is the day its work starts on its project's
+    Gantt (a week's work starts on its Monday): its bar runs from there to its
+    due, so give a due with it (alone it ends that week's Friday); null clears
+    it. owner is oscar or claude. notes is the description: write
     sub-tasks as '- ' lines (tick one by rewriting it as '- [x] '), keeping context
     lines next to the sub-tasks they explain."""
     out: list[dict[str, Any]] = []

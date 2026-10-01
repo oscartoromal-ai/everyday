@@ -1,7 +1,9 @@
 /* A project's Gantt sheet (gantt.html), run as a spreadsheet: a cell
    cursor moved by the keys or the pointer, a range held with Shift or a
-   drag, cells written by typing, bars drawn over weeks, moved and stretched
-   by dragging or with Alt, rows moved with Alt+Up/Down, and undo.
+   drag, cells written by typing, bars drawn over the time, moved and
+   stretched by dragging or with Alt, rows moved with Alt+Up/Down or
+   dragged by their number to another place or milestone, the time seen in
+   weeks or drilled down to days, and undo.
 
    Every edit is one POST of ops (app.services.gantt.apply), answered with
    the sheet drawn again; the cursor, the range, the scroll and any cell
@@ -12,30 +14,34 @@
   const sheet = document.getElementById("gantt");
   if (!sheet) return;
   const project = sheet.dataset.project;
-  const FROZEN = 5; // the box, Task, Start, Wks, Due; the weeks follow
+  const FROZEN = 5; // the box, Task, Start, the length, Due; the time follows
   const TITLE = 1;
   const DUE = 4;
+  const DAY_MS = 864e5;
 
   const store = (key, value) => { try { localStorage.setItem(key, value); } catch { /* private mode */ } };
   const saved = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
 
-  /* ---- the grid ---- */
+  /* ---- the grid, in its scale: a column a week, or a day ---- */
 
   const table = () => sheet.querySelector(".gantt-table");
   const rows = () => [...sheet.querySelectorAll(".gantt-group > .gantt-row, .gantt-table > .gantt-row.kind-add-milestone")];
   const rowOf = (key) => sheet.querySelector(`.gantt-row[data-key="${CSS.escape(key)}"]`);
-  const colCount = () => FROZEN + Number(table().dataset.weekCount);
+  const colCount = () => FROZEN + Number(table().dataset.colCount);
   const cellAt = (row, col) => row?.querySelector(`.gantt-cell[data-col="${col}"]`);
   const px = (name) => parseFloat(getComputedStyle(sheet).getPropertyValue(name)) || 0;
-  const weekWidth = () => px("--gantt-wk");
-  const firstWeek = () => table().dataset.firstWeek;
+  const colWidth = () => px("--gantt-col");
+  const scale = () => table().dataset.scale;
+  const unit = () => table().dataset.unit; // "week" or "day": what an edit moves by
+  const colDays = () => Number(table().dataset.columnDays);
+  const firstDay = () => table().dataset.firstDay;
   const addDays = (iso, days) => {
     const d = new Date(`${iso}T12:00:00`);
     d.setDate(d.getDate() + days);
     return d.toISOString().slice(0, 10);
   };
-  const weekOf = (col) => addDays(firstWeek(), (col - FROZEN) * 7);
-  const isWeek = (col) => col >= FROZEN;
+  const dayOf = (col) => addDays(firstDay(), (col - FROZEN) * colDays());
+  const isTime = (col) => col >= FROZEN;
 
   /* ---- the cursor and the range ---- */
 
@@ -83,19 +89,20 @@
     return { rows: picked, cols, cells };
   }
 
+  const paneWidth = () => sheet.querySelector(".gantt-head .gantt-pane").getBoundingClientRect().width;
+  const headHeight = () => sheet.querySelector(".gantt-head").getBoundingClientRect().height;
+
   // Keeps a cell in sight, clear of the frozen pane and the header.
   const reveal = (cell) => {
     const box = sheet.getBoundingClientRect();
     const at = cell.getBoundingClientRect();
-    const pane = sheet.querySelector(".gantt-head .gantt-pane").getBoundingClientRect().width;
-    const head = sheet.querySelector(".gantt-head").getBoundingClientRect().height;
     const right = box.left + sheet.clientWidth;
     const bottom = box.top + sheet.clientHeight;
-    if (isWeek(Number(cell.dataset.col))) {
-      if (at.left < box.left + pane) sheet.scrollLeft -= box.left + pane - at.left;
+    if (isTime(Number(cell.dataset.col))) {
+      if (at.left < box.left + paneWidth()) sheet.scrollLeft -= box.left + paneWidth() - at.left;
       else if (at.right > right) sheet.scrollLeft += at.right - right;
     }
-    if (at.top < box.top + head) sheet.scrollTop -= box.top + head - at.top;
+    if (at.top < box.top + headHeight()) sheet.scrollTop -= box.top + headHeight() - at.top;
     else if (at.bottom > bottom) sheet.scrollTop += at.bottom - bottom;
   };
 
@@ -137,24 +144,29 @@
   };
   const keyOf = (op) => (op.op === "milestone" ? `m${op.id}` : `t${op.id}`);
 
-  // Draws the sheet the server sent, keeping the view where it was.
+  // Draws a sheet the server sent. The time in view and the cursor's day
+  // stay where they were, whatever the sheet now starts on and whatever its
+  // scale (a switch between weeks and days draws a sheet too).
   const draw = (html) => {
-    const before = firstWeek();
-    const left = sheet.scrollLeft;
+    const before = { first: firstDay(), days: colDays(), width: colWidth() };
+    const daysAt = (col) => (isTime(col) ? (col - FROZEN) * before.days : null);
+    const leftDays = (sheet.scrollLeft / before.width) * before.days;
     const top = sheet.scrollTop;
     const hadFocus = sheet.contains(document.activeElement);
+    const marks = { cursor: cursor && daysAt(cursor.col), anchor: anchor && daysAt(anchor.col) };
     const writing = editing ? { key: editing.key, col: editing.col, value: editing.input.value,
       start: editing.input.selectionStart, end: editing.input.selectionEnd, typed: editing.typed } : null;
     if (editing) editing = null;
     sheet.innerHTML = html;
-    // A plan now starting earlier adds weeks before; the same weeks stay in view.
-    const shift = (new Date(before) - new Date(firstWeek())) / 864e5 / 7;
-    sheet.scrollLeft = left + shift * weekWidth();
+    // A plan now starting earlier adds time before; the same days stay in view.
+    const moved = (new Date(before.first) - new Date(firstDay())) / DAY_MS;
+    sheet.scrollLeft = ((leftDays + moved) / colDays()) * colWidth();
     sheet.scrollTop = top;
+    const toCol = (days) => FROZEN + Math.floor((days + moved) / colDays());
+    if (cursor && marks.cursor !== null) cursor.col = toCol(marks.cursor);
+    if (anchor && marks.anchor !== null) anchor.col = toCol(marks.anchor);
     const rest = sheet.querySelector("[data-gantt-rest]");
     if (rest) document.getElementById("gantt-rest").textContent = rest.textContent.trim();
-    if (cursor && isWeek(cursor.col)) cursor.col += shift;
-    if (anchor && isWeek(anchor.col)) anchor.col += shift;
     if (cursor && !rowOf(cursor.key)) cursor = null;
     if (anchor && !rowOf(anchor.key)) anchor = null;
     const cell = place();
@@ -168,17 +180,19 @@
     }
   };
 
+  const failure = async (response) => {
+    let detail = "";
+    try { detail = (await response.json()).detail; } catch { /* not JSON */ }
+    return new Error(typeof detail === "string" && detail ? detail : "Could not save that. Try again?");
+  };
+
   const post = async (ops) => {
-    const response = await fetch(`/ui/projects/${project}/gantt`, {
+    const response = await fetch(`/ui/projects/${project}/gantt?scale=${scale()}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-CSRF": window.csrfToken() },
       body: JSON.stringify({ ops }),
     });
-    if (!response.ok) {
-      let detail = "";
-      try { detail = (await response.json()).detail; } catch { /* not JSON */ }
-      throw new Error(typeof detail === "string" && detail ? detail : "Could not save that. Try again?");
-    }
+    if (!response.ok) throw await failure(response);
     const made = (response.headers.get("X-Gantt-Made") || "").split(",").filter(Boolean).map(Number);
     return { html: await response.text(), made };
   };
@@ -239,6 +253,8 @@
     return cell.textContent.trim();
   };
 
+  const WORDS = new Set(["title", "name", "add", "add-milestone"]);
+
   // typed: the words replace what was there, and the arrows leave the cell
   // (Excel's Enter mode); otherwise they move in the words (Edit mode).
   function edit(cell, { value = null, typed = false } = {}) {
@@ -248,7 +264,7 @@
     const input = document.createElement("input");
     input.className = "gantt-input";
     input.type = "text";
-    input.spellcheck = cell.dataset.edit !== "start" && cell.dataset.edit !== "weeks" && cell.dataset.edit !== "due" && cell.dataset.edit !== "target";
+    input.spellcheck = WORDS.has(cell.dataset.edit);
     input.autocomplete = "off";
     input.value = value ?? original;
     input.placeholder = cell.dataset.placeholder || "";
@@ -332,7 +348,7 @@
     }
     const op = row.dataset.kind === "milestone"
       ? { op: "milestone", id: Number(row.dataset.id), [what]: value }
-      : { op: "task", id: Number(row.dataset.id), [what]: value };
+      : { op: "task", id: Number(row.dataset.id), [what]: value, unit: unit() };
     refocus();
     send([op], { then: () => then?.(), failed: retry });
   }
@@ -346,15 +362,15 @@
 
   const taskRows = (range) => range.rows.filter((r) => r.dataset.kind === "task");
 
-  // Space or Enter on the weeks: each task's bar becomes the weeks chosen.
+  // Space or Enter on the time: each task's bar over the weeks or days held.
   const fill = () => {
     const range = rangeRows();
-    const weeks = range.cols.filter(isWeek);
-    if (!weeks.length) return;
-    const span = [weekOf(weeks[0]), weekOf(weeks[weeks.length - 1])];
-    const ops = taskRows(range).map((r) => ({ op: "task", id: Number(r.dataset.id), span }));
+    const cols = range.cols.filter(isTime);
+    if (!cols.length) return;
+    const span = [dayOf(cols[0]), dayOf(cols[cols.length - 1])];
+    const ops = taskRows(range).map((r) => ({ op: "task", id: Number(r.dataset.id), span, unit: unit() }));
     if (!ops.length) return;
-    // The bars now show the weeks; the range would only tint behind them.
+    // The bars now show the time; the range would only tint behind them.
     anchor = null;
     place();
     send(ops);
@@ -366,8 +382,8 @@
     if (d.kind === "milestone") send([{ op: "milestone", id: Number(d.id), reached: d.status !== "reached" }]);
   };
 
-  // Delete: clears what the range covers: a bar (its weeks, Start or Wks),
-  // a due (and the bar ending on it), a milestone's target.
+  // Delete: clears what the range covers: a bar (its time, Start or its
+  // length), a due (and the bar ending on it), a milestone's target.
   const clear = () => {
     const range = rangeRows();
     const ops = [];
@@ -375,7 +391,7 @@
       const id = Number(row.dataset.id);
       if (row.dataset.kind === "task") {
         if (range.cols.includes(DUE) && row.dataset.due) ops.push({ op: "task", id, clear: "due" });
-        else if (range.cols.some((c) => c === 2 || c === 3 || isWeek(c)) && row.dataset.startsOn) ops.push({ op: "task", id, clear: "span" });
+        else if (range.cols.some((c) => c === 2 || c === 3 || isTime(c)) && row.dataset.startsOn) ops.push({ op: "task", id, clear: "span" });
       } else if (row.dataset.kind === "milestone" && range.cols.includes(DUE) && row.dataset.target) {
         ops.push({ op: "milestone", id, target: "" });
       }
@@ -383,20 +399,20 @@
     if (ops.length) send(ops);
   };
 
-  // Alt+Left/Right: bars (or dues, or targets) a week earlier or later;
-  // with Shift, the bars' ends.
+  // Alt+Left/Right: bars (or dues, or targets) a column earlier or later,
+  // a week or a day; with Shift, the bars' ends.
   const nudge = (by, grow) => {
     const ops = [];
     for (const row of rangeRows().rows) {
       const id = Number(row.dataset.id);
       if (row.dataset.kind === "task" && (grow ? row.dataset.startsOn : row.dataset.due)) {
-        ops.push(grow ? { op: "task", id, grow: by } : { op: "task", id, shift: by });
+        ops.push({ op: "task", id, [grow ? "grow" : "shift"]: by, unit: unit() });
       } else if (row.dataset.kind === "milestone" && !grow && row.dataset.target) {
-        ops.push({ op: "milestone", id, shift: by });
+        ops.push({ op: "milestone", id, shift: by, unit: unit() });
       }
     }
     if (!ops.length) return;
-    if (isWeek(cursor.col)) {
+    if (isTime(cursor.col)) {
       cursor.col += by;
       if (anchor && !grow) anchor.col += by;
     }
@@ -444,7 +460,7 @@
     const range = rangeRows();
     const text = range.rows.map((row) => range.cols.map((c) => {
       const cell = cellAt(row, c);
-      if (!cell || isWeek(c)) return "";
+      if (!cell || isTime(c)) return "";
       if (c === 0) return row.dataset.status === "done" || row.dataset.status === "reached" ? "x" : "";
       return cellText(cell);
     }).join("\t")).join("\n");
@@ -455,8 +471,8 @@
   };
 
   // Pasted lines onto the Task column write new tasks in the cursor's group,
-  // their columns Task, Start, Wks, Due; onto Start, Wks or Due they write
-  // those cells, a line a task, down from the cursor.
+  // their columns Task, Start, the length, Due; onto Start, the length or
+  // Due they write those cells, a line a task, down from the cursor.
   const paste = (text) => {
     const lines = text.replace(/\r/g, "").split("\n").filter((l) => l.trim());
     if (!lines.length) return;
@@ -474,8 +490,8 @@
       const group = row.closest(".gantt-group");
       const add = group?.querySelector(".gantt-row.kind-add");
       if (!add) return;
-      const ops = grid.map(([title = "", start = "", weeks = "", due = ""]) => ({
-        op: "create", milestone_id: add.dataset.milestone, title: title.trim(), start, weeks, due,
+      const ops = grid.map(([title = "", start = "", length = "", due = ""]) => ({
+        op: "create", milestone_id: add.dataset.milestone, title: title.trim(), start, length, due, unit: unit(),
       }));
       send(ops, {
         then: (made) => {
@@ -487,16 +503,16 @@
       });
       return;
     }
-    const names = { 2: "start", 3: "weeks", 4: "due" };
+    const names = { 2: "start", 3: "length", 4: "due" };
     const all = rows();
     const targets = all.slice(all.indexOf(row)).filter((r) => r.dataset.kind === "task");
     const ops = [];
     grid.forEach((cells, i) => {
       const target = targets[i];
       if (!target) return;
-      const op = { op: "task", id: Number(target.dataset.id) };
+      const op = { op: "task", id: Number(target.dataset.id), unit: unit() };
       cells.forEach((value, j) => { if (names[cursor.col + j]) op[names[cursor.col + j]] = value.trim(); });
-      if (Object.keys(op).length > 2) ops.push(op);
+      if (Object.keys(op).length > 3) ops.push(op);
     });
     if (ops.length) send(ops);
   };
@@ -507,6 +523,11 @@
     if (e.isComposing) return;
     if (editing) {
       writingKey(e);
+      return;
+    }
+    if (rowDrag && e.key === "Escape") {
+      e.preventDefault();
+      endRowDrag(null);
       return;
     }
     if (!cursor || document.querySelector("dialog[open]")) return;
@@ -555,7 +576,7 @@
     if (key === "Enter" || key === "F2") {
       handled();
       if (cell.dataset.edit) edit(cell);
-      else if (isWeek(cursor.col)) fill();
+      else if (isTime(cursor.col)) fill();
       else if (cell.hasAttribute("data-toggle")) toggle(row);
       else if (key === "Enter") step(1, 0);
       return;
@@ -563,7 +584,7 @@
     if (key === " ") {
       handled();
       if (cell.hasAttribute("data-toggle")) toggle(row);
-      else if (isWeek(cursor.col)) fill();
+      else if (isTime(cursor.col)) fill();
       else if (cell.dataset.edit) edit(cell, { value: " ", typed: true });
       return;
     }
@@ -608,7 +629,7 @@
     paste(e.clipboardData.getData("text/plain"));
   });
 
-  /* ---- the pointer ---- */
+  /* ---- the pointer: cells, bars ---- */
 
   let drag = null;
   let lastDown = null; // the last press: its cell and when, for a double click
@@ -616,9 +637,10 @@
 
   sheet.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
-    const resize = e.target.closest("[data-gantt-resize]");
-    if (resize) { startResize(e); return; }
-    // A bar, tick or diamond lies over the week cells: the cell is the one under it.
+    if (e.target.closest("[data-gantt-resize]")) { startResize(e); return; }
+    const grip = e.target.closest("[data-row-grip]");
+    if (grip) { startRowDrag(e, grip.closest(".gantt-row")); return; }
+    // A bar, tick or diamond lies over the time's cells: the cell is the one under it.
     const cell = e.target.closest(".gantt-cell[data-col]")
       || document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".gantt-cell[data-col]"));
     const row = e.target.closest(".gantt-row[data-key]");
@@ -648,28 +670,30 @@
   });
 
   sheet.addEventListener("pointermove", (e) => {
+    if (rowDrag) { moveRowDrag(e); return; }
     if (!drag || e.pointerId !== drag.id) return;
     if (!drag.moved && Math.abs(e.clientX - drag.x) < 4) return;
     drag.moved = true;
-    const weeks = Math.round((e.clientX - drag.x) / weekWidth());
+    const cols = Math.round((e.clientX - drag.x) / colWidth());
     if (drag.bar) {
-      drag.weeks = weeks;
-      previewBar(weeks);
+      drag.cols = cols;
+      previewBar(cols);
       return;
     }
-    // Over the cells: a range, in this row on the weeks (a bar to draw).
+    // Over the cells: a range, in this row on the time (a bar to draw).
     const under = document.elementFromPoint(e.clientX, e.clientY)?.closest(".gantt-cell[data-col]");
-    let col = under ? Number(under.dataset.col) : drag.col + weeks;
-    if (isWeek(drag.col)) col = Math.max(FROZEN, col);
-    const key = isWeek(drag.col) ? drag.row.dataset.key : under?.closest(".gantt-row[data-key]")?.dataset.key || cursor.key;
+    let col = under ? Number(under.dataset.col) : drag.col + cols;
+    if (isTime(drag.col)) col = Math.max(FROZEN, col);
+    const key = isTime(drag.col) ? drag.row.dataset.key : under?.closest(".gantt-row[data-key]")?.dataset.key || cursor.key;
     anchor = { key: drag.row.dataset.key, col: drag.col };
     cursor = { key, col: Math.min(colCount() - 1, col) };
-    sheet.classList.toggle("is-drawing", isWeek(drag.col) && drag.row.dataset.kind === "task");
+    sheet.classList.toggle("is-drawing", isTime(drag.col) && drag.row.dataset.kind === "task");
     const cell = place();
     if (cell) reveal(cell);
   });
 
   const endDrag = (e) => {
+    if (rowDrag) { endRowDrag(e); return; }
     if (!drag || e.pointerId !== drag.id) return;
     const was = drag;
     drag = null;
@@ -680,40 +704,43 @@
       return;
     }
     if (was.bar) {
-      if (!was.weeks) { resetBar(was); return; }
-      const d = was.row.dataset;
-      const id = Number(d.id);
-      if (was.bar.classList.contains("gantt-diamond")) send([{ op: "milestone", id, shift: was.weeks }]);
-      else if (was.grip === "end") send([{ op: "task", id, grow: was.weeks }]);
-      else if (was.grip === "start") {
-        const last = addDays(d.due, -((new Date(`${d.due}T12:00:00`).getDay() + 6) % 7));
-        const first = addDays(d.startsOn, 7 * was.weeks);
-        send([{ op: "task", id, span: [first > last ? last : first, last] }]);
-      } else send([{ op: "task", id, shift: was.weeks }]);
-      if (isWeek(cursor.col) && !was.grip) cursor.col += was.weeks;
+      if (!was.cols) { resetBar(was); return; }
+      const id = Number(was.row.dataset.id);
+      const by = { unit: unit() };
+      if (was.bar.classList.contains("gantt-diamond")) send([{ op: "milestone", id, shift: was.cols, ...by }]);
+      else if (was.grip === "end") send([{ op: "task", id, grow: was.cols, ...by }]);
+      else if (was.grip === "start") send([{ op: "task", id, move_start: was.cols, ...by }]);
+      else send([{ op: "task", id, shift: was.cols, ...by }]);
+      if (isTime(cursor.col) && !was.grip) cursor.col += was.cols;
       return;
     }
-    // A drag over a task's weeks draws its bar there.
-    if (isWeek(was.col) && was.row.dataset.kind === "task") fill();
+    // A drag over a task's time draws its bar there.
+    if (isTime(was.col) && was.row.dataset.kind === "task") fill();
   };
   sheet.addEventListener("pointerup", endDrag);
-  sheet.addEventListener("pointercancel", (e) => { if (drag?.bar) resetBar(drag); drag = null; });
+  sheet.addEventListener("pointercancel", () => {
+    if (rowDrag) endRowDrag(null);
+    if (drag?.bar) resetBar(drag);
+    drag = null;
+  });
 
-  // While a bar is dragged, it moves (or its end or start does) by whole weeks.
-  function previewBar(weeks) {
+  // While a bar is dragged, it moves (or its end or start does) by whole
+  // columns: weeks, its days kept, or days.
+  function previewBar(cols) {
     const { bar, grip } = drag;
     const s = Number(bar.dataset.s ??= getComputedStyle(bar).getPropertyValue("--s") || 0);
     const n = Number(bar.dataset.n ??= getComputedStyle(bar).getPropertyValue("--n") || 1);
     const x = Number(bar.dataset.x ??= getComputedStyle(bar).getPropertyValue("--x") || 0);
+    const day = 1 / colDays(); // a day, in columns: the shortest a bar can be
     bar.classList.add("is-dragged");
     if (bar.classList.contains("gantt-bar")) {
-      if (grip === "end") bar.style.setProperty("--n", Math.max(1, n + weeks));
+      if (grip === "end") bar.style.setProperty("--n", Math.max(day, n + cols));
       else if (grip === "start") {
-        const by = Math.min(weeks, n - 1);
+        const by = Math.min(cols, Math.floor(n - day + 1e-6));
         bar.style.setProperty("--s", s + by);
         bar.style.setProperty("--n", n - by);
-      } else bar.style.setProperty("--s", s + weeks);
-    } else bar.style.setProperty("--x", x + weeks);
+      } else bar.style.setProperty("--s", s + cols);
+    } else bar.style.setProperty("--x", x + cols);
   }
   function resetBar(was) {
     const { bar } = was;
@@ -721,6 +748,105 @@
     for (const name of ["s", "n", "x"]) if (bar.dataset[name] !== undefined) bar.style.setProperty(`--${name}`, bar.dataset[name]);
   }
 
+  /* ---- the pointer: a task's row, dragged by its number to another
+     place, in its milestone or another (or out of any) ---- */
+
+  let rowDrag = null; // {row, id, y, moved, drop}
+
+  function startRowDrag(e, row) {
+    e.preventDefault();
+    if (editing) commit();
+    moveTo(row.dataset.key, TITLE);
+    rowDrag = { row, id: Number(row.dataset.id), y: e.clientY, pointer: e.pointerId, moved: false, drop: null };
+    sheet.setPointerCapture(e.pointerId);
+  }
+
+  // Where the row would land under the pointer: in which group, before
+  // which task (null for its end), and the edge of which row to draw at.
+  function dropAt(y) {
+    const x = sheet.getBoundingClientRect().left + 8;
+    const under = document.elementsFromPoint(x, y).find((el) => el.matches(".gantt-row[data-key]"));
+    const all = rows();
+    const groups = [...sheet.querySelectorAll(".gantt-group")];
+    const last = groups[groups.length - 1];
+    const endOf = (group) => ({
+      group, before: null, line: group.querySelector(".gantt-row.kind-add"), edge: "top",
+    });
+    if (!under || under.dataset.kind === "add-milestone") {
+      // Past the last group: its end.
+      return y > sheet.querySelector(".gantt-head").getBoundingClientRect().bottom ? endOf(last) : null;
+    }
+    const group = under.closest(".gantt-group");
+    if (under.dataset.kind === "add") return endOf(group);
+    if (under.dataset.kind !== "task") {
+      // A milestone's row, or "Other tasks": its group's top.
+      const first = group.querySelector(".gantt-row.kind-task");
+      return { group, before: first, line: under, edge: "bottom" };
+    }
+    const box = under.getBoundingClientRect();
+    if (y < box.top + box.height / 2) return { group, before: under, line: under, edge: "top" };
+    const next = all[all.indexOf(under) + 1];
+    return { group, before: next?.dataset.kind === "task" ? next : null, line: under, edge: "bottom" };
+  }
+
+  function moveRowDrag(e) {
+    if (e.pointerId !== rowDrag.pointer) return;
+    if (!rowDrag.moved && Math.abs(e.clientY - rowDrag.y) < 4) return;
+    rowDrag.moved = true;
+    rowDrag.row.classList.add("is-lifted");
+    sheet.classList.add("is-moving-row");
+    // Near the sheet's top or foot, it scrolls.
+    const box = sheet.getBoundingClientRect();
+    if (e.clientY < box.top + headHeight() + 24) sheet.scrollTop -= 12;
+    else if (e.clientY > box.top + sheet.clientHeight - 24) sheet.scrollTop += 12;
+    const drop = dropAt(e.clientY);
+    // Onto itself, or just under the task above it: where it is.
+    const same = drop && (drop.before === rowDrag.row
+      || (drop.group === rowDrag.row.closest(".gantt-group") && nextTask(rowDrag.row) === drop.before));
+    rowDrag.drop = same ? null : drop;
+    let line = table().querySelector(".gantt-drop-line");
+    if (!rowDrag.drop) { line?.remove(); return; }
+    if (!line) {
+      line = document.createElement("span");
+      line.className = "gantt-drop-line";
+      line.setAttribute("aria-hidden", "true");
+      table().append(line);
+    }
+    const at = rowDrag.drop.line.getBoundingClientRect();
+    const top = (rowDrag.drop.edge === "top" ? at.top : at.bottom) - table().getBoundingClientRect().top;
+    line.style.top = `${Math.round(top) - 1}px`;
+    sheet.querySelectorAll(".gantt-group.is-drop").forEach((g) => g.classList.remove("is-drop"));
+    rowDrag.drop.group.classList.add("is-drop");
+  }
+
+  const nextTask = (row) => {
+    const next = row.nextElementSibling;
+    return next?.dataset.kind === "task" ? next : null;
+  };
+
+  function endRowDrag(e) {
+    if (e && e.pointerId !== rowDrag.pointer) return;
+    const was = rowDrag;
+    rowDrag = null;
+    was.row.classList.remove("is-lifted");
+    sheet.classList.remove("is-moving-row");
+    table().querySelector(".gantt-drop-line")?.remove();
+    sheet.querySelectorAll(".gantt-group.is-drop").forEach((g) => g.classList.remove("is-drop"));
+    if (!e || !was.drop) return;
+    const from = {
+      milestone_id: was.row.closest(".gantt-group").dataset.milestone,
+      before: nextTask(was.row) ? Number(nextTask(was.row).dataset.id) : null,
+    };
+    const to = {
+      milestone_id: was.drop.group.dataset.milestone,
+      before: was.drop.before ? Number(was.drop.before.dataset.id) : null,
+    };
+    const op = (where) => [{ op: "place", id: was.id, ...where }];
+    send(op(to), {
+      undo: op(from), redo: op(to),
+      then: () => rowOf(`t${was.id}`) && moveTo(`t${was.id}`, TITLE),
+    });
+  }
 
   // Focus reaching the sheet by Tab lands on the cursor's cell.
   sheet.addEventListener("focusin", (e) => {
@@ -749,18 +875,63 @@
     document.addEventListener("pointerup", up);
   }
 
-  /* ---- this week in view: on opening, and on its button ---- */
+  /* ---- weeks or days: the switch (or V), the same days kept in view ---- */
 
-  const toThisWeek = () => {
-    const at = parseFloat(getComputedStyle(table()).getPropertyValue("--this-week")) || 0;
-    sheet.scrollLeft = Math.max(0, (at - 1) * weekWidth());
+  const thisCol = () => parseFloat(getComputedStyle(table()).getPropertyValue("--this-col")) || 0;
+  const toNow = () => {
+    sheet.scrollLeft = Math.max(0, (thisCol() - Number(table().dataset.lead)) * colWidth());
   };
-  document.querySelector("[data-gantt-this-week]")?.addEventListener("click", () => {
-    toThisWeek();
-    const key = cursor?.key;
-    if (key) moveTo(key, FROZEN + (parseFloat(getComputedStyle(table()).getPropertyValue("--this-week")) || 0));
+
+  const showScale = () => {
+    const now = scale();
+    document.querySelectorAll("[data-gantt-scale]").forEach((a) => {
+      if (a.dataset.ganttScale === now) a.setAttribute("aria-current", "true");
+      else a.removeAttribute("aria-current");
+    });
+    const button = document.querySelector("[data-gantt-this-week]");
+    if (button) button.textContent = now === "weeks" ? "This week" : "Today";
+    sheet.setAttribute("aria-label", sheet.getAttribute("aria-label").replace(/by (week|day)$/, `by ${now === "weeks" ? "week" : "day"}`));
+    history.replaceState(null, "", `?scale=${now}`);
+  };
+
+  const switchScale = (to) => {
+    if (editing) commit();
+    chain = chain.then(async () => {
+      if (to === scale()) return;
+      try {
+        const response = await fetch(`/ui/projects/${project}/gantt?scale=${to}`);
+        if (!response.ok) throw await failure(response);
+        draw(await response.text());
+        showScale();
+        const cell = cursor && cellAt(rowOf(cursor.key), cursor.col);
+        if (cell) reveal(cell);
+      } catch (error) {
+        window.toast(error.message);
+      }
+    });
+  };
+
+  document.querySelector("[data-gantt-scales]")?.addEventListener("click", (e) => {
+    const link = e.target.closest("[data-gantt-scale]");
+    if (!link) return;
+    e.preventDefault();
+    switchScale(link.dataset.ganttScale);
+  });
+  // V, outside the sheet's cells (where letters are written) and fields.
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "v" && e.key !== "V") return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
+    if (e.target.closest?.("input, textarea, select, [contenteditable]") || document.querySelector("dialog[open]")) return;
+    if (sheet.contains(e.target)) return;
+    e.preventDefault();
+    switchScale(scale() === "weeks" ? "days" : "weeks");
   });
 
-  toThisWeek();
+  document.querySelector("[data-gantt-this-week]")?.addEventListener("click", () => {
+    toNow();
+    if (cursor) moveTo(cursor.key, FROZEN + thisCol());
+  });
+
+  toNow();
   place();
 })();

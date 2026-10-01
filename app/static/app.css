@@ -1982,15 +1982,16 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
   .nav a[aria-current="page"]::before { top: 0; }
 }
 
-/* ---------- a project's Gantt: a spreadsheet of its plan by week ---------- */
+/* ---------- a project's Gantt: a spreadsheet of its plan, in weeks or days ---------- */
 
 /* The sheet is ruled as Tasks' is (36px rows, 28px compact; numbered on a
    fog wash; each milestone's rows bracketed by 2px rules, in ink while the
    cursor is in them), and scrolls both ways inside the window: its header
-   row and its frozen pane (the numbers, the box, Task, Start, Wks and Due)
-   stay put, as a spreadsheet's do, so they are opaque paper where the
-   weeks are the sheet's own see-through paper. Week columns are ruled by
-   the table's background, so the filler rows under the last are too. */
+   row and its frozen pane (the numbers, the box, Task, Start, the length
+   and Due) stay put, as a spreadsheet's do, so they are opaque paper where
+   the time is the sheet's own see-through paper. Its columns of time are a
+   week each (52px) or a day (36px), ruled by the table's background, so
+   the filler rows under the last are too. */
 .main:has(.gantt-page) { max-width: 1600px; }
 .gantt-page { display: flex; flex-direction: column; height: calc(100dvh - 2 * var(--s-8)); min-height: 560px; }
 .gantt-header { margin-bottom: var(--s-4); }
@@ -2003,17 +2004,19 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 }
 .gantt-back::before { content: "‹ "; }
 .gantt-back:hover { color: var(--ink); }
-.gantt-this-week { flex: none; margin-top: var(--s-1); }
+.gantt-controls { flex: none; display: flex; align-items: center; gap: var(--s-3); margin-top: var(--s-1); }
+.gantt-controls .segmented { margin: 0; }
+.gantt-this-week { flex: none; min-width: 96px; }
 
 .gantt-sheet {
-  --gantt-wk: 52px;
+  --gantt-col: 52px;
   --gantt-num: var(--pad-rows);
   --gantt-box: 32px;
   --gantt-title: 280px;
   --gantt-start: 64px;
-  --gantt-wks: 48px;
+  --gantt-length: 48px;
   --gantt-due: 108px;
-  --gantt-pane: calc(var(--gantt-num) + var(--gantt-box) + var(--gantt-title) + var(--gantt-start) + var(--gantt-wks) + var(--gantt-due));
+  --gantt-pane: calc(var(--gantt-num) + var(--gantt-box) + var(--gantt-title) + var(--gantt-start) + var(--gantt-length) + var(--gantt-due));
   --gantt-head: 48px;
   --gantt-pane-bg: var(--paper);
   --bracket-rule: var(--graphite);
@@ -2022,14 +2025,32 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
   background: color-mix(in srgb, var(--paper) 35%, transparent);
   font-size: var(--t-body-sm); line-height: var(--pad-text);
 }
+/* drilled down to days: narrower columns, and a Start wide enough for its date */
+.gantt-sheet:has(> .gantt-table[data-scale="days"]) { --gantt-col: 36px; --gantt-start: 112px; }
+
 .gantt-table {
+  --time: calc(100% - var(--gantt-pane));
   position: relative; display: flex; flex-direction: column;
-  width: calc(var(--gantt-pane) + var(--weeks) * var(--gantt-wk)); min-height: 100%;
+  width: calc(var(--gantt-pane) + var(--cols) * var(--gantt-col)); min-height: 100%;
+  background:
+    /* now's column: this week, or today */
+    linear-gradient(var(--ink-tint-faint), var(--ink-tint-faint))
+      calc(var(--gantt-pane) + var(--this-col) * var(--gantt-col)) 0 / var(--gantt-col) 100% no-repeat,
+    repeating-linear-gradient(to right, transparent 0 calc(var(--gantt-col) - 1px), var(--hairline) calc(var(--gantt-col) - 1px) var(--gantt-col))
+      var(--gantt-pane) 0 / var(--time) 100% no-repeat;
+}
+/* days: weekends tinted as on Calendar and Weeks, each week's start ruled
+   a step stronger, so the weeks still read */
+.gantt-table[data-scale="days"] {
   background:
     linear-gradient(var(--ink-tint-faint), var(--ink-tint-faint))
-      calc(var(--gantt-pane) + var(--this-week) * var(--gantt-wk)) 0 / var(--gantt-wk) 100% no-repeat,
-    repeating-linear-gradient(to right, transparent 0 calc(var(--gantt-wk) - 1px), var(--hairline) calc(var(--gantt-wk) - 1px) var(--gantt-wk))
-      var(--gantt-pane) 0 / calc(100% - var(--gantt-pane)) 100% no-repeat;
+      calc(var(--gantt-pane) + var(--this-col) * var(--gantt-col)) 0 / var(--gantt-col) 100% no-repeat,
+    repeating-linear-gradient(to right, var(--mist) 0 1px, transparent 1px calc(7 * var(--gantt-col)))
+      var(--gantt-pane) 0 / var(--time) 100% no-repeat,
+    repeating-linear-gradient(to right, transparent 0 calc(var(--gantt-col) - 1px), var(--hairline) calc(var(--gantt-col) - 1px) var(--gantt-col))
+      var(--gantt-pane) 0 / var(--time) 100% no-repeat,
+    repeating-linear-gradient(to right, transparent 0 calc(5 * var(--gantt-col)), var(--ink-tint-faint) calc(5 * var(--gantt-col)) calc(7 * var(--gantt-col)))
+      var(--gantt-pane) 0 / var(--time) 100% no-repeat;
 }
 
 .gantt-row { display: flex; flex: none; height: var(--pad-line); box-sizing: border-box; border-bottom: 1px solid var(--hairline); }
@@ -2042,7 +2063,7 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-weeks { position: relative; z-index: 0; display: flex; flex: none; }
 
 .gantt-num {
-  flex: none; width: var(--gantt-num); padding-right: var(--s-2);
+  position: relative; flex: none; width: var(--gantt-num); padding-right: var(--s-2);
   font: 400 var(--t-caption) / calc(var(--pad-line) - 1px) var(--font-num); text-align: right;
   color: var(--pewter); font-variant-numeric: tabular-nums;
   background: color-mix(in srgb, var(--fog) 70%, var(--paper));
@@ -2060,10 +2081,10 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-box { width: var(--gantt-box); justify-content: center; padding: 0; }
 .gantt-title { width: var(--gantt-title); padding-left: var(--s-3); color: var(--ink); font-weight: 500; }
 .gantt-start { width: var(--gantt-start); }
-.gantt-wks { width: var(--gantt-wks); justify-content: flex-end; }
+.gantt-length { width: var(--gantt-length); justify-content: flex-end; }
 .gantt-due { width: var(--gantt-due); box-shadow: none; }
 .gantt-due:focus, .gantt-due:focus-visible { box-shadow: none; }
-.gantt-wk { width: var(--gantt-wk); padding: 0; box-shadow: none; }
+.gantt-wk { width: var(--gantt-col); padding: 0; box-shadow: none; }
 .gantt-wk:focus, .gantt-wk:focus-visible { box-shadow: none; }
 .gantt-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .gantt-text.placeholder { color: var(--pewter); font-weight: 400; }
@@ -2092,7 +2113,9 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-plus { width: 14px; height: 14px; fill: none; stroke: var(--steel); stroke-width: 1.6; stroke-linecap: round; }
 .gantt-row.has-cursor .gantt-plus { stroke: var(--ink); }
 
-/* the header row: the columns' names, then each week's number over its Monday */
+/* the header row: the columns' names, then the time's heads: a week's
+   number over its Monday's day, or a day's initial and date under its
+   week's name, which runs over the week's days from its Monday */
 .gantt-head {
   position: sticky; top: 0; z-index: 4; height: var(--gantt-head);
   background: var(--gantt-pane-bg); border-bottom: 1px solid var(--mist);
@@ -2107,14 +2130,21 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-resize:hover::after { background: var(--steel); }
 .gantt-wk-head {
   display: flex; flex-direction: column; justify-content: flex-end; flex: none;
-  width: var(--gantt-wk); padding: 0 0 7px var(--s-2);
-  font-size: var(--t-caption); line-height: 16px; font-variant-numeric: tabular-nums;
+  width: var(--gantt-col); padding: 0 0 7px var(--s-2);
+  font-size: var(--t-caption); line-height: 16px; font-variant-numeric: tabular-nums; white-space: nowrap;
   box-shadow: inset -1px 0 0 var(--hairline);
 }
 .gantt-wk-head b { font-weight: 600; color: var(--ink); }
 .gantt-wk-head small { font-size: inherit; color: var(--pewter); }
 .gantt-wk-head.new-month small { color: var(--graphite); }
-.gantt-wk-head.is-current b, .gantt-wk-head.is-current small { color: var(--spark-deep); text-shadow: var(--spark-glow-text); }
+.gantt-wk-head i { font-style: normal; color: var(--pewter); }
+.gantt-table[data-scale="days"] .gantt-wk-head { padding-left: 5px; overflow: visible; box-shadow: none; }
+.gantt-table[data-scale="days"] .gantt-wk-head small { color: var(--ink); }
+.gantt-table[data-scale="days"] .gantt-wk-head.weekend small { color: var(--pewter); }
+.gantt-table[data-scale="days"] .gantt-wk-head.week-start { box-shadow: inset 1px 0 0 var(--mist); }
+.gantt-wk-head.is-current :is(b, small, i), .gantt-table[data-scale="days"] .gantt-wk-head.is-current small {
+  color: var(--spark-deep); text-shadow: var(--spark-glow-text);
+}
 .gantt-wk-head.col-cursor { background: var(--fog); }
 
 /* groups: a milestone and its rows between two rules, as on every sheet */
@@ -2130,27 +2160,28 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-group.has-cursor::before, .gantt-group.has-cursor::after,
 .gantt-group:has(+ .gantt-group.has-cursor)::after { background: var(--ink); z-index: 4; }
 
-/* the plan: a task's bar is solid ink as its calendar blocks are, grips at
-   its ends; done, it is fog. A task due with no start is a tick on its due.
-   A milestone is a diamond on its target over a summary of its tasks' bars. */
+/* the plan: a task's bar is solid ink as its calendar blocks are, from its
+   start's day to its due's, grips at its ends; done, it is fog. A task due
+   with no start is a tick on its due. A milestone is a diamond on its
+   target over a summary of its tasks' bars. */
 .gantt-bar {
   position: absolute; top: 50%; z-index: 1; height: 14px; margin-top: -7px;
-  left: calc(var(--s) * var(--gantt-wk) + 3px); width: calc(var(--n) * var(--gantt-wk) - 7px);
+  left: calc(var(--s) * var(--gantt-col) + 2px); width: max(4px, calc(var(--n) * var(--gantt-col) - 5px));
   background: var(--solid); box-shadow: inset 0 0 0 1.5px var(--solid-edge), var(--solid-glow);
   cursor: grab;
 }
 .gantt-row.is-done .gantt-bar { background: var(--fog); box-shadow: inset 0 0 0 1px var(--mist); }
 .gantt-grip { position: absolute; top: -4px; bottom: -4px; width: 8px; cursor: ew-resize; }
-.gantt-grip[data-grip="start"] { left: -3px; }
-.gantt-grip[data-grip="end"] { right: -3px; }
+.gantt-grip[data-grip="start"] { left: -4px; }
+.gantt-grip[data-grip="end"] { right: -4px; }
 .gantt-tick {
   position: absolute; top: 50%; z-index: 1; width: 2px; height: 16px; margin-top: -8px;
-  left: calc(var(--x) * var(--gantt-wk) - 1px); background: var(--ink); cursor: grab;
+  left: calc(var(--x) * var(--gantt-col) - 1px); background: var(--ink); cursor: grab;
 }
 .gantt-tick::before { content: ""; position: absolute; top: 0; left: -3px; width: 8px; height: 2px; background: var(--ink); }
 .gantt-summary {
   position: absolute; top: 50%; height: 4px; margin-top: -2px;
-  left: calc(var(--s) * var(--gantt-wk) + 3px); width: calc(var(--n) * var(--gantt-wk) - 7px);
+  left: calc(var(--s) * var(--gantt-col) + 2px); width: max(4px, calc(var(--n) * var(--gantt-col) - 5px));
   background: var(--graphite); pointer-events: none;
 }
 .gantt-summary::before, .gantt-summary::after { content: ""; position: absolute; top: 0; width: 2px; height: 9px; background: var(--graphite); }
@@ -2158,16 +2189,16 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-summary::after { right: 0; }
 .gantt-diamond {
   position: absolute; top: 50%; z-index: 1; width: 12px; height: 12px; margin-top: -6px;
-  left: calc(var(--x) * var(--gantt-wk) - 6px); transform: rotate(45deg);
+  left: calc(var(--x) * var(--gantt-col) - 6px); transform: rotate(45deg);
   background: var(--ink); cursor: grab;
 }
 .gantt-row.is-done .gantt-diamond { background: var(--fog); box-shadow: inset 0 0 0 1.5px var(--ink); }
 :is(.gantt-bar, .gantt-diamond, .gantt-tick).is-dragged { cursor: grabbing; opacity: 0.85; }
 
-/* now: the signal, down through the weeks, at today */
+/* now: the signal, down through the time, at the middle of today */
 .gantt-now {
   position: absolute; top: var(--gantt-head); bottom: 0; z-index: 1; width: 2px;
-  left: calc(var(--gantt-pane) + var(--now) * var(--gantt-wk) - 1px);
+  left: calc(var(--gantt-pane) + var(--now) * var(--gantt-col) - 1px);
   background: var(--signal); box-shadow: var(--signal-glow); pointer-events: none;
 }
 
@@ -2182,6 +2213,24 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-sheet.is-drawing .gantt-wk.in-range { box-shadow: inset 0 1.5px 0 var(--spark), inset 0 -1.5px 0 var(--spark); }
 .gantt-row.kind-task .gantt-wk { cursor: crosshair; }
 
+/* a task's row is dragged by its number: a grip shows beside it on hover;
+   the row in hand fades to 40%, the spark marks where it would land, and
+   the group it would land in takes the spark's rules */
+.gantt-num[data-row-grip] { cursor: grab; }
+.gantt-num[data-row-grip]::before {
+  content: ""; position: absolute; left: 7px; top: 50%; width: 6px; height: 10px; margin-top: -5px;
+  background: radial-gradient(circle, var(--steel) 1px, transparent 1.2px) 0 0 / 3px 4px;
+  opacity: 0; transition: opacity var(--dur) var(--ease);
+}
+.gantt-row:hover .gantt-num[data-row-grip]::before, .gantt-row.is-lifted .gantt-num[data-row-grip]::before { opacity: 1; }
+.gantt-row.is-lifted { opacity: 0.4; }
+.gantt-sheet.is-moving-row, .gantt-sheet.is-moving-row * { cursor: grabbing; }
+.gantt-drop-line {
+  position: absolute; left: 0; right: 0; z-index: 3; height: 2px;
+  background: var(--spark); box-shadow: var(--spark-glow); pointer-events: none;
+}
+.gantt-group.is-drop::before, .gantt-group.is-drop::after { background: var(--spark-deep); z-index: 4; }
+
 /* writing in a cell: the words on the cell's own line, its ring kept */
 .gantt-cell.is-editing { overflow: visible; }
 .gantt-input {
@@ -2195,18 +2244,20 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-row.indent .gantt-title .gantt-input { padding-left: calc(var(--s-3) + var(--s-6)); }
 .gantt-input::placeholder { color: var(--pewter); font-weight: 400; }
 
-.gantt-filler { flex: 1 1 0; min-height: 0; overflow: hidden; }
+/* clipped, not hidden: a scroll container of its own would hold its panes still */
+.gantt-filler { flex: 1 1 0; min-height: 0; overflow: clip; }
 .gantt-filler .gantt-cell { cursor: default; }
 
 /* a phone: the Task column narrower, the typed columns folded away (bars
    still drawn and dragged), the numbers as narrow as the sheets' */
 @media (max-width: 720px) {
   .gantt-page { height: calc(100dvh - var(--s-6) - 96px); min-height: 480px; }
-  .gantt-sheet {
+  .gantt-header { flex-wrap: wrap; }
+  .gantt-sheet, .gantt-sheet:has(> .gantt-table[data-scale="days"]) {
     --gantt-num: 34px; --gantt-box: 28px;
     --gantt-pane: calc(var(--gantt-num) + var(--gantt-box) + min(var(--gantt-title), 150px));
   }
   .gantt-sheet .gantt-title { width: min(var(--gantt-title), 150px); }
-  .gantt-sheet :is(.gantt-start, .gantt-wks, .gantt-due) { display: none; }
+  .gantt-sheet :is(.gantt-start, .gantt-length, .gantt-due) { display: none; }
   .gantt-this-week { display: none; }
 }

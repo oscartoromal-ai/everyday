@@ -210,10 +210,11 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         <h3>A project's Gantt</h3>
         <dl>
           <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> <span class="or">or</span> <kbd>Tab</kbd></dt><dd>Move between cells; with Shift, hold a range</dd>
-          <dt>Typing, <kbd>Enter</kbd> <span class="or">or</span> <kbd>F2</kbd></dt><dd>Write in the cell: a task, W42, 12 Oct or next week, a number of weeks; Enter keeps it and goes down, Tab across, Esc drops it</dd>
-          <dt><kbd>Space</kbd></dt><dd>On the weeks: the bar over the weeks held; on the box: done, or a milestone reached</dd>
-          <dt><kbd>Alt</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>Bars a week earlier or later; with Shift, their ends</dd>
-          <dt><kbd>Alt</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dt><dd>The task a row up or down, into the milestone above or below</dd>
+          <dt>Typing, <kbd>Enter</kbd> <span class="or">or</span> <kbd>F2</kbd></dt><dd>Write in the cell: a task, W42, 12 Oct or next week, a length (3, 3w, 10d); Enter keeps it and goes down, Tab across, Esc drops it</dd>
+          <dt><kbd>V</kbd></dt><dd>Weeks or days (outside the sheet's cells)</dd>
+          <dt><kbd>Space</kbd></dt><dd>On the time: the bar over the weeks or days held; on the box: done, or a milestone reached</dd>
+          <dt><kbd>Alt</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>Bars a week (or a day) earlier or later; with Shift, their ends</dd>
+          <dt><kbd>Alt</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dt><dd>The task a row up or down, into the milestone above or below; or drag it by its number</dd>
           <dt><kbd>Delete</kbd></dt><dd>Clear the bars, dues or targets held</dd>
           <dt><kbd>Ctrl</kbd> <kbd>-</kbd></dt><dd>Delete the tasks held, after asking</dd>
           <dt><kbd>Ctrl</kbd> <kbd>Z</kbd> <span class="or">or</span> <kbd>Y</kbd></dt><dd>Undo, redo</dd>

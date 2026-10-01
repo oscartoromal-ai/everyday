@@ -81,12 +81,13 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   It supersedes the earlier seven-day next-days list.
 - **A project as a Gantt chart** (Oscar's call on 2026-09-30: "I work in weeks", "a kind of Excel interface"): each project opens (`/projects/<id>`, from its card's bars icon) as a spreadsheet of its plan by week.
   A row per milestone, its tasks under it and a row to write one more; then the other tasks, and a row to write a milestone; a column per week (the ISO week, over its Monday), frozen beside Task, Start, Wks and Due.
-  A task's bar is its span: from its start week to its due, so the end of a bar is its deadline, and the Tasks page, nudges and Weeks see the plan through the due they already read (Oscar's call: a task has to be done by a day).
+  It drills down to days (Oscar's call on 2026-10-01): a Weeks / Days switch (or V) for the whole sheet, remembered, the same days kept in view; in Days a column per day, weekends tinted, the length in days, and every move by days.
+  A task's bar is its span: from its start day to its due, so the end of a bar is its deadline, and the Tasks page, nudges and Weeks see the plan through the due they already read (Oscar's call: a task has to be done by a day).
   The do-date stays apart: when Oscar works on it, not when the plan says it runs.
   A task due with no start is a tick on its due; a milestone is a diamond on its target, over a summary from its tasks' first start to their last end.
   It is worked as a spreadsheet: a cell cursor, typing writes over a cell (a title; a week as "42", "W42", "12 Oct" or "next week"; a number of weeks; a due, a week there meaning its Friday), Enter goes down and Tab across, Shift holds a range, Space draws the bars over the weeks held, a drag over a task's weeks draws its bar, a bar's middle drags it and its ends stretch it, Alt+Left/Right move bars a week, Alt+Up/Down move a row (into the milestone above or below), Delete clears, Ctrl+Z undoes, and pasted lines become tasks.
-  Everything is in whole weeks: a due keeps its weekday as its bar moves or stretches, and a bar drawn new ends on the Friday.
-  Rows keep their order as they are edited (a spreadsheet's rows do not re-sort), their own order once moved.
+  In Weeks, bars are drawn to the day but move and stretch by whole weeks: a bar keeps its days as it moves, a due keeps its weekday as its bar stretches, and a bar drawn new runs Monday to Friday; typed lengths are weeks unless named ("10d"), and in Days, days unless named ("3w").
+  Rows keep their order as they are edited (a spreadsheet's rows do not re-sort), their own order once moved: with Alt+Up/Down, or dragged by their number to another place or milestone (Oscar's call on 2026-10-01).
   Done tasks stay on the plan, struck through; cancelled ones and a series' finished occurrences leave it.
 
 ### The notebook (decided 2026-09-26, set aside 2026-09-27)
@@ -126,7 +127,7 @@ A repeating task's occurrences start with every sub-task open.
 planned_for is the day Oscar intends to work it and drives the daily list; due is the obligation and drives urgency.
 Backlog tasks have neither.
 The Weeks view is driven by planned_for, due, and milestone target dates.
-starts_on is always a Monday and always comes with a due, never after it: its span is its start week to its due's week, a start given alone ends that week's Friday, a due cleared takes the start with it, and a due moved before the start pulls the start back to its week.
+starts_on always comes with a due, never after it: its span is its start day to its due, a start given alone ends that week's Friday (or on itself at a weekend), a due cleared takes the start with it, and a due moved before the start pulls the start back to its week's Monday.
 
 **Block**: belongs to one task; start, end, state (planned / completed / missed).
 A task accumulates blocks over time (missed Tuesday, re-slotted Thursday).

@@ -52,12 +52,13 @@ def test_a_task_and_its_weeks_are_written_from_the_keyboard(page, live, project)
     page.keyboard.type("3")
     page.keyboard.press("Enter")
     page.wait_for_function(
-        "document.querySelector('.gantt-row[data-title=\"Write the spec\"] .gantt-wks')"
+        "document.querySelector('.gantt-row[data-title=\"Write the spec\"] .gantt-length')"
         ".textContent.trim() === '3'"
     )
     assert _span(page, "Write the spec")[0] == _week(1)
     bar = _row(page, "Write the spec").locator(".gantt-bar")
-    assert bar.get_attribute("style") == "--s: 2; --n: 3"  # the sheet opens a week back
+    # The sheet opens a week back; Mon to Fri, three weeks on.
+    assert bar.get_attribute("style") == "--s: 2.0; --n: 2.7143"
 
     # A week it cannot read is refused, and the cell opens again on the words.
     # Enter went down the Wks column; up and left is the task's Start.
@@ -79,7 +80,7 @@ def test_bars_are_drawn_dragged_moved_and_undone(page, live, project) -> None:
     week = page.locator(".gantt-wk-head").first.bounding_box()["width"]
 
     # Drawn over three weeks from this one.
-    start = row.locator(f'.gantt-wk[data-week="{_week(0)}"]').bounding_box()
+    start = row.locator(f'.gantt-wk[data-day="{_week(0)}"]').bounding_box()
     y = start["y"] + start["height"] / 2
     page.mouse.move(start["x"] + week / 2, y)
     page.mouse.down()
@@ -137,3 +138,61 @@ def test_a_click_ticks_and_a_double_click_writes(page, live, project) -> None:
     page.keyboard.type(", tied")
     page.keyboard.press("Enter")
     _row(page, "Loose end, tied").wait_for()
+
+
+def test_weeks_drill_down_to_days_and_back(page, live, project) -> None:
+    with_bar = (THIS + timedelta(days=2)).isoformat()
+    page.goto(f"{live}/projects/{project}")
+    row = _row(page, "Loose end")
+    row.locator(".gantt-start").click()
+    page.keyboard.type(with_bar)
+    page.keyboard.press("Enter")
+    page.wait_for_function(
+        f"document.querySelector('.gantt-row[data-title=\"Loose end\"]').dataset.startsOn"
+        f" === '{with_bar}'"
+    )
+    sheet = page.locator("#gantt")
+    left_day = sheet.evaluate(
+        "s => s.scrollLeft / s.querySelector('.gantt-wk-head').offsetWidth * 7"
+    )
+
+    page.get_by_role("link", name="Days").click()
+    page.locator('.gantt-table[data-scale="days"]').wait_for()
+    assert page.get_by_role("link", name="Days").get_attribute("aria-current") == "true"
+    assert page.locator(".gantt-head .gantt-length").inner_text() == "Days"
+    assert "?scale=days" in page.url
+    # The same days in view: the scroll is now in days.
+    now_day = sheet.evaluate("s => s.scrollLeft / s.querySelector('.gantt-wk-head').offsetWidth")
+    assert abs(now_day - left_day) < 1
+    # A Wednesday to Friday bar, three days long.
+    assert row.locator(".gantt-length").inner_text() == "3"
+    assert "--n: 3.0" in row.locator(".gantt-bar").get_attribute("style")
+
+    # Alt+Right moves it a day here.
+    row.locator(".gantt-title").click()
+    page.keyboard.press("Alt+ArrowRight")
+    page.wait_for_function(
+        f"document.querySelector('.gantt-row[data-title=\"Loose end\"]').dataset.startsOn"
+        f" === '{(THIS + timedelta(days=3)).isoformat()}'"
+    )
+
+    # V, away from the sheet's cells, goes back to weeks.
+    page.keyboard.press("Escape")
+    page.keyboard.press("v")
+    page.locator('.gantt-table[data-scale="weeks"]').wait_for()
+    assert page.locator(".gantt-head .gantt-length").inner_text() == "Wks"
+
+
+def test_a_row_is_dragged_into_a_milestone(page, live, project) -> None:
+    page.goto(f"{live}/projects/{project}")
+    grip = _row(page, "Loose end").locator("[data-row-grip]").bounding_box()
+    target = page.locator('.gantt-row.kind-milestone').bounding_box()
+    page.mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
+    page.mouse.down()
+    page.mouse.move(grip["x"] + grip["width"] / 2, target["y"] + target["height"] * 0.75, steps=8)
+    page.locator(".gantt-drop-line").wait_for()
+    page.mouse.up()
+    page.locator('.gantt-group[data-group^="m"] .gantt-row[data-title="Loose end"]').wait_for()
+    # And back, with undo.
+    page.keyboard.press("Control+z")
+    page.locator('.gantt-group[data-group="other"] .gantt-row[data-title="Loose end"]').wait_for()

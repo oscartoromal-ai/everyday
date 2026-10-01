@@ -572,7 +572,7 @@ def _history_value(field: str, value: Any, today: date) -> str:
         return short_date(date.fromisoformat(value), today)
     if field == "starts_on":
         start = date.fromisoformat(value)
-        return f"{week_label(start, today)} ({start.day} {start:%b})"
+        return f"{short_date(start, today)} ({week_label(start, today)})"
     if field == "status":
         return STATUS_WORDS.get(value, value)
     if field == "owner":

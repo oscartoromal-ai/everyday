@@ -286,19 +286,21 @@ The row in hand fades to 40%, and the target under it lights like a Weeks drop t
 A ghost bars icon, before the pencil, opens the project as a Gantt chart.
 
 **Gantt** (a project's page, `/projects/<id>`, as wide as Weeks).
-A page header (a pewter "‹ Projects", the project's flag and name at 24px, the task counts and the plan's span, the key line) with a quiet This week button at its right, then one sheet, ruled as Tasks' is (36px rows, 28px compact, the row numbers on the fog), that runs to the window's foot and scrolls both ways inside itself.
-Its header row (48px) and its frozen pane stay put while it scrolls, as a spreadsheet's do: the numbers, a 32px box column, Task (280px, widened by dragging its header's edge, remembered as `pc-gantt-title`), Start, Wks and Due, on opaque paper edged by a mist line, while the weeks are the sheet's see-through paper.
-Column names are 12px/500 graphite; a week's head is its ISO week in 12px/600 ink over its Monday's day in pewter (graphite, with the month, where the month turns), this week's in `--spark-deep`, glowing at night.
-Cells carry hairline rules both ways, as a spreadsheet's; the week columns are ruled by the table's background, so the empty numbered rows under the last are too, and this week's column is tinted `--ink-tint-faint`.
+A page header (a pewter "‹ Projects", the project's flag and name at 24px, the task counts and the plan's span, the key line) with, at its right, the Weeks / Days segmented control and a quiet This week (or Today) button, then one sheet, ruled as Tasks' is (36px rows, 28px compact, the row numbers on the fog), that runs to the window's foot and scrolls both ways inside itself.
+Its header row (48px) and its frozen pane stay put while it scrolls, as a spreadsheet's do: the numbers, a 32px box column, Task (280px, widened by dragging its header's edge, remembered as `pc-gantt-title`), Start, the length (Wks or Days) and Due, on opaque paper edged by a mist line, while the time is the sheet's see-through paper.
+Its time is a 52px column a week, or drilled down, a 36px column a day (Start then 112px, for its date).
+Column names are 12px/500 graphite; a week's head is its ISO week in 12px/600 ink over its Monday's day in pewter (graphite, with the month, where the month turns); a day's is its initial in pewter and its date in ink (pewter at weekends), under its week's name and Monday ("W41 · 5 Oct") running across the week from its Monday; now's head is `--spark-deep`, glowing at night.
+Cells carry hairline rules both ways, as a spreadsheet's; the time's columns are ruled by the table's background, so the empty numbered rows under the last are too, now's column (this week, or today) is tinted `--ink-tint-faint`, and in days so are weekends, each week's Monday ruled in mist.
 A milestone's row is 600 with a steel diamond in the box column (ink once reached), its Start and Wks its tasks' in pewter (read-only) and its target in Due; its tasks are one 24px step in; "Other tasks" heads the rest when there are milestones; each group ends in a pewter "Add a task…" row after a steel plus, and the sheet in "Add a milestone…".
 Groups are bracketed by 2px graphite rules, in ink round the cursor's group, as on every sheet.
-A task's bar is 14px of `--solid` (white tubes at night) inset 3px in its weeks, with 8px grips at its ends; done, it is fog on a mist edge and its title pewter and struck through.
+A task's bar is 14px of `--solid` (white tubes at night) from its start's day to its due's, in either scale (so a Monday-to-Friday week leaves its weekend), inset 2px and never under 4px, with 8px grips at its ends; done, it is fog on a mist edge and its title pewter and struck through.
 A task due with no start is a 2px ink tick on its due; a milestone is a 12px ink diamond on its target, over a 4px graphite summary with 9px end ticks spanning its tasks.
 Due soon (three days) is a warn badge in Due.
 The now-line is the signal, 2px, down through the weeks at today, glowing at night.
 The cursor is a 2px `--spark-deep` ring on its cell (glowing at night), over any bar, with the row's number in ink 600 and its week's head on the fog; while the sheet does not have focus it is a 1px steel ring.
 A range is `--spark-tint`; a bar being drawn is that tint edged top and bottom in the spark, as a calendar drag's preview.
 A cell being written takes its words on its own line (500 ink, on the paper), the ring kept.
+A task's row number is its grip (a steel six-dot mark beside it on hover): dragged, the row fades to 40%, a 2px spark line (glowing at night) marks where it would land, and the group it would land in takes `--spark-deep` rules.
 On phones the Task column narrows to 150px and Start, Wks and Due fold away; the bars are still drawn and dragged.
 
 **Nudges.** A glass card of rows with graphite icons, a secondary "Replan" or "Open" action and a steel dismiss control.
@@ -366,7 +368,8 @@ Typing writes over a cell and the arrows then leave it (Excel's Enter mode); Ent
 A value the server refuses is said in the toast and the cell opens again on the words.
 Every printable key is the sheet's while it has focus (the page's number and letter keys do not fire), except ? for the keys.
 Undo keeps the rows' fields as they were before each edit (taken when its turn in the queue comes) and redoes to how they were after; a new task undoes by deleting it, and a deleted task cannot come back, so deleting clears the history.
-The pointer: a click moves the cursor (Shift holds a range), a drag over a task's weeks draws its bar there, a bar's middle drags it and its grips stretch it, a diamond or tick drags its date, all by whole weeks, previewed as they move.
+The pointer: a click moves the cursor (Shift holds a range), a drag over a task's time draws its bar there, a bar's middle drags it and its grips stretch it, a diamond or tick drags its date, all by whole columns (weeks, or days), previewed as they move; a row dragged by its number drops before the row it is over (above its middle) or after it, at a milestone's top over its row, and at a group's end over its add row, and undoes back where it was.
+Weeks / Days (or V outside the sheet's cells) fetches the sheet in the other scale and keeps the same days in view and the cursor on its day's column; it is remembered (a `gantt_scale` cookie), and edits answer in the scale they were made in.
 
 **The chats** (`app/static/chat.js`, vanilla; Nutrition's and Spending's).
 Enter sends and Shift+Enter starts a new line; Left and Right, outside the message, go a day (a month, on Spending) back or on.

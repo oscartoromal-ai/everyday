@@ -1,10 +1,11 @@
 """A project's Gantt: its tasks as bars over weeks, its milestones as
 diamonds, and the edits its sheet makes (SPEC.md, Gantt).
 
-A bar is a task's span: from the Monday of its start week (Task.starts_on)
-to its due, so the end of a bar is the task's deadline and the Tasks page,
-nudges and Weeks see it as one. Everything here works in whole weeks; a due
-keeps its weekday as its bar moves or stretches (a new one is the Friday).
+A bar is a task's span: from its start day (Task.starts_on) to its due, so
+the end of a bar is the task's deadline and the Tasks page, nudges and Weeks
+see it as one. The sheet is seen in weeks or drilled down to days: in weeks
+a bar moves and stretches by whole weeks, its days kept (a due keeps its
+weekday; a new bar ends on the Friday), in days by days.
 """
 
 from __future__ import annotations
@@ -126,11 +127,11 @@ def _read(text: str, today: date, what: str) -> tuple[date | None, date | None]:
     return week, day
 
 
-def parse_start(text: str, today: date) -> date:
-    """The Monday of the start week written in a Start cell: a week, or any
-    day of it."""
+def parse_start(text: str, today: date) -> tuple[date, bool]:
+    """The start written in a Start cell, and whether it was a week: a week
+    is its Monday ("W42", "next week"), a day itself ("14 Oct", "wed")."""
     week, day = _read(text, today, "week")
-    return week or monday(day)
+    return (week, True) if week else (day, False)
 
 
 def parse_due(text: str, today: date) -> date:
@@ -139,28 +140,47 @@ def parse_due(text: str, today: date) -> date:
     return day or week + timedelta(days=SPAN_END_WEEKDAY)
 
 
-def parse_weeks(text: str) -> int:
-    """A bar's length written in a Wks cell: a whole number of weeks."""
-    value = text.strip().lower().removesuffix("w").removesuffix("weeks").strip()
-    if not value.isdigit() or not 1 <= int(value) <= MAX_WEEKS:
-        raise DomainError(f"A bar is 1 to {MAX_WEEKS} weeks: {text.strip()}")
-    return int(value)
+UNITS = {"week": 7, "day": 1}
+SUFFIXES = (("weeks", "week"), ("week", "week"), ("w", "week"),
+            ("days", "day"), ("day", "day"), ("d", "day"))
 
 
-# ---- a bar in weeks ----
+def parse_length(text: str, unit: str) -> tuple[int, str]:
+    """A bar's length written in its length cell: a whole number of the
+    view's unit, or of the one it names ("3w", "10d")."""
+    value = text.strip().lower()
+    for suffix, named in SUFFIXES:
+        if value.endswith(suffix) and value[: -len(suffix)].strip().isdigit():
+            value, unit = value[: -len(suffix)].strip(), named
+            break
+    limit = MAX_WEEKS * 7 // UNITS[unit]
+    if not value.isdigit() or not 1 <= int(value) <= limit:
+        raise DomainError(f"A bar is 1 to {limit} {unit}s: {text.strip()}")
+    return int(value), unit
 
 
-def weeks_of(task: Task) -> int | None:
-    """How many weeks a task's bar covers, its start's to its due's."""
+# ---- a bar: whole days, from its start to its due ----
+
+
+def length_of(task: Task, unit: str) -> int | None:
+    """How long a task's bar is: the days it covers, or the weeks they fall in."""
     if task.starts_on is None or task.due is None:
         return None
-    return (monday(task.due) - task.starts_on).days // 7 + 1
+    if unit == "day":
+        return (task.due - task.starts_on).days + 1
+    return (monday(task.due) - monday(task.starts_on)).days // 7 + 1
 
 
-def _end(last_week: date, due: date | None) -> date:
-    """The due of a bar ending in `last_week`: the old due's weekday there,
-    or the Friday for a bar that had none."""
-    return last_week + timedelta(days=due.weekday() if due else SPAN_END_WEEKDAY)
+def _week_end(week: date, due: date | None, start: date) -> date:
+    """The due of a bar ending in the week of `week`: the old due's weekday
+    there, or the Friday for a bar that had none; never before its start."""
+    end = monday(week) + timedelta(days=due.weekday() if due else SPAN_END_WEEKDAY)
+    return max(end, start)
+
+
+def _step(op: dict[str, Any]) -> timedelta:
+    """The unit an edit moves by: a week, or a day in the Days view."""
+    return timedelta(days=UNITS[op.get("unit", "week")])
 
 
 # ---- the rows ----
@@ -227,57 +247,84 @@ def _set_span(db: Session, task: Task, start: date | None, due: date | None) -> 
     tasks_svc.update_task(db, task.id, starts_on=start, due=due)
 
 
+def _start(db: Session, task: Task, text: str, today: date) -> None:
+    """A start written in. A bar keeps its length as its start moves; a
+    week written for it keeps the weekday it started on. Without a bar, a
+    due on or after the start ends it, else the start's week's Friday."""
+    if not text.strip():
+        _set_span(db, task, None, task.due)
+        return
+    start, is_week = parse_start(text, today)
+    if task.starts_on is not None and task.due is not None:
+        if is_week:
+            start += timedelta(days=task.starts_on.weekday())
+        _set_span(db, task, start, task.due + (start - task.starts_on))
+    elif task.due is not None and task.due >= start:
+        _set_span(db, task, start, task.due)
+    else:
+        _set_span(db, task, start, _week_end(start, None, start))
+
+
+def _length(db: Session, task: Task, text: str, unit: str, today: date) -> None:
+    """A length written in: from its start (else back from its due, else
+    from today) for that many days, or into that many weeks, its due keeping
+    its weekday."""
+    if not text.strip():
+        _set_span(db, task, None, task.due)
+        return
+    count, unit = parse_length(text, unit)
+    step = timedelta(days=UNITS[unit])
+    if task.starts_on is not None:
+        start = task.starts_on
+    elif task.due is not None:
+        start = task.due - step * (count - 1)
+        start = monday(start) if unit == "week" else start
+    else:
+        start = monday(today) if unit == "week" else today
+    if unit == "day":
+        _set_span(db, task, start, start + step * (count - 1))
+    else:
+        _set_span(db, task, start, _week_end(start + step * (count - 1), task.due, start))
+
+
 def edit_task(db: Session, task: Task, op: dict[str, Any], today: date) -> None:
-    """One task's cells, as the sheet writes them. Each key is one edit:
-    title; start, weeks or due as typed; span, the weeks a bar was drawn
-    over ([first Monday, last Monday]); shift, a bar moved by whole weeks;
-    grow, its end moved by whole weeks; clear, its span or its due; done;
-    and set, every field as it was (undo)."""
+    """One task's cells, as the sheet writes them. Each key is one edit, and
+    `unit` ("week", or "day" in the Days view) the unit of those that move:
+    title; start, length or due as typed; span, the columns a bar was drawn
+    over ([first, last]: Mondays, or days); shift, the bar moved; grow, its
+    end moved; move_start, its start moved; clear, its span or its due;
+    done; and set, every field as it was (undo)."""
+    unit = op.get("unit", "week")
+    step = _step(op)
     if "title" in op:
         tasks_svc.update_task(db, task.id, title=op["title"])
     if "start" in op:
-        if not op["start"].strip():
-            _set_span(db, task, None, task.due)
-        else:
-            start = parse_start(op["start"], today)
-            weeks = weeks_of(task)
-            if weeks is not None:
-                # A bar keeps its length as its start moves.
-                due = _end(start + WEEK * (weeks - 1), task.due)
-            elif task.due is not None and task.due >= start:
-                due = task.due
-            else:
-                due = _end(start, None)
-            _set_span(db, task, start, due)
-    if "weeks" in op:
-        if not op["weeks"].strip():
-            _set_span(db, task, None, task.due)
-        else:
-            weeks = parse_weeks(op["weeks"])
-            if task.starts_on is not None:
-                start = task.starts_on
-            elif task.due is not None:
-                # A task due already: its bar reaches back from its due's week.
-                start = monday(task.due) - WEEK * (weeks - 1)
-            else:
-                start = monday(today)
-            _set_span(db, task, start, _end(start + WEEK * (weeks - 1), task.due))
+        _start(db, task, op["start"], today)
+    if "length" in op:
+        _length(db, task, op["length"], unit, today)
     if "due" in op:
         tasks_svc.update_task(
             db, task.id, due=parse_due(op["due"], today) if op["due"].strip() else None
         )
     if "span" in op:
         first, last = sorted(date.fromisoformat(v) for v in op["span"])
-        _set_span(db, task, monday(first), _end(monday(last), task.due))
+        if unit == "day":
+            _set_span(db, task, first, last)
+        else:
+            _set_span(db, task, monday(first), _week_end(last, task.due, monday(first)))
     if "shift" in op and task.due is not None:
-        by = WEEK * int(op["shift"])
+        by = step * int(op["shift"])
         start = task.starts_on + by if task.starts_on else None
         _set_span(db, task, start, task.due + by)
     if "grow" in op and task.starts_on is not None:
-        due = task.due + WEEK * int(op["grow"])
-        # A bar is never shorter than a week.
-        if monday(due) >= task.starts_on:
+        due = task.due + step * int(op["grow"])
+        # A bar is never shorter than its start's day.
+        if due >= task.starts_on:
             _set_span(db, task, task.starts_on, due)
+    if "move_start" in op and task.starts_on is not None:
+        start = task.starts_on + step * int(op["move_start"])
+        if start <= task.due:
+            _set_span(db, task, start, task.due)
     if op.get("clear") == "span":
         _set_span(db, task, None, task.due)
     elif op.get("clear") == "due":
@@ -295,7 +342,8 @@ def edit_task(db: Session, task: Task, op: dict[str, Any], today: date) -> None:
 
 def edit_milestone(db: Session, milestone: Milestone, op: dict[str, Any], today: date) -> None:
     """A milestone's cells: name; target as typed (its Due cell); shift, its
-    diamond moved by whole weeks; reached; and set, as it was (undo)."""
+    diamond moved by whole weeks (or days: `unit`); reached; and set, as it
+    was (undo)."""
     if "name" in op:
         projects_svc.update_milestone(db, milestone.id, name=op["name"])
     if "target" in op:
@@ -306,7 +354,7 @@ def edit_milestone(db: Session, milestone: Milestone, op: dict[str, Any], today:
         )
     if "shift" in op and milestone.target_date is not None:
         projects_svc.update_milestone(
-            db, milestone.id, target_date=milestone.target_date + WEEK * int(op["shift"])
+            db, milestone.id, target_date=milestone.target_date + _step(op) * int(op["shift"])
         )
     if "reached" in op:
         projects_svc.update_milestone(
@@ -345,13 +393,33 @@ def move_task(db: Session, project: Project, task: Task, step: int, today: date)
     db.flush()
 
 
+def place_task(
+    db: Session, project: Project, task: Task, milestone_id: Any, before_id: Any, today: date
+) -> None:
+    """A row dropped somewhere: into a milestone's group (or the other
+    tasks', milestone_id empty), before another of its tasks, or at its end
+    (before_id empty)."""
+    milestone = _milestone(db, project, milestone_id) if milestone_id else None
+    rows = groups(db, project, today)
+    into = next(g for g in rows if (g.milestone and g.milestone.id) == (milestone and milestone.id))
+    order = [t for t in into.tasks if t.id != task.id]
+    before = next((t for t in order if before_id and t.id == int(before_id)), None)
+    order.insert(order.index(before) if before else len(order), task)
+    if task.milestone_id != (milestone.id if milestone else None):
+        tasks_svc.update_task(db, task.id, milestone_id=milestone.id if milestone else None)
+    for position, row in enumerate(order):
+        row.position = position
+    db.flush()
+
+
 def apply(db: Session, project: Project, ops: list[dict[str, Any]], today: date) -> list[int]:
     """The sheet's edits, in order and all or none; the ids of the tasks
     and milestones it made, in order. An op is {"op": ...} with:
 
     task (id, and edit_task's keys), milestone (id, and edit_milestone's),
-    create (a task: milestone_id, title, and start, weeks or due as typed),
-    delete (id), move (id, step), milestone_create (name, and target)."""
+    create (a task: milestone_id, title, and start, length or due as typed),
+    delete (id), move (id, step), place (id, milestone_id, before: a task's
+    id or none), milestone_create (name, and target)."""
     made: list[int] = []
     for op in ops:
         kind = op.get("op")
@@ -367,14 +435,19 @@ def apply(db: Session, project: Project, ops: list[dict[str, Any]], today: date)
                 db, title=op.get("title", ""), project_id=project.id,
                 milestone_id=int(milestone_id) if milestone_id else None,
             )
-            cells = {k: op[k] for k in ("start", "weeks", "due") if (op.get(k) or "").strip()}
+            cells = {k: op[k] for k in ("start", "length", "due") if (op.get(k) or "").strip()}
             if cells:
-                edit_task(db, task, cells, today)
+                edit_task(db, task, {**cells, "unit": op.get("unit", "week")}, today)
             made.append(task.id)
         elif kind == "delete":
             tasks_svc.delete_task(db, _task(db, project, op["id"]).id)
         elif kind == "move":
             move_task(db, project, _task(db, project, op["id"]), int(op["step"]), today)
+        elif kind == "place":
+            place_task(
+                db, project, _task(db, project, op["id"]), op.get("milestone_id"),
+                op.get("before"), today,
+            )
         elif kind == "milestone_create":
             text = (op.get("target") or "").strip()
             milestone = projects_svc.create_milestone(

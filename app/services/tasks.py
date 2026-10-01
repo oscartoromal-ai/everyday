@@ -78,22 +78,23 @@ SPAN_END_WEEKDAY = 4
 
 
 def _keep_span(task: Task, given: set[str]) -> None:
-    """A task's span on its project's Gantt stays whole: it starts on a
-    Monday and ends on its due, never before. A start given alone ends that
-    week's Friday; a due cleared takes the start with it (a bar needs its
-    end); and a due moved before the start pulls the start back to its week,
-    unless the start was given in the same change, which is then refused."""
+    """A task's span on its project's Gantt stays whole: it starts on a day
+    and ends on its due, never before. A start given alone ends that week's
+    Friday (or on itself, at a weekend); a due cleared takes the start with
+    it (a bar needs its end); and a due moved before the start pulls the
+    start back to its week's Monday, unless the start was given in the same
+    change, which is then refused."""
     if task.starts_on is None:
         return
-    task.starts_on = monday(task.starts_on)
     if task.due is None:
         if "starts_on" in given:
-            task.due = task.starts_on + timedelta(days=SPAN_END_WEEKDAY)
+            friday = monday(task.starts_on) + timedelta(days=SPAN_END_WEEKDAY)
+            task.due = max(friday, task.starts_on)
         else:
             task.starts_on = None
     elif task.due < task.starts_on:
         if "starts_on" in given:
-            raise DomainError("A task's start week must not be after its due")
+            raise DomainError("A task's start must not be after its due")
         task.starts_on = monday(task.due)
 
 
