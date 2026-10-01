@@ -56,6 +56,7 @@ def update_project(
     status: ProjectStatus | None = None,
     notes: str | None = None,
     color: int | None = None,
+    folded: bool | None = None,
 ) -> Project:
     project = get_project(db, project_id)
     if name is not None:
@@ -68,6 +69,8 @@ def update_project(
         project.notes = notes
     if color is not None:
         project.color = _check_color(color)
+    if folded is not None:
+        project.folded = folded
     db.flush()
     return project
 

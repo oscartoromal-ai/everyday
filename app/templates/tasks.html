@@ -44,6 +44,7 @@
     {# Styled as a project card, so it reads as a sibling of the ones above. #}
     <section class="project-card" id="group-loose" data-file-project="">
       <header>
+        <span class="project-fold slot" aria-hidden="true"></span>{# nothing to fold; keeps the name in line #}
         <h2>No project</h2>
         <span class="open-count">{% if loose_rows | length == 1 %}1 open{% elif loose_rows %}{{ loose_rows | length }} open{% endif %}</span>
         <span class="card-edit-btn slot" aria-hidden="true"></span><span class="card-edit-btn slot" aria-hidden="true"></span>{# nothing to open or edit; keeps the counts in line #}

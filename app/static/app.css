@@ -783,7 +783,9 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 /* ---------- projects ---------- */
 
 .project-card { margin-bottom: var(--s-6); overflow: clip; }
-.project-card > header { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-4) var(--s-4) 0; }
+/* --head-gap: its items' gap, closed up on a phone so the name keeps its room */
+.project-card > header { --head-gap: var(--s-3); display: flex; align-items: center; gap: var(--head-gap); padding: var(--s-4) var(--s-4) 0; }
+@media (max-width: 540px) { .project-card > header { --head-gap: var(--s-2); } }
 .project-card > header h2 { flex: 1; min-width: 0; font-size: var(--t-sub); line-height: 1.4; letter-spacing: -0.01em; }
 /* the name opens the project's Gantt, a link only on hover, as a task's title is */
 .project-card > header h2 a { color: inherit; text-decoration: none; border-radius: var(--r-tag); }
@@ -858,7 +860,27 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .swatch:hover { background: var(--fog); }
 .swatch:has(input:checked) { box-shadow: inset 0 0 0 1.5px var(--project); }
 .swatch:has(input:focus-visible) { box-shadow: 0 0 0 2px var(--spark-deep), var(--spark-glow); }
-.project-card > header .project-flag { margin-right: calc(var(--s-2) - var(--s-3)); }
+.project-card > header .project-flag { margin-right: calc(var(--s-2) - var(--head-gap)); }
+
+/* folded: the card is its header alone, the chevron turned to the name */
+.project-fold {
+  display: grid; place-content: center; flex: none; width: 24px; height: 24px;
+  margin: 0 calc(var(--s-1) - var(--head-gap, var(--s-3))) 0 -6px; border-radius: var(--r-tag);
+}
+.project-fold.slot { visibility: hidden; }
+.project-fold svg { width: 12px; height: 12px; fill: none; stroke: var(--steel); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--dur) var(--ease); }
+.project-fold:hover svg { stroke: var(--ink); }
+.project-card.folded .project-fold svg { transform: rotate(-90deg); }
+.project-card.folded > :not(header) { display: none; }
+.project-card.folded > header { padding-bottom: var(--s-4); }
+/* a folded card's header is a stop of the keyboard cursor (tasks.js): the rows' spark bar */
+.project-card > header { position: relative; }
+.project-fold:focus-visible { box-shadow: none; }
+.project-card > header:has(.project-fold:focus-visible) { background: var(--glass-row-hover); }
+.project-card > header:has(.project-fold:focus-visible)::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px;
+  width: 3px; background: var(--spark); box-shadow: var(--spark-glow);
+}
 
 .project-shelf { margin-top: var(--s-8); }
 .project-shelf > summary {
@@ -1011,7 +1033,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   display: flex; align-items: baseline; gap: var(--s-2);
   font-size: var(--t-body-sm); font-weight: 600; color: var(--ink);
 }
-.tasks-sheet .project-card > header { display: flex; align-items: center; gap: var(--s-3); }
+.tasks-sheet .project-card > header { display: flex; align-items: center; gap: var(--head-gap); }
 .tasks-sheet .project-card > header h2 { font-size: var(--t-body-sm); line-height: var(--pad-text); letter-spacing: 0; }
 .tasks-sheet .card-edit-btn { width: 24px; height: 24px; margin: -1px -4px; }
 .tasks-sheet .project-card > .notes { color: var(--graphite); }

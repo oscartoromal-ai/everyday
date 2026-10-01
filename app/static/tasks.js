@@ -20,9 +20,11 @@
 
   // Every page with task lists works from the keyboard alone; each marks its
   // lists' area with data-cursor. The cursor is the focused row (or a fold's
-  // header: Done, or a Projects shelf, which Enter or Space opens), drawn as
-  // the nav's spark bar. Up/Down or J/K move it, Shift jumps a group (a
-  // project, on Projects), Home/End go to the ends; Enter or E edits, N
+  // header: Done, or a Projects shelf, which Enter or Space opens; or a
+  // folded project's, which Right, Enter or Space unfolds, and Left on one
+  // of its rows folds), drawn as the nav's spark bar. Up/Down or J/K move
+  // it, Shift jumps a group (a project, on Projects), Home/End go to the
+  // ends; Enter or E edits, N
   // writes a new task (into the cursor's project where there is one), X
   // done, T today, M tomorrow, B books the next free hour today, R replans a
   // missed task, D picks a day and P a project (the task sheet's menus),
@@ -35,6 +37,10 @@
     "[data-cursor] .task-row[tabindex]",
     "[data-cursor] .done-fold > summary",
     "[data-cursor] .project-shelf > summary",
+    // A folded project's header; and one just unfolded with no rows to go
+    // to, while the cursor is still on it.
+    "[data-cursor] .project-card.folded [data-project-fold]",
+    "[data-cursor] [data-project-fold]:focus",
   ].join(", ");
   const CURSOR_KEY = "pc-task-cursor"; // carries the cursor across V's reload
   const onCursorPage = () => !!document.querySelector("[data-cursor]");
@@ -159,6 +165,7 @@
       // Into the cursor's project where it has one; else the page's own
       // composer (Tasks' capture card, Today's), else the first project's.
       const card = stop?.closest(".project-card");
+      if (card?.classList.contains("folded")) fold(card, false);
       const composers = [...document.querySelectorAll(".task-sheet[data-composer]")];
       const composer = card?.querySelector(".task-sheet[data-composer]")
         || composers.find((form) => !form.closest(".project-card, dialog"))
@@ -178,6 +185,26 @@
     }
     if (key === "Escape" && stop) {
       stop.blur();
+      return;
+    }
+    // As in a tree: Left on a project's row folds the project, the cursor on
+    // its header; Right (or Enter, Space) there unfolds it, onto its first row.
+    const header = stop?.matches("[data-project-fold]") ? stop : null;
+    if (key === "ArrowLeft" && row && !e.shiftKey) {
+      const card = row.closest(".project-card");
+      const chevron = card?.querySelector(":scope > header [data-project-fold]");
+      if (!chevron) return;
+      e.preventDefault();
+      fold(card, true);
+      focusStop(chevron);
+      return;
+    }
+    if (header && (key === "ArrowRight" || key === "Enter" || key === " ")) {
+      e.preventDefault();
+      const card = header.closest(".project-card");
+      if (!card.classList.contains("folded")) return;
+      fold(card, false);
+      focusStop(stops().find((s) => s !== header && card.contains(s)) || header);
       return;
     }
     if (!row) return;
@@ -290,6 +317,75 @@
     }
   })();
   if (carried) document.addEventListener("DOMContentLoaded", () => focusStop(byId(carried)));
+
+  /* ---- project cards: folded to their header, kept on the project ---- */
+
+  // A fold shows at once and is saved behind it, a project's saves one after
+  // another, so the last one is what stays. A list re-rendered before a save
+  // lands would bring the card back as it was, so a fold still saving is put
+  // back on the fresh card.
+  const saving = new Map(); // project id -> {shut}, its last fold, while that is saving
+  const queues = new Map(); // project id -> its last save
+
+  const showFold = (card, shut) => {
+    card.classList.toggle("folded", shut);
+    const chevron = card.querySelector(":scope > header [data-project-fold]");
+    const name = card.querySelector(":scope > header .project-name")?.textContent ?? "";
+    chevron.setAttribute("aria-expanded", String(!shut));
+    chevron.setAttribute("aria-label", `${shut ? "Unfold" : "Fold"} ${name}`);
+  };
+
+  const save = async (id, shut) => {
+    try {
+      const res = await fetch(`/ui/projects/${id}/fold`, {
+        method: "POST",
+        headers: { "X-CSRF": window.csrfToken() },
+        body: new URLSearchParams({ folded: String(shut) }),
+      });
+      return res.ok;
+    } catch {
+      return false; // offline
+    }
+  };
+
+  function fold(card, shut) {
+    const chevron = card.querySelector(":scope > header [data-project-fold]");
+    if (!chevron || card.classList.contains("folded") === shut) return;
+    const id = chevron.dataset.projectFold;
+    showFold(card, shut);
+    const mine = { shut };
+    saving.set(id, mine);
+    const saved = (queues.get(id) || Promise.resolve()).then(() => save(id, shut));
+    queues.set(id, saved);
+    saved.then((ok) => {
+      if (saving.get(id) !== mine) return; // a later fold of the same card owns it now
+      saving.delete(id);
+      queues.delete(id);
+      if (ok) return;
+      window.toast("Could not keep that fold. Try again?");
+      const now = document.querySelector(`[data-project-fold="${id}"]`)?.closest(".project-card");
+      if (now) showFold(now, !shut);
+    });
+  }
+
+  // The chevron; with Alt, every project on the page goes the same way.
+  document.addEventListener("click", (e) => {
+    const chevron = e.target.closest?.("[data-project-fold]");
+    if (!chevron) return;
+    const card = chevron.closest(".project-card");
+    const shut = !card.classList.contains("folded");
+    const cards = e.altKey
+      ? [...document.querySelectorAll(".project-card:has(> header [data-project-fold])")]
+      : [card];
+    cards.forEach((c) => fold(c, shut));
+  });
+
+  document.addEventListener("htmx:load", (e) => {
+    saving.forEach(({ shut }, id) => {
+      const card = e.detail.elt.querySelector?.(`[data-project-fold="${id}"]`)?.closest(".project-card");
+      if (card) showFold(card, shut);
+    });
+  });
 
   /* ---- project cards: drag a task onto a workstream, another project, or No project ---- */
 

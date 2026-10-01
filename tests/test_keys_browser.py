@@ -20,6 +20,9 @@ CURSOR = """(() => {
   if (a?.matches('.task-row')) return a.dataset.taskTitle;
   if (a?.matches('.done-fold > summary')) return 'Done';
   if (a?.matches('.project-shelf > summary')) return a.childNodes[0].textContent.trim();
+  if (a?.matches('[data-project-fold]')) {
+    return a.closest('.project-card').querySelector('.project-name').textContent;
+  }
   return null;
 })()"""
 
@@ -28,9 +31,12 @@ STOPS = """[...document.querySelectorAll([
     '[data-cursor] .task-row[tabindex]',
     '[data-cursor] .done-fold > summary',
     '[data-cursor] .project-shelf > summary',
+    '[data-cursor] .project-card.folded [data-project-fold]',
   ].join(', '))]
   .filter((e) => e.checkVisibility())
   .map((e) => e.dataset.taskTitle
+    || (e.matches('[data-project-fold]')
+      && e.closest('.project-card').querySelector('.project-name').textContent)
     || (e.closest('.done-fold') ? 'Done' : e.childNodes[0].textContent.trim()))"""
 
 # The task rows alone, in the cursor's order.
@@ -284,6 +290,66 @@ def test_projects_from_the_keyboard(page, live, app_db) -> None:
     with app_db() as db:
         mike = next(t for t in tasks_svc.list_tasks(db) if t.title == "Mike")
         assert mike.planned_for == TODAY
+
+
+def test_folding_projects(page, live, app_db) -> None:
+    """A project folds to its header, by its chevron or by Left on one of its
+    rows; it stays folded through a refresh and a reload; Right unfolds it."""
+    with app_db() as db:
+        health = projects_svc.create_project(db, name="Health")
+        home = projects_svc.create_project(db, name="Home")
+        tasks_svc.create_task(db, title="Kilo", project_id=health.id)
+        tasks_svc.create_task(db, title="Lima", project_id=home.id)
+        tasks_svc.create_task(db, title="Mike", project_id=home.id)
+        db.commit()
+        health_id, home_id = health.id, home.id
+    page.goto(f"{live}/projects")
+    folded = "(id) => document.querySelector(`#project-${id}`).classList.contains('folded')"
+
+    def saved(project_id: int, shut: bool) -> None:
+        """The fold reached the project (it is saved behind the page's own)."""
+        for _ in range(100):
+            with app_db() as db:
+                if projects_svc.get_project(db, project_id).folded == shut:
+                    return
+            page.wait_for_timeout(20)
+        raise AssertionError(f"project {project_id} not saved folded={shut}")
+
+    # The chevron folds Health: its rows leave the cursor's path.
+    page.click(f"#project-{health_id} [data-project-fold]")
+    assert page.evaluate(folded, health_id)
+    assert page.evaluate(ROWS) == ["Lima", "Mike"]
+    saved(health_id, True)
+
+    # Left on a Home row folds Home, the cursor on its header; a list
+    # refresh and a reload keep both folded.
+    press(page, "Home")
+    cursor_on(page, "Health")
+    press(page, "j")
+    cursor_on(page, "Lima")
+    press(page, "ArrowLeft")
+    cursor_on(page, "Home")
+    assert page.evaluate(folded, home_id)
+    saved(home_id, True)
+    page.evaluate("htmx.trigger(document.body, 'tasks:changed')")
+    page.wait_for_function(f"!{BUSY}")
+    assert page.evaluate(folded, home_id) and page.evaluate(folded, health_id)
+    page.reload()
+    assert page.evaluate(folded, home_id) and page.evaluate(folded, health_id)
+    assert page.evaluate(STOPS) == ["Health", "Home"]
+
+    # Right unfolds Home onto its first row; Alt+click unfolds every project.
+    press(page, "End")
+    cursor_on(page, "Home")
+    press(page, "ArrowRight")
+    cursor_on(page, "Lima")
+    assert not page.evaluate(folded, home_id)
+    page.click(f"#project-{home_id} [data-project-fold]", modifiers=["Alt"])
+    assert page.evaluate(folded, home_id) and page.evaluate(folded, health_id)
+    page.click(f"#project-{home_id} [data-project-fold]", modifiers=["Alt"])
+    assert page.evaluate(ROWS) == ["Kilo", "Lima", "Mike"]
+    saved(health_id, False)
+    saved(home_id, False)
 
 
 def test_shift_n_writes_a_new_task_from_any_page(page, live, app_db, tasks) -> None:

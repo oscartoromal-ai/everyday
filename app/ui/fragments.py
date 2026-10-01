@@ -452,6 +452,14 @@ def set_project_status(
     return _projects_list(request, db)
 
 
+@router.post("/projects/{project_id}/fold", status_code=204)
+def fold_project(db: DbSession, project_id: int, folded: Annotated[bool, Form()]) -> None:
+    """A card folded to its header, or open again: tasks.js folds it on the
+    page at once, and this keeps it so through the lists' next render."""
+    projects_svc.update_project(db, project_id, folded=folded)
+    db.commit()
+
+
 @router.get("/projects/{project_id}/edit")
 def edit_project(request: Request, db: DbSession, project_id: int):
     return _project_partial(request, db, project_id, "partials/project_editor.html")

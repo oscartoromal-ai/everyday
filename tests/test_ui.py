@@ -608,6 +608,25 @@ def test_project_card_lists_open_tasks_under_workstreams(client, db) -> None:
     assert "2 open" in card
 
 
+def test_a_folded_project_stays_folded_wherever_its_card_shows(client, db) -> None:
+    p = projects_svc.create_project(db, name="Reno")
+    tasks_svc.create_task(db, title="call sparky", project_id=p.id)
+
+    def card(url: str) -> str:
+        return client.get(url).text.split(f'id="project-{p.id}"')[0].rsplit("<article", 1)[1]
+
+    assert "folded" not in card("/projects")
+    assert client.post(f"/ui/projects/{p.id}/fold", data={"folded": "true"}).status_code == 204
+    assert projects_svc.get_project(db, p.id).folded
+    assert "folded" in card("/projects")
+    assert "folded" in card("/?view=project")
+    assert 'aria-expanded="false"' in client.get(f"/ui/projects/{p.id}/card").text
+
+    client.post(f"/ui/projects/{p.id}/fold", data={"folded": "false"})
+    assert not projects_svc.get_project(db, p.id).folded
+    assert "folded" not in card("/projects")
+
+
 def test_project_quick_add_edit_and_status(client, db) -> None:
     p = projects_svc.create_project(db, name="Reno")
 

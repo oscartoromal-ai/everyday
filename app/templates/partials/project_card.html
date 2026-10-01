@@ -1,7 +1,13 @@
 {% from "partials/project_flag.html" import project_flag %}
 {% set p = card.project %}
-<article class="project-card {{ p.status.value }}" id="project-{{ p.id }}" data-file-project="{{ p.id }}">
+{# Folded, it shows its header alone (tasks.js; Left and Right from the keyboard). #}
+<article class="project-card {{ p.status.value }}{% if p.folded %} folded{% endif %}" id="project-{{ p.id }}" data-file-project="{{ p.id }}">
   <header>
+    <button type="button" class="project-fold" id="project-fold-{{ p.id }}" data-project-fold="{{ p.id }}"
+            aria-expanded="{{ 'false' if p.folded else 'true' }}"
+            aria-label="{{ 'Unfold' if p.folded else 'Fold' }} {{ p.name }}" title="Fold or unfold (Alt: every project)">
+      <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+    </button>
     {{ project_flag(p) }}
     <h2><a class="project-name" href="/projects/{{ p.id }}" title="Open {{ p.name }} as a Gantt chart">{{ p.name }}</a></h2>
     <span class="open-count">{% if card.open_count == 1 %}1 open{% elif card.open_count %}{{ card.open_count }} open{% endif %}</span>

@@ -95,6 +95,9 @@ class Project(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
     # Its colour: one of the design's hues, 1 to PROJECT_COLORS (--hue-N).
     color: Mapped[int] = mapped_column(Integer, default=1)
+    # Its card folded to its header (Projects, Tasks by project): kept here,
+    # so it holds through the lists' re-renders and on every device.
+    folded: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     workstreams: Mapped[list[Workstream]] = relationship(back_populates="project")
