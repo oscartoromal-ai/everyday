@@ -1,5 +1,5 @@
-"""A project's Gantt: its tasks as bars over weeks, its milestones as
-diamonds, and the edits its sheet makes (SPEC.md, Gantt).
+"""A project's Gantt: its tasks as bars over the weeks, in lanes
+by workstream, and the edits its sheet makes (SPEC.md, Gantt).
 
 A bar is a task's span: from its start day (Task.starts_on) to its due, so
 the end of a bar is the task's deadline and the Tasks page, nudges and Weeks
@@ -18,7 +18,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.dates import monday
-from app.models import Milestone, MilestoneStatus, Project, Task, TaskStatus
+from app.models import Project, Task, TaskStatus, Workstream, WorkstreamStatus
 from app.services import DomainError
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
@@ -188,9 +188,9 @@ def _step(op: dict[str, Any]) -> timedelta:
 
 @dataclass
 class Group:
-    """A milestone and its tasks, or (milestone None) the project's other tasks."""
+    """A workstream and its tasks, or (workstream None) the project's other tasks."""
 
-    milestone: Milestone | None
+    workstream: Workstream | None
     tasks: list[Task] = field(default_factory=list)
 
 
@@ -199,8 +199,8 @@ def _order(task: Task) -> tuple:
 
 
 def groups(db: Session, project: Project, today: date) -> list[Group]:
-    """The Gantt's rows: each milestone not dropped with its tasks, then the
-    tasks in none (or in a dropped one). Open tasks show one occurrence per
+    """The Gantt's rows: each workstream with its tasks, then the tasks in
+    none. Open tasks show one occurrence per
     series, as everywhere; done ones stay on the plan, except a series'
     finished occurrences; cancelled ones leave it."""
     tasks = [
@@ -212,13 +212,9 @@ def groups(db: Session, project: Project, today: date) -> list[Group]:
     )
     done = [t for t in tasks if t.status == TaskStatus.done and t.recurrence_template_id is None]
     shown = sorted(open_tasks + done, key=_order)
-    milestones = sorted(
-        (m for m in project.milestones if m.status != MilestoneStatus.dropped),
-        key=lambda m: m.id,
-    )
-    out = [Group(m, [t for t in shown if t.milestone_id == m.id]) for m in milestones]
-    grouped = {m.id for m in milestones}
-    out.append(Group(None, [t for t in shown if t.milestone_id not in grouped]))
+    workstreams = sorted(project.workstreams, key=lambda m: m.id)
+    out = [Group(m, [t for t in shown if t.workstream_id == m.id]) for m in workstreams]
+    out.append(Group(None, [t for t in shown if t.workstream_id is None]))
     return out
 
 
@@ -232,11 +228,11 @@ def _task(db: Session, project: Project, task_id: Any) -> Task:
     return task
 
 
-def _milestone(db: Session, project: Project, milestone_id: Any) -> Milestone:
-    milestone = db.get(Milestone, int(milestone_id))
-    if milestone is None or milestone.project_id != project.id:
-        raise DomainError(f"Milestone {milestone_id} is not in {project.name}")
-    return milestone
+def _workstream(db: Session, project: Project, workstream_id: Any) -> Workstream:
+    workstream = db.get(Workstream, int(workstream_id))
+    if workstream is None or workstream.project_id != project.id:
+        raise DomainError(f"Workstream {workstream_id} is not in {project.name}")
+    return workstream
 
 
 def _iso(value: Any) -> date | None:
@@ -340,39 +336,26 @@ def edit_task(db: Session, task: Task, op: dict[str, Any], today: date) -> None:
         tasks_svc.set_status(db, task.id, TaskStatus(was["status"]))
 
 
-def edit_milestone(db: Session, milestone: Milestone, op: dict[str, Any], today: date) -> None:
-    """A milestone's cells: name; target as typed (its Due cell); shift, its
-    diamond moved by whole weeks (or days: `unit`); reached; and set, as it
-    was (undo)."""
+def edit_workstream(db: Session, workstream: Workstream, op: dict[str, Any]) -> None:
+    """A workstream's cells: its name; done; and set, as it was (undo). It
+    has no dates of its own: its span is its tasks'."""
     if "name" in op:
-        projects_svc.update_milestone(db, milestone.id, name=op["name"])
-    if "target" in op:
-        text = op["target"].strip()
-        projects_svc.update_milestone(
-            db, milestone.id, target_date=parse_due(text, today) if text else None,
-            clear_target_date=not text,
-        )
-    if "shift" in op and milestone.target_date is not None:
-        projects_svc.update_milestone(
-            db, milestone.id, target_date=milestone.target_date + _step(op) * int(op["shift"])
-        )
-    if "reached" in op:
-        projects_svc.update_milestone(
-            db, milestone.id,
-            status=MilestoneStatus.reached if op["reached"] else MilestoneStatus.open,
+        projects_svc.update_workstream(db, workstream.id, name=op["name"])
+    if "done" in op:
+        projects_svc.update_workstream(
+            db, workstream.id,
+            status=WorkstreamStatus.done if op["done"] else WorkstreamStatus.open,
         )
     if "set" in op:
         was = op["set"]
-        target = _iso(was["target"])
-        projects_svc.update_milestone(
-            db, milestone.id, name=was["name"], target_date=target,
-            clear_target_date=target is None, status=MilestoneStatus(was["status"]),
+        projects_svc.update_workstream(
+            db, workstream.id, name=was["name"], status=WorkstreamStatus(was["status"])
         )
 
 
 def move_task(db: Session, project: Project, task: Task, step: int, today: date) -> None:
     """A row one place up (step -1) or down (+1). Past its group's first or
-    last row it goes into the group above or below: that milestone, or none."""
+    last row it goes into the group above or below: that workstream, or none."""
     rows = groups(db, project, today)
     at = next(i for i, g in enumerate(rows) if task in g.tasks)
     group = rows[at]
@@ -383,8 +366,8 @@ def move_task(db: Session, project: Project, task: Task, step: int, today: date)
         order = group.tasks
     elif 0 <= at + step < len(rows):
         into = rows[at + step]
-        milestone_id = into.milestone.id if into.milestone else None
-        tasks_svc.update_task(db, task.id, milestone_id=milestone_id)
+        workstream_id = into.workstream.id if into.workstream else None
+        tasks_svc.update_task(db, task.id, workstream_id=workstream_id)
         order = [task, *into.tasks] if step > 0 else [*into.tasks, task]
     else:
         return
@@ -394,19 +377,19 @@ def move_task(db: Session, project: Project, task: Task, step: int, today: date)
 
 
 def place_task(
-    db: Session, project: Project, task: Task, milestone_id: Any, before_id: Any, today: date
+    db: Session, project: Project, task: Task, workstream_id: Any, before_id: Any, today: date
 ) -> None:
-    """A row dropped somewhere: into a milestone's group (or the other
-    tasks', milestone_id empty), before another of its tasks, or at its end
+    """A row dropped somewhere: into a workstream's group (or the other
+    tasks', workstream_id empty), before another of its tasks, or at its end
     (before_id empty)."""
-    milestone = _milestone(db, project, milestone_id) if milestone_id else None
+    workstream = _workstream(db, project, workstream_id) if workstream_id else None
     rows = groups(db, project, today)
-    into = next(g for g in rows if (g.milestone and g.milestone.id) == (milestone and milestone.id))
+    into = next(g for g in rows if g.workstream is workstream)
     order = [t for t in into.tasks if t.id != task.id]
     before = next((t for t in order if before_id and t.id == int(before_id)), None)
     order.insert(order.index(before) if before else len(order), task)
-    if task.milestone_id != (milestone.id if milestone else None):
-        tasks_svc.update_task(db, task.id, milestone_id=milestone.id if milestone else None)
+    if task.workstream_id != (workstream.id if workstream else None):
+        tasks_svc.update_task(db, task.id, workstream_id=workstream.id if workstream else None)
     for position, row in enumerate(order):
         row.position = position
     db.flush()
@@ -414,26 +397,27 @@ def place_task(
 
 def apply(db: Session, project: Project, ops: list[dict[str, Any]], today: date) -> list[int]:
     """The sheet's edits, in order and all or none; the ids of the tasks
-    and milestones it made, in order. An op is {"op": ...} with:
+    and workstreams it made, in order. An op is {"op": ...} with:
 
-    task (id, and edit_task's keys), milestone (id, and edit_milestone's),
-    create (a task: milestone_id, title, and start, length or due as typed),
-    delete (id), move (id, step), place (id, milestone_id, before: a task's
-    id or none), milestone_create (name, and target)."""
+    task (id, and edit_task's keys), workstream (id, and edit_workstream's),
+    create (a task: workstream_id, title, and start, length or due as typed),
+    delete (id), move (id, step), place (id, workstream_id, before: a task's
+    id or none), workstream_create (name), workstream_delete (id: its tasks
+    stay, in none)."""
     made: list[int] = []
     for op in ops:
         kind = op.get("op")
         if kind == "task":
             edit_task(db, _task(db, project, op["id"]), op, today)
-        elif kind == "milestone":
-            edit_milestone(db, _milestone(db, project, op["id"]), op, today)
+        elif kind == "workstream":
+            edit_workstream(db, _workstream(db, project, op["id"]), op)
         elif kind == "create":
-            milestone_id = op.get("milestone_id")
-            if milestone_id:
-                _milestone(db, project, milestone_id)
+            workstream_id = op.get("workstream_id")
+            if workstream_id:
+                _workstream(db, project, workstream_id)
             task = tasks_svc.create_task(
                 db, title=op.get("title", ""), project_id=project.id,
-                milestone_id=int(milestone_id) if milestone_id else None,
+                workstream_id=int(workstream_id) if workstream_id else None,
             )
             cells = {k: op[k] for k in ("start", "length", "due") if (op.get(k) or "").strip()}
             if cells:
@@ -445,16 +429,16 @@ def apply(db: Session, project: Project, ops: list[dict[str, Any]], today: date)
             move_task(db, project, _task(db, project, op["id"]), int(op["step"]), today)
         elif kind == "place":
             place_task(
-                db, project, _task(db, project, op["id"]), op.get("milestone_id"),
+                db, project, _task(db, project, op["id"]), op.get("workstream_id"),
                 op.get("before"), today,
             )
-        elif kind == "milestone_create":
-            text = (op.get("target") or "").strip()
-            milestone = projects_svc.create_milestone(
-                db, project_id=project.id, name=op.get("name", ""),
-                target_date=parse_due(text, today) if text else None,
+        elif kind == "workstream_create":
+            workstream = projects_svc.create_workstream(
+                db, project_id=project.id, name=op.get("name", "")
             )
-            made.append(milestone.id)
+            made.append(workstream.id)
+        elif kind == "workstream_delete":
+            projects_svc.delete_workstream(db, _workstream(db, project, op["id"]).id)
         else:
             raise DomainError(f"Unknown edit: {kind}")
     db.flush()

@@ -4,7 +4,7 @@
      hx-disinherit="hx-get hx-select hx-swap hx-trigger">
   {% for card in active %}{% include "partials/project_card.html" %}{% endfor %}
   {% if not active %}
-  <p class="empty">No active projects. Start one below; milestones and tasks hang off it.</p>
+  <p class="empty">No active projects. Start one below; workstreams and tasks hang off it.</p>
   {% endif %}
   {% for label, cards in [("Paused", paused), ("Done", done)] if cards %}
   {# Open shelves stay open through the list's refreshes (tasks.js, pc-open-folds). #}

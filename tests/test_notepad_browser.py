@@ -187,7 +187,7 @@ def test_a_task_row_sets_its_fields_from_its_controls(page, live, app_db) -> Non
 
     with app_db() as db:
         home = projects_svc.create_project(db, name="Home")
-        projects_svc.create_milestone(db, project_id=home.id, name="Garden")
+        projects_svc.create_workstream(db, project_id=home.id, name="Garden")
         db.commit()
     tomorrow = TODAY + timedelta(days=1)
     page.goto(f"{live}/today")
@@ -211,7 +211,7 @@ def test_a_task_row_sets_its_fields_from_its_controls(page, live, app_db) -> Non
         assert (task.title, task.planned_for) == ("Mow the lawn short", tomorrow)
         task_id = task.id
 
-    # Once added, a change goes straight to the task: a milestone, with its project.
+    # Once added, a change goes straight to the task: a workstream, with its project.
     # The project is its flag in the project's colour (in the menu too), its
     # name on hover, and the task's rules take the colour.
     flag = props.locator(".prop[data-prop=project]")
@@ -230,12 +230,12 @@ def test_a_task_row_sets_its_fields_from_its_controls(page, live, app_db) -> Non
     while time.monotonic() < end:
         with app_db() as db:
             task = tasks_svc.get_task(db, task_id)
-            if task.milestone_id:
+            if task.workstream_id:
                 break
         time.sleep(0.1)
     with app_db() as db:
         task = tasks_svc.get_task(db, task_id)
-        assert (task.project.name, task.milestone.name) == ("Home", "Garden")
+        assert (task.project.name, task.workstream.name) == ("Home", "Garden")
         assert (task.title, task.planned_for) == ("Mow the lawn short", tomorrow)
 
     # The controls show the task as it stands after a reload.

@@ -72,7 +72,7 @@ def test_the_composer_adds_with_its_fields(page, live, app_db) -> None:
 def test_editing_saves_when_focus_leaves_the_sheet(page, live, app_db) -> None:
     with app_db() as db:
         home = projects_svc.create_project(db, name="Home")
-        projects_svc.create_milestone(db, project_id=home.id, name="Garden")
+        projects_svc.create_workstream(db, project_id=home.id, name="Garden")
         task = tasks_svc.create_task(db, title="Mow", planned_for=date.today(), notes="- oil")
         db.commit()
         task_id = task.id
@@ -103,7 +103,7 @@ def test_editing_saves_when_focus_leaves_the_sheet(page, live, app_db) -> None:
     with app_db() as db:
         task = tasks_svc.get_task(db, task_id)
         assert task.title == "Mow the lawn"
-        assert task.milestone.name == "Garden" and task.project.name == "Home"
+        assert task.workstream.name == "Garden" and task.project.name == "Home"
         assert task.notes == "- oil"
 
 

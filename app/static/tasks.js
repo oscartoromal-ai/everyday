@@ -291,17 +291,17 @@
   })();
   if (carried) document.addEventListener("DOMContentLoaded", () => focusStop(byId(carried)));
 
-  /* ---- project cards: drag a task onto a milestone, another project, or No project ---- */
+  /* ---- project cards: drag a task onto a workstream, another project, or No project ---- */
 
-  // A card files into its project with no milestone; a milestone group into
-  // that milestone; the No project card clears both. The server validates
-  // (a milestone must belong to the task's project) and the lists re-render.
-  const fileTarget = (el) => el?.closest?.("[data-file-milestone], [data-file-project]");
+  // A card files into its project with no workstream; a workstream group into
+  // that workstream; the No project card clears both. The server validates
+  // (a workstream must belong to the task's project) and the lists re-render.
+  const fileTarget = (el) => el?.closest?.("[data-file-workstream], [data-file-project]");
   const filing = (target) => {
     const card = target.closest("[data-file-project]");
     const project = card?.dataset.fileProject ? Number(card.dataset.fileProject) : null;
-    const milestone = target.dataset.fileMilestone ? Number(target.dataset.fileMilestone) : null;
-    return { project_id: project, milestone_id: milestone };
+    const workstream = target.dataset.fileWorkstream ? Number(target.dataset.fileWorkstream) : null;
+    return { project_id: project, workstream_id: workstream };
   };
 
   const armFiling = (root) => {
@@ -311,7 +311,7 @@
   };
   document.addEventListener("htmx:load", (e) => armFiling(e.detail.elt));
 
-  let filed = null; // {taskId, from: {project_id, milestone_id}}
+  let filed = null; // {taskId, from: {project_id, workstream_id}}
   let over = null;
   const hover = (el) => {
     if (over === el) return;
@@ -347,7 +347,7 @@
     if (!target) return;
     e.preventDefault();
     const to = filing(target);
-    if (to.project_id === from.project_id && to.milestone_id === from.milestone_id) return;
+    if (to.project_id === from.project_id && to.workstream_id === from.workstream_id) return;
     const res = await fetch(`/api/tasks/${taskId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "X-CSRF": window.csrfToken() },

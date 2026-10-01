@@ -3,12 +3,12 @@
 from fastapi import APIRouter
 
 from app.api.schemas import (
-    MilestoneIn,
-    MilestoneOut,
-    MilestonePatch,
     ProjectIn,
     ProjectOut,
     ProjectPatch,
+    WorkstreamIn,
+    WorkstreamOut,
+    WorkstreamPatch,
 )
 from app.db import DbSession
 from app.models import ProjectStatus
@@ -38,25 +38,25 @@ def update_project(
     )
 
 
-@router.get("/{project_id}/milestones")
-def list_milestones(project_id: int, db: DbSession) -> list[MilestoneOut]:
+@router.get("/{project_id}/workstreams")
+def list_workstreams(project_id: int, db: DbSession) -> list[WorkstreamOut]:
     project = projects_svc.get_project(db, project_id)
-    return [MilestoneOut.model_validate(m) for m in project.milestones]
+    return [WorkstreamOut.model_validate(m) for m in project.workstreams]
 
 
-@router.post("/{project_id}/milestones", status_code=201)
-def create_milestone(
-    project_id: int, body: MilestoneIn, db: DbSession
-) -> MilestoneOut:
-    return MilestoneOut.model_validate(
-        projects_svc.create_milestone(db, project_id=project_id, **body.model_dump())
+@router.post("/{project_id}/workstreams", status_code=201)
+def create_workstream(
+    project_id: int, body: WorkstreamIn, db: DbSession
+) -> WorkstreamOut:
+    return WorkstreamOut.model_validate(
+        projects_svc.create_workstream(db, project_id=project_id, **body.model_dump())
     )
 
 
-@router.patch("/milestones/{milestone_id}")
-def update_milestone(
-    milestone_id: int, body: MilestonePatch, db: DbSession
-) -> MilestoneOut:
-    return MilestoneOut.model_validate(
-        projects_svc.update_milestone(db, milestone_id, **body.model_dump(exclude_unset=True))
+@router.patch("/workstreams/{workstream_id}")
+def update_workstream(
+    workstream_id: int, body: WorkstreamPatch, db: DbSession
+) -> WorkstreamOut:
+    return WorkstreamOut.model_validate(
+        projects_svc.update_workstream(db, workstream_id, **body.model_dump(exclude_unset=True))
     )

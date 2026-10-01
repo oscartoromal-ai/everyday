@@ -137,8 +137,8 @@ def test_today_group_offers_tomorrow_but_not_today(client, db) -> None:
 
 def test_tasks_by_project_shows_cards_then_no_project(client, db) -> None:
     p = projects_svc.create_project(db, name="Calendar sync")
-    m = projects_svc.create_milestone(db, project_id=p.id, name="ICS import")
-    in_m = tasks_svc.create_task(db, title="parse VEVENTs", project_id=p.id, milestone_id=m.id)
+    m = projects_svc.create_workstream(db, project_id=p.id, name="ICS import")
+    in_m = tasks_svc.create_task(db, title="parse VEVENTs", project_id=p.id, workstream_id=m.id)
     tasks_svc.create_task(db, title="renew token", project_id=p.id)
     tasks_svc.create_task(db, title="call the bank")
 
@@ -257,7 +257,6 @@ def test_weeks_page_shows_plans_deadlines_and_work_load(client, db) -> None:
 
     p = projects_svc.create_project(db, name="Reno")
     later = TODAY + timedelta(days=9)
-    projects_svc.create_milestone(db, project_id=p.id, name="quotes in", target_date=later)
     tasks_svc.create_task(db, title="call sparky", planned_for=later, project_id=p.id)
     tasks_svc.create_task(db, title="pay invoice", due=later)
     tasks_svc.create_task(db, title="someday thing")
@@ -277,7 +276,6 @@ def test_weeks_page_shows_plans_deadlines_and_work_load(client, db) -> None:
         day = page.split(f'data-date="{later.isoformat()}"')[1].split("plan-day")[0]
         assert "call sparky" in day
         assert "pay invoice" in day and "due" in day
-        assert "quotes in" in day
         assert "1.5h" in day  # union of 10:00-11:00 and 10:30-11:30
         assert "work sync" not in page  # meetings are condensed to load, not listed
         tray = page.split('class="tray plan-tray"')[1]
@@ -408,7 +406,7 @@ def test_editor_roundtrip(client, db) -> None:
             "status": "in_progress",
             "owner": "oscar",
             "project_id": str(p.id),
-            "milestone_id": "",
+            "workstream_id": "",
             "planned_for": "",
             "due": (TODAY + timedelta(days=2)).isoformat(),
         },
@@ -418,16 +416,16 @@ def test_editor_roundtrip(client, db) -> None:
 
 
 def test_the_edit_sheet_carries_the_task_as_fields(client, db) -> None:
-    from app.models import MilestoneStatus, ProjectStatus
+    from app.models import ProjectStatus, WorkstreamStatus
 
     app_ = projects_svc.create_project(db, name="App")
-    v1 = projects_svc.create_milestone(db, project_id=app_.id, name="v1")
-    reached = projects_svc.create_milestone(db, project_id=app_.id, name="v0")
-    reached.status = MilestoneStatus.reached
+    v1 = projects_svc.create_workstream(db, project_id=app_.id, name="v1")
+    finished = projects_svc.create_workstream(db, project_id=app_.id, name="v0")
+    finished.status = WorkstreamStatus.done
     shelved = projects_svc.create_project(db, name="Shelved")
     shelved.status = ProjectStatus.done
     task = tasks_svc.create_task(
-        db, title="ship it", project_id=app_.id, milestone_id=v1.id,
+        db, title="ship it", project_id=app_.id, workstream_id=v1.id,
         planned_for=TODAY + timedelta(days=1), due=TODAY,
     )
     db.flush()
@@ -435,12 +433,12 @@ def test_the_edit_sheet_carries_the_task_as_fields(client, db) -> None:
     sheet = client.get(f"/ui/tasks/{task.id}/edit").text
     assert f'name="planned_for" value="{(TODAY + timedelta(days=1)).isoformat()}"' in sheet
     assert f'name="due" value="{TODAY.isoformat()}"' in sheet
-    assert f'name="milestone_id" value="{v1.id}"' in sheet
+    assert f'name="workstream_id" value="{v1.id}"' in sheet
     assert 'name="repeat" value="none"' in sheet
     assert '<span class="prop-value">tomorrow</span>' in sheet  # the do-date's label
     assert '<span class="prop-value">today</span>' in sheet  # the due date's
     assert "App › v1" in sheet
-    # Open projects and milestones to file into; done ones stay out.
+    # Open projects and workstreams to file into; done ones stay out.
     assert '"name": "v1"' in sheet and '"name": "v0"' not in sheet
     assert "Shelved" not in sheet
 
@@ -589,10 +587,10 @@ def test_add_event_form_creates_event_and_series(client, db) -> None:
     assert all(e.recurrence_template_id for e in yoga)
 
 
-def test_project_card_lists_open_tasks_under_milestones(client, db) -> None:
+def test_project_card_lists_open_tasks_under_workstreams(client, db) -> None:
     p = projects_svc.create_project(db, name="Reno")
-    m = projects_svc.create_milestone(db, project_id=p.id, name="quotes in")
-    tasks_svc.create_task(db, title="call sparky", project_id=p.id, milestone_id=m.id)
+    m = projects_svc.create_workstream(db, project_id=p.id, name="quotes in")
+    tasks_svc.create_task(db, title="call sparky", project_id=p.id, workstream_id=m.id)
     tasks_svc.create_task(
         db, title="pick tiles", project_id=p.id, planned_for=TODAY + timedelta(days=2)
     )
@@ -601,7 +599,7 @@ def test_project_card_lists_open_tasks_under_milestones(client, db) -> None:
 
     page = client.get("/projects").text
     card = page.split(f'id="project-{p.id}"')[1]
-    group = card.split('class="milestone-group"')[1].split("</div>")[0]
+    group = card.split('class="workstream-group"')[1].split("</div>")[0]
     assert "call sparky" in group
     loose = card.split('class="loose-head"')[1]
     assert "pick tiles" in loose
@@ -632,23 +630,23 @@ def test_project_quick_add_edit_and_status(client, db) -> None:
     assert "project-shelf" not in active
 
 
-def test_projects_page_and_milestone_toggle(client, db) -> None:
+def test_projects_page_and_workstream_toggle(client, db) -> None:
     created = client.post("/ui/projects", data={"name": "New thing"})
     assert "New thing" in created.text
 
     p = projects_svc.list_projects(db)[0]
-    milestone_row = client.post(
-        f"/ui/projects/{p.id}/milestones", data={"name": "first cut", "target_date": ""}
+    workstream_row = client.post(
+        f"/ui/projects/{p.id}/workstreams", data={"name": "first cut"}
     ).text
-    assert "first cut" in milestone_row
+    assert "first cut" in workstream_row
 
     from sqlalchemy import select
 
-    from app.models import Milestone
+    from app.models import Workstream
 
-    m = db.scalars(select(Milestone).where(Milestone.project_id == p.id)).one()
-    toggled = client.post(f"/ui/milestones/{m.id}/toggle").text
-    assert "reached" in toggled
+    m = db.scalars(select(Workstream).where(Workstream.project_id == p.id)).one()
+    toggled = client.post(f"/ui/workstreams/{m.id}/toggle").text
+    assert 'class="workstream done"' in toggled and "Mark “first cut” open" in toggled
 
 
 def test_task_rows_carry_a_delete_bin(client, db) -> None:

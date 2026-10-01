@@ -103,7 +103,7 @@
   // added is for the notes' day.
   const newFields = () => ({
     planned_for: day, time: "", due: "", repeat: "none",
-    project_id: "", milestone_id: "", status: "todo", owner: "oscar",
+    project_id: "", workstream_id: "", status: "todo", owner: "oscar",
   });
   const newTask = () => ({ id: null, saved: null, fields: newFields(), folded: false });
 
@@ -1055,8 +1055,8 @@
     if (m.id) return null;
     const { title, notes } = contentOf(block);
     if (!title || (m.saved && m.saved.title === title && m.saved.notes === notes)) return null;
-    const { planned_for, time, due, repeat, project_id, milestone_id } = m.fields;
-    return { title, notes, planned_for, time, due, repeat, project_id, milestone_id, done: isDone(block) };
+    const { planned_for, time, due, repeat, project_id, workstream_id } = m.fields;
+    return { title, notes, planned_for, time, due, repeat, project_id, workstream_id, done: isDone(block) };
   };
 
   // The notes as the page's blocks: the text between reflections and
@@ -1251,20 +1251,20 @@
     told(`Task added: ${title}`);
     htmx.trigger(document.body, "calendar:refresh");
     schedule();
-    // What adding leaves out: its milestone, and a box ticked before it was added.
+    // What adding leaves out: its workstream, and a box ticked before it was added.
     const now = blocks().find((b) => b.m === m);
-    if (m.id && now && (isDone(now) || m.fields.milestone_id)) writeTask(now);
+    if (m.id && now && (isDone(now) || m.fields.workstream_id)) writeTask(now);
   }
 
   // A task's controls changed a field: kept for its adding, or written to it.
-  // A milestone comes with its project (two changes): one write for both.
+  // A workstream comes with its project (two changes): one write for both.
   const fieldWrites = new WeakMap(); // task -> timer
   document.addEventListener("sheet:field", (e) => {
     const m = e.target._m;
     if (!m) return;
     m.fields[e.detail.name] = e.detail.value;
     if (e.detail.name === "project_id") {
-      m.fields.milestone_id = "";
+      m.fields.workstream_id = "";
       view.dispatch({ effects: redraw.of(null) }); // its rules take the project's colour
     }
     if (!m.id) return;

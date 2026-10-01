@@ -120,9 +120,9 @@ Writing sets them too: "today", "tomorrow", a weekday's name or "next week" foll
 A time is the task's block on its do-date: set, it books that time on the calendar; changed, it moves it, with the day if the day changes; cleared, it frees it.
 The words leave the title as they convert, and Backspace straight after puts them back as words, which then stay words.
 The description follows under the title, aligned with its text.
-Editing adds an end line under the description: the project (its flag, filled in the project's colour with the project and milestone named on hover; an outline and "No project" when there is none; one menu of open projects, each after its flag, with their open milestones indented), a person icon that names Claude when the task is Claude's, its status once it is Claude's or beyond the box, History, and the bin.
+Editing adds an end line under the description: the project (its flag, filled in the project's colour with the project and workstream named on hover; an outline and "No project" when there is none; one menu of open projects, each after its flag, with their open workstreams indented), a person icon that names Claude when the task is Claude's, its status once it is Claude's or beyond the box, History, and the bin.
 History opens under the end line, above a hairline: each change newest first, a 12px pewter line of when and who ("Today 14:02 · Claude"), then a 12px graphite line per field that moved ("Do date: tomorrow → Fri 2 Oct", "Ticked “oil”", "Description edited").
-Project and milestone live only there, since the list a task is written in already says which project it belongs to.
+Project and workstream live only there, since the list a task is written in already says which project it belongs to.
 
 To add, each list card ends in the sheet's plus and a pewter placeholder, filed by the card it sits in (a project card's is in that project).
 Typing a title opens the icons and the description (focus alone does not, so a composer that folds away never shifts the page under a click), and a line under them: a pewter "Ctrl+Enter to add" hint (hidden on touch), then Cancel in 12px graphite and "Add task" in 12px/600 ink, words on the line with the fog under them on hover, not boxes.
@@ -171,7 +171,7 @@ It is the notepad card's paper at 35%, with the same metrics: every row at least
 Every row is numbered, headers and composers included, and empty numbered rows fill the sheet under the last group, the last of them cut at its edge; a Done fold's hidden rows are not counted.
 Each group is bracketed as a notepad task is: a 2px graphite rule above its title row and below its last row, across the row numbers too, one rule between two groups; the group the keyboard is in has its rules in ink, as has the cursor row's number.
 A group's title row is its name in 14px/600 ink with its count in pewter; a task row is the notepad's box (square, 14px, graphite-ruled, ink with a paper tick once done) 8px before its title, the meta line and an opened description on the row's own 22px lines, the row growing with them.
-By date is one group per do-date group; By project is Projects' cards drawn as groups (their title rows 14px/600, without their status control, which moves cards between Projects' shelves, and with a neutral badge on a parked project that still holds open work), a milestone's tasks one 24px step in, each project's composer a row of its own, then a No project group in the same form, its empty edit slot keeping the counts in line.
+By date is one group per do-date group; By project is Projects' cards drawn as groups (their title rows 14px/600, without their status control, which moves cards between Projects' shelves, and with a neutral badge on a parked project that still holds open work), a workstream's tasks one 24px step in, each project's composer a row of its own, then a No project group in the same form, its empty edit slot keeping the counts in line.
 The rows are Projects' own markup, so the sheet restyles them under `.tasks-sheet` and Projects keeps its cards.
 While planning, every row names its do-date, "today" included, whichever way it is grouped.
 Each row ends in quiet do-date buttons, always shown since dating is the page's job: "Today" and "Tomorrow" in 12px pewter, and a calendar icon that opens the native date picker.
@@ -236,7 +236,7 @@ Week navigation and nudge actions are secondary-style controls.
 **Inputs: written on the line, as Today's notes are** (Oscar's call, 2026-09-30, replacing the settei plates of 2026-09-27).
 Every place Oscar writes is a line of the notebook: no box, no fill and no focus ring, the words straight on a rule, 22px of 14px ink on a 36px line as the notes' rows are, pewter placeholders, date and time in `--font-num`, a select's words followed by a small steel chevron, and an empty date in pewter.
 On a ruled sheet (Tasks, Me) the rows are the lines: a field is a row, its name in the row's indent in 12px/500 graphite, and the field in use has its row number in ink 600 and its group's rules in ink, as the notes' caret row does.
-Elsewhere (the event, milestone and new-project forms, the project editor, Weeks' quick add) a field is its name in 12px/500 graphite over a 1px steel line (3:1 as a field's edge), the line 2px ink and the name ink while it is in use.
+Elsewhere (the event, workstream and new-project forms, the project editor, Weeks' quick add) a field is its name in 12px/500 graphite over a 1px steel line (3:1 as a field's edge), the line 2px ink and the name ink while it is in use.
 Their buttons are the app's own, 36px beside a form's fields; the task sheet's are words on its line (see Task sheet).
 Projects' status select is its words in 12px/500 graphite and the steel chevron, the fog under it on hover.
 Focus elsewhere in the app is unchanged: every other focus ring is `--spark-deep`, not `--spark`, since accent text holds 4.5:1 on every surface where the bright spark can sink into a glow of its own colour.
@@ -262,7 +262,6 @@ An hour label whose digits the time would overlap (centres within 12px) is hidde
 *Rows* is one card per week, a 14px/600 date column and wrapped entries, with the week's meeting load right-aligned over the days' figures.
 Entries are one line each:
 
-- milestones are ink 600 with a flag;
 - all-day events are glass or ink-tint tags;
 - deadlines are the title with a warn "due" badge;
 - personal events are graphite with a steel dot;
@@ -277,10 +276,10 @@ On Tasks a task in a project also has its rule below it in that colour, 55% into
 A new project takes the hue fewest open projects have; the project editor offers the eight flags in a row, the chosen one ringed in its colour.
 
 **Project cards.** The title is 20px/600, after the project's flag, followed by the open count, a secondary-style status select, and a ghost pencil that swaps in the inline editor.
-Milestone rows are 14px/600 with steel circles that turn ink when reached, and a warn badge when the target is close.
-Each milestone's open tasks are indented beneath it; the other tasks follow under a pewter caption, then the project's task sheet for adding.
+Workstream rows are 14px/600 with steel circles that turn ink when done (the name then pewter at 500), and their done count.
+Each workstream's open tasks are indented beneath it; the other tasks follow under a pewter caption, then the project's task sheet for adding.
 Paused and done projects sit on collapsible shelves.
-A task files by drag: onto a milestone group, into that milestone; onto another card, into that project with no milestone; onto No project, out of any.
+A task files by drag: onto a workstream group, into that workstream; onto another card, into that project with no workstream; onto No project, out of any.
 The row in hand fades to 40%, and the target under it lights like a Weeks drop target, `--spark-tint` with an inset 1.5px spark ring.
 
 A ghost bars icon, before the pencil, opens the project as a Gantt chart.
@@ -291,10 +290,10 @@ Its header row (48px) and its frozen pane stay put while it scrolls, as a spread
 Its time is a 52px column a week, or drilled down, a 36px column a day (Start then 112px, for its date).
 Column names are 12px/500 graphite; a week's head is its ISO week in 12px/600 ink over its Monday's day in pewter (graphite, with the month, where the month turns); a day's is its initial in pewter and its date in ink (pewter at weekends), under its week's name and Monday ("W41 · 5 Oct") running across the week from its Monday; now's head is `--spark-deep`, glowing at night.
 Cells carry hairline rules both ways, as a spreadsheet's; the time's columns are ruled by the table's background, so the empty numbered rows under the last are too, now's column (this week, or today) is tinted `--ink-tint-faint`, and in days so are weekends, each week's Monday ruled in mist.
-A milestone's row is 600 with a steel diamond in the box column (ink once reached), its Start and Wks its tasks' in pewter (read-only) and its target in Due; its tasks are one 24px step in; "Other tasks" heads the rest when there are milestones; each group ends in a pewter "Add a task…" row after a steel plus, and the sheet in "Add a milestone…".
+A workstream's row is 600 with the task box (ink once done), a 12px steel chevron before its name that folds it (turned right while folded, its tasks and add row gone, a pewter caption counting them after its name, its row numbers skipping them), and its Start, length and Due its tasks' in pewter (read-only); its tasks are one 24px step in; "Other tasks" heads the rest when there are workstreams; each group ends in a pewter "Add a task…" row after a steel plus, and the sheet in "Add a workstream…".
 Groups are bracketed by 2px graphite rules, in ink round the cursor's group, as on every sheet.
 A task's bar is 14px of `--solid` (white tubes at night) from its start's day to its due's, in either scale (so a Monday-to-Friday week leaves its weekend), inset 2px and never under 4px, with 8px grips at its ends; done, it is fog on a mist edge and its title pewter and struck through.
-A task due with no start is a 2px ink tick on its due; a milestone is a 12px ink diamond on its target, over a 4px graphite summary with 9px end ticks spanning its tasks.
+A task due with no start is a 2px ink tick on its due; a workstream's lane is a 6px graphite summary with 11px end ticks spanning its tasks (mist once done).
 Due soon (three days) is a warn badge in Due.
 The now-line is the signal, 2px, down through the weeks at today, glowing at night.
 The cursor is a 2px `--spark-deep` ring on its cell (glowing at night), over any bar, with the row's number in ink 600 and its week's head on the fog; while the sheet does not have focus it is a 1px steel ring.
@@ -368,7 +367,7 @@ Typing writes over a cell and the arrows then leave it (Excel's Enter mode); Ent
 A value the server refuses is said in the toast and the cell opens again on the words.
 Every printable key is the sheet's while it has focus (the page's number and letter keys do not fire), except ? for the keys.
 Undo keeps the rows' fields as they were before each edit (taken when its turn in the queue comes) and redoes to how they were after; a new task undoes by deleting it, and a deleted task cannot come back, so deleting clears the history.
-The pointer: a click moves the cursor (Shift holds a range), a drag over a task's time draws its bar there, a bar's middle drags it and its grips stretch it, a diamond or tick drags its date, all by whole columns (weeks, or days), previewed as they move; a row dragged by its number drops before the row it is over (above its middle) or after it, at a milestone's top over its row, and at a group's end over its add row, and undoes back where it was.
+The pointer: a click moves the cursor (Shift holds a range), a drag over a task's time draws its bar there, a bar's middle drags it and its grips stretch it, a tick drags its due, all by whole columns (weeks, or days), previewed as they move; a row dragged by its number drops before the row it is over (above its middle) or after it, at a workstream's top over its row, and at a group's end over its add row, and undoes back where it was.
 Weeks / Days (or V outside the sheet's cells) fetches the sheet in the other scale and keeps the same days in view and the cursor on its day's column; it is remembered (a `gantt_scale` cookie), and edits answer in the scale they were made in.
 
 **The chats** (`app/static/chat.js`, vanilla; Nutrition's and Spending's).

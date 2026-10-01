@@ -1,6 +1,6 @@
 """A project's Gantt in a real browser, worked as a spreadsheet: writing a
 task and its weeks from the keyboard, a refused week, drawing and dragging
-bars, Alt moves, rows moved into a milestone, and undo. The `live`, `page`
+bars, Alt moves, rows moved into a workstream, and undo. The `live`, `page`
 and `app_db` fixtures are conftest.py's."""
 
 from datetime import date, timedelta
@@ -23,7 +23,7 @@ def _week(n: int) -> str:
 def project(app_db) -> int:
     with app_db() as db:
         project = projects_svc.create_project(db, name="Beta")
-        projects_svc.create_milestone(db, project_id=project.id, name="Launch")
+        projects_svc.create_workstream(db, project_id=project.id, name="Launch")
         tasks_svc.create_task(db, title="Loose end", project_id=project.id)
         db.commit()
         return project.id
@@ -40,7 +40,7 @@ def _span(page, title: str) -> tuple[str, str]:
 
 def test_a_task_and_its_weeks_are_written_from_the_keyboard(page, live, project) -> None:
     page.goto(f"{live}/projects/{project}")
-    page.locator('.gantt-row.kind-add[data-key^="add-m"] .gantt-title').click()
+    page.locator('.gantt-row.kind-add[data-key^="add-w"] .gantt-title').click()
     page.keyboard.type("Write the spec")
     page.keyboard.press("Tab")
     _row(page, "Write the spec").wait_for()
@@ -116,10 +116,10 @@ def test_bars_are_drawn_dragged_moved_and_undone(page, live, project) -> None:
         f" === '{_week(0)}'"
     )
 
-    # Alt+Up takes the row into the milestone above.
+    # Alt+Up takes the row into the workstream above.
     row.locator(".gantt-title").click()
     page.keyboard.press("Alt+ArrowUp")
-    page.locator('.gantt-group[data-group^="m"] .gantt-row[data-title="Loose end"]').wait_for()
+    page.locator('.gantt-group[data-group^="w"] .gantt-row[data-title="Loose end"]').wait_for()
     assert "indent" in _row(page, "Loose end").get_attribute("class")
 
 
@@ -183,16 +183,43 @@ def test_weeks_drill_down_to_days_and_back(page, live, project) -> None:
     assert page.locator(".gantt-head .gantt-length").inner_text() == "Wks"
 
 
-def test_a_row_is_dragged_into_a_milestone(page, live, project) -> None:
+def test_a_row_is_dragged_into_a_workstream(page, live, project) -> None:
     page.goto(f"{live}/projects/{project}")
     grip = _row(page, "Loose end").locator("[data-row-grip]").bounding_box()
-    target = page.locator('.gantt-row.kind-milestone').bounding_box()
+    target = page.locator('.gantt-row.kind-workstream').bounding_box()
     page.mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
     page.mouse.down()
     page.mouse.move(grip["x"] + grip["width"] / 2, target["y"] + target["height"] * 0.75, steps=8)
     page.locator(".gantt-drop-line").wait_for()
     page.mouse.up()
-    page.locator('.gantt-group[data-group^="m"] .gantt-row[data-title="Loose end"]').wait_for()
+    page.locator('.gantt-group[data-group^="w"] .gantt-row[data-title="Loose end"]').wait_for()
     # And back, with undo.
     page.keyboard.press("Control+z")
     page.locator('.gantt-group[data-group="other"] .gantt-row[data-title="Loose end"]').wait_for()
+
+
+def test_a_workstream_folds_to_its_row(page, live, project) -> None:
+    page.goto(f"{live}/projects/{project}")
+    lane = page.locator(".gantt-row.kind-workstream")
+    page.locator('.gantt-row.kind-add[data-key^="add-w"] .gantt-title').click()
+    page.keyboard.type("Spec")
+    page.keyboard.press("Enter")
+    page.locator('.gantt-group[data-group^="w"] .gantt-row[data-title="Spec"]').wait_for()
+
+    # Its chevron folds it: its tasks go, and its row counts them.
+    lane.locator("[data-fold]").click()
+    page.locator('.gantt-row[data-title="Spec"]').wait_for(state="hidden")
+    assert lane.locator(".gantt-count").inner_text() == "1 task"
+    # Remembered across a visit.
+    page.reload()
+    page.locator('.gantt-row[data-title="Spec"]').wait_for(state="hidden")
+    # The keys pass over what is folded: down from the lane is Other tasks.
+    lane.locator(".gantt-title .gantt-text").click()
+    page.keyboard.press("ArrowDown")
+    assert page.evaluate("document.activeElement.closest('.gantt-row').dataset.key") == "other"
+    # Alt+Right on its row opens it, Alt+Left folds it again.
+    page.keyboard.press("ArrowUp")
+    page.keyboard.press("Alt+ArrowRight")
+    page.locator('.gantt-row[data-title="Spec"]').wait_for()
+    page.keyboard.press("Alt+ArrowLeft")
+    page.locator('.gantt-row[data-title="Spec"]').wait_for(state="hidden")

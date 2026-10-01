@@ -52,8 +52,8 @@ h1, h2, h3 { font-weight: 600; margin: 0; }
 .timeline-header h2, .tray h2 {
   font-family: var(--font-display);
 }
-:is(.task-meta .when, .task-meta .planned, .notes-toggle .progress, .count, .open-count, .milestone .target,
-    .milestone .progress, .hour-label, .now-label, .cal-item .item-time, .plan-entry .time, .busy) {
+:is(.task-meta .when, .task-meta .planned, .notes-toggle .progress, .count, .open-count,
+    .workstream .progress, .hour-label, .now-label, .cal-item .item-time, .plan-entry .time, .busy) {
   font-family: var(--font-num);
 }
 
@@ -311,9 +311,9 @@ label.me-row:hover, .weight-log .me-row:hover { background: var(--glass-row-hove
   background: var(--spark); box-shadow: var(--spark-glow);
 }
 .task-row[tabindex]:focus-visible .plan-btn { color: var(--graphite); }
-/* filing by drag: the row in hand fades; the card or milestone under it lights */
+/* filing by drag: the row in hand fades; the card or workstream under it lights */
 .task-row.dragging { opacity: 0.4; }
-.project-card.drop-over, .milestone-group.drop-over { background: var(--spark-tint); box-shadow: inset 0 0 0 1.5px var(--spark); }
+.project-card.drop-over, .workstream-group.drop-over { background: var(--spark-tint); box-shadow: inset 0 0 0 1.5px var(--spark); }
 
 .task-check {
   appearance: none;
@@ -809,27 +809,22 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .card-edit-btn.slot { visibility: hidden; }
 .project-card .notes { margin: var(--s-1) var(--s-4) 0; font-size: var(--t-body-sm); color: var(--graphite); white-space: pre-line; }
 
-.milestone-groups:not(:empty) { margin-top: var(--s-3); }
-.milestones { list-style: none; margin: 0; padding: 0; }
-.milestone {
+.workstream-groups:not(:empty) { margin-top: var(--s-3); }
+.workstreams { list-style: none; margin: 0; padding: 0; }
+.workstream {
   display: flex; align-items: center; gap: var(--s-3);
   padding: 10px var(--s-4);
   border-top: 1px solid var(--hairline-on-glass);
   font-size: var(--t-body-sm);
 }
-.milestone button { display: grid; place-content: center; width: 24px; height: 24px; margin: -4px; border-radius: 0; }
-.milestone svg { flex: none; stroke: var(--steel); }
-.milestone.reached svg { stroke: var(--ink); }
-.milestone .name { flex: 1; font-weight: 600; }
-.milestone.reached .name { color: var(--pewter); font-weight: 500; }
-.milestone .target { font-size: var(--t-caption); color: var(--graphite); font-variant-numeric: tabular-nums; }
-.milestone .target.soon {
-  padding: 1px var(--s-2); border-radius: var(--r-pill);
-  color: var(--warn-fg); background: var(--badge-warn-glass); font-weight: 500;
-}
-.milestone .progress { font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums; }
-.milestone-tasks { padding-left: var(--s-6); }
-.milestone-tasks .task-row { border-top: 1px solid var(--hairline-on-glass); border-bottom: none; }
+.workstream button { display: grid; place-content: center; width: 24px; height: 24px; margin: -4px; border-radius: 0; }
+.workstream svg { flex: none; stroke: var(--steel); }
+.workstream.done svg { stroke: var(--ink); }
+.workstream .name { flex: 1; font-weight: 600; }
+.workstream.done .name { color: var(--pewter); font-weight: 500; }
+.workstream .progress { font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums; }
+.workstream-tasks { padding-left: var(--s-6); }
+.workstream-tasks .task-row { border-top: 1px solid var(--hairline-on-glass); border-bottom: none; }
 
 .project-card .task-meta .project { display: none; }
 .project-card .task-list .task-row:last-child { border-bottom: none; }
@@ -977,7 +972,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 
 /* every row: 36px or more, text from the numbers' edge, its own hairline */
 :is(.ruled-sheet .sheet-row, .ruled-sheet .sheet-filler li, .tasks-sheet :is(.capture, .list-section > h2, .project-card > header,
-  .project-card > .notes, .milestone, .loose-head, .task-row, .sheet-item, .empty, .done-fold > summary, .project-card > .compose-slot,
+  .project-card > .notes, .workstream, .loose-head, .task-row, .sheet-item, .empty, .done-fold > summary, .project-card > .compose-slot,
   .expander > summary)) {
   position: relative; min-height: var(--pad-line); margin: 0;
   padding: var(--row-above, var(--pad-above)) var(--s-4) var(--row-below, var(--pad-below)) var(--row-start);
@@ -987,7 +982,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 }
 /* its number, level with its first line, on the fog */
 :is(.ruled-sheet .sheet-row, .ruled-sheet .sheet-filler li, .tasks-sheet :is(.capture, .list-section > h2, .project-card > header,
-  .project-card > .notes, .milestone, .loose-head, .task-row, .sheet-item, .empty, .done-fold > summary, .project-card > .compose-slot,
+  .project-card > .notes, .workstream, .loose-head, .task-row, .sheet-item, .empty, .done-fold > summary, .project-card > .compose-slot,
   .expander > summary))::after {
   content: counter(sheet-row);
   position: absolute; left: 0; top: 0; width: var(--pad-rows); padding-right: var(--s-2);
@@ -1036,10 +1031,10 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .tasks-sheet .plan-btn.icon { width: 24px; }
 .tasks-sheet .task-delete { width: 24px; height: 24px; margin: -1px -4px -1px 0; }
 
-/* a project's milestones, their tasks one step in */
-.tasks-sheet .milestone-groups:not(:empty) { margin-top: 0; }
-.tasks-sheet .milestone { gap: var(--s-2); }
-.tasks-sheet .milestone-tasks { --row-start: calc(var(--pad-rows) + var(--pad-gap) + var(--s-6)); padding-left: 0; }
+/* a project's workstreams, their tasks one step in */
+.tasks-sheet .workstream-groups:not(:empty) { margin-top: 0; }
+.tasks-sheet .workstream { gap: var(--s-2); }
+.tasks-sheet .workstream-tasks { --row-start: calc(var(--pad-rows) + var(--pad-gap) + var(--s-6)); padding-left: 0; }
 
 /* writing: the composer the sheet's first row, a project's composer a row
    of its own, the edit sheet in place of its row; each on the rows' lines,
@@ -1554,8 +1549,6 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .plan-entry.task.done .label { text-decoration: line-through; }
 .plan-entry .tag, .plan-entry.due .tag { color: var(--warn-fg); background: var(--badge-warn-glass); }
 .plan-entry.due { color: var(--ink); }
-.plan-entry.flag { color: var(--ink); font-weight: 600; }
-.plan-entry.flag svg { flex: none; stroke: currentColor; }
 .plan-entry.event { color: var(--graphite); }
 .plan-entry.event::before { content: ""; flex: none; width: 6px; height: 6px; margin: 0 2px; border-radius: 0; background: var(--steel); }
 .plan-entry.all-day { background: var(--glass-card); border: 1px solid var(--hairline-on-glass-strong); font-weight: 500; }
@@ -1985,7 +1978,7 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 /* ---------- a project's Gantt: a spreadsheet of its plan, in weeks or days ---------- */
 
 /* The sheet is ruled as Tasks' is (36px rows, 28px compact; numbered on a
-   fog wash; each milestone's rows bracketed by 2px rules, in ink while the
+   fog wash; each workstream's rows bracketed by 2px rules, in ink while the
    cursor is in them), and scrolls both ways inside the window: its header
    row and its frozen pane (the numbers, the box, Task, Start, the length
    and Due) stay put, as a spreadsheet's do, so they are opaque paper where
@@ -2089,7 +2082,7 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .gantt-text.placeholder { color: var(--pewter); font-weight: 400; }
 .gantt-row.indent .gantt-title { padding-left: calc(var(--s-3) + var(--s-6)); }
-.gantt-row:is(.kind-milestone, .kind-heading) .gantt-title { font-weight: 600; }
+.gantt-row:is(.kind-workstream, .kind-heading) .gantt-title { font-weight: 600; }
 .gantt-cell.derived { color: var(--pewter); cursor: default; }
 .gantt-row.is-done .gantt-title { color: var(--pewter); }
 .gantt-row.kind-task.is-done .gantt-text { text-decoration: line-through; text-decoration-thickness: 1px; }
@@ -2098,7 +2091,7 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
   font-size: var(--t-caption); font-weight: 500; line-height: 20px; color: var(--warn-fg); background: var(--badge-warn-glass);
 }
 
-/* the box: a task's (the notepad's, 14px), a milestone's diamond, a plus to write */
+/* the box: a task's or a workstream's (the notepad's, 14px), or a plus to write */
 .gantt-check {
   display: grid; place-content: center; width: 14px; height: 14px;
   border: 1.5px solid var(--graphite); border-radius: var(--r-tag); cursor: pointer;
@@ -2108,8 +2101,6 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
   content: ""; width: 8px; height: 8px; background: var(--paper);
   clip-path: polygon(14% 52%, 5% 65%, 38% 95%, 97% 18%, 85% 8%, 37% 71%);
 }
-.gantt-diamond-mark { width: 9px; height: 9px; border: 1.5px solid var(--steel); transform: rotate(45deg); cursor: pointer; }
-.gantt-row.is-done .gantt-diamond-mark { background: var(--ink); border-color: var(--ink); }
 .gantt-plus { width: 14px; height: 14px; fill: none; stroke: var(--steel); stroke-width: 1.6; stroke-linecap: round; }
 .gantt-row.has-cursor .gantt-plus { stroke: var(--ink); }
 
@@ -2147,7 +2138,7 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 }
 .gantt-wk-head.col-cursor { background: var(--fog); }
 
-/* groups: a milestone and its rows between two rules, as on every sheet */
+/* groups: a workstream and its rows between two rules, as on every sheet */
 .gantt-group { position: relative; }
 .gantt-group::before, .gantt-group::after {
   content: ""; position: absolute; left: 0; right: 0; z-index: 3; height: 2px;
@@ -2162,8 +2153,8 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 
 /* the plan: a task's bar is solid ink as its calendar blocks are, from its
    start's day to its due's, grips at its ends; done, it is fog. A task due
-   with no start is a tick on its due. A milestone is a diamond on its
-   target over a summary of its tasks' bars. */
+   with no start is a tick on its due. A workstream's lane is a summary of
+   its tasks' bars, graphite, its ends ticked; done, mist. */
 .gantt-bar {
   position: absolute; top: 50%; z-index: 1; height: 14px; margin-top: -7px;
   left: calc(var(--s) * var(--gantt-col) + 2px); width: max(4px, calc(var(--n) * var(--gantt-col) - 5px));
@@ -2180,20 +2171,29 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 }
 .gantt-tick::before { content: ""; position: absolute; top: 0; left: -3px; width: 8px; height: 2px; background: var(--ink); }
 .gantt-summary {
-  position: absolute; top: 50%; height: 4px; margin-top: -2px;
+  position: absolute; top: 50%; height: 6px; margin-top: -3px;
   left: calc(var(--s) * var(--gantt-col) + 2px); width: max(4px, calc(var(--n) * var(--gantt-col) - 5px));
   background: var(--graphite); pointer-events: none;
 }
-.gantt-summary::before, .gantt-summary::after { content: ""; position: absolute; top: 0; width: 2px; height: 9px; background: var(--graphite); }
+.gantt-summary::before, .gantt-summary::after { content: ""; position: absolute; top: 0; width: 2px; height: 11px; background: inherit; }
 .gantt-summary::before { left: 0; }
 .gantt-summary::after { right: 0; }
-.gantt-diamond {
-  position: absolute; top: 50%; z-index: 1; width: 12px; height: 12px; margin-top: -6px;
-  left: calc(var(--x) * var(--gantt-col) - 6px); transform: rotate(45deg);
-  background: var(--ink); cursor: grab;
+.gantt-row.is-done .gantt-summary { background: var(--mist); }
+:is(.gantt-bar, .gantt-tick).is-dragged { cursor: grabbing; opacity: 0.85; }
+
+/* a workstream folds to its row: its chevron before its name turns, its
+   tasks and its row to write one go, and its row counts them */
+.gantt-fold {
+  display: grid; place-content: center; flex: none; width: 20px; height: 20px; margin: 0 2px 0 -6px;
+  padding: 0; border: none; background: none; border-radius: 0; cursor: pointer;
 }
-.gantt-row.is-done .gantt-diamond { background: var(--fog); box-shadow: inset 0 0 0 1.5px var(--ink); }
-:is(.gantt-bar, .gantt-diamond, .gantt-tick).is-dragged { cursor: grabbing; opacity: 0.85; }
+.gantt-fold svg { width: 12px; height: 12px; fill: none; stroke: var(--steel); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--dur) var(--ease); }
+.gantt-fold:hover svg { stroke: var(--ink); }
+.gantt-fold:focus-visible { box-shadow: none; }
+.gantt-group.is-folded .gantt-fold svg { transform: rotate(-90deg); }
+.gantt-group.is-folded > .gantt-row:not(.kind-workstream) { display: none; }
+.gantt-count { display: none; flex: none; margin-left: var(--s-2); font-size: var(--t-caption); font-weight: 500; color: var(--pewter); }
+.gantt-group.is-folded .gantt-count { display: inline; }
 
 /* now: the signal, down through the time, at the middle of today */
 .gantt-now {

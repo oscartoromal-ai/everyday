@@ -13,7 +13,7 @@ from typing import Any
 from fastmcp import FastMCP
 from pydantic import BaseModel
 
-from app.api.schemas import EventOut, MilestoneOut, ProjectOut
+from app.api.schemas import EventOut, ProjectOut, WorkstreamOut
 from app.api.tasks import task_out
 from app.db import session_scope
 from app.models import ProjectStatus, TaskOwner, TaskStatus
@@ -50,18 +50,18 @@ mcp = FastMCP(
 
 def _project_payload(db, project) -> dict[str, Any]:  # noqa: ANN001
     payload = ProjectOut.model_validate(project).model_dump()
-    payload["milestones"] = [
-        MilestoneOut.model_validate(m).model_dump() | {
-            "progress": projects_svc.milestone_progress(db, m.id)
+    payload["workstreams"] = [
+        WorkstreamOut.model_validate(m).model_dump() | {
+            "progress": projects_svc.workstream_progress(db, m.id)
         }
-        for m in project.milestones
+        for m in project.workstreams
     ]
     return payload
 
 
 @mcp.tool
 def list_projects(status: ProjectStatus | None = None) -> list[dict[str, Any]]:
-    """List projects with their milestones and per-milestone (done, total) progress."""
+    """List projects with their workstreams and per-workstream (done, total) progress."""
     with session_scope("claude") as db:
         return [_project_payload(db, p) for p in projects_svc.list_projects(db, status=status)]
 
@@ -124,7 +124,7 @@ class TaskUpsert(BaseModel):
     status: TaskStatus | None = None
     owner: TaskOwner | None = None
     project_id: int | None = None
-    milestone_id: int | None = None
+    workstream_id: int | None = None
     planned_for: date | None = None
     due: date | None = None
     starts_on: date | None = None
@@ -166,7 +166,7 @@ def update_task_status(task_id: int, status: TaskStatus) -> dict[str, Any]:
 @mcp.tool
 def get_agenda(start: date | None = None, days: int = 1) -> dict[str, Any]:
     """The plan for `days` days from `start` (default today): calendar events,
-    scheduled task blocks, tasks planned per day, and upcoming dues/milestones."""
+    scheduled task blocks, tasks planned per day, and upcoming dues."""
     with session_scope("claude") as db:
         first = start or date.today()
         window_start = datetime.combine(first, datetime.min.time())
@@ -194,9 +194,6 @@ def get_agenda(start: date | None = None, days: int = 1) -> dict[str, Any]:
                 str(day): {
                     "planned": [task_out(t).model_dump() for t in v["planned"]],
                     "due": [task_out(t).model_dump() for t in v["due"]],
-                    "milestones": [
-                        MilestoneOut.model_validate(m).model_dump() for m in v["milestones"]
-                    ],
                     "notebook": pages[day],
                 }
                 for day, v in view.items()

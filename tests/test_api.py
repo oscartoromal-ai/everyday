@@ -25,13 +25,13 @@ def client(db) -> TestClient:
 
 def test_task_crud_roundtrip(client) -> None:
     project = client.post("/api/projects", json={"name": "App"}).json()
-    milestone = client.post(
-        f"/api/projects/{project['id']}/milestones", json={"name": "v1"}
+    workstream = client.post(
+        f"/api/projects/{project['id']}/workstreams", json={"name": "v1"}
     ).json()
 
     created = client.post(
         "/api/tasks",
-        json={"title": "build it", "project_id": project["id"], "milestone_id": milestone["id"]},
+        json={"title": "build it", "project_id": project["id"], "workstream_id": workstream["id"]},
     )
     assert created.status_code == 201
     task = created.json()

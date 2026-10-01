@@ -1,5 +1,5 @@
 """View-model for a project's Gantt (partials/gantt_sheet.html): its time
-as columns, a week or a day each (its scale), and a row per milestone, task
+as columns, a week or a day each (its scale), and a row per workstream, task
 and place to write one, each with its cells as the sheet shows them and its
 bar in columns. Bars are drawn to the day in either scale."""
 
@@ -11,7 +11,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.dates import monday, week_label
-from app.models import Milestone, MilestoneStatus, Project, Task, TaskStatus
+from app.models import Project, Task, TaskStatus, Workstream, WorkstreamStatus
 from app.services import gantt as gantt_svc
 from app.ui.views import DUE_SOON_DAYS
 
@@ -142,13 +142,14 @@ def _task_row(task: Task, place: _Place, scale: str, today: date, indent: bool) 
     }
 
 
-def _milestone_row(
-    milestone: Milestone, tasks: list[Task], place: _Place, scale: str, today: date
+def _workstream_row(
+    workstream: Workstream, tasks: list[Task], place: _Place, scale: str, today: date
 ) -> dict:
-    """A milestone: its diamond on its target, and over its tasks' bars a
-    summary from the first's start to the last's end, its Start and length
-    theirs (read-only)."""
+    """A workstream: a lane with no dates of its own. Its Start, length and
+    Due are its tasks' (read-only): the first start, the last due, and the
+    time between, drawn as a summary over their bars."""
     spans = [(t.starts_on, t.due) for t in tasks if t.starts_on and t.due]
+    dues = [t.due for t in tasks if t.due]
     summary = start = None
     length = ""
     if spans:
@@ -159,66 +160,62 @@ def _milestone_row(
             else (monday(end) - monday(start)).days // 7 + 1
         )
         summary = place.span(start, end)
-    target = milestone.target_date
-    reached = milestone.status == MilestoneStatus.reached
-    target_label = _day_label(target, today) if target else ""
+    last_due = max(dues) if dues else None
+    done = workstream.status == WorkstreamStatus.done
     start_label = ""
     if start:
         start_label = week_label(start, today) if scale == "weeks" else _day_label(start, today)
+    count = len(tasks)
     return {
-        "kind": "milestone",
-        "key": f"m{milestone.id}",
-        "id": milestone.id,
-        "title": milestone.name,
-        "reached": reached,
-        "status": milestone.status.value,
-        "target": target.isoformat() if target else "",
+        "kind": "workstream",
+        "key": f"w{workstream.id}",
+        "id": workstream.id,
+        "title": workstream.name,
+        "done": done,
+        "status": workstream.status.value,
         "start_label": start_label,
         "length": length,
-        "due_label": target_label,
-        "due_soon": bool(
-            not reached and target and target <= today + timedelta(days=DUE_SOON_DAYS)
-        ),
+        "due_label": _day_label(last_due, today) if last_due else "",
         "summary": summary,
-        "diamond": place.middle(target) if target else None,
+        # Folded, its row says what it holds.
+        "count_label": f"{count} task" if count == 1 else f"{count} tasks",
         "describe": ", ".join(
-            p for p in (f"Milestone {milestone.name}",
-                        f"target {target_label}" if target else "",
-                        "reached" if reached else "") if p
+            p for p in (f"Workstream {workstream.name}",
+                        f"to {_day_label(last_due, today)}" if last_due else "",
+                        "done" if done else "") if p
         ),
     }
 
 
 def gantt_ctx(db: Session, project: Project, today: date, scale: str = "weeks") -> dict:
     """The Gantt sheet in its scale: its columns, and its groups of rows:
-    each milestone's row, its tasks and a row to write one more; then the
-    other tasks (under a heading when there are milestones), and a row to
-    write a milestone."""
+    each workstream's row, its tasks and a row to write one more; then the
+    other tasks (under a heading when there are workstreams), and a row to
+    write a workstream."""
     scale = scale if scale in SCALES else SCALES[0]
     groups = gantt_svc.groups(db, project, today)
     tasks = [t for g in groups for t in g.tasks]
     dates = [d for t in tasks for d in (t.starts_on, t.due) if d]
-    dates += [g.milestone.target_date for g in groups if g.milestone and g.milestone.target_date]
     first, weeks = _week_range(dates, today)
     place = _Place(first, scale)
-    has_milestones = len(groups) > 1
+    has_workstreams = len(groups) > 1
     out = []
     for group in groups:
-        m = group.milestone
+        m = group.workstream
         rows = []
         if m is not None:
-            rows.append(_milestone_row(m, group.tasks, place, scale, today))
-        elif has_milestones:
+            rows.append(_workstream_row(m, group.tasks, place, scale, today))
+        elif has_workstreams:
             rows.append({"kind": "heading", "key": "other", "title": "Other tasks"})
         rows += [_task_row(t, place, scale, today, indent=m is not None) for t in group.tasks]
         rows.append({
             "kind": "add",
-            "key": f"add-m{m.id}" if m else "add",
-            "milestone_id": m.id if m else "",
+            "key": f"add-w{m.id}" if m else "add",
+            "workstream_id": m.id if m else "",
             "indent": m is not None,
             "placeholder": f"Add a task to {m.name}…" if m else "Add a task…",
         })
-        out.append({"key": f"m{m.id}" if m else "other", "milestone_id": m.id if m else "",
+        out.append({"key": f"w{m.id}" if m else "other", "workstream_id": m.id if m else "",
                     "rows": rows})
     number = 0
     for group in out:
@@ -239,7 +236,7 @@ def gantt_ctx(db: Session, project: Project, today: date, scale: str = "weeks") 
         # The now-line: the middle of today.
         "now": place.middle(today),
         "groups": out,
-        "milestone_row": number + 1,
+        "add_workstream_row": number + 1,
         "frozen": FROZEN,
         "length_head": ("Wks", "Weeks") if scale == "weeks" else ("Days", "Days"),
         "task_count": len(tasks),

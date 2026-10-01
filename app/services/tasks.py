@@ -12,11 +12,10 @@ from app import checklist
 from app.dates import monday
 from app.models import (
     BlockState,
-    Milestone,
-    MilestoneStatus,
     Task,
     TaskOwner,
     TaskStatus,
+    Workstream,
 )
 from app.services import DomainError
 
@@ -28,14 +27,14 @@ OPEN_STATUSES = (
 )
 
 
-def _validate_milestone(db: Session, project_id: int | None, milestone_id: int | None) -> None:
-    if milestone_id is None:
+def _validate_workstream(db: Session, project_id: int | None, workstream_id: int | None) -> None:
+    if workstream_id is None:
         return
-    milestone = db.get(Milestone, milestone_id)
-    if milestone is None:
-        raise DomainError(f"Milestone {milestone_id} does not exist")
-    if project_id is None or milestone.project_id != project_id:
-        raise DomainError("A task's milestone must belong to the task's own project")
+    workstream = db.get(Workstream, workstream_id)
+    if workstream is None:
+        raise DomainError(f"Workstream {workstream_id} does not exist")
+    if project_id is None or workstream.project_id != project_id:
+        raise DomainError("A task's workstream must belong to the task's own project")
 
 
 def create_task(
@@ -46,7 +45,7 @@ def create_task(
     owner: TaskOwner = TaskOwner.oscar,
     status: TaskStatus = TaskStatus.todo,
     project_id: int | None = None,
-    milestone_id: int | None = None,
+    workstream_id: int | None = None,
     planned_for: date | None = None,
     due: date | None = None,
     starts_on: date | None = None,
@@ -54,14 +53,14 @@ def create_task(
 ) -> Task:
     if not title.strip():
         raise DomainError("Task title must not be empty")
-    _validate_milestone(db, project_id, milestone_id)
+    _validate_workstream(db, project_id, workstream_id)
     task = Task(
         title=title.strip(),
         notes=checklist.normalize(notes),
         owner=owner,
         status=status,
         project_id=project_id,
-        milestone_id=milestone_id,
+        workstream_id=workstream_id,
         planned_for=planned_for,
         due=due,
         starts_on=starts_on,
@@ -103,12 +102,12 @@ def update_task(db: Session, task_id: int, **fields: Any) -> Task:
     if task is None:
         raise DomainError(f"Task {task_id} does not exist")
     project_id = fields.get("project_id", task.project_id)
-    milestone_id = fields.get("milestone_id", task.milestone_id)
-    # Moving a task off its project drops a milestone that no longer applies.
-    if "project_id" in fields and "milestone_id" not in fields and milestone_id is not None:
-        fields["milestone_id"] = None
-        milestone_id = None
-    _validate_milestone(db, project_id, milestone_id)
+    workstream_id = fields.get("workstream_id", task.workstream_id)
+    # Moving a task off its project drops a workstream that no longer applies.
+    if "project_id" in fields and "workstream_id" not in fields and workstream_id is not None:
+        fields["workstream_id"] = None
+        workstream_id = None
+    _validate_workstream(db, project_id, workstream_id)
     if "status" in fields:
         set_status(db, task_id, fields.pop("status"))
     if fields.get("notes") is not None:
@@ -247,7 +246,7 @@ def delegated(db: Session) -> list[Task]:
 
 
 def next_days(db: Session, start: date, days: int = 7) -> dict[date, dict[str, list]]:
-    """The next-days view: per day, tasks planned or due and milestones targeting it."""
+    """The next-days view: per day, tasks planned or due."""
     end = start + timedelta(days=days - 1)
     tasks = list(
         db.scalars(
@@ -259,16 +258,8 @@ def next_days(db: Session, start: date, days: int = 7) -> dict[date, dict[str, l
             )
         )
     )
-    milestones = list(
-        db.scalars(
-            select(Milestone).where(
-                Milestone.status == MilestoneStatus.open,
-                Milestone.target_date.between(start, end),
-            )
-        )
-    )
     out: dict[date, dict[str, list]] = {
-        start + timedelta(days=i): {"planned": [], "due": [], "milestones": []}
+        start + timedelta(days=i): {"planned": [], "due": []}
         for i in range(days)
     }
     for task in tasks:
@@ -276,8 +267,6 @@ def next_days(db: Session, start: date, days: int = 7) -> dict[date, dict[str, l
             out[task.planned_for]["planned"].append(task)
         if task.due is not None and start <= task.due <= end:
             out[task.due]["due"].append(task)
-    for milestone in milestones:
-        out[milestone.target_date]["milestones"].append(milestone)
     return out
 
 

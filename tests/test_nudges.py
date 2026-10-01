@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from app.models import NudgeType, TaskStatus
 from app.services import blocks as blocks_svc
 from app.services import nudges as nudges_svc
-from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
 NOW = datetime(2026, 8, 28, 10, 0)
@@ -32,11 +31,7 @@ def test_missed_block_nudge_raised_once(db) -> None:
     assert nudges_svc.active_nudges(db, NOW) == []
 
 
-def test_due_and_milestone_nudges_within_lookahead(db) -> None:
-    p = projects_svc.create_project(db, name="App")
-    projects_svc.create_milestone(
-        db, project_id=p.id, name="v1", target_date=TODAY + timedelta(days=2)
-    )
+def test_due_nudges_within_lookahead(db) -> None:
     tasks_svc.create_task(db, title="near", due=TODAY + timedelta(days=3))
     tasks_svc.create_task(db, title="far", due=TODAY + timedelta(days=10))
     done = tasks_svc.create_task(db, title="done already", due=TODAY + timedelta(days=1))
@@ -44,9 +39,8 @@ def test_due_and_milestone_nudges_within_lookahead(db) -> None:
 
     created = nudges_svc.evaluate(db, NOW)
     types = sorted(n.type.value for n in created)
-    assert types == ["due_soon", "milestone_soon"]
+    assert types == ["due_soon"]
     assert any("near" in n.message for n in created)
-    assert any("v1" in n.message for n in created)
 
 
 def test_a_nudge_stays_only_while_its_fact_holds(db) -> None:

@@ -12,25 +12,25 @@ NOW = datetime(2026, 8, 28, 10, 0)
 TODAY = NOW.date()
 
 
-def test_milestone_must_belong_to_tasks_project(db) -> None:
+def test_workstream_must_belong_to_tasks_project(db) -> None:
     p1 = projects_svc.create_project(db, name="App")
     p2 = projects_svc.create_project(db, name="Other")
-    m1 = projects_svc.create_milestone(db, project_id=p1.id, name="v1")
+    m1 = projects_svc.create_workstream(db, project_id=p1.id, name="v1")
     with pytest.raises(DomainError):
-        tasks_svc.create_task(db, title="t", project_id=p2.id, milestone_id=m1.id)
+        tasks_svc.create_task(db, title="t", project_id=p2.id, workstream_id=m1.id)
     with pytest.raises(DomainError):
-        tasks_svc.create_task(db, title="t", milestone_id=m1.id)
-    task = tasks_svc.create_task(db, title="t", project_id=p1.id, milestone_id=m1.id)
-    assert task.milestone_id == m1.id
+        tasks_svc.create_task(db, title="t", workstream_id=m1.id)
+    task = tasks_svc.create_task(db, title="t", project_id=p1.id, workstream_id=m1.id)
+    assert task.workstream_id == m1.id
 
 
-def test_moving_task_off_project_drops_milestone(db) -> None:
+def test_moving_task_off_project_drops_workstream(db) -> None:
     p1 = projects_svc.create_project(db, name="App")
     p2 = projects_svc.create_project(db, name="Other")
-    m1 = projects_svc.create_milestone(db, project_id=p1.id, name="v1")
-    task = tasks_svc.create_task(db, title="t", project_id=p1.id, milestone_id=m1.id)
+    m1 = projects_svc.create_workstream(db, project_id=p1.id, name="v1")
+    task = tasks_svc.create_task(db, title="t", project_id=p1.id, workstream_id=m1.id)
     tasks_svc.update_task(db, task.id, project_id=p2.id)
-    assert task.milestone_id is None
+    assert task.workstream_id is None
 
 
 def test_status_change_stamps_status_changed_at(db) -> None:
@@ -163,10 +163,6 @@ def test_planning_list_shows_one_occurrence_per_series(db) -> None:
 
 
 def test_next_days_view(db) -> None:
-    p = projects_svc.create_project(db, name="App")
-    m = projects_svc.create_milestone(
-        db, project_id=p.id, name="v1", target_date=TODAY + timedelta(days=2)
-    )
     planned = tasks_svc.create_task(db, title="planned", planned_for=TODAY + timedelta(days=1))
     due = tasks_svc.create_task(db, title="due", due=TODAY + timedelta(days=2))
     tasks_svc.create_task(db, title="far away", due=TODAY + timedelta(days=30))
@@ -174,19 +170,18 @@ def test_next_days_view(db) -> None:
     view = tasks_svc.next_days(db, TODAY, days=7)
     assert [t.id for t in view[TODAY + timedelta(days=1)]["planned"]] == [planned.id]
     assert [t.id for t in view[TODAY + timedelta(days=2)]["due"]] == [due.id]
-    assert [ms.id for ms in view[TODAY + timedelta(days=2)]["milestones"]] == [m.id]
     assert all(not v["due"] for day, v in view.items() if day != TODAY + timedelta(days=2))
 
 
-def test_milestone_progress(db) -> None:
+def test_workstream_progress(db) -> None:
     p = projects_svc.create_project(db, name="App")
-    m = projects_svc.create_milestone(db, project_id=p.id, name="v1")
-    t1 = tasks_svc.create_task(db, title="a", project_id=p.id, milestone_id=m.id)
-    tasks_svc.create_task(db, title="b", project_id=p.id, milestone_id=m.id)
-    cancelled = tasks_svc.create_task(db, title="c", project_id=p.id, milestone_id=m.id)
+    m = projects_svc.create_workstream(db, project_id=p.id, name="v1")
+    t1 = tasks_svc.create_task(db, title="a", project_id=p.id, workstream_id=m.id)
+    tasks_svc.create_task(db, title="b", project_id=p.id, workstream_id=m.id)
+    cancelled = tasks_svc.create_task(db, title="c", project_id=p.id, workstream_id=m.id)
     tasks_svc.set_status(db, t1.id, TaskStatus.done)
     tasks_svc.set_status(db, cancelled.id, TaskStatus.cancelled)
-    assert projects_svc.milestone_progress(db, m.id) == (1, 2)
+    assert projects_svc.workstream_progress(db, m.id) == (1, 2)
 
 
 def test_block_requires_open_task(db) -> None:

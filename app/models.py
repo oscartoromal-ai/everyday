@@ -1,6 +1,6 @@
 """Domain models per SPEC.md section 4.
 
-All datetimes are naive local wall time. Dates (planned_for, due, target_date,
+All datetimes are naive local wall time. Dates (planned_for, due, starts_on,
 occurrence_date) are calendar dates.
 """
 
@@ -35,10 +35,9 @@ class ProjectStatus(enum.StrEnum):
     done = "done"
 
 
-class MilestoneStatus(enum.StrEnum):
+class WorkstreamStatus(enum.StrEnum):
     open = "open"
-    reached = "reached"
-    dropped = "dropped"
+    done = "done"
 
 
 class TaskStatus(enum.StrEnum):
@@ -98,23 +97,25 @@ class Project(Base):
     color: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
-    milestones: Mapped[list[Milestone]] = relationship(back_populates="project")
+    workstreams: Mapped[list[Workstream]] = relationship(back_populates="project")
     tasks: Mapped[list[Task]] = relationship(back_populates="project")
 
 
-class Milestone(Base):
-    __tablename__ = "milestones"
+class Workstream(Base):
+    """A stream of a project's work, run beside its others: a lane of its
+    tasks, with no date of its own; its span is its tasks'."""
+
+    __tablename__ = "workstreams"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
     name: Mapped[str] = mapped_column(String(200))
-    target_date: Mapped[date | None] = mapped_column(Date, default=None)
-    status: Mapped[MilestoneStatus] = mapped_column(
-        _enum(MilestoneStatus), default=MilestoneStatus.open
+    status: Mapped[WorkstreamStatus] = mapped_column(
+        _enum(WorkstreamStatus), default=WorkstreamStatus.open
     )
 
-    project: Mapped[Project] = relationship(back_populates="milestones")
-    tasks: Mapped[list[Task]] = relationship(back_populates="milestone")
+    project: Mapped[Project] = relationship(back_populates="workstreams")
+    tasks: Mapped[list[Task]] = relationship(back_populates="workstream")
 
 
 class Task(Base):
@@ -133,13 +134,13 @@ class Task(Base):
     status: Mapped[TaskStatus] = mapped_column(_enum(TaskStatus), default=TaskStatus.todo)
     owner: Mapped[TaskOwner] = mapped_column(_enum(TaskOwner), default=TaskOwner.oscar)
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id"), default=None)
-    milestone_id: Mapped[int | None] = mapped_column(ForeignKey("milestones.id"), default=None)
+    workstream_id: Mapped[int | None] = mapped_column(ForeignKey("workstreams.id"), default=None)
     planned_for: Mapped[date | None] = mapped_column(Date, default=None)
     due: Mapped[date | None] = mapped_column(Date, default=None)
     # The day its work starts, on its project's Gantt: its bar runs from that
     # day to its due, so a task with one always has a due.
     starts_on: Mapped[date | None] = mapped_column(Date, default=None)
-    # Its place among its milestone's tasks (or its project's other tasks) on
+    # Its place among its workstream's tasks (or its project's other tasks) on
     # the Gantt, lowest first; None for one never moved, after those, oldest first.
     position: Mapped[int | None] = mapped_column(Integer, default=None)
     recurrence_template_id: Mapped[int | None] = mapped_column(
@@ -153,7 +154,7 @@ class Task(Base):
     status_changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     project: Mapped[Project | None] = relationship(back_populates="tasks")
-    milestone: Mapped[Milestone | None] = relationship(back_populates="tasks")
+    workstream: Mapped[Workstream | None] = relationship(back_populates="tasks")
     blocks: Mapped[list[Block]] = relationship(back_populates="task", cascade="all, delete-orphan")
     # A nudge is about its task; deleting the task retires its nudges with it.
     nudges: Mapped[list[Nudge]] = relationship(back_populates="task", cascade="all, delete-orphan")
@@ -204,7 +205,6 @@ class Event(Base):
 class NudgeType(enum.StrEnum):
     missed_block = "missed_block"
     due_soon = "due_soon"
-    milestone_soon = "milestone_soon"
     needs_review = "needs_review"
     # A bill of Finances coming due, not yet paid.
     bill_due = "bill_due"

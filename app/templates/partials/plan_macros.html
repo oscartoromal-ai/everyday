@@ -1,12 +1,7 @@
 {# One day's entries in the multi-week planner, shared by the grid and rows layouts. #}
 
 {% macro entry(e) %}
-{% if e.kind == "milestone" %}
-<li class="plan-entry flag" title="Milestone: {{ e.name }} · {{ e.project }}">
-  <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
-  <span class="label">{{ e.name }}</span>
-</li>
-{% elif e.kind == "all_day" %}
+{% if e.kind == "all_day" %}
 <li class="plan-entry all-day {{ e.source }}" title="{{ e.title }}"><span class="label">{{ e.title }}</span></li>
 {% elif e.kind == "due" %}
 <li class="plan-entry due" draggable="true" data-plan-task="{{ e.id }}"

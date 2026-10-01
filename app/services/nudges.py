@@ -16,8 +16,6 @@ from app.dates import short_date
 from app.models import (
     Block,
     BlockState,
-    Milestone,
-    MilestoneStatus,
     MoneyBill,
     Nudge,
     NudgeType,
@@ -80,7 +78,7 @@ def evaluate(db: Session, now: datetime) -> list[Nudge]:
         if nudge:
             created.append(nudge)
 
-    # 3. Upcoming due dates and milestone targets within the lookahead window.
+    # 3. Upcoming due dates within the lookahead window.
     horizon = today + timedelta(days=DUE_LOOKAHEAD_DAYS)
     for task in open_tasks:
         if task.due is not None and today <= task.due <= horizon:
@@ -93,27 +91,6 @@ def evaluate(db: Session, now: datetime) -> list[Nudge]:
             )
             if nudge:
                 created.append(nudge)
-    milestones = db.scalars(
-        select(Milestone)
-        .options(selectinload(Milestone.project))
-        .where(
-            Milestone.status == MilestoneStatus.open,
-            Milestone.target_date.is_not(None),
-            Milestone.target_date.between(today, horizon),
-        )
-    )
-    for milestone in milestones:
-        nudge = _raise_nudge(
-            db,
-            type_=NudgeType.milestone_soon,
-            dedup_key=f"milestone:{milestone.id}:{milestone.target_date.isoformat()}",
-            message=(
-                f"Milestone “{milestone.name}” ({milestone.project.name}) targets "
-                f"{short_date(milestone.target_date, today)}."
-            ),
-        )
-        if nudge:
-            created.append(nudge)
 
     # 4. Needs-review backlog beyond the threshold.
     for task in open_tasks:

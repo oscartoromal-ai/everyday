@@ -25,41 +25,41 @@ def test_planning_rows_take_keyboard_focus_and_name_their_actions(client, db) ->
     assert 'id="projects" data-cursor' in client.get("/projects").text
 
 
-def test_project_cards_and_milestones_are_drop_targets(client, db) -> None:
+def test_project_cards_and_workstreams_are_drop_targets(client, db) -> None:
     p = projects_svc.create_project(db, name="Calendar sync")
-    m = projects_svc.create_milestone(db, project_id=p.id, name="ICS import")
-    tasks_svc.create_task(db, title="parse", project_id=p.id, milestone_id=m.id)
+    m = projects_svc.create_workstream(db, project_id=p.id, name="ICS import")
+    tasks_svc.create_task(db, title="parse", project_id=p.id, workstream_id=m.id)
     tasks_svc.create_task(db, title="loose one")
 
     page = client.get("/?view=project").text
     assert f'data-file-project="{p.id}"' in page
-    assert f'data-file-milestone="{m.id}"' in page
+    assert f'data-file-workstream="{m.id}"' in page
     assert 'id="group-loose" data-file-project=""' in page
     # Projects re-renders when a task is filed elsewhere.
     projects = client.get("/projects").text
     assert 'hx-trigger="tasks:changed from:body"' in projects.split('id="projects"')[1][:300]
 
 
-def test_filing_moves_a_task_between_milestones_projects_and_none(client, db) -> None:
+def test_filing_moves_a_task_between_workstreams_projects_and_none(client, db) -> None:
     p = projects_svc.create_project(db, name="Calendar sync")
     other = projects_svc.create_project(db, name="Home")
-    m = projects_svc.create_milestone(db, project_id=p.id, name="ICS import")
+    m = projects_svc.create_workstream(db, project_id=p.id, name="ICS import")
     task = tasks_svc.create_task(db, title="parse")
 
-    # What a drop sends: onto a milestone, onto another project, onto No project.
+    # What a drop sends: onto a workstream, onto another project, onto No project.
     assert client.patch(
-        f"/api/tasks/{task.id}", json={"project_id": p.id, "milestone_id": m.id}
+        f"/api/tasks/{task.id}", json={"project_id": p.id, "workstream_id": m.id}
     ).status_code == 200
-    assert (task.project_id, task.milestone_id) == (p.id, m.id)
-    client.patch(f"/api/tasks/{task.id}", json={"project_id": other.id, "milestone_id": None})
-    assert (task.project_id, task.milestone_id) == (other.id, None)
-    client.patch(f"/api/tasks/{task.id}", json={"project_id": None, "milestone_id": None})
-    assert (task.project_id, task.milestone_id) == (None, None)
-    # A milestone of another project is refused, with a reason to show.
+    assert (task.project_id, task.workstream_id) == (p.id, m.id)
+    client.patch(f"/api/tasks/{task.id}", json={"project_id": other.id, "workstream_id": None})
+    assert (task.project_id, task.workstream_id) == (other.id, None)
+    client.patch(f"/api/tasks/{task.id}", json={"project_id": None, "workstream_id": None})
+    assert (task.project_id, task.workstream_id) == (None, None)
+    # A workstream of another project is refused, with a reason to show.
     refused = client.patch(
-        f"/api/tasks/{task.id}", json={"project_id": other.id, "milestone_id": m.id}
+        f"/api/tasks/{task.id}", json={"project_id": other.id, "workstream_id": m.id}
     )
-    assert refused.status_code >= 400 and "milestone" in refused.json()["detail"].lower()
+    assert refused.status_code >= 400 and "workstream" in refused.json()["detail"].lower()
 
 
 def test_block_menu_lists_the_tasks_subtasks(client, db) -> None:

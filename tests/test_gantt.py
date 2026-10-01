@@ -5,7 +5,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.models import MilestoneStatus, TaskStatus
+from app.models import TaskStatus, WorkstreamStatus
 from app.services import DomainError
 from app.services import gantt as gantt_svc
 from app.services import projects as projects_svc
@@ -94,9 +94,7 @@ def test_a_span_stays_whole(db) -> None:
 
 def _project(db):
     project = projects_svc.create_project(db, name="Beta")
-    launch = projects_svc.create_milestone(
-        db, project_id=project.id, name="Launch", target_date=date(2026, 10, 23)
-    )
+    launch = projects_svc.create_workstream(db, project_id=project.id, name="Launch")
     return project, launch
 
 
@@ -175,12 +173,12 @@ def test_cells_write_a_bar_in_days(db) -> None:
     assert (task.starts_on, task.due) == (date(2026, 10, 9), date(2026, 10, 16))
 
 
-def test_rows_are_dropped_into_another_place_and_milestone(db) -> None:
+def test_rows_are_dropped_into_another_place_and_workstream(db) -> None:
     project, launch = _project(db)
     made = gantt_svc.apply(
         db, project,
-        [{"op": "create", "milestone_id": launch.id, "title": t} for t in ("Spec", "Build")]
-        + [{"op": "create", "milestone_id": "", "title": t} for t in ("Docs", "Ship")],
+        [{"op": "create", "workstream_id": launch.id, "title": t} for t in ("Spec", "Build")]
+        + [{"op": "create", "workstream_id": "", "title": t} for t in ("Docs", "Ship")],
         TODAY,
     )
     spec, build, docs, ship = (tasks_svc.get_task(db, i) for i in made)
@@ -188,28 +186,28 @@ def test_rows_are_dropped_into_another_place_and_milestone(db) -> None:
     def order():
         return [[t.title for t in g.tasks] for g in gantt_svc.groups(db, project, TODAY)]
 
-    def place(task, milestone_id, before=None) -> None:
+    def place(task, workstream_id, before=None) -> None:
         gantt_svc.apply(
             db, project,
-            [{"op": "place", "id": task.id, "milestone_id": milestone_id,
+            [{"op": "place", "id": task.id, "workstream_id": workstream_id,
               "before": before.id if before else None}],
             TODAY,
         )
 
-    # Into the milestone, between its tasks.
+    # Into the workstream, between its tasks.
     place(ship, launch.id, before=build)
     assert order() == [["Spec", "Ship", "Build"], ["Docs"]]
-    assert ship.milestone_id == launch.id
+    assert ship.workstream_id == launch.id
     # Out of it, to the other tasks' end.
     place(spec, "")
     assert order() == [["Ship", "Build"], ["Docs", "Spec"]]
-    assert spec.milestone_id is None
+    assert spec.workstream_id is None
     # Within its group, to the top.
     place(spec, "", before=docs)
     assert order() == [["Ship", "Build"], ["Spec", "Docs"]]
-    # A milestone of another project is refused.
+    # A workstream of another project is refused.
     other = projects_svc.create_project(db, name="Other")
-    elsewhere = projects_svc.create_milestone(db, project_id=other.id, name="Elsewhere")
+    elsewhere = projects_svc.create_workstream(db, project_id=other.id, name="Elsewhere")
     with pytest.raises(DomainError):
         place(spec, elsewhere.id)
 
@@ -249,16 +247,16 @@ def test_rows_are_written_moved_and_undone(db) -> None:
     made = gantt_svc.apply(
         db, project,
         [
-            {"op": "create", "milestone_id": launch.id, "title": "Spec", "start": "40",
+            {"op": "create", "workstream_id": launch.id, "title": "Spec", "start": "40",
              "length": "2"},
-            {"op": "create", "milestone_id": launch.id, "title": "Build"},
-            {"op": "create", "milestone_id": "", "title": "Docs", "due": "W43"},
+            {"op": "create", "workstream_id": launch.id, "title": "Build"},
+            {"op": "create", "workstream_id": "", "title": "Docs", "due": "W43"},
         ],
         TODAY,
     )
     spec, build, docs = (tasks_svc.get_task(db, i) for i in made)
-    assert (spec.milestone_id, spec.starts_on, spec.due) == (launch.id, W40, date(2026, 10, 9))
-    assert (docs.milestone_id, docs.due) == (None, date(2026, 10, 23))
+    assert (spec.workstream_id, spec.starts_on, spec.due) == (launch.id, W40, date(2026, 10, 9))
+    assert (docs.workstream_id, docs.due) == (None, date(2026, 10, 23))
 
     def order():
         return [[t.title for t in g.tasks] for g in gantt_svc.groups(db, project, TODAY)]
@@ -266,10 +264,10 @@ def test_rows_are_written_moved_and_undone(db) -> None:
     assert order() == [["Spec", "Build"], ["Docs"]]
     gantt_svc.apply(db, project, [{"op": "move", "id": build.id, "step": -1}], TODAY)
     assert order() == [["Build", "Spec"], ["Docs"]]
-    # Past its group's end, into the next: out of the milestone.
+    # Past its group's end, into the next: out of the workstream.
     gantt_svc.apply(db, project, [{"op": "move", "id": spec.id, "step": 1}], TODAY)
     assert order() == [["Build"], ["Spec", "Docs"]]
-    assert spec.milestone_id is None
+    assert spec.workstream_id is None
     gantt_svc.apply(db, project, [{"op": "move", "id": spec.id, "step": -1}], TODAY)
     assert order() == [["Build", "Spec"], ["Docs"]]
 
@@ -289,21 +287,27 @@ def test_rows_are_written_moved_and_undone(db) -> None:
     assert order() == [["Build", "Spec"], []]
 
 
-def test_milestones_are_written_in_the_sheet(db) -> None:
+def test_workstreams_are_written_in_the_sheet(db) -> None:
     project, launch = _project(db)
     gantt_svc.apply(
-        db, project,
-        [{"op": "milestone", "id": launch.id, "name": "Go live", "shift": 1, "reached": True}],
+        db, project, [{"op": "workstream", "id": launch.id, "name": "Go live", "done": True}],
         TODAY,
     )
-    assert (launch.name, launch.target_date, launch.status) == (
-        "Go live", date(2026, 10, 30), MilestoneStatus.reached)
-    gantt_svc.apply(db, project, [{"op": "milestone", "id": launch.id, "target": ""}], TODAY)
-    assert launch.target_date is None
-    (made,) = gantt_svc.apply(
-        db, project, [{"op": "milestone_create", "name": "Beta", "target": "W45"}], TODAY
+    assert (launch.name, launch.status) == ("Go live", WorkstreamStatus.done)
+    gantt_svc.apply(
+        db, project,
+        [{"op": "workstream", "id": launch.id, "set": {"name": "Launch", "status": "open"}}],
+        TODAY,
     )
-    assert projects_svc.get_project(db, project.id).milestones[-1].id == made
+    assert (launch.name, launch.status) == ("Launch", WorkstreamStatus.open)
+    (made,) = gantt_svc.apply(db, project, [{"op": "workstream_create", "name": "Beta"}], TODAY)
+    assert projects_svc.get_project(db, project.id).workstreams[-1].id == made
+
+    # Deleted, a workstream's tasks stay in the project, in none.
+    task = tasks_svc.create_task(db, title="Spec", project_id=project.id, workstream_id=made)
+    gantt_svc.apply(db, project, [{"op": "workstream_delete", "id": made}], TODAY)
+    assert task.workstream_id is None and task.project_id == project.id
+    assert [w.name for w in projects_svc.get_project(db, project.id).workstreams] == ["Launch"]
 
 
 def test_the_gantt_page_draws_the_plan(client, db) -> None:
@@ -311,7 +315,7 @@ def test_the_gantt_page_draws_the_plan(client, db) -> None:
     today = date.today()
     this = today - timedelta(days=today.weekday())
     tasks_svc.create_task(
-        db, title="Spec", project_id=project.id, milestone_id=launch.id,
+        db, title="Spec", project_id=project.id, workstream_id=launch.id,
         starts_on=this, due=this + timedelta(days=11),
     )
     tasks_svc.create_task(db, title="Loose end", project_id=project.id)
@@ -323,7 +327,8 @@ def test_the_gantt_page_draws_the_plan(client, db) -> None:
     assert "Other tasks" in page and "Add a task to Launch…" in page
     # In weeks, a bar is drawn to the day: twelve days are 12/7 of a column.
     assert 'class="gantt-bar"' in page and "--n: 1.7143" in page
-    assert 'class="gantt-diamond' in page
+    # A workstream's lane: its tasks' summary, its Due their last due, no dates of its own.
+    assert 'class="gantt-summary"' in page and 'data-key="w' in page
     # The Projects card opens it.
     assert f'href="/projects/{project.id}"' in client.get("/projects").text
 
@@ -333,7 +338,7 @@ def test_the_sheet_is_edited_through_one_request(client, db) -> None:
     db.commit()
     response = client.post(
         f"/ui/projects/{project.id}/gantt",
-        json={"ops": [{"op": "create", "milestone_id": launch.id, "title": "Spec",
+        json={"ops": [{"op": "create", "workstream_id": launch.id, "title": "Spec",
                        "start": "next week", "length": "2"}]},
     )
     assert response.status_code == 200

@@ -1,7 +1,7 @@
 """View-model for the multi-week planner: several weeks of days at a glance.
 
 Each day carries what planning ahead needs: tasks planned for it, deadlines
-and milestones landing on it, personal events by name, and the work calendar
+landing on it, personal events by name, and the work calendar
 condensed to a load figure (meeting count and busy hours), since individual
 meetings are the week calendar's job.
 """
@@ -19,8 +19,6 @@ from app.models import (
     BlockState,
     Event,
     EventSource,
-    Milestone,
-    MilestoneStatus,
     Task,
     TaskOwner,
     TaskStatus,
@@ -99,7 +97,6 @@ def weeks_ctx(db: Session, anchor: date, today: date) -> dict[str, Any]:
         first_day + timedelta(days=i): {
             "tasks": [],
             "dues": [],
-            "milestones": [],
             "events": [],
             "all_day": [],
             "work_spans": [],
@@ -133,19 +130,6 @@ def weeks_ctx(db: Session, anchor: date, today: date) -> dict[str, Any]:
             days[task.due]["dues"].append(
                 {"id": task.id, "title": task.title, "planned_for": task.planned_for}
             )
-
-    milestones = db.scalars(
-        select(Milestone)
-        .options(selectinload(Milestone.project))
-        .where(
-            Milestone.status == MilestoneStatus.open,
-            Milestone.target_date.between(first_day, last_day),
-        )
-    )
-    for milestone in milestones:
-        days[milestone.target_date]["milestones"].append(
-            {"name": milestone.name, "project": milestone.project.name}
-        )
 
     events, _ = events_svc.calendar_range(db, range_start, range_end)
     for event in events:
@@ -182,11 +166,10 @@ def weeks_ctx(db: Session, anchor: date, today: date) -> dict[str, Any]:
             meetings = len(slot["work_spans"])
             week_meetings += meetings
             week_busy += busy
-            # Fixed points first (milestones, all-day, deadlines, events), then
-            # the movable plan: that order survives the grid's "+N more" fold.
+            # Fixed points first (all-day, deadlines, events), then the
+            # movable plan: that order survives the grid's "+N more" fold.
             entries = (
-                [{"kind": "milestone", **m} for m in slot["milestones"]]
-                + [{"kind": "all_day", **e} for e in slot["all_day"]]
+                [{"kind": "all_day", **e} for e in slot["all_day"]]
                 + [{"kind": "due", **d} for d in slot["dues"]]
                 + [{"kind": "event", **e} for e in slot["events"]]
                 + [{"kind": "task", **t} for t in slot["tasks"]]

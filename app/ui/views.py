@@ -17,13 +17,13 @@ from app.dates import human_date, short_date, week_label
 from app.models import (
     Block,
     BlockState,
-    Milestone,
-    MilestoneStatus,
     Project,
     ProjectStatus,
     Task,
     TaskOwner,
     TaskStatus,
+    Workstream,
+    WorkstreamStatus,
 )
 from app.services import blocks as blocks_svc
 from app.services import habits as habits_svc
@@ -138,20 +138,20 @@ def replan_slot(task: Task, now: datetime) -> datetime | None:
 
 
 def project_choices(
-    db: Session, project_id: int | None = None, milestone_id: int | None = None
+    db: Session, project_id: int | None = None, workstream_id: int | None = None
 ) -> list[dict[str, Any]]:
     """The projects a task can be filed into, as the sheet's project menu
-    lists them: open ones with their open milestones, plus the task's own
-    project and milestone if those have closed."""
+    lists them: open ones with their open workstreams, plus the task's own
+    project and workstream if those have closed."""
     return [
         {
             "id": p.id,
             "name": p.name,
             "color": p.color,
-            "milestones": [
+            "workstreams": [
                 {"id": m.id, "name": m.name}
-                for m in p.milestones
-                if m.status == MilestoneStatus.open or m.id == milestone_id
+                for m in p.workstreams
+                if m.status == WorkstreamStatus.open or m.id == workstream_id
             ],
         }
         for p in projects_svc.list_projects(db)
@@ -165,13 +165,13 @@ def sheet_ctx(db: Session, task: Task, today: date) -> dict[str, Any]:
     (open ones, plus its own if that has closed)."""
     template = task.recurrence_template
     repeat = recurrence_svc.preset_of(template) if template and template.active else "none"
-    projects = project_choices(db, task.project_id, task.milestone_id)
+    projects = project_choices(db, task.project_id, task.workstream_id)
     block = blocks_svc.day_block(task, task.planned_for) if task.planned_for else None
     project_label = ""
     if task.project:
         project_label = task.project.name
-        if task.milestone:
-            project_label += f" › {task.milestone.name}"
+        if task.workstream:
+            project_label += f" › {task.workstream.name}"
     return {
         "id": task.id,
         "title": task.title,
@@ -182,7 +182,7 @@ def sheet_ctx(db: Session, task: Task, today: date) -> dict[str, Any]:
         "planned_for": task.planned_for.isoformat() if task.planned_for else "",
         "due": task.due.isoformat() if task.due else "",
         "project_id": task.project_id or "",
-        "milestone_id": task.milestone_id or "",
+        "workstream_id": task.workstream_id or "",
         "planned_label": short_date(task.planned_for, today) if task.planned_for else "",
         "due_label": short_date(task.due, today) if task.due else "",
         # Its time on its do-date, as the sheet's time field writes it.
@@ -339,16 +339,11 @@ def _tasks_by_project(db: Session, planning: list[Task], now: datetime) -> dict[
     }
 
 
-def milestone_ctx(db: Session, milestone: Milestone, today: date) -> dict[str, Any]:
+def workstream_ctx(db: Session, workstream: Workstream) -> dict[str, Any]:
     return {
-        "milestone": milestone,
-        "progress": projects_svc.milestone_progress(db, milestone.id),
-        "target_label": short_date(milestone.target_date, today) if milestone.target_date else None,
-        "target_soon": bool(
-            milestone.target_date
-            and milestone.status == MilestoneStatus.open
-            and milestone.target_date <= today + timedelta(days=DUE_SOON_DAYS)
-        ),
+        "workstream": workstream,
+        "done": workstream.status == WorkstreamStatus.done,
+        "progress": projects_svc.workstream_progress(db, workstream.id),
     }
 
 
@@ -360,7 +355,7 @@ def _plan_order(task: Task) -> tuple:
 def project_card_ctx(
     db: Session, project: Project, now: datetime, *, planning: bool = False
 ) -> dict[str, Any]:
-    """A project card: its milestones, each with its open tasks, then the rest."""
+    """A project card: its workstreams, each with its open tasks, then the rest."""
     today = now.date()
     open_tasks = sorted(
         tasks_svc.one_per_series(
@@ -375,19 +370,18 @@ def project_card_ctx(
     )
     groups = [
         {
-            "m": milestone_ctx(db, m, today),
+            "m": workstream_ctx(db, m),
             "rows": [
-                row_ctx(t, now, planning=planning) for t in open_tasks if t.milestone_id == m.id
+                row_ctx(t, now, planning=planning) for t in open_tasks if t.workstream_id == m.id
             ],
         }
-        for m in project.milestones
-        if m.status != MilestoneStatus.dropped
+        for m in project.workstreams
     ]
     return {
         "project": project,
         "groups": groups,
         "loose_rows": [
-            row_ctx(t, now, planning=planning) for t in open_tasks if t.milestone_id is None
+            row_ctx(t, now, planning=planning) for t in open_tasks if t.workstream_id is None
         ],
         "open_count": len(open_tasks),
         "planning": planning,
@@ -408,7 +402,7 @@ TASK_ROW = re.compile(r"^- \[[ xX]\] ")
 HABIT = "/habit"
 # A task's fields as the sheet posts them (fragments.save_task).
 TASK_FIELDS = (
-    "planned_for", "time", "due", "repeat", "project_id", "milestone_id", "status", "owner",
+    "planned_for", "time", "due", "repeat", "project_id", "workstream_id", "status", "owner",
 )
 
 
@@ -534,7 +528,7 @@ HISTORY_FIELDS = {
     "status": "Status",
     "owner": "Owner",
     "project_id": "Project",
-    "milestone_id": "Milestone",
+    "workstream_id": "Workstream",
     "planned_for": "Do date",
     "due": "Due",
     "starts_on": "Start week",

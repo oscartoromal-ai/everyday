@@ -225,8 +225,8 @@
   const projectLabel = (form) => {
     const project = projectOf(form);
     if (!project) return "";
-    const milestone = project.milestones.find((m) => String(m.id) === valueOf(form, "milestone_id"));
-    return milestone ? `${project.name} › ${milestone.name}` : project.name;
+    const workstream = project.workstreams.find((m) => String(m.id) === valueOf(form, "workstream_id"));
+    return workstream ? `${project.name} › ${workstream.name}` : project.name;
   };
 
   const draw = (form) => {
@@ -256,7 +256,7 @@
         const project = projectOf(form);
         set = !!project;
         spoken = set ? `Project: ${projectLabel(form)}` : "Project: none";
-        button.title = set ? spoken : "Project and milestone";
+        button.title = set ? spoken : "Project and workstream";
         button.classList.toggle("in-project", set);
         if (set) button.style.setProperty("--project", `var(--hue-${project.color})`);
         else button.style.removeProperty("--project");
@@ -292,7 +292,7 @@
 
   const setField = (form, name, value) => {
     field(form, name).value = value;
-    if (name === "project_id") field(form, "milestone_id").value = "";
+    if (name === "project_id") field(form, "workstream_id").value = "";
     draw(form);
     // Heard by a page that keeps the fields itself (Today's notepad).
     form.dispatchEvent(new CustomEvent("sheet:field", { bubbles: true, detail: { name, value } }));
@@ -518,22 +518,22 @@
     }
     if (name === "project") {
       const project = valueOf(form, "project_id");
-      const milestone = valueOf(form, "milestone_id");
+      const workstream = valueOf(form, "workstream_id");
       const items = [item("No project", { flag: true, checked: project === "", pick: () => setField(form, "project_id", "") })];
       for (const p of projectsOf(form)) {
         items.push(item(p.name, {
           flag: true,
           color: p.color,
-          checked: String(p.id) === project && milestone === "",
+          checked: String(p.id) === project && workstream === "",
           pick: () => setField(form, "project_id", String(p.id)),
         }));
-        for (const m of p.milestones) {
+        for (const m of p.workstreams) {
           items.push(item(m.name, {
             indent: true,
-            checked: String(m.id) === milestone,
+            checked: String(m.id) === workstream,
             pick: () => {
               setField(form, "project_id", String(p.id));
-              setField(form, "milestone_id", String(m.id));
+              setField(form, "workstream_id", String(m.id));
             },
           }));
         }

@@ -2,8 +2,9 @@
    cursor moved by the keys or the pointer, a range held with Shift or a
    drag, cells written by typing, bars drawn over the time, moved and
    stretched by dragging or with Alt, rows moved with Alt+Up/Down or
-   dragged by their number to another place or milestone, the time seen in
-   weeks or drilled down to days, and undo.
+   dragged by their number to another place or workstream, workstreams
+   folded to their row, the time seen in weeks or drilled down to days,
+   and undo.
 
    Every edit is one POST of ops (app.services.gantt.apply), answered with
    the sheet drawn again; the cursor, the range, the scroll and any cell
@@ -25,7 +26,9 @@
   /* ---- the grid, in its scale: a column a week, or a day ---- */
 
   const table = () => sheet.querySelector(".gantt-table");
-  const rows = () => [...sheet.querySelectorAll(".gantt-group > .gantt-row, .gantt-table > .gantt-row.kind-add-milestone")];
+  const rows = () => [...sheet.querySelectorAll(
+    ".gantt-group:not(.is-folded) > .gantt-row, .gantt-group.is-folded > .gantt-row.kind-workstream, .gantt-table > .gantt-row.kind-add-workstream",
+  )];
   const rowOf = (key) => sheet.querySelector(`.gantt-row[data-key="${CSS.escape(key)}"]`);
   const colCount = () => FROZEN + Number(table().dataset.colCount);
   const cellAt = (row, col) => row?.querySelector(`.gantt-cell[data-col="${col}"]`);
@@ -137,12 +140,12 @@
     if (d.kind === "task") {
       return { op: "task", id: Number(d.id), set: { title: d.title, status: d.status, starts_on: d.startsOn, due: d.due } };
     }
-    if (d.kind === "milestone") {
-      return { op: "milestone", id: Number(d.id), set: { name: d.title, target: d.target, status: d.status } };
+    if (d.kind === "workstream") {
+      return { op: "workstream", id: Number(d.id), set: { name: d.title, status: d.status } };
     }
     return null;
   };
-  const keyOf = (op) => (op.op === "milestone" ? `m${op.id}` : `t${op.id}`);
+  const keyOf = (op) => (op.op === "workstream" ? `w${op.id}` : `t${op.id}`);
 
   // Draws a sheet the server sent. The time in view and the cursor's day
   // stay where they were, whatever the sheet now starts on and whatever its
@@ -158,6 +161,7 @@
       start: editing.input.selectionStart, end: editing.input.selectionEnd, typed: editing.typed } : null;
     if (editing) editing = null;
     sheet.innerHTML = html;
+    showFolds();
     // A plan now starting earlier adds time before; the same days stay in view.
     const moved = (new Date(before.first) - new Date(firstDay())) / DAY_MS;
     sheet.scrollLeft = ((leftDays + moved) / colDays()) * colWidth();
@@ -205,7 +209,7 @@
     chain = chain.then(async () => {
       // Taken when its turn comes, so an edit queued behind another undoes
       // to where that one left the rows, not to before both.
-      const before = undo || ops.filter((op) => op.id && (op.op === "task" || op.op === "milestone"))
+      const before = undo || ops.filter((op) => op.id && (op.op === "task" || op.op === "workstream"))
         .map((op) => snapshot(rowOf(keyOf(op)))).filter(Boolean);
       try {
         const { html, made } = await post(ops);
@@ -249,11 +253,11 @@
   const cellText = (cell) => {
     const row = cell.closest(".gantt-row");
     if (cell.dataset.edit === "title" || cell.dataset.edit === "name") return row.dataset.title;
-    if (cell.dataset.edit === "add" || cell.dataset.edit === "add-milestone") return "";
+    if (cell.dataset.edit === "add" || cell.dataset.edit === "add-workstream") return "";
     return cell.textContent.trim();
   };
 
-  const WORDS = new Set(["title", "name", "add", "add-milestone"]);
+  const WORDS = new Set(["title", "name", "add", "add-workstream"]);
 
   // typed: the words replace what was there, and the arrows leave the cell
   // (Excel's Enter mode); otherwise they move in the words (Edit mode).
@@ -314,22 +318,22 @@
     }
     if (what === "title" || what === "name") {
       if (!value) {
-        window.toast(what === "title" ? "A task needs a title" : "A milestone needs a name");
+        window.toast(what === "title" ? "A task needs a title" : "A workstream needs a name");
         refocus();
         return;
       }
       const op = what === "title" ? { op: "task", id: Number(row.dataset.id), title: value }
-        : { op: "milestone", id: Number(row.dataset.id), name: value };
+        : { op: "workstream", id: Number(row.dataset.id), name: value };
       refocus();
       send([op], { then: () => then?.(), failed: retry });
       return;
     }
-    if (what === "add" || what === "add-milestone") {
+    if (what === "add" || what === "add-workstream") {
       if (!value) { refocus(); then?.(); return; }
-      const op = what === "add" ? { op: "create", milestone_id: row.dataset.milestone, title: value }
-        : { op: "milestone_create", name: value };
+      const op = what === "add" ? { op: "create", workstream_id: row.dataset.workstream, title: value }
+        : { op: "workstream_create", name: value };
       refocus();
-      // Undone, a new task is deleted and a new milestone dropped; neither redoes.
+      // Undone, a new task or workstream is deleted; neither redoes.
       send([op], {
         record: false,
         failed: retry,
@@ -337,17 +341,17 @@
           if (!id) return;
           undos.push({
             undo: what === "add" ? [{ op: "delete", id }]
-              : [{ op: "milestone", id, set: { name: value, target: "", status: "dropped" } }],
+              : [{ op: "workstream_delete", id }],
             redo: null,
           });
           redos.length = 0;
-          then?.(what === "add" ? `t${id}` : `m${id}`);
+          then?.(what === "add" ? `t${id}` : `w${id}`);
         },
       });
       return;
     }
-    const op = row.dataset.kind === "milestone"
-      ? { op: "milestone", id: Number(row.dataset.id), [what]: value }
+    const op = row.dataset.kind === "workstream"
+      ? { op: "workstream", id: Number(row.dataset.id), [what]: value }
       : { op: "task", id: Number(row.dataset.id), [what]: value, unit: unit() };
     refocus();
     send([op], { then: () => then?.(), failed: retry });
@@ -379,11 +383,11 @@
   const toggle = (row) => {
     const d = row.dataset;
     if (d.kind === "task") send([{ op: "task", id: Number(d.id), done: d.status !== "done" }]);
-    if (d.kind === "milestone") send([{ op: "milestone", id: Number(d.id), reached: d.status !== "reached" }]);
+    if (d.kind === "workstream") send([{ op: "workstream", id: Number(d.id), done: d.status !== "done" }]);
   };
 
   // Delete: clears what the range covers: a bar (its time, Start or its
-  // length), a due (and the bar ending on it), a milestone's target.
+  // length), or a due (and the bar ending on it).
   const clear = () => {
     const range = rangeRows();
     const ops = [];
@@ -392,23 +396,19 @@
       if (row.dataset.kind === "task") {
         if (range.cols.includes(DUE) && row.dataset.due) ops.push({ op: "task", id, clear: "due" });
         else if (range.cols.some((c) => c === 2 || c === 3 || isTime(c)) && row.dataset.startsOn) ops.push({ op: "task", id, clear: "span" });
-      } else if (row.dataset.kind === "milestone" && range.cols.includes(DUE) && row.dataset.target) {
-        ops.push({ op: "milestone", id, target: "" });
       }
     }
     if (ops.length) send(ops);
   };
 
-  // Alt+Left/Right: bars (or dues, or targets) a column earlier or later,
-  // a week or a day; with Shift, the bars' ends.
+  // Alt+Left/Right: bars (or dues) a column earlier or later, a week or a
+  // day; with Shift, the bars' ends.
   const nudge = (by, grow) => {
     const ops = [];
     for (const row of rangeRows().rows) {
       const id = Number(row.dataset.id);
       if (row.dataset.kind === "task" && (grow ? row.dataset.startsOn : row.dataset.due)) {
         ops.push({ op: "task", id, [grow ? "grow" : "shift"]: by, unit: unit() });
-      } else if (row.dataset.kind === "milestone" && !grow && row.dataset.target) {
-        ops.push({ op: "milestone", id, shift: by, unit: unit() });
       }
     }
     if (!ops.length) return;
@@ -432,6 +432,11 @@
 
   const remove = async () => {
     const doomed = taskRows(rangeRows());
+    const lane = rowOf(cursor.key);
+    if (!doomed.length && lane?.dataset.kind === "workstream") {
+      removeWorkstream(lane);
+      return;
+    }
     if (!doomed.length) return;
     const one = doomed.length === 1;
     const yes = await window.confirmAction({
@@ -456,12 +461,30 @@
     redos.length = 0;
   };
 
+  // A workstream deleted: its tasks stay in the project, under Other tasks.
+  const removeWorkstream = async (lane) => {
+    const yes = await window.confirmAction({
+      title: "Delete workstream?",
+      name: lane.dataset.title,
+      detail: "Its tasks stay, under Other tasks.",
+      action: "Delete",
+    });
+    if (!yes) {
+      place()?.focus({ preventScroll: true });
+      return;
+    }
+    anchor = null;
+    send([{ op: "workstream_delete", id: Number(lane.dataset.id) }], { record: false });
+    undos.length = 0;
+    redos.length = 0;
+  };
+
   const copy = () => {
     const range = rangeRows();
     const text = range.rows.map((row) => range.cols.map((c) => {
       const cell = cellAt(row, c);
       if (!cell || isTime(c)) return "";
-      if (c === 0) return row.dataset.status === "done" || row.dataset.status === "reached" ? "x" : "";
+      if (c === 0) return row.dataset.status === "done" ? "x" : "";
       return cellText(cell);
     }).join("\t")).join("\n");
     navigator.clipboard?.writeText(text).then(
@@ -491,7 +514,7 @@
       const add = group?.querySelector(".gantt-row.kind-add");
       if (!add) return;
       const ops = grid.map(([title = "", start = "", length = "", due = ""]) => ({
-        op: "create", milestone_id: add.dataset.milestone, title: title.trim(), start, length, due, unit: unit(),
+        op: "create", workstream_id: add.dataset.workstream, title: title.trim(), start, length, due, unit: unit(),
       }));
       send(ops, {
         then: (made) => {
@@ -550,7 +573,12 @@
       return; // Ctrl+V comes as a paste event; other Ctrl keys stay the browser's
     }
     if (e.altKey) {
-      if (key === "ArrowLeft" || key === "ArrowRight") { handled(); nudge(key === "ArrowLeft" ? -1 : 1, e.shiftKey); }
+      if (key === "ArrowLeft" || key === "ArrowRight") {
+        handled();
+        // On a workstream's own row, as in a tree: Left folds it, Right opens it.
+        if (row.dataset.kind === "workstream" && !anchor) fold(row.closest(".gantt-group"), key === "ArrowLeft");
+        else nudge(key === "ArrowLeft" ? -1 : 1, e.shiftKey);
+      }
       if (key === "ArrowUp" || key === "ArrowDown") { handled(); moveRow(key === "ArrowUp" ? -1 : 1); }
       return;
     }
@@ -640,7 +668,18 @@
     if (e.target.closest("[data-gantt-resize]")) { startResize(e); return; }
     const grip = e.target.closest("[data-row-grip]");
     if (grip) { startRowDrag(e, grip.closest(".gantt-row")); return; }
-    // A bar, tick or diamond lies over the time's cells: the cell is the one under it.
+    const chevron = e.target.closest("[data-fold]");
+    if (chevron) {
+      // Alt folds or opens every workstream at once.
+      e.preventDefault();
+      const group = chevron.closest(".gantt-group");
+      const folding = !group.classList.contains("is-folded");
+      if (e.altKey) sheet.querySelectorAll(".gantt-group[data-workstream]:not([data-workstream=''])").forEach((g) => fold(g, folding));
+      else fold(group, folding);
+      moveTo(chevron.closest(".gantt-row").dataset.key, TITLE);
+      return;
+    }
+    // A bar or tick lies over the time's cells: the cell is the one under it.
     const cell = e.target.closest(".gantt-cell[data-col]")
       || document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.matches(".gantt-cell[data-col]"));
     const row = e.target.closest(".gantt-row[data-key]");
@@ -649,7 +688,7 @@
     if (editing) commit();
     e.preventDefault(); // no text selection; focus is ours to move
     const col = Number(cell.dataset.col);
-    const bar = e.target.closest(".gantt-bar, .gantt-diamond, .gantt-tick");
+    const bar = e.target.closest(".gantt-bar, .gantt-tick");
     moveTo(row.dataset.key, col, { extend: e.shiftKey });
     if (e.shiftKey) return;
     // Clicks are read here, not from click events: the capture below sends
@@ -699,7 +738,7 @@
     drag = null;
     sheet.classList.remove("is-drawing");
     if (!was.moved) {
-      // A click on the box: done, or a milestone reached.
+      // A click on the box: done, or not.
       if (was.toggles) toggle(was.row);
       return;
     }
@@ -707,8 +746,7 @@
       if (!was.cols) { resetBar(was); return; }
       const id = Number(was.row.dataset.id);
       const by = { unit: unit() };
-      if (was.bar.classList.contains("gantt-diamond")) send([{ op: "milestone", id, shift: was.cols, ...by }]);
-      else if (was.grip === "end") send([{ op: "task", id, grow: was.cols, ...by }]);
+      if (was.grip === "end") send([{ op: "task", id, grow: was.cols, ...by }]);
       else if (was.grip === "start") send([{ op: "task", id, move_start: was.cols, ...by }]);
       else send([{ op: "task", id, shift: was.cols, ...by }]);
       if (isTime(cursor.col) && !was.grip) cursor.col += was.cols;
@@ -749,7 +787,7 @@
   }
 
   /* ---- the pointer: a task's row, dragged by its number to another
-     place, in its milestone or another (or out of any) ---- */
+     place, in its workstream or another (or out of any) ---- */
 
   let rowDrag = null; // {row, id, y, moved, drop}
 
@@ -772,14 +810,14 @@
     const endOf = (group) => ({
       group, before: null, line: group.querySelector(".gantt-row.kind-add"), edge: "top",
     });
-    if (!under || under.dataset.kind === "add-milestone") {
+    if (!under || under.dataset.kind === "add-workstream") {
       // Past the last group: its end.
       return y > sheet.querySelector(".gantt-head").getBoundingClientRect().bottom ? endOf(last) : null;
     }
     const group = under.closest(".gantt-group");
     if (under.dataset.kind === "add") return endOf(group);
     if (under.dataset.kind !== "task") {
-      // A milestone's row, or "Other tasks": its group's top.
+      // A workstream's row, or "Other tasks": its group's top.
       const first = group.querySelector(".gantt-row.kind-task");
       return { group, before: first, line: under, edge: "bottom" };
     }
@@ -834,11 +872,11 @@
     sheet.querySelectorAll(".gantt-group.is-drop").forEach((g) => g.classList.remove("is-drop"));
     if (!e || !was.drop) return;
     const from = {
-      milestone_id: was.row.closest(".gantt-group").dataset.milestone,
+      workstream_id: was.row.closest(".gantt-group").dataset.workstream,
       before: nextTask(was.row) ? Number(nextTask(was.row).dataset.id) : null,
     };
     const to = {
-      milestone_id: was.drop.group.dataset.milestone,
+      workstream_id: was.drop.group.dataset.workstream,
       before: was.drop.before ? Number(was.drop.before.dataset.id) : null,
     };
     const op = (where) => [{ op: "place", id: was.id, ...where }];
@@ -846,6 +884,42 @@
       undo: op(from), redo: op(to),
       then: () => rowOf(`t${was.id}`) && moveTo(`t${was.id}`, TITLE),
     });
+  }
+
+  /* ---- workstreams folded to their row, remembered (pc-gantt-folded) ---- */
+
+  const FOLDED = "pc-gantt-folded";
+  const folded = new Set((() => {
+    try { return JSON.parse(saved(FOLDED) || "[]"); } catch { return []; }
+  })());
+
+  const showFolds = () => {
+    sheet.querySelectorAll(".gantt-group[data-workstream]").forEach((group) => {
+      const id = group.dataset.workstream;
+      if (!id) return;
+      const shut = folded.has(id);
+      group.classList.toggle("is-folded", shut);
+      const chevron = group.querySelector("[data-fold]");
+      if (!chevron) return;
+      chevron.setAttribute("aria-expanded", String(!shut));
+      const name = group.querySelector(".kind-workstream")?.dataset.title || "";
+      chevron.setAttribute("aria-label", `${shut ? "Unfold" : "Fold"} ${name}`);
+    });
+  };
+
+  function fold(group, shut) {
+    const id = group?.dataset.workstream;
+    if (!id) return;
+    if (shut) folded.add(id);
+    else folded.delete(id);
+    store(FOLDED, JSON.stringify([...folded]));
+    showFolds();
+    // The cursor in a row now folded away goes to its workstream's row.
+    if (cursor && rowOf(cursor.key) && !rows().includes(rowOf(cursor.key))) {
+      cursor = { key: group.querySelector(".kind-workstream").dataset.key, col: cursor.col };
+      anchor = null;
+    }
+    place()?.focus({ preventScroll: true });
   }
 
   // Focus reaching the sheet by Tab lands on the cursor's cell.
@@ -932,6 +1006,7 @@
     if (cursor) moveTo(cursor.key, FROZEN + thisCol());
   });
 
+  showFolds();
   toNow();
   place();
 })();

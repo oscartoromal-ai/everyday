@@ -42,7 +42,7 @@ ROWS = """[...document.querySelectorAll('[data-cursor] .task-row[tabindex]')]
 def tasks(app_db) -> dict[str, int]:
     with app_db() as db:
         home = projects_svc.create_project(db, name="Home")
-        projects_svc.create_milestone(db, project_id=home.id, name="Garden")
+        projects_svc.create_workstream(db, project_id=home.id, name="Garden")
         made = {
             "a": tasks_svc.create_task(db, title="Alpha"),
             "b": tasks_svc.create_task(db, title="Bravo"),
@@ -129,7 +129,7 @@ def test_keys_act_on_the_row_and_the_cursor_moves_on(page, live, app_db, tasks) 
         by_title = {t.title: t for t in tasks_svc.list_tasks(db)}
         assert by_title[first].planned_for == TODAY
         assert by_title[dated].planned_for == TODAY + timedelta(days=1)
-        assert by_title[filed].milestone is not None and by_title[filed].milestone.name == "Garden"
+        assert by_title[filed].workstream and by_title[filed].workstream.name == "Garden"
         assert by_title[finished].status == TaskStatus.done
 
 
@@ -367,4 +367,4 @@ def test_a_key_racing_a_list_refresh_still_opens_its_row(page, live, app_db, tas
     page.locator(".task-sheet[data-sheet=edit]").wait_for(state="detached")
     with app_db() as db:
         task = next(t for t in tasks_svc.list_tasks(db) if t.title == on)
-        assert task.milestone is not None and task.milestone.name == "Garden"
+        assert task.workstream is not None and task.workstream.name == "Garden"

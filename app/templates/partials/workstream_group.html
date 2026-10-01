@@ -1,0 +1,10 @@
+<div class="workstream-group" data-file-workstream="{{ group.m.workstream.id }}">
+  <ul class="workstreams">
+    {% with m = group.m %}{% include "partials/workstream_row.html" %}{% endwith %}
+  </ul>
+  {% if group.rows %}
+  <ul class="task-list workstream-tasks">
+    {% for row in group.rows %}{% include "partials/task_row.html" %}{% endfor %}
+  </ul>
+  {% endif %}
+</div>

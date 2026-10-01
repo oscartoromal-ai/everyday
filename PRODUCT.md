@@ -21,7 +21,7 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 - Today as a notepad: plain notes for each day, beside the day's timeline (for now; the notebook that turned lines into tasks is set aside).
 - "Delegated to Claude" list section with status chips: queued, running, needs review.
 - Missed marker on tasks whose scheduled calendar block passed uncompleted (derived, shown as an error badge).
-- Projects with milestones (target dates, computed progress), each opening as a Gantt chart: a spreadsheet of its tasks as bars over weeks, a bar running from the task's start week to its due.
+- Projects with workstreams (lanes of their work, computed progress), each opening as a Gantt chart: a spreadsheet of its tasks as bars over weeks or days, a bar running from the task's start day to its due.
 - Calendar: local events, read-only work events, deliberately scheduled task blocks, faded ghost outlines for today's missed blocks.
 - Nutrition: a day of eating, read from its Markdown file against the plan's targets, beside the day's chat with Claude, who writes that file from what Oscar says.
 - Garmin: what Oscar's watch measured, a day at a time (steps, energy burned, sleep, heart rate, HRV, stress, body battery, readiness, activities) with the fortnight before it, synced from Garmin Connect once he connects it on the page.

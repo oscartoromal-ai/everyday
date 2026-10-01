@@ -15,7 +15,7 @@ from typing import Any
 from sqlalchemy import event, insert, inspect, select
 from sqlalchemy.orm import Session
 
-from app.models import Milestone, Project, Task, TaskRevision
+from app.models import Project, Task, TaskRevision, Workstream
 
 # What a revision remembers of a task: its plan, not its bookkeeping.
 FIELDS = (
@@ -24,7 +24,7 @@ FIELDS = (
     "status",
     "owner",
     "project_id",
-    "milestone_id",
+    "workstream_id",
     "planned_for",
     "due",
     "starts_on",
@@ -100,11 +100,11 @@ def last_known(db: Session, task_ids: list[int]) -> dict[int, dict[str, Any]]:
 
 def changes(db: Session, task_id: int) -> list[dict[str, Any]]:
     """The history as steps a person can read: when, who, what kind of change,
-    and each field that moved, from what to what (project and milestone by
+    and each field that moved, from what to what (project and workstream by
     name). Newest first."""
     names = {
         "project_id": {p.id: p.name for p in db.scalars(select(Project))},
-        "milestone_id": {m.id: m.name for m in db.scalars(select(Milestone))},
+        "workstream_id": {m.id: m.name for m in db.scalars(select(Workstream))},
     }
 
     def shown(field: str, value: Any) -> Any:

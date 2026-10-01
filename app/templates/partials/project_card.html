@@ -27,8 +27,8 @@
   </header>
   {% if p.notes %}<p class="notes">{{ p.notes }}</p>{% endif %}
 
-  <div class="milestone-groups" id="milestone-groups-{{ p.id }}">
-    {% for group in card.groups %}{% include "partials/milestone_group.html" %}{% endfor %}
+  <div class="workstream-groups" id="workstream-groups-{{ p.id }}">
+    {% for group in card.groups %}{% include "partials/workstream_group.html" %}{% endfor %}
   </div>
 
   {% if card.groups %}<h3 class="loose-head">Other tasks</h3>{% endif %}
@@ -40,18 +40,14 @@
   {% endwith %}
 
   <details class="expander">
-    <summary class="add-inline">Add a milestone</summary>
+    <summary class="add-inline">Add a workstream</summary>
     <form class="inline-form"
-          hx-post="/ui/projects/{{ p.id }}/milestones"
-          hx-target="#milestone-groups-{{ p.id }}" hx-swap="beforeend"
+          hx-post="/ui/projects/{{ p.id }}/workstreams"
+          hx-target="#workstream-groups-{{ p.id }}" hx-swap="beforeend"
           hx-on::after-request="if (event.detail.successful) { this.reset(); this.closest('details').open = false; }">
       <label class="field" style="flex: 2;">
-        <span class="field-label">Milestone</span>
-        <span class="field-line"><input name="name" placeholder="Milestone name" required></span>
-      </label>
-      <label class="field">
-        <span class="field-label">Target</span>
-        <span class="field-line"><input type="date" name="target_date"></span>
+        <span class="field-label">Workstream</span>
+        <span class="field-line"><input name="name" placeholder="Workstream name" required></span>
       </label>
       <button type="submit" class="btn quiet">Add</button>
     </form>

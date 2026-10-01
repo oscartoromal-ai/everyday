@@ -9,7 +9,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.db import DbSession
-from app.models import MilestoneStatus, ProjectStatus, RecurrenceKind, TaskOwner, TaskStatus
+from app.models import ProjectStatus, RecurrenceKind, TaskOwner, TaskStatus, WorkstreamStatus
 from app.services import DomainError
 from app.services import blocks as blocks_svc
 from app.services import events as events_svc
@@ -20,7 +20,6 @@ from app.services import tasks as tasks_svc
 from app.ui.views import (
     last_missed_block,
     me_ctx,
-    milestone_ctx,
     next_slot_today,
     project_card_ctx,
     projects_list_ctx,
@@ -28,6 +27,7 @@ from app.ui.views import (
     row_ctx,
     sheet_ctx,
     templates,
+    workstream_ctx,
 )
 
 router = APIRouter(prefix="/ui", include_in_schema=False)
@@ -94,7 +94,7 @@ def _add_task(
     due: str = "",
     repeat: str = "none",
     project_id: str = "",
-    milestone_id: str = "",
+    workstream_id: str = "",
     list_day: str = "",
     done: bool = False,
 ):
@@ -113,7 +113,7 @@ def _add_task(
         planned_for=day,
         due=date.fromisoformat(due) if due else None,
         project_id=int(project_id) if project_id else None,
-        milestone_id=int(milestone_id) if milestone_id else None,
+        workstream_id=int(workstream_id) if workstream_id else None,
         status=TaskStatus.done if done else TaskStatus.todo,
     )
     _apply_task_repeat(db, task, repeat)
@@ -268,7 +268,7 @@ def save_task(
     owner: Annotated[TaskOwner, Form()],
     notes: Annotated[str, Form()] = "",
     project_id: Annotated[str, Form()] = "",
-    milestone_id: Annotated[str, Form()] = "",
+    workstream_id: Annotated[str, Form()] = "",
     planned_for: Annotated[str, Form()] = "",
     time_range: Annotated[str, Form(alias="time")] = "",
     due: Annotated[str, Form()] = "",
@@ -287,7 +287,7 @@ def save_task(
         status=status,
         owner=owner,
         project_id=int(project_id) if project_id else None,
-        milestone_id=int(milestone_id) if milestone_id else None,
+        workstream_id=int(workstream_id) if workstream_id else None,
         planned_for=day,
         due=date.fromisoformat(due) if due else None,
     )
@@ -476,43 +476,34 @@ def save_project(
     return _project_partial(request, db, project_id, "partials/project_card.html")
 
 
-@router.post("/projects/{project_id}/milestones")
-def add_milestone(
+@router.post("/projects/{project_id}/workstreams")
+def add_workstream(
     request: Request,
     db: DbSession,
     project_id: int,
     name: str = Form(...),
-    target_date: str = Form(""),
 ):
-    milestone = projects_svc.create_milestone(
-        db,
-        project_id=project_id,
-        name=name,
-        target_date=date.fromisoformat(target_date) if target_date else None,
-    )
+    workstream = projects_svc.create_workstream(db, project_id=project_id, name=name)
     db.commit()
-    group = {"m": milestone_ctx(db, milestone, date.today()), "rows": []}
+    group = {"m": workstream_ctx(db, workstream), "rows": []}
     return templates.TemplateResponse(
-        request, "partials/milestone_group.html", {"request": request, "group": group}
+        request, "partials/workstream_group.html", {"request": request, "group": group}
     )
 
 
-@router.post("/milestones/{milestone_id}/toggle")
-def toggle_milestone(request: Request, db: DbSession, milestone_id: int):
-    from app.models import Milestone
-
-    milestone = db.get(Milestone, milestone_id)
-    new_status = (
-        MilestoneStatus.open
-        if milestone.status == MilestoneStatus.reached
-        else MilestoneStatus.reached
+@router.post("/workstreams/{workstream_id}/toggle")
+def toggle_workstream(request: Request, db: DbSession, workstream_id: int):
+    """A workstream done, or open again."""
+    workstream = projects_svc.get_workstream(db, workstream_id)
+    done = workstream.status == WorkstreamStatus.done
+    projects_svc.update_workstream(
+        db, workstream_id, status=WorkstreamStatus.open if done else WorkstreamStatus.done
     )
-    projects_svc.update_milestone(db, milestone_id, status=new_status)
     db.commit()
     return templates.TemplateResponse(
         request,
-        "partials/milestone_row.html",
-        {"request": request, "m": milestone_ctx(db, milestone, date.today())},
+        "partials/workstream_row.html",
+        {"request": request, "m": workstream_ctx(db, workstream)},
     )
 
 
@@ -550,7 +541,7 @@ async def save_notebook(request: Request, db: DbSession, day: date):
     return JSONResponse({"version": page.version})
 
 
-NEW_ROW_FIELDS = ("planned_for", "time", "due", "repeat", "project_id", "milestone_id")
+NEW_ROW_FIELDS = ("planned_for", "time", "due", "repeat", "project_id", "workstream_id")
 
 
 def _add_new_rows(db, block):  # noqa: ANN001, ANN202
@@ -573,7 +564,7 @@ def _add_new_rows(db, block):  # noqa: ANN001, ANN202
             db, title=title, notes=str(written.get("notes", "")),
             planned_for=fields["planned_for"], time_range=fields["time"], due=fields["due"],
             repeat=fields["repeat"] or "none", project_id=fields["project_id"],
-            milestone_id=fields["milestone_id"], done=written.get("done") is True,
+            workstream_id=fields["workstream_id"], done=written.get("done") is True,
         )
         links[str(row)] = task.id
     if links:

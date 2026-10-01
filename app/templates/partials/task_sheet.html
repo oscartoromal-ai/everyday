@@ -5,7 +5,7 @@
   - edit: the task in place of its row, from sheet_ctx() (views.py).
   The title wraps like a line of a document and the do-date, time, due and
   repeat icons trail its last word. The description follows. In edit mode the sheet
-  ends with Project › Milestone, owner (and status once it is Claude's), and
+  ends with Project › Workstream, owner (and status once it is Claude's), and
   delete; it saves when focus leaves it.
   It is written on the line, as a row is (app.css, "inputs").
 #}
@@ -13,7 +13,7 @@
 {% set s = sheet if editing else {
   "title": "", "notes": "", "status": "todo", "owner": "oscar", "repeat": "none",
   "planned_for": planned_for.isoformat() if planned_for else "", "due": "", "time": "",
-  "project_id": project_id or "", "milestone_id": "",
+  "project_id": project_id or "", "workstream_id": "",
   "planned_label": planned_for | short_date if planned_for else "", "due_label": "", "time_label": "",
 } %}
 {% if editing %}<li id="task-{{ s.id }}" class="sheet-item">{% else %}<div class="compose-slot">{% endif %}
@@ -29,7 +29,7 @@
   <input type="hidden" name="{{ name }}" value="{{ s[name] }}" data-default="{{ s[name] }}">
   {% endfor %}
   {% if editing %}
-  <input type="hidden" name="milestone_id" value="{{ s.milestone_id }}">
+  <input type="hidden" name="workstream_id" value="{{ s.workstream_id }}">
   {% elif planned_for %}
   {# The list's own day: a task dated elsewhere regroups the page instead of joining it. #}
   <input type="hidden" name="list_day" value="{{ planned_for.isoformat() }}">
@@ -83,7 +83,7 @@
       <div class="sheet-end">
         {# In a project: its flag in the project's colour, the name on hover. #}
         <button type="button" class="prop{% if s.project_color %} in-project{% endif %}" data-prop="project" aria-haspopup="menu"
-                title="{% if s.project_label %}Project: {{ s.project_label }}{% else %}Project and milestone{% endif %}"
+                title="{% if s.project_label %}Project: {{ s.project_label }}{% else %}Project and workstream{% endif %}"
                 {%- if s.project_color %} style="--project: var(--hue-{{ s.project_color }})"{% endif %}>
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
           <span class="prop-value" data-empty="No project"></span>

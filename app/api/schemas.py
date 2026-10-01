@@ -9,10 +9,10 @@ from pydantic import BaseModel, ConfigDict
 from app.models import (
     BlockState,
     EventSource,
-    MilestoneStatus,
     ProjectStatus,
     TaskOwner,
     TaskStatus,
+    WorkstreamStatus,
 )
 
 
@@ -39,26 +39,22 @@ class ProjectOut(BaseModel):
     color: int
 
 
-class MilestoneIn(BaseModel):
+class WorkstreamIn(BaseModel):
     name: str
-    target_date: date | None = None
 
 
-class MilestonePatch(BaseModel):
+class WorkstreamPatch(BaseModel):
     name: str | None = None
-    target_date: date | None = None
-    clear_target_date: bool = False
-    status: MilestoneStatus | None = None
+    status: WorkstreamStatus | None = None
 
 
-class MilestoneOut(BaseModel):
+class WorkstreamOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     project_id: int
     name: str
-    target_date: date | None
-    status: MilestoneStatus
+    status: WorkstreamStatus
 
 
 class TaskIn(BaseModel):
@@ -67,7 +63,7 @@ class TaskIn(BaseModel):
     owner: TaskOwner = TaskOwner.oscar
     status: TaskStatus = TaskStatus.todo
     project_id: int | None = None
-    milestone_id: int | None = None
+    workstream_id: int | None = None
     planned_for: date | None = None
     due: date | None = None
     starts_on: date | None = None
@@ -81,7 +77,7 @@ class TaskPatch(BaseModel):
     owner: TaskOwner | None = None
     status: TaskStatus | None = None
     project_id: int | None = None
-    milestone_id: int | None = None
+    workstream_id: int | None = None
     planned_for: date | None = None
     due: date | None = None
     starts_on: date | None = None
@@ -106,7 +102,7 @@ class TaskOut(BaseModel):
     status: TaskStatus
     owner: TaskOwner
     project_id: int | None
-    milestone_id: int | None
+    workstream_id: int | None
     planned_for: date | None
     due: date | None
     starts_on: date | None = None

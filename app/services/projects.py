@@ -1,20 +1,18 @@
-"""Project and milestone domain logic."""
+"""Project and workstream domain logic."""
 
 from __future__ import annotations
-
-from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import (
     PROJECT_COLORS,
-    Milestone,
-    MilestoneStatus,
     Project,
     ProjectStatus,
     Task,
     TaskStatus,
+    Workstream,
+    WorkstreamStatus,
 )
 from app.services import DomainError
 
@@ -84,7 +82,7 @@ def get_project(db: Session, project_id: int) -> Project:
 def list_projects(db: Session, *, status: ProjectStatus | None = None) -> list[Project]:
     stmt = (
         select(Project)
-        .options(selectinload(Project.milestones))
+        .options(selectinload(Project.workstreams))
         .order_by(Project.created_at)
     )
     if status is not None:
@@ -92,51 +90,57 @@ def list_projects(db: Session, *, status: ProjectStatus | None = None) -> list[P
     return list(db.scalars(stmt))
 
 
-def create_milestone(
-    db: Session,
-    *,
-    project_id: int,
-    name: str,
-    target_date: date | None = None,
-) -> Milestone:
+def create_workstream(db: Session, *, project_id: int, name: str) -> Workstream:
     get_project(db, project_id)
     if not name.strip():
-        raise DomainError("Milestone name must not be empty")
-    milestone = Milestone(project_id=project_id, name=name.strip(), target_date=target_date)
-    db.add(milestone)
+        raise DomainError("Workstream name must not be empty")
+    workstream = Workstream(project_id=project_id, name=name.strip())
+    db.add(workstream)
     db.flush()
-    return milestone
+    return workstream
 
 
-def update_milestone(
+def update_workstream(
     db: Session,
-    milestone_id: int,
+    workstream_id: int,
     *,
     name: str | None = None,
-    target_date: date | None = None,
-    clear_target_date: bool = False,
-    status: MilestoneStatus | None = None,
-) -> Milestone:
-    milestone = db.get(Milestone, milestone_id)
-    if milestone is None:
-        raise DomainError(f"Milestone {milestone_id} does not exist")
+    status: WorkstreamStatus | None = None,
+) -> Workstream:
+    workstream = get_workstream(db, workstream_id)
     if name is not None:
         if not name.strip():
-            raise DomainError("Milestone name must not be empty")
-        milestone.name = name.strip()
-    if clear_target_date:
-        milestone.target_date = None
-    elif target_date is not None:
-        milestone.target_date = target_date
+            raise DomainError("Workstream name must not be empty")
+        workstream.name = name.strip()
     if status is not None:
-        milestone.status = status
+        workstream.status = status
     db.flush()
-    return milestone
+    return workstream
 
 
-def milestone_progress(db: Session, milestone_id: int) -> tuple[int, int]:
-    """(done, total) over the milestone's attached tasks, cancelled excluded."""
-    tasks = list(db.scalars(select(Task).where(Task.milestone_id == milestone_id)))
+def get_workstream(db: Session, workstream_id: int) -> Workstream:
+    workstream = db.get(Workstream, workstream_id)
+    if workstream is None:
+        raise DomainError(f"Workstream {workstream_id} does not exist")
+    return workstream
+
+
+def delete_workstream(db: Session, workstream_id: int) -> None:
+    """A workstream gone: its tasks stay in its project, in none."""
+    workstream = get_workstream(db, workstream_id)
+    project = workstream.project
+    for task in list(workstream.tasks):
+        task.workstream_id = None
+    db.flush()
+    db.delete(workstream)
+    db.flush()
+    # Its project's list is read again, without it.
+    db.expire(project, ["workstreams"])
+
+
+def workstream_progress(db: Session, workstream_id: int) -> tuple[int, int]:
+    """(done, total) over the workstream's attached tasks, cancelled excluded."""
+    tasks = list(db.scalars(select(Task).where(Task.workstream_id == workstream_id)))
     counted = [t for t in tasks if t.status != TaskStatus.cancelled]
     done = sum(1 for t in counted if t.status == TaskStatus.done)
     return done, len(counted)
