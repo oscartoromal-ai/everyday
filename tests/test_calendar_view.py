@@ -76,14 +76,10 @@ def test_a_cancelled_meeting_shows_struck_and_takes_no_time(db) -> None:
     assert not work(db, "Cancellation policy review", at(11), at(12)).cancelled
     item = items_of(db)["Team sync"]
     assert item["cancelled"]
-    # The hour is free to book, and Weeks counts no load for it.
+    # The hour is free to book.
     assert blocks_svc.next_free_slot(
         db, duration=timedelta(hours=1), after=at(9), until=at(10)
     ) == at(9)
-    from app.ui.weeks_view import weeks_ctx
-
-    monday = weeks_ctx(db, DAY, DAY)["weeks"][0]["days"][0]
-    assert monday["meetings"] == 1 and monday["busy_label"] == "1h"  # the review alone
 
 
 def test_an_all_day_event_shows_on_its_own_day_only(db) -> None:

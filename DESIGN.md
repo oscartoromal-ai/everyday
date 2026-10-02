@@ -25,7 +25,7 @@ node ../design-language/bin/design-language.mjs update app/static/design
 The system's rules, as they apply here:
 
 - **Ink draws the interface.** Text, icons, checkboxes and the plan's own blocks are ink; there is no decorative colour in the chrome.
-- **Two lights with two jobs.** Pink, `--spark`, is you: the active nav item in the sidebar, the primary button in a form, focus, today on a time grid and on the Weeks board.
+- **Two lights with two jobs.** Pink, `--spark`, is you: the active nav item in the sidebar, the primary button in a form, focus, today on a time grid.
   Cyan, `--signal`, is time: the now-line and its label.
   Each still marks one thing per region.
 - **Night emits, Day prints.** At night the spark elements glow (`--spark-glow`), the now-line glows (`--signal-glow`), and the plan's own blocks are white tubes with a soft bloom (`--solid-glow`).
@@ -74,7 +74,7 @@ The shell is a 240px matte sidebar plus a content column on the canvas.
 The wordmark is Brasa's pattern: the name in 600 followed by a spark period, "Personal Calendar.".
 At night the name carries a faint halo (`--ink-glow-text`) and the period glows and strikes once on load, three stutters and then steady, like a tube coming on (`--spark-entrance`).
 Nav items are 14px/500 graphite; the active one is ink 600 with Brasa's 3px spark bar, glowing at night, inset 8px from the viewport edge.
-Nav is grouped in the Brasa manner: the planning pages (Tasks, Today, Calendar, Weeks) sit under a 12px pewter "Planner" group label, Tasks first since the app opens on it; Projects follows as a second group, Health (Nutrition, Me, Garmin) a third, and Finances (Spending, Accounts, Bills, Goals) a fourth, each under its own label.
+Nav is grouped in the Brasa manner: the planning pages (Tasks, Today, Calendar) sit under a 12px pewter "Planner" group label, Tasks first since the app opens on it; Projects follows as a second group, Health (Nutrition, Me, Garmin) a third, and Finances (Spending, Accounts, Bills, Goals) a fourth, each under its own label.
 The foot starts with Search, its magnifier and name, and its key ("Ctrl K") in a hairline box at the right, as the keys dialog draws keys; it opens the command menu.
 Then Brasa's shipped light/dark toggle: the current mode's sun or moon, which rotates and fades into the other, beside the mode's name in 12px pewter.
 The names are the installed system's own, read from `design-language.json`: "Day" and "Night" for Neon Signage.
@@ -83,7 +83,7 @@ The shell animates its column width on `--ease` over 220ms.
 When collapsed, the wordmark and labels hide, each link keeps its name as a tooltip, group labels become hairlines, and the spark bar stays.
 Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the spark bar moves above the active tab's icon, and the mode toggle ends the bar as a 44px sun or moon icon past a hairline, with no label; the collapse control stays desktop-only.
 Under 600px each tab is its icon, 44px wide; the tabs scroll sideways past the bar's width, it opens with the current page's tab in its middle, and an edge with tabs past it fades (`data-more`, `shell.js`).
-Content is 800px wide for list pages (Tasks, Projects), where more width only lengthens a row, and up to 1600px for Today, Calendar and Weeks, so a wide window or a zoomed-out page widens them rather than their margins.
+Content is 800px wide for list pages (Tasks, Projects), where more width only lengthens a row, and up to 1600px for Today and Calendar, so a wide window or a zoomed-out page widens them rather than their margins.
 Compact rows (the rail's toggle above the mode's, or C) set Tasks' sheet and Today's notes 28px a row rather than 36px, the text its size: 3px above a 20px line, 4px below; the toggle's three lines close up while it is on, its label the state (Roomy, Compact).
 On Today a panel icon at the day header's right (or Ctrl+\) folds the timeline away, the notes taking its column, and back.
 
@@ -93,7 +93,7 @@ On Today a panel icon at the day header's right (or Ctrl+\) folds the timeline a
 A title row sits on a stronger hairline, and rows below are full-bleed, dividing with hairlines and lighting on hover with `--glass-row-hover`.
 
 **Task rows.** An 18px checkbox with a 6px radius fills with ink when checked; there is no draw-in animation.
-Every empty box (rows, sub-tasks, the description editor, Weeks' mini boxes) is drawn in `--steel`, not `--mist`: mist falls under the 3:1 a control needs against the cards, in both modes.
+Every empty box (rows, sub-tasks, the description editor) is drawn in `--steel`, not `--mist`: mist falls under the 3:1 a control needs against the cards, in both modes.
 The box the user has just ticked plays the system's `--check-pulse` once (in Neon Signage, a ring of spark light that fades in 640ms); `tasks.js` marks the fresh row `.just-done` for it.
 The title is 14px/500 ink, and the meta line is 12px pewter.
 Today's block time is ink 500, and a do-date off Today is graphite.
@@ -237,8 +237,8 @@ The dialog takes focus itself, so no control opens ringed; Esc closes it.
 **Command menu** (`app/static/command.js`, Ctrl+K). The capture window's paper, 640px wide and 12vh from the top over the scrim: a 16px line to write on, ruled off from what it finds, then the results grouped under 12px/600 pewter names (Days, Pages, Do, Tasks, Projects, Events, Notes), at most 70% of the window tall, and a foot of keys.
 A result is a 36px row: its name in 14px/500 ink (a done task or cancelled meeting pewter and struck through, a project after an 8px square of its colour) and its detail at the right in 12px pewter figures (a do-date or due, a meeting's day and time, a page's or action's key in a hairline box); a day's notes give the words found the row's room.
 The row Enter opens is in fog, and follows the pointer.
-**Capture window.** N or Shift+N writes a new task from any page: on Tasks and Projects into the page's own list, and on Today, Calendar and Weeks, which have no list to write in, in a window holding the task sheet (600px, 15vh from the top, on the confirm dialog's paper).
-It stays open for the next task, and a toast says where each one went ("Added “Call the plumber” for Fri 2 Oct", or "to No date"), since no list on the page shows it; Weeks' Unplanned tray catches up.
+**Capture window.** N or Shift+N writes a new task from any page: on Tasks and Projects into the page's own list, and on Today and Calendar, which have no list to write in, in a window holding the task sheet (600px, 15vh from the top, on the confirm dialog's paper).
+It stays open for the next task, and a toast says where each one went ("Added “Call the plumber” for Fri 2 Oct", or "to No date"), since no list on the page shows it.
 Esc closes it and keeps a half-written draft for the next time.
 
 **Buttons.** `.btn.primary` is the spark primary, glowing at night, `.btn.quiet` the glass secondary, `.btn.danger-quiet` the destructive secondary with an err border.
@@ -247,13 +247,13 @@ Week navigation and nudge actions are secondary-style controls.
 **Inputs: written on the line, as Today's notes are** (Oscar's call, 2026-09-30, replacing the settei plates of 2026-09-27).
 Every place Oscar writes is a line of the notebook: no box, no fill and no focus ring, the words straight on a rule, 22px of 14px ink on a 36px line as the notes' rows are, pewter placeholders, date and time in `--font-num`, a select's words followed by a small steel chevron, and an empty date in pewter.
 On a ruled sheet (Tasks, Me) the rows are the lines: a field is a row, its name in the row's indent in 12px/500 graphite, and the field in use has its row number in ink 600 and its group's rules in ink, as the notes' caret row does.
-Elsewhere (the event, workstream and new-project forms, the project editor, Weeks' quick add) a field is its name in 12px/500 graphite over a 1px steel line (3:1 as a field's edge), the line 2px ink and the name ink while it is in use.
+Elsewhere (the event, workstream and new-project forms, the project editor) a field is its name in 12px/500 graphite over a 1px steel line (3:1 as a field's edge), the line 2px ink and the name ink while it is in use.
 Their buttons are the app's own, 36px beside a form's fields; the task sheet's are words on its line (see Task sheet).
 Projects' status select is its words in 12px/500 graphite and the steel chevron, the fog under it on hover.
 Focus elsewhere in the app is unchanged: every other focus ring is `--spark-deep`, not `--spark`, since accent text holds 4.5:1 on every surface where the bright spark can sink into a glow of its own colour.
 
 **Time grid** (Calendar's day, three days and week, and Today's one-day timeline, one partial).
-The page title names the days shown ("Friday 2 October 2026", "2–4 October 2026", "28 Sep – 4 Oct 2026"), and the header's Day, 3 days and Week is the segmented control, as Weeks' Grid and Rows is; on a phone its options take 10px sides so it fits beside the steps.
+The page title names the days shown ("Friday 2 October 2026", "2–4 October 2026", "28 Sep – 4 Oct 2026"), and the header's Day, 3 days and Week is Brasa's segmented control (a pill track, the active option `--carbon` with `--on-carbon` text, deep violet at night, never the spark's pink); on a phone its options take 10px sides so it fits beside the steps.
 After the title, its ISO weeks in 16px/500 pewter figures ("W40", "W40–41"); after the steps, a calendar icon in the arrows' box, the native date picker unseen over it.
 On a phone the view switch takes a row of its own, its three options sharing it, and the steps and the icon follow on the next.
 New event, a quiet "+" line as Add a workstream is, starts the tools row under the title, Sync work at its right.
@@ -280,20 +280,6 @@ A five-minute meeting is still drawn 20px tall, and laid out as drawn.
 The grid's one light is the now-line in `--signal` (cyan in Neon Signage, glowing at night), whose time is written in `--signal-deep` in the gutter.
 An hour label whose digits the time would overlap (centres within 12px) is hidden, so the gutter never shows a clipped "06:00" behind "06:21".
 
-**Weeks.** The Grid/Rows switch is Brasa's segmented control: a pill track, the active option `--carbon` with `--on-carbon` text (deep violet at night, never the spark's pink).
-*Grid* is a card of six weeks by seven days, in the manner of Brasa's month calendar: 12px pewter weekday heads, cells at least 112px tall, tinted weekends, past day numbers and entries in pewter, and today's number in the 2px spark ring, glowing at night, the board's one spark.
-*Rows* is one card per week, a 14px/600 date column and wrapped entries, with the week's meeting load right-aligned over the days' figures.
-Entries are one line each:
-
-- all-day events are glass or ink-tint tags;
-- deadlines are the title with a warn "due" badge;
-- personal events are graphite with a steel dot;
-- tasks are ink 500 behind a 10-12px box that fills ink when done.
-
-The work calendar shows only as each day's load (meetings and busy hours): pewter, or ink 600 from 4 hours up.
-A drop target lights with `--spark-tint` and an inset spark ring.
-The add-a-task plus shows on hover, or always on touch, and opens an opaque popover.
-
 **Projects' colours.** A project is one of the eight hues (`--hue-1` to `--hue-8`), shown wherever its tasks are as its flag: a 14px flag filled in the colour, the name said on hover and to a screen reader, never written beside it (task rows, the trays, the task sheet, the notes).
 On Tasks a task in a project also has its rule below it in that colour, 55% into the paper (the colour itself under the keyboard's cursor).
 A new project takes the hue fewest open projects have; the project editor offers the eight flags in a row, the chosen one ringed in its colour.
@@ -303,11 +289,11 @@ Workstream rows are 14px/600 with steel circles that turn ink when done (the nam
 Each workstream's open tasks are indented beneath it; the other tasks follow under a pewter caption, then the project's task sheet for adding.
 Paused and done projects sit on collapsible shelves.
 A task files by drag: onto a workstream group, into that workstream; onto another card, into that project with no workstream; onto No project, out of any.
-The row in hand fades to 40%, and the target under it lights like a Weeks drop target, `--spark-tint` with an inset 1.5px spark ring.
+The row in hand fades to 40%, and the target under it lights as a drop target, `--spark-tint` with an inset 1.5px spark ring.
 
 A ghost bars icon, before the pencil, opens the project as a Gantt chart.
 
-**Gantt** (a project's page, `/projects/<id>`, as wide as Weeks).
+**Gantt** (a project's page, `/projects/<id>`, as wide as Calendar).
 A page header (a pewter "‹ Projects", the project's flag and name at 24px, the task counts and the plan's span, the key line) with, at its right, the Weeks / Days segmented control and a quiet This week (or Today) button, then one sheet, ruled as Tasks' is (36px rows, 28px compact, the row numbers on the fog), that runs to the window's foot and scrolls both ways inside itself.
 Its header row (48px) and its frozen pane stay put while it scrolls, as a spreadsheet's do: the numbers, a 32px box column, Task (280px, widened by dragging its header's edge, remembered as `pc-gantt-title`), Start, the length (Wks or Days) and Due, on opaque paper edged by a mist line, while the time is the sheet's see-through paper.
 Its time is a 52px column a week, or drilled down, a 36px column a day (Start then 112px, for its date).
@@ -349,11 +335,6 @@ Only one card floats at a time; a press outside closes it and does nothing else,
 Each tray card ends in Book, at its top right in 12px/500 pewter (graphite on the card's hover, ink with the hover fill on its own), as quiet as the do-date buttons; its tooltip names the length it books.
 Every mutation re-asks the server by firing `calendar:refresh`; the grid, the tray and on Today the list re-render.
 A height-capped grid opens on the usual day, 06:00 at its top, or with now in view an hour and a half under the top as far as 22:00 allows, and keeps its scroll position across refreshes.
-
-**Weeks drag** (`app/static/weeks.js`, native HTML5 drag and drop).
-Any `[data-plan-task]` can be dropped on a future day to set its do-date, or on the Unplanned tray to clear it.
-Past days refuse drops.
-After the PATCH, `weeks:refresh` re-renders the board.
 
 **Writing tasks** (`app/static/task-sheet.js`, `app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`).
 `task-sheet.js` runs the task sheet: the title line, its field icons and their menus, typed words becoming fields, adding, and saving an edit when focus leaves it.

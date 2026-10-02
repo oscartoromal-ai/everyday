@@ -816,11 +816,10 @@
     if (row) window.TaskCursor?.remember(row[1]);
     if (form.closest("dialog")) {
       // Written away from any list: say where it went, and let the page's
-      // own views of tasks catch up (Weeks' Unplanned tray, say).
+      // own views of tasks catch up.
       const day = valueOf(form, "planned_for");
       window.toast(`Added “${titleText(form)}” ${day ? `for ${shortDate(day)}` : "to No date"}`);
       document.getElementById("capture-sink")?.replaceChildren();
-      htmx.trigger(document.body, "weeks:refresh");
       htmx.trigger(document.body, "calendar:refresh");
     }
     // The list re-rendered while the add was in flight, from a moment before

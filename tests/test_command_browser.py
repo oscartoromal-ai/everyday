@@ -76,7 +76,7 @@ def test_new_event_from_another_page_opens_the_composer(page, live) -> None:
 
 
 def test_the_rail_opens_it_and_esc_closes_it(page, live) -> None:
-    page.goto(f"{live}/weeks")
+    page.goto(f"{live}/garmin")
     page.locator("[data-command-open]").click()
     page.locator("#command-dialog[open]").wait_for()
     page.keyboard.press("Escape")

@@ -48,7 +48,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Triage by keyboard**: on Tasks, arrow keys move a row cursor and single keys act on it (T today, M tomorrow, D pick a day, X done, E edit), the cursor moving on to the next row as each one is dated or finished.
 - **A task's project is its colour** (Oscar's call on 2026-09-28, chosen from a prototype of four): each project has a colour, set in its editor on Projects, and a task in it shows the project as its flag filled in that colour, the name only on hover, wherever tasks are listed.
   In Today's notes the task's rules take the colour too, and on Tasks its row's rule.
-- **Seeing more** (Oscar's call on 2026-09-28; the browser's zoom stays the browser's): compact rows (C, or the rail's toggle) fit more of Tasks and Today's notes on screen at the same text size; Today, Calendar and Weeks widen with the window; and on Today, Ctrl+\ (or the day header's icon) folds the timeline away for the notes. All three are remembered.
+- **Seeing more** (Oscar's call on 2026-09-28; the browser's zoom stays the browser's): compact rows (C, or the rail's toggle) fit more of Tasks and Today's notes on screen at the same text size; Today and Calendar widen with the window; and on Today, Ctrl+\ (or the day header's icon) folds the timeline away for the notes. All three are remembered.
 - **Filing by drag**: in By project (and on Projects) a task is dragged onto a workstream, another project, or No project to file it there.
 - **Today is a notepad beside the day's timeline** (Oscar's call on 2026-09-27, "for now"): the whole left column is one plain notepad for the day, the right the day's timeline.
   The notes are plain text, saved as they are written.
@@ -84,18 +84,14 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   Then how Oscar came into the day, from his watch: readiness (a low one, Garmin's POOR or LOW, asking to keep the day light), sleep and its score, and body battery; a past day's page shows its own.
   Today's is redrawn each minute and as the calendar changes.
   On a phone the page stacks: the header with its glance first, so the next thing on is the first thing seen, then the notes and their lists, then the timeline in a window of its own (75% of the screen), opened on now.
-  N writes a new task from Today in the capture window, as on Calendar and Weeks; the day's plan is made on Tasks, where the nudge center opens.
+  N writes a new task from Today in the capture window, as on Calendar; the day's plan is made on Tasks, where the nudge center opens.
   It replaces [the notebook](#the-notebook-decided-2026-09-26), where lines became tasks and reflections, and the storyboard sheet that followed it; both are in git history.
-- **Weeks** is the planning-ahead surface: six weeks at a glance, as a month-style grid or as one ruled row per day, Oscar's choice and remembered.
-  Each day shows its planned tasks, deadlines, and personal events; the work calendar is condensed to a load figure (meetings and busy hours) rather than listed.
-  Dragging a task between days replans it (sets planned_for); an Unplanned tray holds tasks with no do-date, and dragging back to it unplans.
-  It supersedes the earlier seven-day next-days list.
 - **Calendar** (Oscar's call on 2026-10-02, against Google Calendar, Notion Calendar and Fantastical) is the time grid of events and task blocks, as a day, three days or a week (D, X, W), the choice remembered on each device and a phone starting on three days.
   The grid runs the whole day, scrolled within the window to the usual day (06:00 to 22:00) with now in view; Left and Right step by the days shown, and a switch keeps today in view.
   The title names the ISO weeks shown after the days ("W40", "W40–41"), as the Gantt counts weeks, and a calendar icon after the steps (or G) picks any date to go to.
   Each day to come says whether its plan fits it (Oscar's call on 2026-10-02, after Sunsama): under its head (and above Today's timeline), its planned tasks without a time, by their estimates, against the time still free in its usual hours (today's from now), a warn badge when they do not fit; what is booked is in the tooltip.
   Items starting within half an hour of each other sit side by side; one starting later is laid over those still running, stepped in, so each keeps its width and its title.
-  A meeting called off (Outlook's "Canceled: " subject) stays in its place, struck through, and takes no time: free slots and Weeks' load pass over it.
+  A meeting called off (Outlook's "Canceled: " subject) stays in its place, struck through, and takes no time: free slots pass over it.
   A click on an event opens its card: when and where, a meeting link as its Join button.
   Oscar's own events are changed and deleted there (one of a series alone, or it and the later ones), and dragged and resized on the grid as blocks are; work meetings stay read-only.
   Drawing on the empty grid, or clicking an hour, writes an event there in the composer, whose title takes the task sheet's words ("saturday", "at 7pm", "every week"); New event (E) opens it on its own, all day until given a time.
@@ -104,7 +100,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **A project as a Gantt chart** (Oscar's call on 2026-09-30: "I work in weeks", "a kind of Excel interface"): each project opens (`/projects/<id>`, from its card's bars icon) as a spreadsheet of its plan by week.
   A row per workstream, its tasks under it and a row to write one more; then the other tasks, and a row to write a workstream; a column per week (the ISO week, over its Monday), frozen beside Task, Start, Wks and Due.
   It drills down to days (Oscar's call on 2026-10-01): a Weeks / Days switch (or V) for the whole sheet, remembered, the same days kept in view; in Days a column per day, weekends tinted, the length in days, and every move by days.
-  A task's bar is its span: from its start day to its due, so the end of a bar is its deadline, and the Tasks page, nudges and Weeks see the plan through the due they already read (Oscar's call: a task has to be done by a day).
+  A task's bar is its span: from its start day to its due, so the end of a bar is its deadline, and the Tasks page and nudges see the plan through the due they already read (Oscar's call: a task has to be done by a day).
   The do-date stays apart: when Oscar works on it, not when the plan says it runs.
   A task due with no start is a tick on its due; a workstream is a lane: a summary from its tasks' first start to their last due, its Start, length and Due theirs.
   A workstream folds to its row (its chevron, or Alt+Left and Right on it; Alt with the chevron folds or opens them all), its row then counting its tasks, and stays folded in that browser (Oscar's call on 2026-10-01).
@@ -151,7 +147,6 @@ Sub-tasks are text, not rows: they carry no status, owner, or dates of their own
 A repeating task's occurrences start with every sub-task open.
 planned_for is the day Oscar intends to work it and drives the daily list; due is the obligation and drives urgency.
 Backlog tasks have neither.
-The Weeks view is driven by planned_for and due.
 starts_on always comes with a due, never after it: its span is its start day to its due, a start given alone ends that week's Friday (or on itself at a weekend), a due cleared takes the start with it, and a due moved before the start pulls the start back to its week's Monday.
 
 **Block**: belongs to one task; start, end, state (planned / completed / missed).
@@ -336,7 +331,7 @@ Per [Architecture](tracker/tickets/009-architecture.md) and [Decision: security 
 ### Frontend
 
 - Server-rendered: Jinja templates plus HTMX for pages, lists, and forms; no build step, state server-side.
-- Real client JS is limited to a few focused vanilla islands, each built well once: the calendar (its grid and Today's timeline: drag-to-slot, drawing and writing events, their cards), drag-to-replan on the Weeks view, the task sheet (one editor for adding and editing, with its line-based description editor), Today's notebook (the same line editor in prose mode, with the sheet as its task box), and the chats with Claude on Nutrition and Spending (the answer streamed as it is written).
+- Real client JS is limited to a few focused vanilla islands, each built well once: the calendar (its grid and Today's timeline: drag-to-slot, drawing and writing events, their cards), the task sheet (one editor for adding and editing, with its line-based description editor), Today's notebook (the same line editor in prose mode, with the sheet as its task box), and the chats with Claude on Nutrition and Spending (the answer streamed as it is written).
 
 ### Background jobs
 

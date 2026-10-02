@@ -19,7 +19,7 @@ from app.ui.views import templates
 
 router = APIRouter(include_in_schema=False)
 
-# The scale last chosen, for every project's Gantt, as Weeks' layout is kept.
+# The scale last chosen, for every project's Gantt.
 SCALE_COOKIE = "gantt_scale"
 
 

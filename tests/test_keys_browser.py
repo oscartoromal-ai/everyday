@@ -190,7 +190,7 @@ def test_keys_that_work_anywhere(page, live, tasks) -> None:
     page.locator("#keys-dialog[open]").wait_for(state="detached")
     press(page, "2")
     page.wait_for_url("**/today")
-    press(page, "5")
+    press(page, "4")
     page.wait_for_url("**/projects")
 
 
@@ -359,9 +359,9 @@ def test_shift_n_writes_a_new_task_from_any_page(page, live, app_db, tasks) -> N
     page.wait_for_function("document.activeElement.matches('.capture .sheet-title')", timeout=5000)
     press(page, "Escape")
 
-    # On Weeks, a window: typed words work, the page says where each task
+    # On Today, a window: typed words work, the page says where each task
     # went, and the window stays for the next one until Esc.
-    page.goto(f"{live}/weeks")
+    page.goto(f"{live}/today")
     press(page, "Shift+N")
     page.locator("#capture-dialog[open]").wait_for()
     page.keyboard.type("Quebec tomorrow ")
@@ -373,8 +373,6 @@ def test_shift_n_writes_a_new_task_from_any_page(page, live, app_db, tasks) -> N
     page.locator(".cal-toast.show", has_text="Added “Romeo” to No date").wait_for()
     press(page, "Escape")
     page.locator("#capture-dialog[open]").wait_for(state="detached")
-    # Weeks' Unplanned tray caught up with the undated one.
-    page.locator(".tray", has_text="Romeo").wait_for()
 
     # On Calendar, plain N too.
     page.goto(f"{live}/calendar")

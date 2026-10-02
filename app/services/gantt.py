@@ -2,7 +2,7 @@
 by workstream, and the edits its sheet makes (SPEC.md, Gantt).
 
 A bar is a task's span: from its start day (Task.starts_on) to its due, so
-the end of a bar is the task's deadline and the Tasks page, nudges and Weeks
+the end of a bar is the task's deadline and Today and the nudges
 see it as one. The sheet is seen in weeks or drilled down to days: in weeks
 a bar moves and stretches by whole weeks, its days kept (a due keeps its
 weekday; a new bar ends on the Friday), in days by days.

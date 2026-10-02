@@ -22,7 +22,7 @@ def test_today_is_a_notepad_beside_the_timeline(client, db) -> None:
     # them ("For today"), not written for him.
     assert "write the plan" not in pad.split(">", 1)[1]
     assert '"title": "write the plan"' in pad.split(">", 1)[0]
-    # N writes a task in the capture window here, as on Calendar and Weeks.
+    # N writes a task in the capture window here, as on Calendar.
     assert 'id="capture-dialog"' in page
 
 
@@ -212,12 +212,6 @@ def test_backlog_folds_into_tasks(client) -> None:
     assert response.headers["location"] == "/"
 
 
-def test_next_days_redirects_to_weeks_rows(client) -> None:
-    response = client.get("/next", follow_redirects=False)
-    assert response.status_code == 301
-    assert response.headers["location"] == "/weeks?layout=rows"
-
-
 def test_today_page_has_timeline_with_events_and_blocks(client, db) -> None:
     from datetime import datetime, time
 
@@ -250,64 +244,6 @@ def test_grid_fragment_refreshes_one_day_and_a_week(client) -> None:
     assert f'data-date="{monday.isoformat()}"' in week.text
 
     assert client.get("/calendar/grid?days=8").status_code == 422
-
-
-def test_weeks_page_shows_plans_deadlines_and_work_load(client, db) -> None:
-    from datetime import datetime, time
-
-    from app.models import Event, EventSource
-
-    p = projects_svc.create_project(db, name="Reno")
-    later = TODAY + timedelta(days=9)
-    tasks_svc.create_task(db, title="call sparky", planned_for=later, project_id=p.id)
-    tasks_svc.create_task(db, title="pay invoice", due=later)
-    tasks_svc.create_task(db, title="someday thing")
-    start = datetime.combine(later, time(10))
-    for offset in (0, 30):  # overlapping meetings count once toward busy hours
-        db.add(
-            Event(
-                title="work sync", start=start + timedelta(minutes=offset),
-                end=start + timedelta(minutes=offset + 60), source=EventSource.work,
-                read_only=True, external_id=f"w{offset}",
-            )
-        )
-    db.flush()
-
-    for layout in ("grid", "rows"):
-        page = client.get(f"/weeks?layout={layout}").text
-        day = page.split(f'data-date="{later.isoformat()}"')[1].split("plan-day")[0]
-        assert "call sparky" in day
-        assert "pay invoice" in day and "due" in day
-        assert "1.5h" in day  # union of 10:00-11:00 and 10:30-11:30
-        assert "work sync" not in page  # meetings are condensed to load, not listed
-        tray = page.split('class="tray plan-tray"')[1]
-        assert "someday thing" in tray and "call sparky" not in tray
-
-
-def test_weeks_layout_is_remembered(client) -> None:
-    assert "week-rows" in client.get("/weeks?layout=rows").text
-    assert "week-rows" in client.get("/weeks").text
-    assert "month-grid" in client.get("/weeks?layout=grid").text
-    assert "month-grid" in client.get("/weeks").text
-    assert "month-grid" in client.get("/weeks?layout=bogus").text
-
-
-def test_busy_hours_and_labels() -> None:
-    from datetime import datetime
-
-    from app.ui.weeks_view import _busy_hours, hours_label
-
-    t = datetime(2026, 1, 5, 9)
-    spans = [
-        (t, t + timedelta(hours=1)),
-        (t + timedelta(minutes=30), t + timedelta(hours=2)),
-        (t + timedelta(hours=3), t + timedelta(hours=3, minutes=15)),
-    ]
-    assert _busy_hours(spans) == 2.25
-    assert _busy_hours([]) == 0
-    assert hours_label(0.75) == "45m"
-    assert hours_label(2.25) == "2.5h"
-    assert hours_label(4) == "4h"
 
 
 def test_static_assets_are_versioned(client) -> None:
@@ -700,14 +636,15 @@ def test_delete_removes_task_and_refreshes_the_grid(client, db) -> None:
 
 
 def test_shell_groups_calendar_pages_under_planner(client) -> None:
-    page = client.get("/weeks").text
+    page = client.get("/calendar").text
     planner = page.split('id="nav-planner"')[1].split("</div>\n      <div")[0]
-    for href in ('href="/"', 'href="/today"', 'href="/calendar"', 'href="/weeks"'):
+    for href in ('href="/"', 'href="/today"', 'href="/calendar"'):
         assert href in planner
+    assert 'href="/weeks"' not in page
     # Tasks leads the group; Backlog folded into it.
     assert planner.index('href="/"') < planner.index('href="/today"')
     assert 'href="/backlog"' not in page
-    assert 'aria-current="page"' in planner  # Weeks, inside its group
+    assert 'aria-current="page"' in planner  # Calendar, inside its group
 
 
 def test_shell_has_theme_toggle_and_collapse_control(client) -> None:
@@ -858,7 +795,7 @@ def test_health_is_its_own_nav_group_with_nutrition(client) -> None:
     group = page.split('aria-labelledby="nav-health"')[1].split("</nav>")[0]
     assert '<div class="nav-group-label" id="nav-health">Health</div>' in group
     link = group.split('href="/nutrition"')[1].split("</a>")[0]
-    assert 'aria-keyshortcuts="6"' in link and 'aria-current="page"' in link
+    assert 'aria-keyshortcuts="5"' in link and 'aria-current="page"' in link
     # The day's log beside the day's chat with Claude (test_nutrition.py has the rest).
     main = page.split('<main class="main">')[1]
     assert 'class="chat-page nutrition-page"' in main and 'id="chat-composer"' in main
@@ -866,7 +803,7 @@ def test_health_is_its_own_nav_group_with_nutrition(client) -> None:
 
 def test_me_saves_as_it_changes_and_says_what_follows(client, db) -> None:
     page = client.get("/me").text
-    assert 'aria-keyshortcuts="7"' in page and "<h1>Me</h1>" in page
+    assert 'aria-keyshortcuts="6"' in page and "<h1>Me</h1>" in page
     assert "No weigh-ins yet." in page
     needs = "once you add your weight, height, birth date, sex and activity."
     assert f"Daily energy is estimated {needs}" in page

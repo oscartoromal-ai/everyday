@@ -99,8 +99,8 @@ def test_a_task_without_subtasks_adds_nothing_to_its_menu(client, db) -> None:
 
 
 def test_a_save_is_committed_before_its_response_is_sent() -> None:
-    # A page re-renders the moment a save returns (drag-to-file, Weeks' drag,
-    # block moves); the commit has to land first. FastAPI's default scope for
+    # A page re-renders the moment a save returns (drag-to-file, an event's
+    # drag); the commit has to land first. FastAPI's default scope for
     # a yield dependency tears it down only after the response is sent.
     from typing import get_args
 

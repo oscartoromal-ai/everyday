@@ -19,7 +19,6 @@ from app.ui.views import (
     tasks_page_ctx,
     templates,
 )
-from app.ui.weeks_view import LAYOUTS, weeks_ctx
 
 router = APIRouter(include_in_schema=False)
 
@@ -86,54 +85,6 @@ def _day_page(request: Request, db: DbSession, day: date):
             **_base(request, "today"),
             **day_page_ctx(db, day, now),
             "grid": grid_ctx(db, day, now, day_count=1),
-        },
-    )
-
-
-@router.get("/next")
-def next_days_page():
-    # The multi-week planner's rows layout supersedes the old seven-day list.
-    return RedirectResponse("/weeks?layout=rows", status_code=301)
-
-
-LAYOUT_COOKIE = "weeks_layout"
-
-
-def _weeks_layout(request: Request, layout: str | None) -> str:
-    chosen = layout or request.cookies.get(LAYOUT_COOKIE)
-    return chosen if chosen in LAYOUTS else LAYOUTS[0]
-
-
-@router.get("/weeks")
-def weeks_page(
-    request: Request, db: DbSession, start: date | None = None, layout: str | None = None
-):
-    layout = _weeks_layout(request, layout)
-    response = templates.TemplateResponse(
-        request,
-        "weeks.html",
-        {
-            **_base(request, "weeks"),
-            "plan": weeks_ctx(db, start or date.today(), date.today()),
-            "layout": layout,
-        },
-    )
-    response.set_cookie(LAYOUT_COOKIE, layout, max_age=60 * 60 * 24 * 365, samesite="strict")
-    return response
-
-
-@router.get("/weeks/board")
-def weeks_board(
-    request: Request, db: DbSession, start: date | None = None, layout: str | None = None
-):
-    return templates.TemplateResponse(
-        request,
-        "partials/weeks_board.html",
-        {
-            "request": request,
-            "today": date.today(),
-            "plan": weeks_ctx(db, start or date.today(), date.today()),
-            "layout": _weeks_layout(request, layout),
         },
     )
 
