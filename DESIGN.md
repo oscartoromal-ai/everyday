@@ -146,7 +146,11 @@ Esc steps away but keeps a written draft open; Cancel clears it.
 The empty-list note hides once the list has a row.
 
 **Notepad.** Today, and every day's page (`/day/2026-09-25`), is a notepad beside the day's timeline.
-The header is the day's name at 24px ("Today" on today's), a pair of 32px chevrons for the day before and after, and on any other day a pill back to Today; the line under it gives the date, and the key line names - [ ], Ctrl+Enter, the arrows and "? all keys".
+The header is the day's name at 24px ("Today" on today's), a pair of 32px chevrons for the day before and after, and on any other day a pill back to Today; the line under it gives the date, then the day's glance, and the key line names - [ ], Ctrl+Enter, the arrows and "? all keys".
+The glance is a few 14px lines, 12px under the date, 8px apart.
+What is on now and next comes first, a line each: "Now, till 19:40" or "Next, in 25m" in `--signal-deep` at 500 (cyan is time), the title in ink at 500, its times in 12px graphite tabular figures, and a meeting's "Join on zoom.us" as a 12px pill, as the pill back to Today is.
+Then the body's figures (Readiness, Sleep, Body battery), each a 12px pewter name before its value in 14px ink at 500 (tabular) and a 12px graphite note ("high", "score 87"), 16px apart; lengths are written as the task fields write them ("7h 31m").
+A low readiness sits in the warn badge, value and note ("31 low, keep the day light"), as an overrun day's load does.
 The rest of the left column is one card, the paper at 35% (see-through, as every input), as tall as the window allows (at least 420px; 55vh once the timeline stacks under it), holding the notes ruled like a spreadsheet, written in 14px: the body grey (`--ink` 55% into `--graphite`, darker than the Task label), a task's first line in ink.
 Every row is 36px tall with its text in the middle (7px above a 22px line, 6px below), on its own `--hairline` rule from the box's very top, and a 44px column of row numbers (12px pewter, tabular) runs down the left on a fog wash behind a hairline, like a spreadsheet's row headers (34px on phones); empty numbered rows fill the card under the last, the last of them cut at its edge, so a short page never scrolls.
 A row too long for the box wraps inside it, its lines 22px apart, and the row grows, its number level with its first line; nothing scrolls sideways.
@@ -163,7 +167,8 @@ A stay is drawn as a reflection is, in amber (`--hue-3`: 45% into the paper for 
 A task in a project has its rules in the project's colour, 55% into the paper (the colour itself while the caret is in it; the rule it shares with the task above takes the upper task's colour, and the lower's while the caret is in the lower), and its project control is the flag alone, filled in that colour.
 Light blue for reflection, green for habits, amber for stays and the projects' colours are the only colours in the notes that are not ink or grey.
 Under the date, a day with a stay lists it item by item on one wrapping line: a 10px box (ink once sorted, amber-ruled until), the name in pewter caption, the value in 14px ink (amber while unsorted, "not sorted" when it has none); each is a button to its row.
-Under the card, "Habits not yet written" in pewter caption and each habit due that day not written yet: its name (14px ink at 500) and its days' icon, on the see-through paper inside a 1px green rule; none due, the line is gone.
+Under the card, the day's tasks not yet written: "For today" in pewter caption and Bring all (12px pewter, underlined in mist) on a line, then each task's title (14px ink at 500, cut with an ellipsis at 40ch) inside a 1px graphite rule, its due after it in 12px `--warn-fg` ("due today"); none left, the list is gone.
+Then "Habits not yet written" in pewter caption and each habit due that day not written yet: its name (14px ink at 500) and its days' icon, on the see-through paper inside a 1px green rule; none due, the line is gone.
 What is offered while writing (after "/" at a row's start, and after "/habit ") is drawn as the icons' menus are: the paper, a hairline, the dropdown shadow, 32px rows, the matched letters in 600 and a pewter caption beside a command.
 No border, no focus ring and no resize handle; the pewter placeholder "Anything on your mind today."
 When the notes were saved in another window, a line under the card says so, with Show that version and Keep mine as secondary buttons.

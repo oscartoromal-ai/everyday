@@ -235,6 +235,24 @@ def planning_list(db: Session, today: date) -> list[Task]:
     return one_per_series(list(db.scalars(stmt)), today)
 
 
+def for_day(db: Session, day: date, today: date) -> list[Task]:
+    """Oscar's open tasks for a day's page: those planned for it or due on
+    it, and on today's also those whose do-date or due has passed; deadlines
+    first, then by do-date. A past day has none: its work was its own."""
+    if day < today:
+        return []
+
+    def on(task: Task) -> bool:
+        if day == today:
+            return any(d is not None and d <= day for d in (task.planned_for, task.due))
+        return day in (task.planned_for, task.due)
+
+    return sorted(
+        (t for t in planning_list(db, day) if on(t)),
+        key=lambda t: (t.due or date.max, t.planned_for or date.max, t.id),
+    )
+
+
 def recently_done(db: Session, since: datetime) -> list[Task]:
     """Oscar's tasks finished since `since`, latest first: the Done fold."""
     stmt = _with_blocks(

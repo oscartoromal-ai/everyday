@@ -1,0 +1,31 @@
+{# A day's glance, under its date (views.day_glance_ctx): on today's, the
+   events on now and next (with their Join), then how Oscar came into the day by his
+   watch. Today's is redrawn each minute and as the calendar changes, so
+   its waits stay true. #}
+<div class="day-glance" id="day-glance"
+     {% if glance.live %}hx-get="/today/glance" hx-trigger="every 60s, calendar:refresh from:body" hx-swap="outerHTML"{% endif %}>
+  {% if glance.on %}
+  <ul class="glance-on">
+    {% for item in glance.on %}
+    <li class="glance-event{% if item.now %} now{% endif %}">
+      <span class="glance-when">{{ "Now" if item.now else "Next" }}, {{ item.when }}</span>
+      <span class="glance-title">{{ item.title }}</span>
+      <span class="glance-span">{{ item.span }}</span>
+      {% if item.link %}
+      <a class="glance-join" href="{{ item.link }}" target="_blank" rel="noopener noreferrer">Join on {{ item.link_host }}</a>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if glance.body %}
+  <dl class="glance-figures">
+    {% for figure in glance.body %}
+    <div class="glance-figure{% if figure.over %} over{% endif %}">
+      <dt>{{ figure.label }}</dt>
+      <dd>{{ figure.value }}{% if figure.detail %} <span>{{ figure.detail }}</span>{% endif %}</dd>
+    </div>
+    {% endfor %}
+  </dl>
+  {% endif %}
+</div>

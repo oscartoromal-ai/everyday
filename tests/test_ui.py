@@ -18,8 +18,10 @@ def test_today_is_a_notepad_beside_the_timeline(client, db) -> None:
     pad = page.split('id="notepad"')[1].split("</textarea>")[0]
     assert 'data-version="1"' in pad and ">Slow morning." in pad
     assert 'class="today-timeline"' in page
-    # Just the notes: the day's tasks live on Tasks and on the timeline.
-    assert "write the plan" not in page.split('class="today-timeline"')[0]
+    # The notes are as written: the day's tasks are offered to write in
+    # them ("For today"), not written for him.
+    assert "write the plan" not in pad.split(">", 1)[1]
+    assert '"title": "write the plan"' in pad.split(">", 1)[0]
     # N writes a task in the capture window here, as on Calendar and Weeks.
     assert 'id="capture-dialog"' in page
 

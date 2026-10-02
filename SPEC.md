@@ -69,15 +69,22 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   After "/" at a row's start the commands are offered, and after "/habit " the names already used, so one habit keeps one name.
   Each habit has its days (any day, every day, weekdays, or chosen weekdays), set from the repeat icon at its row's right; under the notes, the habits due that day not yet written are listed, each name writing its row and each icon setting its days.
   A due day with nothing written is a miss (a habit for any day is never missed); Claude reads the day-by-day record through `get_habits`.
-  What was left open comes along (Oscar's call on 2026-09-28): under today's notes, the tasks still open from the last page before it that holds tasks, those to be worked by today (no do-date, or one not after it) and not yet written here.
-  A title writes the task's rows at the end of the notes, its title row that same task (not a copy) and its description its rows, and moves its do-date to today; Bring all writes every one.
+  The day's tasks come to its page (Oscar's call on 2026-10-02, after the page showed none of the three due that day): under the notes, "For today" lists Oscar's open tasks planned for the day or due on it, on today's also those whose do-date or due has passed, deadlines first, each due one saying so ("due today").
+  What was left open comes along too (Oscar's call on 2026-09-28): on today's, the tasks still open from the last page before it that holds tasks, those to be worked by today (no do-date, or one not after it), join the list once.
+  A task already written on the page is not offered; a past day's page offers none, and a later day's those planned for it or due on it ("For tomorrow").
+  A title writes the task's rows at the end of the notes, its title row that same task (not a copy) and its description its rows, and moves its do-date to the page's day; Bring all writes every one.
   The earlier page keeps its rows as written, each showing its task as it stands, so a task finished today reads ticked there too.
   Where Oscar stays is written in them too (Oscar's call on 2026-09-27: he moves around, and does not always have a bed sorted): "/stay" on a day's page, then its items, each "- [ ] name: value" with a box ticked once sorted, bracketed in amber.
   Its items are his to name (place and accommodation to begin with; a new stay starts with the items the last one had), and under the date the day's stay reads item by item, the unsorted ones in amber.
   A stay is written day by day, not as a range; a view of all days' stays together is next.
   Every day has its notepad: Left and Right (outside the text) go a day back or on, and past days stay editable.
   Above today's timeline, its focus (Oscar's call on 2026-10-02, after Sunsama's focus mode, without its timer): the block running now, the time left in it, its task's sub-tasks to tick and Completed; with none running, the next block today and how long until it; nothing once the day's blocks are done.
-  N writes a new task from Today in the capture window, as on Calendar and Weeks; the day's tasks are worked from Tasks, and the nudge center now opens Tasks.
+  A glance under the date (Oscar's call on 2026-10-02, after Oura's and Garmin's morning scores and Notion Calendar's next meeting) reads the day at once; whether its plan fits is the timeline's line above its hours.
+  On today's it names the event on now (till when) and the next (in how long), each with its meeting link's Join; a cancelled meeting and an all-day event are passed over, and task blocks are the focus's.
+  Then how Oscar came into the day, from his watch: readiness (a low one, Garmin's POOR or LOW, asking to keep the day light), sleep and its score, and body battery; a past day's page shows its own.
+  Today's is redrawn each minute and as the calendar changes.
+  On a phone the page stacks: the header with its glance first, so the next thing on is the first thing seen, then the notes and their lists, then the timeline in a window of its own (75% of the screen), opened on now.
+  N writes a new task from Today in the capture window, as on Calendar and Weeks; the day's plan is made on Tasks, where the nudge center opens.
   It replaces [the notebook](#the-notebook-decided-2026-09-26), where lines became tasks and reflections, and the storyboard sheet that followed it; both are in git history.
 - **Weeks** is the planning-ahead surface: six weeks at a glance, as a month-style grid or as one ruled row per day, Oscar's choice and remembered.
   Each day shows its planned tasks, deadlines, and personal events; the work calendar is condensed to a load figure (meetings and busy hours) rather than listed.

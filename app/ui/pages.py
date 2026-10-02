@@ -12,6 +12,7 @@ from app.db import DbSession
 from app.ui.calendar_view import VIEWS, calendar_nav, grid_ctx, tray_tasks, view_start
 from app.ui.views import (
     TASKS_VIEWS,
+    day_glance_ctx,
     day_page_ctx,
     me_ctx,
     projects_list_ctx,
@@ -55,6 +56,17 @@ def tasks_page(request: Request, db: DbSession, view: str | None = None):
 @router.get("/today")
 def today_page(request: Request, db: DbSession):
     return _day_page(request, db, date.today())
+
+
+@router.get("/today/glance")
+def today_glance(request: Request, db: DbSession):
+    # Today's glance, redrawn each minute and as the calendar changes.
+    now = datetime.now()
+    return templates.TemplateResponse(
+        request,
+        "partials/day_glance.html",
+        {"request": request, "glance": day_glance_ctx(db, now.date(), now)},
+    )
 
 
 @router.get("/day/{day}")

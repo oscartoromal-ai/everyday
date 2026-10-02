@@ -378,7 +378,7 @@ def event_card_ctx(event, today: date) -> dict[str, Any]:  # noqa: ANN001
         "cancelled": event.cancelled,
         "when": _when_label(event, last_day, today),
         "link": link,
-        "link_host": _host(link),
+        "link_host": link_host(link),
         "place": "" if link else location,
         "repeat": repeat,
         "day": event.start.date().isoformat(),
@@ -399,7 +399,7 @@ def _when_label(event, last_day: date, today: date) -> str:  # noqa: ANN001
     return f"{day}, {event.start:%H:%M}–{event.end:%H:%M}"
 
 
-def _host(url: str) -> str:
+def link_host(url: str) -> str:
     """A meeting link's service, as its Join button names it: "zoom.us"."""
     if not url:
         return ""

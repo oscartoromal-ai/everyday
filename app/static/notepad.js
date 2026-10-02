@@ -1490,16 +1490,18 @@
     view.dispatch({ changes: { from, to: last.to, insert }, selection: { anchor: from + insert.length }, scrollIntoView: true, userEvent: "input" });
   });
 
-  /* ---- tasks still open from the last page ---- */
+  /* ---- the day's tasks, not yet written ---- */
 
-  // Today's: the tasks still open from the last page before it, {from,
-  // tasks: [{id, title, notes, fields, moves}]}, each with its fields as
-  // they stand once brought here, and whether that moves its do-date.
-  let stillOpen = { from: "", tasks: [] };
+  // The tasks planned for this day or due on it (on today's also those
+  // overdue, and those still open from the last page before it), {label,
+  // tasks: [{id, title, notes, fields, moves, due}]}, each with its fields
+  // as they stand once brought here, whether that moves its do-date, and
+  // its due in words ("due today") when it has one.
+  let dayTasks = { label: "", tasks: [] };
   let carryShows = null;
   const toBring = (state) => {
     const written = new Set(state.field(tasksField).map(({ m }) => m.id));
-    return stillOpen.tasks.filter((t) => !written.has(t.id));
+    return dayTasks.tasks.filter((t) => !written.has(t.id));
   };
   function drawCarry() {
     const strip = document.getElementById("pad-carry");
@@ -1509,7 +1511,7 @@
     if (shows === carryShows) return;
     carryShows = shows;
     strip.hidden = !open.length;
-    strip.querySelector(".pad-habits-label").textContent = `Still open from ${stillOpen.from}`;
+    strip.querySelector(".pad-habits-label").textContent = dayTasks.label;
     strip.querySelector(".pad-carry-all").hidden = open.length < 2;
     strip.querySelector(".pad-habits-list").replaceChildren(...open.map((t) => {
       const item = document.createElement("li");
@@ -1517,8 +1519,17 @@
       write.type = "button";
       write.className = "pad-carry-write";
       write.dataset.task = String(t.id);
-      write.textContent = t.title;
-      write.title = "Bring it here, to do today";
+      write.title = `Bring it here, to do ${dayTasks.label.replace(/^For /, "")}`;
+      const title = document.createElement("span");
+      title.className = "pad-carry-title";
+      title.textContent = t.title;
+      write.append(title);
+      if (t.due) {
+        const due = document.createElement("span");
+        due.className = "pad-carry-due";
+        due.textContent = t.due;
+        write.append(due);
+      }
       item.append(write);
       return item;
     }));
@@ -1547,7 +1558,7 @@
     });
     const moved = await Promise.all(list.filter((t) => t.moves).map((t) =>
       post(`/ui/tasks/${t.id}/plan`, new URLSearchParams({ planned_for: day })).then((r) => r.ok, () => false)));
-    if (moved.includes(false)) window.toast("Could not move every task to today. Their rows are in the notes.");
+    if (moved.includes(false)) window.toast("Could not move every task to this day. Their rows are in the notes.");
     if (moved.length) htmx.trigger(document.body, "calendar:refresh");
   }
   document.addEventListener("click", (e) => {
@@ -1707,8 +1718,8 @@
     try { known = JSON.parse(src.dataset.habits || "[]"); } catch { /* none */ }
     try { stayItems = JSON.parse(src.dataset.stayItems || "[]"); } catch { /* the defaults */ }
     if (!stayItems.length) stayItems = ["place", "accommodation"];
-    stillOpen = { from: "", tasks: [] };
-    try { stillOpen = JSON.parse(src.dataset.stillOpen || "null") || stillOpen; } catch { /* none */ }
+    dayTasks = { label: "", tasks: [] };
+    try { dayTasks = JSON.parse(src.dataset.dayTasks || "null") || dayTasks; } catch { /* none */ }
     carryShows = null;
     habits.clear();
     for (const { slug, days } of known) habits.set(slug, days);

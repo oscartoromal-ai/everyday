@@ -565,6 +565,37 @@ def test_a_task_has_sub_tasks(page, live, app_db) -> None:
             db.expire_all()
 
 
+def test_tasks_due_today_are_offered_with_their_due(page, live, app_db) -> None:
+    from datetime import timedelta
+
+    from app.models import Task
+    from app.services import tasks as tasks_svc
+
+    with app_db() as db:
+        report = tasks_svc.create_task(db, title="File the report", due=TODAY)
+        later = tasks_svc.create_task(db, title="Next week's", due=TODAY + timedelta(days=7))
+        db.commit()
+        report_id, later_id = report.id, later.id
+
+    page.goto(f"{live}/today")
+    strip = page.locator("#pad-carry")
+    assert strip.locator(".pad-carry-title").all_inner_texts() == ["File the report"]
+    assert strip.locator(".pad-carry-due").all_inner_texts() == ["due today"]
+
+    # Written here, it is done today, and leaves the strip.
+    strip.locator(".pad-carry-write").click()
+    assert text_of(page) == "- [ ] File the report"
+    assert strip.is_hidden()
+    end = time.monotonic() + 5
+    while True:
+        with app_db() as db:
+            if db.get(Task, report_id).planned_for == TODAY:
+                assert db.get(Task, later_id).planned_for is None
+                break
+        assert time.monotonic() < end
+        time.sleep(0.1)
+
+
 def test_tasks_still_open_yesterday_are_brought_to_today(page, live, app_db) -> None:
     from datetime import timedelta
 
@@ -595,7 +626,7 @@ def test_tasks_still_open_yesterday_are_brought_to_today(page, live, app_db) -> 
     page.goto(f"{live}/today")
     # Under the notes: yesterday's open tasks, the done one left behind.
     strip = page.locator("#pad-carry")
-    assert strip.locator(".pad-habits-label").inner_text() == "Still open from yesterday"
+    assert strip.locator(".pad-habits-label").inner_text() == "For today"
     assert strip.locator(".pad-carry-write").all_inner_texts() == ["Call the bank", "Pay rent"]
 
     # A title writes its rows, its title row the same task, its do-date today.
@@ -954,3 +985,21 @@ def test_a_task_added_as_the_page_is_left_is_added_once(page, live, app_db) -> N
     settled(lambda: tasks() == [(task_id, "Note app", "- Improve tasks screen")])
     time.sleep(0.5)
     assert tasks() == [(task_id, "Note app", "- Improve tasks screen")]
+
+
+def test_on_a_phone_the_timeline_scrolls_in_its_own_window_opened_on_now(page, live) -> None:
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.goto(f"{live}/today")
+    grid = page.locator(".today-timeline .calendar-grid")
+    box = grid.bounding_box()
+    # A window on the day, under the notes, not all 24 hours laid out.
+    assert box["height"] <= 0.75 * 844 + 1
+    scroll = grid.evaluate("g => ({top: g.scrollTop, height: g.clientHeight})")
+    now = page.locator(".today-timeline .now-line")
+    # Opened on the usual day, now in view (around midnight the grid has no
+    # now-line, and opens on the usual day's start).
+    if now.count():
+        now_at = now.evaluate("n => n.offsetTop")
+        assert scroll["top"] <= now_at <= scroll["top"] + scroll["height"]
+    else:
+        assert scroll["top"] > 0

@@ -17,6 +17,7 @@ from app.dates import duration_label, human_date, short_date, upper_first, week_
 from app.models import (
     Block,
     BlockState,
+    GarminDay,
     Project,
     ProjectStatus,
     Task,
@@ -26,13 +27,15 @@ from app.models import (
     WorkstreamStatus,
 )
 from app.services import blocks as blocks_svc
+from app.services import events as events_svc
+from app.services import garmin as garmin_svc
 from app.services import habits as habits_svc
 from app.services import health as health_svc
 from app.services import notebook as notebook_svc
 from app.services import projects as projects_svc
 from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
-from app.ui.calendar_view import DAY_END_HOUR, DAY_START_HOUR
+from app.ui.calendar_view import DAY_END_HOUR, DAY_START_HOUR, link_host
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 
@@ -536,20 +539,16 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
     }
 
 
-def still_open_ctx(db: Session, day: date) -> dict[str, Any]:
-    """What today's notepad offers to bring over (notebook.still_open): the
-    day they are from, in words ("yesterday", "Friday", "Sun 20 Sep"), and
-    each task with its words and its fields as they will stand once brought
-    (do-date this day, and so no time yet unless it had one on it)."""
-    earlier, tasks = notebook_svc.still_open(db, day)
-    if earlier is None or not tasks:
-        return {"from": "", "tasks": []}
-    if earlier == day - timedelta(days=1):
-        label = "yesterday"
-    elif earlier > day - timedelta(days=7):
-        label = earlier.strftime("%A")
-    else:
-        label = short_date(earlier, day)
+def day_tasks_ctx(db: Session, day: date, today: date) -> dict[str, Any]:
+    """What a day's notepad offers to write in it (tasks.for_day): the tasks
+    planned for the day or due on it, overdue ones on today's, and on today's
+    also those still open from the last page before it (notebook.still_open);
+    each with its words, its fields as they will stand once brought (do-date
+    this day, and so no time yet unless it had one on it), and its due."""
+    tasks = tasks_svc.for_day(db, day, today)
+    if day == today:
+        _, still_open = notebook_svc.still_open(db, day)
+        tasks += [t for t in still_open if t not in tasks]
     out = []
     for task in tasks:
         sheet = sheet_ctx(db, task, day)
@@ -560,13 +559,85 @@ def still_open_ctx(db: Session, day: date) -> dict[str, Any]:
         out.append({
             "id": task.id, "title": task.title, "notes": task.notes or "",
             "fields": fields, "moves": moves,
+            "due": f"due {short_date(task.due, today)}" if task.due else "",
         })
-    return {"from": label, "tasks": out}
+    return {"label": f"For {short_date(day, today)}", "tasks": out}
+
+
+# Garmin's readiness levels that ask for a light day.
+LIGHT_READINESS = ("POOR", "LOW")
+
+
+def _figure(label: str, value: str, detail: str = "", over: bool = False) -> dict[str, Any]:
+    return {"label": label, "value": value, "detail": detail, "over": over}
+
+
+def _body_figures(measured: GarminDay) -> list[dict[str, Any]]:
+    """How Oscar came into a day, as his watch measured it."""
+    out = []
+    if measured.readiness is not None:
+        level = (measured.readiness_level or "").lower()
+        # Garmin's low readiness asks for a light day, and says so.
+        light = measured.readiness_level in LIGHT_READINESS
+        detail = f"{level}, keep the day light" if light else level
+        out.append(_figure("Readiness", str(measured.readiness), detail, over=light))
+    if measured.sleep_seconds:
+        score = measured.sleep_score
+        detail = f"score {score}" if score is not None else ""
+        out.append(_figure("Sleep", duration_label(measured.sleep_seconds // 60), detail))
+    if measured.body_battery_high is not None:
+        out.append(_figure("Body battery", str(measured.body_battery_high)))
+    return out
+
+
+def _calendar_entry(start: datetime, end: datetime, title: str, location: str, now: datetime,
+                    *, on_now: bool) -> dict[str, Any]:
+    """An event on the glance: on now (till its end), or next (in how
+    long), with its meeting link to join."""
+    link = location if location.startswith(("http://", "https://")) else ""
+    wait = max(1, int((start - now).total_seconds() // 60))
+    return {
+        "title": title, "now": on_now, "span": f"{start:%H:%M}–{end:%H:%M}",
+        "when": f"till {end:%H:%M}" if on_now else f"in {duration_label(wait)}",
+        "link": link, "link_host": link_host(link),
+    }
+
+
+def day_glance_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
+    """A day's glance, under its date: on today's, the events on now and
+    next; and how Oscar came into the day (his watch's readiness,
+    sleep and body battery). Whether the day's plan fits it is the
+    timeline's to say (calendar_view.day_load)."""
+    measured = garmin_svc.day(db, day)
+    ctx: dict[str, Any] = {
+        "live": day == now.date(),
+        "body": _body_figures(measured) if measured else [],
+        "on": [],
+    }
+    if not ctx["live"]:
+        return ctx
+
+    # The day's timed events, a cancelled one passed over; the task blocks
+    # are the focus card's, over the timeline.
+    midnight = datetime.combine(day, time.min)
+    events, _ = events_svc.calendar_range(db, midnight, midnight + timedelta(days=1))
+    items = sorted(
+        (e.start, e.end, e.shown_title, e.location.strip())
+        for e in events if not e.all_day and not e.cancelled
+    )
+
+    current = [i for i in items if i[0] <= now < i[1]]
+    upcoming = [i for i in items if now < i[0] and i[0].date() == day]
+    if current:  # the one begun last
+        ctx["on"].append(_calendar_entry(*current[-1], now, on_now=True))
+    if upcoming:
+        ctx["on"].append(_calendar_entry(*upcoming[0], now, on_now=False))
+    return ctx
 
 
 def day_page_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
-    """A day's page: its notepad beside its timeline; today's also offers
-    the tasks still open from the last page before it."""
+    """A day's page: its notepad beside its timeline, under a glance at the
+    day, and the day's tasks, offered to write in the notes."""
     is_today = day == now.date()
     return {
         "day": day,
@@ -574,7 +645,8 @@ def day_page_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
         "prev_day": day - timedelta(days=1),
         "next_day": day + timedelta(days=1),
         "notepad": notepad_ctx(db, day),
-        "still_open": still_open_ctx(db, day) if is_today else {"from": "", "tasks": []},
+        "day_tasks": day_tasks_ctx(db, day, now.date()),
+        "glance": day_glance_ctx(db, day, now),
         # Drawn with the page, so the timeline is laid out at its height from the start.
         "focus_card": focus_card_ctx(db, now) if is_today else None,
     }

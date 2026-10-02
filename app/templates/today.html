@@ -25,6 +25,7 @@
         </button>
       </div>
       <div class="rest">{% if is_today %}{{ day.strftime("%A") }} {% endif %}{{ day.day }} {{ day.strftime("%B %Y") }}</div>
+      {% include "partials/day_glance.html" %}
       {# Where Oscar stays this day, from the notes' /stay: each item, sorted or
          not; a click goes to its row (notepad.js). #}
       <ul class="day-stay" id="day-stay" aria-label="Stay" hidden></ul>
@@ -38,7 +39,7 @@
                 data-task-rows='{{ notepad.task_rows | tojson }}'
                 data-habits='{{ notepad.habits | tojson }}'
                 data-stay-items='{{ notepad.stay_items | tojson }}'
-                data-still-open='{{ still_open | tojson }}'
+                data-day-tasks='{{ day_tasks | tojson }}'
                 spellcheck="true" aria-label="Notes" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
     </section>
     {# A task row's controls, after its title (notepad.js clones one
@@ -90,9 +91,10 @@
         </button>
       </form>
     </template>
-    {# Today's: the tasks still open from the last page before it, not yet
-       written here: a title writes its rows (the same task, done today),
-       Bring all writes every one (notepad.js). #}
+    {# The day's tasks not yet written here: those planned for it or due on
+       it, and on today's those overdue and those still open from the last
+       page before it. A title writes its rows (the same task, done this
+       day), Bring all writes every one (notepad.js). #}
     <div class="pad-habits pad-carry" id="pad-carry" hidden>
       <span class="pad-habits-label"></span>
       <ul class="pad-habits-list"></ul>
