@@ -209,12 +209,18 @@
   armRows();
   document.addEventListener("htmx:load", armRows);
 
+  // A task dropped takes its estimate's length, else an hour. A drag's data
+  // cannot be read until the drop, so the length is kept as it starts.
+  let dragLength = DEFAULT_BLOCK_MIN;
+  const lengthOf = (el) => Math.min(Number(el.dataset.estimate) || DEFAULT_BLOCK_MIN, DAY_MIN);
+
   document.addEventListener("dragstart", (e) => {
     const source = e.target.closest?.("[draggable='true'][data-task-id]");
     if (!source) return;
     e.dataTransfer.setData("text/task-id", source.dataset.taskId);
     e.dataTransfer.setData("text/task-title", source.dataset.taskTitle);
     e.dataTransfer.effectAllowed = "copyMove";
+    dragLength = lengthOf(source);
   });
 
   document.addEventListener("dragover", (e) => {
@@ -223,8 +229,8 @@
     if (!col) { clearPreview(); return; }
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
-    const start = Math.min(snapMinutes(col, e.clientY), DAY_MIN - DEFAULT_BLOCK_MIN);
-    showPreview(col, start, DEFAULT_BLOCK_MIN, "");
+    const start = Math.min(snapMinutes(col, e.clientY), DAY_MIN - dragLength);
+    showPreview(col, start, dragLength, lengthLabel(dragLength));
   });
 
   document.addEventListener("drop", async (e) => {
@@ -234,11 +240,11 @@
     clearPreview();
     if (!col) return;
     e.preventDefault();
-    const startMin = Math.min(snapMinutes(col, e.clientY), DAY_MIN - DEFAULT_BLOCK_MIN);
+    const startMin = Math.min(snapMinutes(col, e.clientY), DAY_MIN - dragLength);
     await api("POST", "/api/blocks", {
       task_id: Number(taskId),
       start: isoAt(col.dataset.date, startMin),
-      end: isoAt(col.dataset.date, startMin + DEFAULT_BLOCK_MIN),
+      end: isoAt(col.dataset.date, startMin + dragLength),
     });
     refresh();
   });

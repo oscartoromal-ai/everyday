@@ -30,6 +30,13 @@ def schedule_block(db: Session, *, task_id: int, start: datetime, end: datetime)
     return block
 
 
+def task_length(task: Task) -> timedelta:
+    """How long a task's time on the calendar is: its estimate, else an hour."""
+    if task.estimate_minutes:
+        return timedelta(minutes=task.estimate_minutes)
+    return DEFAULT_LENGTH
+
+
 def next_free_slot(
     db: Session, *, duration: timedelta, after: datetime, until: datetime, step_minutes: int = 15
 ) -> datetime | None:

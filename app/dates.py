@@ -22,6 +22,14 @@ def short_date(value: date, today: date | None = None) -> str:
     return f"{value.strftime('%a')} {value.day} {value.strftime('%b')}"
 
 
+def duration_label(minutes: int) -> str:
+    """A length of time as it is written: '45m', '1h', '1h 30m'."""
+    hours, rest = divmod(minutes, 60)
+    if not hours:
+        return f"{rest}m"
+    return f"{hours}h {rest}m" if rest else f"{hours}h"
+
+
 def monday(value: date) -> date:
     """The Monday of the week `value` falls in: weeks run Monday to Sunday."""
     return value - timedelta(days=value.weekday())

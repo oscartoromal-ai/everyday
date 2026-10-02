@@ -153,6 +153,9 @@ class Task(Base):
     occurrence_date: Mapped[date | None] = mapped_column(Date, default=None)
     # The day whose notebook page it was written on, if it was written in one.
     written_on: Mapped[date | None] = mapped_column(Date, default=None)
+    # How long its work is thought to take, in minutes: the length of the time
+    # it is given on the calendar, and its weight in a day's plan.
+    estimate_minutes: Mapped[int | None] = mapped_column(Integer, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     # When the current status was entered; drives the needs_review-age nudge.
     status_changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

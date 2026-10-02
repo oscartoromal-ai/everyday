@@ -95,8 +95,9 @@ def test_editing_saves_when_focus_leaves_the_sheet(page, live, app_db) -> None:
     page.keyboard.type(" the lawn")
     page.locator(".prop[data-prop=project]").click()
     page.locator(".sheet-menu [role=menuitemradio]", has_text="Garden").click()
-    # Tab walks the icons, the description, and the end line, then out: a save.
-    for _ in range(10):
+    # Tab walks the icons (estimate the last), the description, and the end line,
+    # then out: a save.
+    for _ in range(11):
         page.keyboard.press("Tab")
     sheet.wait_for(state="detached")
 
@@ -137,3 +138,30 @@ def test_spelling_is_marked_only_in_the_line_being_written(page, live) -> None:
     # Out of it, no line is.
     title.click()
     marked(["false", "false"])
+
+
+def test_an_estimate_is_written_as_words_or_picked(page, live, app_db) -> None:
+    page.goto(f"{live}/")
+    sheet = page.locator(".task-sheet[data-sheet=compose]")
+    title = sheet.locator(".sheet-title")
+    estimate = sheet.locator("input[name=estimate]")
+    sheet.locator(".sheet-line").click()
+    page.keyboard.type("Write the report 1h30 ")
+    assert title.text_content() == "Write the report "
+    assert estimate.input_value() == "90"
+    assert sheet.locator(".prop[data-prop=estimate] .prop-value").text_content() == "1h 30m"
+    # A bare number stays a word; "2 hours" is an estimate.
+    page.keyboard.type("in 3 parts 2 hours ")
+    assert title.text_content() == "Write the report in 3 parts "
+    assert estimate.input_value() == "120"
+    # Its menu: the usual lengths, the current one ticked.
+    sheet.locator(".prop[data-prop=estimate]").click()
+    menu = page.locator(".sheet-menu")
+    two_hours = menu.get_by_role("menuitemradio", name="2h", exact=True)
+    assert two_hours.get_attribute("aria-checked") == "true"
+    menu.get_by_role("menuitemradio", name="45m", exact=True).click()
+    page.keyboard.press("Control+Enter")
+    page.locator(".task-row", has_text="Write the report in 3 parts").wait_for()
+    with app_db() as db:
+        [task] = tasks_svc.list_tasks(db)
+        assert task.estimate_minutes == 45

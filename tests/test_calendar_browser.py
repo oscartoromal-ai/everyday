@@ -200,3 +200,23 @@ def test_keys_switch_the_days_shown_and_step_by_them(page, live) -> None:
     page.keyboard.press("w")
     page.wait_for_url("**/calendar?view=week**")
     assert page.locator(".day-col").count() == 7
+
+
+def test_a_task_dropped_on_the_grid_takes_its_estimate(page, live, app_db) -> None:
+    with app_db() as db:
+        task = tasks_svc.create_task(
+            db, title="Write the report", planned_for=WEDNESDAY, estimate_minutes=90,
+        )
+        db.commit()
+        task_id = task.id
+    open_week(page, live)
+    tray = page.locator("#calendar-tray .tray-task", has_text="Write the report")
+    assert tray.locator(".estimate").text_content() == "1h 30m"
+    tray.drag_to(
+        page.locator(f'.day-col[data-date="{WEDNESDAY.isoformat()}"]'),
+        target_position={"x": 40, "y": 10 * 48 + 2},
+    )
+    page.locator(".cal-item.block", has_text="Write the report").wait_for()
+    with app_db() as db:
+        [block] = db.query(Block).filter(Block.task_id == task_id).all()
+        assert block.end - block.start == timedelta(minutes=90)

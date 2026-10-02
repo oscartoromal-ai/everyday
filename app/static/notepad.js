@@ -102,7 +102,7 @@
   // time, project and the rest, as the sheet posts them. A task not yet
   // added is for the notes' day.
   const newFields = () => ({
-    planned_for: day, time: "", due: "", repeat: "none",
+    planned_for: day, time: "", due: "", repeat: "none", estimate: "",
     project_id: "", workstream_id: "", status: "todo", owner: "oscar",
   });
   const newTask = () => ({ id: null, saved: null, fields: newFields(), folded: false });
@@ -967,6 +967,7 @@
     if (c.name === "planned_for") return `do ${shown}`;
     if (c.name === "due") return `due ${shown}`;
     if (c.name === "time") return `at ${shown}`;
+    if (c.name === "estimate") return `${shown} estimate`;
     return (button?.title || "").toLowerCase();
   };
   // The toast's Undo: the words back at the title's end, written to the task.
@@ -1055,8 +1056,8 @@
     if (m.id) return null;
     const { title, notes } = contentOf(block);
     if (!title || (m.saved && m.saved.title === title && m.saved.notes === notes)) return null;
-    const { planned_for, time, due, repeat, project_id, workstream_id } = m.fields;
-    return { title, notes, planned_for, time, due, repeat, project_id, workstream_id, done: isDone(block) };
+    const { planned_for, time, due, repeat, project_id, workstream_id, estimate } = m.fields;
+    return { title, notes, planned_for, time, due, repeat, project_id, workstream_id, estimate, done: isDone(block) };
   };
 
   // The notes as the page's blocks: the text between reflections and
@@ -1237,8 +1238,8 @@
       else window.toast("Could not save that task. Its words are still in the notes.");
       return;
     }
-    const { planned_for, time, due, repeat, project_id } = m.fields;
-    const body = new URLSearchParams({ title, notes, planned_for, time, due, repeat, project_id });
+    const { planned_for, time, due, repeat, project_id, estimate } = m.fields;
+    const body = new URLSearchParams({ title, notes, planned_for, time, due, repeat, project_id, estimate: estimate || "" });
     const res = await post("/ui/tasks/quick-add", body, leaving).catch(() => null);
     if (leaving) return;
     const html = res?.ok ? await res.text() : "";

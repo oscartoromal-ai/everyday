@@ -8,6 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from app.dates import duration_label
 from app.db import DbSession
 from app.models import ProjectStatus, RecurrenceKind, TaskOwner, TaskStatus, WorkstreamStatus
 from app.services import DomainError
@@ -72,6 +73,16 @@ def _time_range(value: str) -> tuple[time | None, time | None]:
         raise DomainError(f"Not a time: {value}") from exc
 
 
+def _estimate(value: str) -> int | None:
+    """The sheet's estimate field: minutes, or empty for none."""
+    if not value:
+        return None
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise DomainError(f"Not an estimate: {value}") from exc
+
+
 def _row_response(
     request: Request,
     db,  # noqa: ANN001
@@ -98,6 +109,7 @@ def _add_task(
     workstream_id: str = "",
     list_day: str = "",
     done: bool = False,
+    estimate: str = "",
 ):
     """A new task as written (quick-add, the task sheet, the notepad's rows),
     its time booked and its repeat set. Returns it, and whether it was given
@@ -116,6 +128,7 @@ def _add_task(
         project_id=int(project_id) if project_id else None,
         workstream_id=int(workstream_id) if workstream_id else None,
         status=TaskStatus.done if done else TaskStatus.todo,
+        estimate_minutes=_estimate(estimate),
     )
     _apply_task_repeat(db, task, repeat)
     if start is not None:
@@ -135,13 +148,14 @@ def quick_add(
     repeat: Annotated[str, Form()] = "none",
     project_id: Annotated[str, Form()] = "",
     list_day: Annotated[str, Form()] = "",
+    estimate: Annotated[str, Form()] = "",
 ):
     title = title.strip()
     if not title:
         return HTMLResponse("")
     task, timed = _add_task(
         db, title=title, notes=notes, planned_for=planned_for, time_range=time_range,
-        due=due, repeat=repeat, project_id=project_id, list_day=list_day,
+        due=due, repeat=repeat, project_id=project_id, list_day=list_day, estimate=estimate,
     )
     db.commit()
     triggers = ["calendar:refresh"] if timed else []
@@ -229,22 +243,22 @@ def replan_task(request: Request, db: DbSession, task_id: int):
     return response
 
 
-# A task given time from the keyboard gets what a drop on the timeline gives.
-BOOK_LENGTH = blocks_svc.DEFAULT_LENGTH
-
-
 @router.post("/tasks/{task_id}/book")
 def book_task(db: DbSession, task_id: int):
-    """Give a task the next free hour today: the keyboard's drop on the
-    timeline. Answers the booked time, or 422 when today has no free hour."""
+    """Give a task the next free stretch today as long as its estimate (an
+    hour without one): the keyboard's drop on the timeline. Answers the
+    booked time, or 422 when today has no room for it."""
     now = datetime.now()
-    start = next_slot_today(db, BOOK_LENGTH, now)
+    length = blocks_svc.task_length(tasks_svc.get_task(db, task_id))
+    start = next_slot_today(db, length, now)
     if start is None:
-        raise DomainError("No free hour left today.")
-    blocks_svc.schedule_block(db, task_id=task_id, start=start, end=start + BOOK_LENGTH)
+        if length == blocks_svc.DEFAULT_LENGTH:
+            raise DomainError("No free hour left today.")
+        raise DomainError(f"No {duration_label(length // timedelta(minutes=1))} free left today.")
+    blocks_svc.schedule_block(db, task_id=task_id, start=start, end=start + length)
     tasks_svc.update_task(db, task_id, planned_for=now.date())
     db.commit()
-    return JSONResponse({"start": f"{start:%H:%M}", "end": f"{start + BOOK_LENGTH:%H:%M}"})
+    return JSONResponse({"start": f"{start:%H:%M}", "end": f"{start + length:%H:%M}"})
 
 
 @router.get("/tasks/{task_id}/edit")
@@ -274,6 +288,7 @@ def save_task(
     time_range: Annotated[str, Form(alias="time")] = "",
     due: Annotated[str, Form()] = "",
     repeat: Annotated[str, Form()] = "none",
+    estimate: Annotated[str, Form()] = "",
 ):
     was = tasks_svc.get_task(db, task_id).planned_for
     day = date.fromisoformat(planned_for) if planned_for else None
@@ -291,6 +306,7 @@ def save_task(
         workstream_id=int(workstream_id) if workstream_id else None,
         planned_for=day,
         due=date.fromisoformat(due) if due else None,
+        estimate_minutes=_estimate(estimate),
     )
     _apply_task_repeat(db, task, repeat)
     # Its time rides with its day: moved with it, set, or taken away.
@@ -608,7 +624,9 @@ async def save_notebook(request: Request, db: DbSession, day: date):
     return JSONResponse({"version": page.version})
 
 
-NEW_ROW_FIELDS = ("planned_for", "time", "due", "repeat", "project_id", "workstream_id")
+NEW_ROW_FIELDS = (
+    "planned_for", "time", "due", "repeat", "project_id", "workstream_id", "estimate",
+)
 
 
 def _add_new_rows(db, block):  # noqa: ANN001, ANN202
@@ -632,6 +650,7 @@ def _add_new_rows(db, block):  # noqa: ANN001, ANN202
             planned_for=fields["planned_for"], time_range=fields["time"], due=fields["due"],
             repeat=fields["repeat"] or "none", project_id=fields["project_id"],
             workstream_id=fields["workstream_id"], done=written.get("done") is True,
+            estimate=fields["estimate"],
         )
         links[str(row)] = task.id
     if links:

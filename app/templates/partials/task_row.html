@@ -1,7 +1,8 @@
 {% from "partials/project_flag.html" import project_flag %}
 <li class="task-row{% if row.done %} done{% endif %}{% if row.project %} in-project{% endif %}" id="task-{{ row.task.id }}"
     {%- if row.project %} style="--project: var(--hue-{{ row.project.color }})"{% endif %}
-    data-task-id="{{ row.task.id }}" data-task-title="{{ row.task.title }}" tabindex="-1">
+    data-task-id="{{ row.task.id }}" data-task-title="{{ row.task.title }}"
+    {%- if row.task.estimate_minutes %} data-estimate="{{ row.task.estimate_minutes }}"{% endif %} tabindex="-1">
   <input type="checkbox" class="task-check" {% if row.done %}checked{% endif %}
          hx-post="/ui/tasks/{{ row.task.id }}/toggle"
          hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML"
@@ -12,7 +13,7 @@
             hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML">
       <span class="task-title">{{ row.task.title }}</span>
     </button>
-    {% if row.description or row.chip or row.project or row.due_label or row.missed or row.block_label or row.planned_label %}
+    {% if row.description or row.chip or row.project or row.due_label or row.missed or row.block_label or row.planned_label or row.estimate_label %}
     <div class="task-meta">
       {% if row.description %}
       <button type="button" class="notes-toggle"
@@ -27,6 +28,7 @@
       {% endif %}
       {% if row.planned_label %}<span class="planned">{{ row.planned_label }}</span>{% endif %}
       {% if row.block_label %}<span class="when">{{ row.block_label }}</span>{% endif %}
+      {% if row.estimate_label %}<span class="estimate" title="Estimate">{{ row.estimate_label }}</span>{% endif %}
       {% if row.project %}{{ project_flag(row.project) }}{% endif %}
       {% if row.due_label %}<span class="due{% if row.due_soon %} soon{% endif %}">{{ row.due_label }}</span>{% endif %}
       {% if row.missed %}<span class="missed">{{ row.missed_label }}</span>

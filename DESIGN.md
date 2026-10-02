@@ -112,11 +112,13 @@ Each opening hears only its own answer: a dialog's close arrives a moment after 
 
 **Task sheet.** Adding a task and editing one are the same sheet, written like a document rather than filled in like a form.
 It is written on the line (see Inputs), shaped like the row it becomes: the row's box (or, to add, a plus in steel, ink once writing), then the title in 14px/500 ink, which wraps as a line of text.
-The do-date, time, due and repeat fields trail the title's last word as small icons in `--steel`, 14px, with the value beside the icon in 12px graphite once set ("tomorrow", "15:00–16:00", "Fri 2 Oct"); repeat stays an icon, its rule in the tooltip.
+The do-date, time, due, repeat and estimate fields trail the title's last word as small icons in `--steel`, 14px, with the value beside the icon in 12px graphite once set ("tomorrow", "15:00–16:00", "Fri 2 Oct", "1h 30m"); repeat stays an icon, its rule in the tooltip.
+The estimate's icon is a stopwatch; its menu offers 15m to 4h, the current length ticked, and No estimate.
+A task's estimate shows on its row's meta line in 12px graphite figures while it has no time of its own, and on the trays' cards.
 The gaps before and between them are the line's own spaces, widened, so when they wrap they start flush with the title's text.
 Each is a 24px target that opens a small menu on paper with the dropdown shadow: Today, Tomorrow, Next week, Pick a date (the native picker) and No date; for the time, Pick a time, then Change the start, Change the end and No time (native pickers, 15-minute steps; a new start keeps the length); or the repeat presets.
 The current choice is 600 with a tick, and choosing hands the caret back to where it was.
-Writing sets them too: "today", "tomorrow", a weekday's name or "next week" followed by a space becomes the do-date, "at 3", "3pm", "15:30" or "9-10:30am" the time (an hour when no end is given; a bare number stays a word), "due friday" the due date, and "every day", "every weekday", "every week" or "every month" the repeat.
+Writing sets them too: "today", "tomorrow", a weekday's name or "next week" followed by a space becomes the do-date, "at 3", "3pm", "15:30" or "9-10:30am" the time (an hour when no end is given; a bare number stays a word), "due friday" the due date, "every day", "every weekday", "every week" or "every month" the repeat, and "45m", "1h", "1.5h", "1h30" or "2 hours" the estimate.
 A time is the task's block on its do-date: set, it books that time on the calendar; changed, it moves it, with the day if the day changes; cleared, it frees it.
 The words leave the title as they convert, and Backspace straight after puts them back as words, which then stay words.
 The description follows under the title, aligned with its text.

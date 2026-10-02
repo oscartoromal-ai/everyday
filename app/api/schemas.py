@@ -67,6 +67,7 @@ class TaskIn(BaseModel):
     planned_for: date | None = None
     due: date | None = None
     starts_on: date | None = None
+    estimate_minutes: int | None = None
 
 
 class TaskPatch(BaseModel):
@@ -81,6 +82,7 @@ class TaskPatch(BaseModel):
     planned_for: date | None = None
     due: date | None = None
     starts_on: date | None = None
+    estimate_minutes: int | None = None
 
 
 class BlockOut(BaseModel):
@@ -106,6 +108,7 @@ class TaskOut(BaseModel):
     planned_for: date | None
     due: date | None
     starts_on: date | None = None
+    estimate_minutes: int | None = None
     missed: bool = False
     blocks: list[BlockOut] = []
 

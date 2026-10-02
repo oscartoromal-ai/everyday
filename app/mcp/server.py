@@ -128,6 +128,7 @@ class TaskUpsert(BaseModel):
     planned_for: date | None = None
     due: date | None = None
     starts_on: date | None = None
+    estimate_minutes: int | None = None
 
 
 @mcp.tool
@@ -137,7 +138,9 @@ def upsert_tasks(tasks: list[TaskUpsert]) -> list[dict[str, Any]]:
     due is the deadline. starts_on is the day its work starts on its project's
     Gantt (a week's work starts on its Monday): its bar runs from there to its
     due, so give a due with it (alone it ends that week's Friday); null clears
-    it. owner is oscar or claude. notes is the description: write
+    it. estimate_minutes is how long its work is thought to take (the length
+    of the time it is given on the calendar); null clears it. owner is oscar
+    or claude. notes is the description: write
     sub-tasks as '- ' lines (tick one by rewriting it as '- [x] '), keeping context
     lines next to the sub-tasks they explain."""
     out: list[dict[str, Any]] = []

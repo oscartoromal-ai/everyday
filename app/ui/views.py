@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
 from app import checklist
-from app.dates import human_date, short_date, week_label
+from app.dates import duration_label, human_date, short_date, week_label
 from app.models import (
     Block,
     BlockState,
@@ -58,6 +58,7 @@ def asset(path: str) -> str:
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.filters["human_date"] = human_date
 templates.env.filters["short_date"] = short_date
+templates.env.filters["duration"] = duration_label
 templates.env.globals["asset"] = asset
 
 
@@ -188,6 +189,9 @@ def sheet_ctx(db: Session, task: Task, today: date) -> dict[str, Any]:
         # Its time on its do-date, as the sheet's time field writes it.
         "time": f"{block.start:%H:%M}-{block.end:%H:%M}" if block else "",
         "time_label": f"{block.start:%H:%M}–{block.end:%H:%M}" if block else "",
+        # How long it is thought to take, in minutes, as the sheet's field holds it.
+        "estimate": task.estimate_minutes or "",
+        "estimate_label": duration_label(task.estimate_minutes) if task.estimate_minutes else "",
         "project_label": project_label,
         "project_color": task.project.color if task.project else None,
         "projects": projects,
@@ -218,6 +222,10 @@ def row_ctx(
         "subtasks_done": subtasks_done,
         "subtasks_total": subtasks_total,
         "block_label": f"{block.start:%H:%M}–{block.end:%H:%M}" if block else None,
+        # Its estimate, while it has no time to say how long it takes.
+        "estimate_label": (
+            duration_label(task.estimate_minutes) if task.estimate_minutes and not block else None
+        ),
         # A day's list is that day by definition; while planning, the day always matters.
         "planned_label": (
             short_date(task.planned_for, today)
@@ -403,6 +411,7 @@ HABIT = "/habit"
 # A task's fields as the sheet posts them (fragments.save_task).
 TASK_FIELDS = (
     "planned_for", "time", "due", "repeat", "project_id", "workstream_id", "status", "owner",
+    "estimate",
 )
 
 
@@ -532,6 +541,7 @@ HISTORY_FIELDS = {
     "planned_for": "Do date",
     "due": "Due",
     "starts_on": "Start week",
+    "estimate_minutes": "Estimate",
 }
 STATUS_WORDS = {
     "todo": "To do",
@@ -567,6 +577,8 @@ def _history_value(field: str, value: Any, today: date) -> str:
     if field == "starts_on":
         start = date.fromisoformat(value)
         return f"{short_date(start, today)} ({week_label(start, today)})"
+    if field == "estimate_minutes":
+        return duration_label(int(value))
     if field == "status":
         return STATUS_WORDS.get(value, value)
     if field == "owner":

@@ -110,12 +110,32 @@
     return `${hhmm(start)}-${hhmm(end)}`;
   };
 
+  // "30m", "45 min", "1h", "1.5h", "1h30", "2 hours": how long it takes.
+  // A bare number stays a word, as it does for a time.
+  const ESTIMATE = /(?:^|\s)((?:(\d{1,2}(?:[.,]\d)?)\s?(?:h|hrs?|hours?)(?:\s?(\d{1,2})\s?(?:m|mins?|minutes?)?)?|(\d{1,3})\s?(?:m|mins?|minutes?))) $/i;
+  const estimateOfWords = (m) => {
+    const [, , hours, extra, minutes] = m;
+    const total = hours !== undefined
+      ? Math.round(Number(hours.replace(",", ".")) * 60) + Number(extra || 0)
+      : Number(minutes);
+    return total > 0 && total <= 24 * 60 ? String(total) : null;
+  };
+  const durationLabel = (value) => {
+    const minutes = Number(value);
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (!h) return `${m}m`;
+    return m ? `${h}h ${m}m` : `${h}h`;
+  };
+  const ESTIMATES = [15, 30, 45, 60, 90, 120, 180, 240];
+
   // Tried in order against the text before the caret; each ends at the typed space.
   const RULES = [
     { name: "due", re: new RegExp(`(?:^|\\s)(due (${DATE_WORDS})) $`, "i"), value: (m) => dateOfWord(m[2]) },
     { name: "planned_for", re: new RegExp(`(?:^|\\s)((${DATE_WORDS})) $`, "i"), value: (m) => dateOfWord(m[2]) },
     { name: "time", re: TIME, value: timeOfWords },
     { name: "repeat", re: /(?:^|\s)(every (day|weekday|week|month)) $/i, value: (m) => REPEATS[m[2].toLowerCase()] },
+    { name: "estimate", re: ESTIMATE, value: estimateOfWords },
   ];
 
   // The last conversion, so Backspace right after it can take it back.
@@ -246,6 +266,11 @@
         set = value !== "";
         text = set ? value.replace("-", "–") : "";
         if (set) spoken = `Time: ${text}`;
+      } else if (name === "estimate") {
+        const value = valueOf(form, "estimate");
+        set = value !== "";
+        text = set ? durationLabel(value) : "";
+        spoken = set ? `Estimate: ${text}` : "Estimate";
       } else if (name === "repeat") {
         const value = valueOf(form, "repeat") || "none";
         set = value !== "none";
@@ -474,6 +499,19 @@
       const current = valueOf(form, "repeat") || "none";
       return Object.entries(REPEAT_LABELS).map(([value, label]) =>
         item(label, { checked: current === value, pick: () => setField(form, "repeat", value) }));
+    }
+    if (name === "estimate") {
+      // The usual lengths; any other is written as words ("50m ").
+      const current = valueOf(form, "estimate");
+      const items = ESTIMATES.map((minutes) => {
+        const value = String(minutes);
+        return item(durationLabel(value), { checked: current === value, pick: () => setField(form, "estimate", value) });
+      });
+      if (current && !ESTIMATES.includes(Number(current))) {
+        items.unshift(item(durationLabel(current), { checked: true, pick: () => {} }));
+      }
+      if (current) items.push(item("No estimate", { pick: () => setField(form, "estimate", "") }));
+      return items;
     }
     if (name === "days") {
       // One of the usual sets, or its weekdays one by one (the menu stays

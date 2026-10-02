@@ -50,9 +50,11 @@ def create_task(
     due: date | None = None,
     starts_on: date | None = None,
     written_on: date | None = None,
+    estimate_minutes: int | None = None,
 ) -> Task:
     if not title.strip():
         raise DomainError("Task title must not be empty")
+    _validate_estimate(estimate_minutes)
     _validate_workstream(db, project_id, workstream_id)
     task = Task(
         title=title.strip(),
@@ -65,11 +67,21 @@ def create_task(
         due=due,
         starts_on=starts_on,
         written_on=written_on,
+        estimate_minutes=estimate_minutes,
     )
     _keep_span(task, {"starts_on"} if starts_on else set())
     db.add(task)
     db.flush()
     return task
+
+
+# The longest a task's estimate may be: a day.
+MAX_ESTIMATE_MINUTES = 24 * 60
+
+
+def _validate_estimate(minutes: int | None) -> None:
+    if minutes is not None and not 0 < minutes <= MAX_ESTIMATE_MINUTES:
+        raise DomainError("A task's estimate must be between a minute and a day")
 
 
 # A span with no end given runs to the Friday of its week.
@@ -108,6 +120,8 @@ def update_task(db: Session, task_id: int, **fields: Any) -> Task:
         fields["workstream_id"] = None
         workstream_id = None
     _validate_workstream(db, project_id, workstream_id)
+    if "estimate_minutes" in fields:
+        _validate_estimate(fields["estimate_minutes"])
     if "status" in fields:
         set_status(db, task_id, fields.pop("status"))
     if fields.get("notes") is not None:

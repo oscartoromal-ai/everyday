@@ -28,6 +28,7 @@ FIELDS = (
     "planned_for",
     "due",
     "starts_on",
+    "estimate_minutes",
 )
 
 ACTORS = ("oscar", "claude", "system")
