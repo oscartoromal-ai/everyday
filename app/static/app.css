@@ -1578,10 +1578,14 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
    fit there, else on a line of their own under it (a float: the row grows,
    no row is added). Not a row of its own: no padding, no line. */
 .task-sheet.pad-props {
-  float: right; display: flex; align-items: center; gap: var(--s-2);
-  height: var(--pad-text); margin-left: var(--s-3); padding: 0; text-indent: 0;
+  float: right; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0 var(--s-2);
+  max-width: 100%; min-height: var(--pad-text); margin-left: var(--s-3); padding: 0; text-indent: 0;
+  /* the editor's lines break anywhere; the controls' words never do: on a
+     narrow line they wrap whole, onto a line of their own under the first */
+  white-space: nowrap; overflow-wrap: normal; word-break: normal;
 }
-.task-sheet.pad-props .prop { min-height: var(--pad-text); margin: 0; }
+.task-sheet.pad-props > * { flex: none; }
+.task-sheet.pad-props .prop { height: var(--pad-text); min-height: 0; margin: 0; padding-block: 0; }
 /* a project's flag keeps its colour, set or hovered */
 .task-sheet :is(.prop.in-project, .prop.in-project:hover, .prop.in-project[aria-expanded="true"]) svg { stroke: var(--project); }
 .task-sheet.pad-props .task-delete { width: 24px; height: var(--pad-text); margin: 0; opacity: 1; }
