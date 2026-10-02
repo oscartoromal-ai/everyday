@@ -56,10 +56,12 @@ def test_the_hour_label_under_the_now_label_gives_way(db) -> None:
 
     monday = week_monday(DAY.date())
     # 15:05 sits 4px under the 15:00 line: that label would peek out, so it hides.
-    assert grid_ctx(db, monday, at(15, 5))["hours_under_now"] == [9]
+    assert grid_ctx(db, monday, at(15, 5))["hours_under_now"] == [15]
     # 06:41 comes within a line box of 07:00, but the digits never meet: it stays.
     assert grid_ctx(db, monday, at(6, 41))["hours_under_now"] == []
     # 15:30 is clear of both 15:00 and 16:00.
     assert grid_ctx(db, monday, at(15, 30))["hours_under_now"] == []
-    # 06:10 is just under the first label, which sits 2px from the top.
-    assert grid_ctx(db, monday, at(6, 10))["hours_under_now"] == [0]
+    # 06:10 is 8px under the 06:00 line.
+    assert grid_ctx(db, monday, at(6, 10))["hours_under_now"] == [6]
+    # 00:10 is just under the first label, which sits 2px from the top.
+    assert grid_ctx(db, monday, at(0, 10))["hours_under_now"] == [0]

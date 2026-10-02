@@ -1,83 +1,45 @@
 {% extends "base.html" %}
 {% block title %}Calendar · Personal Calendar{% endblock %}
 {% block content %}
-{% from "partials/project_flag.html" import project_flag %}
 <div class="calendar-page">
   <header class="page-header calendar-header">
-    <h1>{{ grid.week_label }}</h1>
-    <nav class="week-nav" aria-label="Week">
-      <span id="sync-note"></span>
-      <button type="button" class="week-today" title="Fetch the work calendar now"
-              hx-post="/ui/work-sync" hx-target="#sync-note" hx-swap="innerHTML">
-        Sync work
-      </button>
-      {# Left and Right step the weeks too (shell.js, [data-day-step]). #}
-      <a class="week-arrow" href="/calendar?week={{ grid.prev_week }}" aria-label="Previous week" aria-keyshortcuts="ArrowLeft" data-day-step="prev">
+    <h1>{{ grid.label }}</h1>
+    <nav class="week-nav" aria-label="Days shown">
+      {# D, X and W switch them too (calendar.js); the choice is remembered. #}
+      <div class="segmented" role="group" aria-label="View">
+        {% for v in nav.views %}
+        <a href="/calendar?view={{ v.key }}&start={{ v.start }}" data-calendar-view="{{ v.key }}"
+           aria-keyshortcuts="{{ v.shortcut }}" title="{{ v.label }} ({{ v.shortcut }})"
+           {% if v.key == nav.view %}aria-current="true"{% endif %}>{{ v.label }}</a>
+        {% endfor %}
+      </div>
+      {# Left and Right step the days too (shell.js, [data-day-step]). #}
+      <a class="week-arrow" href="/calendar?start={{ nav.prev }}" aria-label="Earlier" aria-keyshortcuts="ArrowLeft" data-day-step="prev">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg>
       </a>
       <a class="week-today" href="/calendar">Today</a>
-      <a class="week-arrow" href="/calendar?week={{ grid.next_week }}" aria-label="Next week" aria-keyshortcuts="ArrowRight" data-day-step="next">
+      <a class="week-arrow" href="/calendar?start={{ nav.next }}" aria-label="Later" aria-keyshortcuts="ArrowRight" data-day-step="next">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5"/></svg>
       </a>
     </nav>
   </header>
 
-  <details class="expander event-add">
-    <summary class="add-inline">Add an event</summary>
-    <form class="inline-form"
-          hx-post="/ui/events" hx-swap="none"
-          hx-on::after-request="if (event.detail.successful) { this.reset(); this.closest('details').open = false; }">
-      <label class="field" style="flex: 2;">
-        <span class="field-label">Event</span>
-        <span class="field-line"><input name="title" placeholder="Event title" required></span>
-      </label>
-      <label class="field">
-        <span class="field-label">Date</span>
-        <span class="field-line"><input type="date" name="day" value="{{ today.isoformat() }}" required></span>
-      </label>
-      <label class="field">
-        <span class="field-label">Starts</span>
-        <span class="field-line"><input type="time" name="start_time"></span>
-      </label>
-      <label class="field">
-        <span class="field-label">Ends</span>
-        <span class="field-line"><input type="time" name="end_time"></span>
-      </label>
-      <label class="check-label"><input type="checkbox" name="all_day"> All day</label>
-      <label class="field">
-        <span class="field-label">Repeat</span>
-        <span class="field-line"><select name="repeat">
-          {% for value, label in [("none", "Does not repeat"), ("daily", "Daily"), ("weekdays", "Weekdays"), ("weekly", "Weekly"), ("monthly", "Monthly")] %}
-          <option value="{{ value }}">{{ label }}</option>
-          {% endfor %}
-        </select></span>
-      </label>
-      <button type="submit" class="btn primary">Add</button>
-    </form>
-  </details>
+  <div class="calendar-tools">
+    {# E opens it too; drawing on the grid opens it over the time drawn (calendar.js). #}
+    <button type="button" class="add-inline event-add" data-new-event aria-keyshortcuts="E">New event</button>
+    <span id="sync-note"></span>
+    <button type="button" class="week-today" title="Fetch the work calendar now"
+            hx-post="/ui/work-sync" hx-target="#sync-note" hx-swap="innerHTML">
+      Sync work
+    </button>
+  </div>
 
   <div class="calendar-layout">
     {% include "partials/calendar_grid.html" %}
 
-    <aside class="tray" aria-label="Tasks to schedule">
-      <h2>To schedule</h2>
-      <p class="tray-hint">Drag a task onto the week to give it protected time.</p>
-      <ul class="tray-list">
-        {% for t in tray %}
-        <li class="tray-task" draggable="true" data-task-id="{{ t.task.id }}" data-task-title="{{ t.task.title }}">
-          <span class="tray-title">{{ t.task.title }}</span>
-          <span class="tray-meta">
-            {% if t.reason == "missed" %}<span class="missed">missed</span>{% endif %}
-            {% if t.reason == "due" and t.task.due %}<span class="due">due {{ t.task.due | short_date }}</span>{% endif %}
-            {% if t.project %}{{ project_flag(t.project) }}{% endif %}
-          </span>
-        </li>
-        {% endfor %}
-      </ul>
-      {% if not tray %}
-      <p class="empty">Nothing waiting for a slot.</p>
-      {% endif %}
-    </aside>
+    {% with start = grid.start, days = grid.day_count, pick = False %}
+      {% include "partials/calendar_tray.html" %}
+    {% endwith %}
   </div>
 </div>
 

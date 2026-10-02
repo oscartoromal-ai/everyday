@@ -7,6 +7,7 @@ occurrence_date) are calendar dates.
 from __future__ import annotations
 
 import enum
+import re
 from datetime import date, datetime
 from typing import Any
 
@@ -203,6 +204,20 @@ class Event(Base):
     occurrence_date: Mapped[date | None] = mapped_column(Date, default=None)
 
     recurrence_template: Mapped[RecurrenceTemplate | None] = relationship()
+
+    @property
+    def cancelled(self) -> bool:
+        """A meeting called off but left in the feed: Outlook publishes it with
+        its subject prefixed "Canceled: ". It takes no time."""
+        return CANCELLED_PREFIX.match(self.title) is not None
+
+    @property
+    def shown_title(self) -> str:
+        """The title without a cancelled meeting's prefix, which its look says."""
+        return CANCELLED_PREFIX.sub("", self.title, count=1)
+
+
+CANCELLED_PREFIX = re.compile(r"^\s*cancell?ed\s*:\s*", re.IGNORECASE)
 
 
 class NudgeType(enum.StrEnum):

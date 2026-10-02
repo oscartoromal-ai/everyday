@@ -17,6 +17,7 @@ from app.services import health as health_svc
 from app.services import projects as projects_svc
 from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
+from app.ui.calendar_view import event_card_ctx
 from app.ui.views import (
     last_missed_block,
     me_ctx,
@@ -387,6 +388,64 @@ def add_event(
             start=datetime.combine(day, time.fromisoformat(start_time)),
             end=datetime.combine(day, time.fromisoformat(end_time)),
         )
+    db.commit()
+    response = HTMLResponse("")
+    response.headers["HX-Trigger"] = "calendar:refresh"
+    return response
+
+
+@router.get("/events/{event_id}/card")
+def event_card(request: Request, db: DbSession, event_id: int):
+    """An event's card, opened from the grid: what, when and where; one of
+    Oscar's own events also changed or deleted there."""
+    event = events_svc.get_event(db, event_id)
+    return templates.TemplateResponse(
+        request, "partials/event_card.html", event_card_ctx(event, date.today())
+    )
+
+
+@router.post("/events/{event_id}")
+def edit_event(
+    db: DbSession,
+    event_id: int,
+    title: Annotated[str, Form()],
+    day: Annotated[date, Form()],
+    start_time: Annotated[str, Form()] = "",
+    end_time: Annotated[str, Form()] = "",
+):
+    """An event's card saved: no times make it all day, as when it is added."""
+    if start_time and end_time:
+        start = datetime.combine(day, time.fromisoformat(start_time))
+        end = datetime.combine(day, time.fromisoformat(end_time))
+        all_day = False
+    elif start_time or end_time:
+        raise DomainError("An event needs both a start and an end, or neither for all day")
+    else:
+        start = datetime.combine(day, time.min)
+        end = start + timedelta(days=1)
+        all_day = True
+    events_svc.update_event(
+        db, event_id, title=title, start=start, end=end, all_day=all_day
+    )
+    db.commit()
+    response = HTMLResponse("")
+    response.headers["HX-Trigger"] = "calendar:refresh"
+    return response
+
+
+@router.post("/events/{event_id}/delete")
+def remove_event(db: DbSession, event_id: int, scope: Annotated[str, Form()] = "one"):
+    """Delete an event; for one of a series, `scope` "following" also stops
+    the series from it on."""
+    event = events_svc.get_event(db, event_id)
+    if scope == "following" and event.recurrence_template_id and event.occurrence_date:
+        recurrence_svc.stop_template(
+            db,
+            event.recurrence_template_id,
+            from_date=event.occurrence_date - timedelta(days=1),
+        )
+    else:
+        events_svc.delete_event(db, event_id)
     db.commit()
     response = HTMLResponse("")
     response.headers["HX-Trigger"] = "calendar:refresh"

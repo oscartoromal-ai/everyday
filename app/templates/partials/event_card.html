@@ -1,0 +1,55 @@
+{# An event's card, opened from the grid (calendar.js): what, when and where,
+   a meeting's link as its Join button. A work meeting is only read; one of
+   Oscar's own is written on the card itself, its title and times its
+   fields, and saved or deleted there. #}
+<div class="event-card-body">
+  {% if event.read_only %}
+  <div class="event-card-head">
+    <h2 class="event-card-title{% if cancelled %} cancelled{% endif %}">{{ title }}</h2>
+    {% if cancelled %}<span class="chip cancelled">Cancelled</span>{% endif %}
+  </div>
+  <p class="event-card-when">{{ when }}</p>
+  {% if place %}<p class="event-card-meta">{{ place }}</p>{% endif %}
+  {% if link and not cancelled %}
+  <a class="btn primary event-join" href="{{ link }}" target="_blank" rel="noopener noreferrer">Join on {{ link_host }}</a>
+  {% endif %}
+  <p class="event-card-source">From the work calendar, read-only here.</p>
+  {% else %}
+  <form class="event-card-form" hx-post="/ui/events/{{ event.id }}" hx-swap="none">
+    <span class="field-line"><input class="event-title" name="title" value="{{ event.title }}" required aria-label="Event title"></span>
+    {% if repeat or place %}
+    <p class="event-card-meta">{{ [repeat, place] | select | join(" · ") }}</p>
+    {% endif %}
+    <div class="event-fields">
+      <label class="field">
+        <span class="field-label">Date</span>
+        <span class="field-line"><input type="date" name="day" value="{{ day }}" required></span>
+      </label>
+      <label class="field">
+        <span class="field-label">Starts</span>
+        <span class="field-line"><input type="time" name="start_time" value="{{ start_time }}" step="900"></span>
+      </label>
+      <label class="field">
+        <span class="field-label">Ends</span>
+        <span class="field-line"><input type="time" name="end_time" value="{{ end_time }}" step="900"></span>
+      </label>
+    </div>
+    {% if link %}
+    <a class="btn quiet event-join" href="{{ link }}" target="_blank" rel="noopener noreferrer">Join on {{ link_host }}</a>
+    {% endif %}
+    <div class="event-card-actions">
+      <button type="submit" class="btn primary">Save</button>
+      <button type="button" class="btn danger-quiet"
+              hx-post="/ui/events/{{ event.id }}/delete" hx-vals='{"scope": "one"}' hx-swap="none"
+              hx-confirm="Delete" data-confirm-title="Delete event?" data-confirm-name="{{ title }}"
+              data-confirm-action="Delete">{{ "Delete this one" if repeat else "Delete" }}</button>
+      {% if repeat %}
+      <button type="button" class="btn danger-quiet"
+              hx-post="/ui/events/{{ event.id }}/delete" hx-vals='{"scope": "following"}' hx-swap="none"
+              hx-confirm="Delete" data-confirm-title="Delete this and later ones?" data-confirm-name="{{ title }}"
+              data-confirm-detail="The series stops here." data-confirm-action="Delete">This and later</button>
+      {% endif %}
+    </div>
+  </form>
+  {% endif %}
+</div>

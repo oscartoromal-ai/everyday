@@ -1,33 +1,42 @@
 <div class="calendar-grid" id="calendar-grid"
-     style="--days: {{ grid.day_count }};"
+     style="--days: {{ grid.day_count }}; --hour-px: {{ grid.hour_px }}px;"
+     data-start="{{ grid.start.isoformat() }}"
      data-days="{{ grid.day_count }}"
      data-day-start="{{ grid.day_start_hour }}"
      data-hour-px="{{ grid.hour_px }}"
-     hx-get="/calendar/grid?start={{ grid.start.isoformat() }}&days={{ grid.day_count }}"
+     hx-get="/calendar/grid?start={{ grid.start.isoformat() }}&days={{ grid.day_count }}&head={{ 'true' if grid.head else 'false' }}"
      hx-trigger="calendar:refresh from:body"
      hx-swap="outerHTML">
-  {% if grid.day_count > 1 %}
+  {% set has_all_day = grid.days | selectattr("all_day") | list | length > 0 %}
+  {# The heads and all-day events stay in view as the hours scroll under them. #}
+  {% if grid.head or has_all_day %}
+  <div class="grid-top">
+  {% endif %}
+  {% if grid.head %}
   <div class="grid-head">
     <div class="gutter-head"></div>
     {% for day in grid.days %}
-    <div class="day-head{% if day.is_today %} today{% endif %}">
+    <div class="day-head{% if day.is_today %} today{% endif %}{% if day.is_weekend %} weekend{% endif %}">
       <span class="dow">{{ day.date.strftime("%a") }}</span>
       <span class="dom">{{ day.date.day }}</span>
     </div>
     {% endfor %}
   </div>
   {% endif %}
-  {% set has_all_day = grid.days | selectattr("all_day") | list | length > 0 %}
   {% if has_all_day %}
   <div class="grid-allday">
     <div class="gutter-allday">{% if grid.day_count == 1 %}all day{% endif %}</div>
     {% for day in grid.days %}
-    <div class="day-allday">
+    <div class="day-allday{% if day.is_weekend %} weekend{% endif %}">
       {% for e in day.all_day %}
-      <span class="allday-pill {{ e.source }}">{{ e.title }}</span>
+      <button type="button" class="allday-pill {{ e.source }}{% if e.cancelled %} cancelled{% endif %}"
+              data-event-id="{{ e.id }}" title="{{ e.title }}">{{ e.title }}</button>
       {% endfor %}
     </div>
     {% endfor %}
+  </div>
+  {% endif %}
+  {% if grid.head or has_all_day %}
   </div>
   {% endif %}
   <div class="grid-body" style="height: {{ grid.grid_px }}px;">
@@ -41,7 +50,7 @@
       {% endif %}
     </div>
     {% for day in grid.days %}
-    <div class="day-col{% if day.is_today %} today{% endif %}" data-date="{{ day.date.isoformat() }}">
+    <div class="day-col{% if day.is_today %} today{% endif %}{% if day.is_weekend %} weekend{% endif %}" data-date="{{ day.date.isoformat() }}">
       {% for hour in grid.hours %}{% if not loop.first %}
       <div class="hour-line" style="top: {{ loop.index0 * grid.hour_px }}px;"></div>
       {% endif %}{% endfor %}
@@ -49,21 +58,25 @@
       <div class="now-line" style="top: {{ grid.now_px }}px;"></div>
       {% endif %}
       {% for item in day.entries %}
-      {% set lane_w = 100 / item.lanes %}
-      {% set geometry = "top: %spx; height: %spx; left: calc(%s%% + 2px); width: calc(%s%% - 5px); --title-lines: %s;" | format(item.top, item.height, item.lane * lane_w, lane_w, item.title_lines) %}
+      {# Side by side in its group's lanes, stepped in over the items it is laid on (calendar_view._layout). #}
+      {% set geometry = "top: %spx; height: %spx; --lane: %s; --lanes: %s; --indent: %spx; z-index: %s; --title-lines: %s;" | format(item.top, item.height, item.lane, item.lanes, item.indent_px, 2 + item.depth, item.title_lines) %}
       {% set wrap = " wrap" if item.title_lines > 1 else "" %}
+      {% set stacked = " stacked" if item.depth else "" %}
       {% if item.kind == "event" %}
-      <div class="cal-item event {{ item.source }}{{ wrap }}" style="{{ geometry }}"
-           title="{{ item.title }}{% if item.location %} · {{ item.location }}{% endif %}">
+      <div class="cal-item event {{ item.source }}{{ wrap }}{{ stacked }}{% if item.cancelled %} cancelled{% endif %}{% if item.movable %} movable{% endif %}"
+           style="{{ geometry }}" data-event-id="{{ item.id }}"
+           data-start="{{ item.start_iso }}" data-end="{{ item.end_iso }}"
+           title="{{ item.title }}{% if item.location_label %} · {{ item.location_label }}{% endif %}">
         <span class="item-title">{{ item.title }}</span>
         {% if item.show_time %}<span class="item-time">{{ item.time_label }}{% if item.location_label %} · {{ item.location_label }}{% endif %}</span>{% endif %}
+        {% if item.movable %}<div class="resize-handle" aria-hidden="true"></div>{% endif %}
       </div>
       {% elif item.kind == "ghost" %}
-      <div class="cal-item ghost{{ wrap }}" style="{{ geometry }}" title="Missed: {{ item.title }}">
+      <div class="cal-item ghost{{ wrap }}{{ stacked }}" style="{{ geometry }}" title="Missed: {{ item.title }}">
         <span class="item-title">{{ item.title }}</span>
       </div>
       {% else %}
-      <div class="cal-item block{{ wrap }}" style="{{ geometry }}"
+      <div class="cal-item block{{ wrap }}{{ stacked }}{% if item.state == 'planned' %} movable{% endif %}" style="{{ geometry }}"
            data-block-id="{{ item.id }}" data-task-id="{{ item.task_id }}" data-state="{{ item.state }}"
            data-start="{{ item.start_iso }}" data-end="{{ item.end_iso }}"
            title="{{ item.title }}">
@@ -83,5 +96,43 @@
       <button type="button" class="btn primary" data-action="complete">Completed</button>
       <button type="button" class="btn danger-quiet" data-action="delete">Remove block</button>
     </div>
+  </template>
+  {# The event composer: opened over a time drawn on the grid, or by New event
+     (E) with the day's own fields; words in its title set them as the task
+     sheet's do (calendar.js). Over a time, a task can take it instead. #}
+  <template id="event-composer-template">
+    <form class="event-composer" role="dialog" aria-label="New event" autocomplete="off">
+      <span class="field-line"><input class="composer-title event-title" name="title" placeholder="New event" aria-label="Event title" required></span>
+      <div class="composer-fields event-fields">
+        <label class="field">
+          <span class="field-label">Date</span>
+          <span class="field-line"><input type="date" name="day" required></span>
+        </label>
+        <label class="field">
+          <span class="field-label">Starts</span>
+          <span class="field-line"><input type="time" name="start_time" step="900"></span>
+        </label>
+        <label class="field">
+          <span class="field-label">Ends</span>
+          <span class="field-line"><input type="time" name="end_time" step="900"></span>
+        </label>
+        <label class="field">
+          <span class="field-label">Repeat</span>
+          <span class="field-line"><select name="repeat">
+            {% for value, label in [("none", "Does not repeat"), ("daily", "Daily"), ("weekdays", "Weekdays"), ("weekly", "Weekly"), ("monthly", "Monthly")] %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select></span>
+        </label>
+      </div>
+      <div class="composer-actions">
+        <span class="composer-note"></span>
+        <button type="submit" class="btn primary">Add event</button>
+      </div>
+      <section class="composer-tasks" hidden>
+        <h3>Or give a task this time</h3>
+        <ul class="composer-task-list"></ul>
+      </section>
+    </form>
   </template>
 </div>

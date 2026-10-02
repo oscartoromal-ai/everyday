@@ -1,0 +1,216 @@
+"""Calendar's time grid: how a day's items share its column, cancelled
+meetings, the day / three days / week views, and an event's card."""
+
+from datetime import date, datetime, time, timedelta
+
+from app.models import Event, EventSource
+from app.services import blocks as blocks_svc
+from app.services import events as events_svc
+from app.services import recurrence as recurrence_svc
+from app.ui.calendar_view import grid_ctx
+
+DAY = date(2026, 9, 28)  # a Monday
+TODAY = date.today()
+
+
+def at(hour: int, minute: int = 0, day: date = DAY) -> datetime:
+    return datetime.combine(day, time(hour, minute))
+
+
+def work(db, title: str, start: datetime, end: datetime, *, all_day: bool = False) -> Event:
+    event = Event(
+        title=title, start=start, end=end, all_day=all_day,
+        source=EventSource.work, read_only=True, external_id=f"{title}:{start}",
+    )
+    db.add(event)
+    db.flush()
+    return event
+
+
+def items_of(db, day: date = DAY) -> dict[str, dict]:
+    grid = grid_ctx(db, day, at(8, day=day), day_count=1)
+    return {item["title"]: item for item in grid["days"][0]["entries"]}
+
+
+def test_items_starting_together_sit_side_by_side_and_later_ones_lie_over(db) -> None:
+    work(db, "Long review", at(13), at(15))
+    work(db, "Apply", at(12), at(13))
+    work(db, "Futsal", at(12, 15), at(13, 30))
+    work(db, "Late check-in", at(14, 30), at(15))
+    items = items_of(db)
+    # 15 minutes apart: two lanes, side by side, neither stepped in.
+    assert (items["Apply"]["lane"], items["Apply"]["lanes"]) == (0, 2)
+    assert (items["Futsal"]["lane"], items["Futsal"]["lanes"]) == (1, 2)
+    assert items["Apply"]["depth"] == items["Futsal"]["depth"] == 0
+    # The review starts under Futsal's last half hour: laid over it, stepped in.
+    assert items["Long review"]["depth"] == 1
+    # Starting an hour and a half into the review: laid over that, a step
+    # further in, the review keeping its whole width.
+    assert items["Long review"]["lanes"] == items["Late check-in"]["lanes"] == 1
+    assert items["Late check-in"]["depth"] == 2
+
+
+def test_an_item_laid_over_another_stops_the_words_under_it(db) -> None:
+    work(db, "Post Gate Team Alignment - what happened - commentary update", at(13), at(15))
+    work(db, "OPTIMETRSIT", at(14, 30), at(15))
+    alone = grid_ctx(db, DAY, at(8), day_count=1)["days"][0]["entries"]
+    under = next(i for i in alone if i["title"].startswith("Post Gate"))
+    # 90 minutes (72px) above the item laid over it: three lines and the time,
+    # not the six lines its whole two hours would take.
+    assert under["covered_from"] == at(14, 30)
+    assert under["title_lines"] == 3 and under["show_time"]
+
+
+def test_a_short_meeting_lays_out_as_tall_as_it_is_drawn(db) -> None:
+    # Five minutes, drawn 20px (25 minutes) tall: the 12:15 meeting would
+    # land on its title, so the two sit side by side instead.
+    work(db, "KPI Refreshes", at(12), at(12, 5))
+    work(db, "New Business Case", at(12, 15), at(12, 45))
+    items = items_of(db)
+    assert items["KPI Refreshes"]["lanes"] == items["New Business Case"]["lanes"] == 2
+
+
+def test_a_cancelled_meeting_shows_struck_and_takes_no_time(db) -> None:
+    cancelled = work(db, "Canceled: Team sync", at(9), at(10))
+    assert cancelled.cancelled and cancelled.shown_title == "Team sync"
+    assert not work(db, "Cancellation policy review", at(11), at(12)).cancelled
+    item = items_of(db)["Team sync"]
+    assert item["cancelled"]
+    # The hour is free to book, and Weeks counts no load for it.
+    assert blocks_svc.next_free_slot(
+        db, duration=timedelta(hours=1), after=at(9), until=at(10)
+    ) == at(9)
+    from app.ui.weeks_view import weeks_ctx
+
+    monday = weeks_ctx(db, DAY, DAY)["weeks"][0]["days"][0]
+    assert monday["meetings"] == 1 and monday["busy_label"] == "1h"  # the review alone
+
+
+def test_an_all_day_event_shows_on_its_own_day_only(db) -> None:
+    work(db, "Holiday", at(0), at(0, day=DAY + timedelta(days=1)), all_day=True)
+    grid = grid_ctx(db, DAY, at(8), day_count=2)
+    assert [e["title"] for e in grid["days"][0]["all_day"]] == ["Holiday"]
+    assert grid["days"][1]["all_day"] == []
+
+
+def test_the_grid_runs_the_whole_day(db) -> None:
+    work(db, "Late flight", at(22, 30), at(23, 45))
+    grid = grid_ctx(db, DAY, at(8), day_count=1)
+    assert grid["hours"] == list(range(24))
+    [item] = grid["days"][0]["entries"]
+    assert item["top"] == 22.5 * 48  # no longer squeezed to a 22:00 edge
+
+
+def test_calendar_shows_a_day_three_days_or_a_week(client) -> None:
+    friday = DAY + timedelta(days=4)
+    day = client.get(f"/calendar?view=day&start={friday.isoformat()}").text
+    assert "Friday 2 October 2026" in day and day.count('class="day-col') == 1
+    three = client.get(f"/calendar?view=3days&start={friday.isoformat()}").text
+    assert "2–4 October 2026" in three and three.count('class="day-col') == 3
+    # Saturday and Sunday are tinted wherever they fall.
+    assert three.count('class="day-col weekend"') == 2
+    week = client.get(f"/calendar?view=week&start={friday.isoformat()}").text
+    assert "28 Sep – 4 Oct 2026" in week and week.count('class="day-col') == 7
+    # Each view's steps go by its own length.
+    assert 'href="/calendar?start=2026-10-05" aria-label="Later"' in three
+    assert 'href="/calendar?start=2026-09-29" aria-label="Earlier"' in three
+
+
+def test_the_view_is_remembered_and_a_phone_starts_on_three_days(client) -> None:
+    client.cookies.delete("calendar_view")
+    phone = {"user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Mobile/15E148 Safari/604.1"}
+    page = client.get("/calendar", headers=phone)
+    assert page.text.count('class="day-col') == 3
+    assert "calendar_view" not in page.cookies  # a default, not a choice
+    assert client.get("/calendar").text.count('class="day-col') == 7
+
+    client.get("/calendar?view=day")
+    assert client.get("/calendar").text.count('class="day-col') == 1
+    assert client.get("/calendar", headers=phone).text.count('class="day-col') == 1
+    # The week view's old links still open on their week.
+    old = client.get(f"/calendar?view=week&week={(DAY + timedelta(days=2)).isoformat()}").text
+    assert f'data-start="{DAY.isoformat()}"' in old
+
+
+def test_a_view_switch_keeps_today_in_view(client) -> None:
+    monday = TODAY - timedelta(days=TODAY.weekday())
+    page = client.get(f"/calendar?view=week&start={monday.isoformat()}").text
+    assert f'href="/calendar?view=day&start={TODAY.isoformat()}"' in page
+    later = monday + timedelta(weeks=3)
+    page = client.get(f"/calendar?view=week&start={later.isoformat()}").text
+    assert f'href="/calendar?view=day&start={later.isoformat()}"' in page
+
+
+def test_a_work_meetings_card_reads_and_joins(client, db) -> None:
+    event = work(db, "Design review - Huddle", at(11, 30), at(12, 30))
+    event.location = "https://breville.zoom.us/j/96951788104?from=addon"
+    db.flush()
+    card = client.get(f"/ui/events/{event.id}/card").text
+    assert "Design review - Huddle" in card
+    assert "11:30–12:30" in card
+    assert 'href="https://breville.zoom.us/j/96951788104?from=addon"' in card
+    assert "Join on zoom.us" in card
+    assert "read-only" in card and "<form" not in card
+    # Nothing it changes reaches a work meeting.
+    response = client.post(
+        f"/ui/events/{event.id}", data={"title": "Mine", "day": DAY.isoformat()}
+    )
+    assert response.status_code == 422
+
+
+def test_an_own_event_is_changed_and_deleted_on_its_card(client, db) -> None:
+    event = events_svc.create_event(db, title="Dentist", start=at(9), end=at(10))
+    card = client.get(f"/ui/events/{event.id}/card").text
+    assert 'value="Dentist"' in card and 'value="09:00"' in card
+    response = client.post(
+        f"/ui/events/{event.id}",
+        data={
+            "title": "Dentist, Dr Ruiz", "day": DAY.isoformat(),
+            "start_time": "09:30", "end_time": "10:15",
+        },
+    )
+    assert response.headers["hx-trigger"] == "calendar:refresh"
+    db.refresh(event)
+    assert (event.title, event.start, event.end) == ("Dentist, Dr Ruiz", at(9, 30), at(10, 15))
+    # No times: all day, as when one is added.
+    client.post(f"/ui/events/{event.id}", data={"title": "Dentist", "day": DAY.isoformat()})
+    db.refresh(event)
+    assert event.all_day and event.end - event.start == timedelta(days=1)
+    client.post(f"/ui/events/{event.id}/delete")
+    assert db.get(Event, event.id) is None
+
+
+def test_deleting_one_of_a_series_and_the_rest_from_it(client, db) -> None:
+    template = recurrence_svc.create_template(
+        db, kind=recurrence_svc.RecurrenceKind.event, repeat="daily", start_date=TODAY,
+        title="Stretch", start_time="07:00", end_time="07:15",
+    )
+    recurrence_svc.materialize_template(db, template, TODAY)
+    db.commit()
+
+    def series() -> list[Event]:
+        return sorted(
+            (e for e in db.query(Event).all() if e.recurrence_template_id == template.id),
+            key=lambda e: e.start,
+        )
+
+    first, second, third, *_ = series()
+    assert "Repeats daily" in client.get(f"/ui/events/{second.id}/card").text
+    client.post(f"/ui/events/{second.id}/delete", data={"scope": "one"})
+    db.expire_all()
+    assert second.id not in [e.id for e in series()]
+    client.post(f"/ui/events/{third.id}/delete", data={"scope": "following"})
+    db.expire_all()
+    assert [e.id for e in series()] == [first.id]
+
+
+def test_the_tray_refreshes_and_offers_its_tasks_to_the_composer(client, db) -> None:
+    from app.services import tasks as tasks_svc
+
+    tasks_svc.create_task(db, title="Write the report", planned_for=DAY)
+    tray = client.get(f"/calendar/tray?start={DAY.isoformat()}&days=3").text
+    assert 'id="calendar-tray"' in tray and "calendar:refresh from:body" in tray
+    assert "Write the report" in tray
+    picks = client.get(f"/calendar/tray?start={DAY.isoformat()}&days=3&pick=true").text
+    assert 'class="composer-task"' in picks and "Write the report" in picks
+    assert "calendar-tray" not in picks

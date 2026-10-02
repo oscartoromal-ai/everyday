@@ -439,7 +439,7 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   padding: 1px var(--s-2); border-radius: var(--r-pill);
   font-size: var(--t-caption); font-weight: 500;
 }
-.chip.queued { color: var(--neutral-fg); background: var(--badge-neutral-glass); }
+.chip:is(.queued, .cancelled) { color: var(--neutral-fg); background: var(--badge-neutral-glass); }
 .chip.running { color: var(--ok-fg); background: var(--badge-ok-glass); }
 .chip.running .dot { width: 6px; height: 6px; border-radius: 0; background: currentColor; }
 .chip.needs_review { color: var(--warn-fg); background: var(--badge-warn-glass); }
@@ -1106,6 +1106,8 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .week-today { white-space: nowrap; }
 @media (max-width: 540px) {
   .calendar-header { flex-wrap: wrap; row-gap: var(--s-3); }
+  .calendar-header .segmented { margin-right: 0; }
+  .calendar-header .segmented a { padding-inline: 10px; }
 }
 .week-nav { display: flex; align-items: center; gap: var(--s-2); }
 .week-arrow, .week-today {
@@ -1119,7 +1121,9 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .week-arrow:hover, .week-today:hover { background: var(--fog); border-color: var(--mist); }
 .week-arrow svg { stroke: currentColor; }
 
-.event-add { margin: calc(-1 * var(--s-2)) 0 var(--s-4); }
+.calendar-tools { display: flex; align-items: center; gap: var(--s-2); margin: calc(-1 * var(--s-2)) 0 var(--s-3); }
+.calendar-tools .event-add { margin-right: auto; }
+.event-add::before { content: "+"; display: inline-block; width: var(--s-3); margin-right: var(--s-1); }
 .sync-note { margin-right: var(--s-2); font-size: var(--t-caption); color: var(--pewter); }
 .sync-note.error { color: var(--err-fg); }
 .check-label { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-body-sm); color: var(--graphite); white-space: nowrap; }
@@ -1127,6 +1131,9 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .calendar-layout { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: var(--s-6); align-items: start; }
 
 .calendar-grid { position: relative; overflow: hidden; user-select: none; }
+/* the whole day, scrolled within the window: the heads stay as the hours pass under them */
+.calendar-page .calendar-grid { max-height: calc(100dvh - 176px); min-height: 360px; overflow-y: auto; overscroll-behavior: contain; }
+.grid-top { position: sticky; top: 0; z-index: 7; background: var(--paper); }
 .grid-head, .grid-allday { display: grid; grid-template-columns: 56px repeat(var(--days, 7), minmax(0, 1fr)); }
 .grid-head { border-bottom: 1px solid var(--hairline-on-glass-strong); }
 .day-head { padding: var(--s-2) 6px; text-align: center; }
@@ -1137,12 +1144,13 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .gutter-allday { padding: 6px var(--s-2) 0 0; text-align: right; font-size: var(--t-caption); color: var(--pewter); }
 .day-allday { display: flex; flex-direction: column; gap: 2px; min-height: 26px; padding: 3px; }
 .allday-pill {
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left;
   padding: 2px 6px; border-radius: var(--r-tag);
   font-size: var(--t-caption); font-weight: 500;
   background: var(--glass-card); border: 1px solid var(--hairline-on-glass-strong); color: var(--ink);
 }
 .allday-pill.work { background: var(--ink-tint-tag); border-color: transparent; color: var(--graphite); }
+.allday-pill.cancelled { background: transparent; border-color: var(--hairline-on-glass-strong); color: var(--pewter); text-decoration: line-through; }
 
 .grid-body { position: relative; display: grid; grid-template-columns: 56px repeat(var(--days, 7), minmax(0, 1fr)); }
 .gutter { position: relative; }
@@ -1161,37 +1169,54 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   text-shadow: var(--signal-glow);
 }
 .day-col { position: relative; border-left: 1px solid var(--hairline-on-glass); }
-.day-col:nth-child(n+7):nth-child(-n+8) { background: var(--ink-tint-faint); }
+.day-col.weekend { background: var(--ink-tint-faint); }
 .calendar-grid[data-days="1"] .day-col { background: none; }
 .hour-line { position: absolute; left: 0; right: 0; height: 1px; background: var(--hairline-on-glass); pointer-events: none; }
 /* the grid's one light: now, in the signal (the spark itself in a one-light system) */
 .now-line { position: absolute; left: 0; right: 0; z-index: 1; height: 2px; background: var(--signal); box-shadow: var(--signal-glow); pointer-events: none; }
 .now-line::before { content: ""; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 0; background: var(--signal); box-shadow: var(--signal-glow); }
 
+/* an item sits in its group's lane, stepped in by --indent over the items it is
+   laid on (calendar_view._layout); its z-index, inline, puts the later on top */
 .cal-item {
+  --lane: 0; --lanes: 1; --indent: 0px;
   position: absolute; z-index: 2; overflow: hidden;
+  left: calc(var(--indent) + (100% - var(--indent)) * var(--lane) / var(--lanes) + 2px);
+  width: calc((100% - var(--indent)) / var(--lanes) - 5px);
   display: flex; flex-direction: column;
   padding: 3px 6px; border-radius: var(--r-tag);
   font-size: var(--t-caption); line-height: 1.3;
 }
 .cal-item .item-title { flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+/* wrapped titles break between words, never inside one ("Futs al"): a word too long is cut */
 .cal-item.wrap .item-title {
-  white-space: normal; overflow-wrap: anywhere;
+  white-space: normal; overflow-wrap: normal; word-break: normal;
   display: -webkit-box; -webkit-box-orient: vertical;
   -webkit-line-clamp: var(--title-lines); line-clamp: var(--title-lines);
 }
 .cal-item .item-time { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; font-variant-numeric: tabular-nums; }
 
 /* work meetings are quiet ink tint; personal events sit on glass; task time is carbon, the plan's own ink */
+.cal-item.event { cursor: pointer; }
 .cal-item.event.work { background: var(--ink-tint-tag); color: var(--graphite); }
 .cal-item.event.local { background: var(--glass-card); border: 1px solid var(--hairline-on-glass-strong); color: var(--ink); }
-.cal-item.block { background: var(--solid); color: var(--on-solid); box-shadow: inset 0 0 0 1.5px var(--solid-edge), var(--solid-glow); cursor: grab; }
-.cal-item.block:active { cursor: grabbing; }
+.cal-item.block { background: var(--solid); color: var(--on-solid); box-shadow: inset 0 0 0 1.5px var(--solid-edge), var(--solid-glow); }
+.cal-item.movable { cursor: grab; }
+.cal-item.movable:active { cursor: grabbing; }
+/* laid over another: opaque, ringed in the paper so the two never blur together */
+.cal-item.stacked { box-shadow: 0 0 0 1px var(--paper); }
+.cal-item.event.work.stacked { background: linear-gradient(var(--ink-tint-tag), var(--ink-tint-tag)), var(--paper); }
+.cal-item.event.local.stacked { background: var(--paper); }
+.cal-item.block.stacked { box-shadow: 0 0 0 1px var(--paper), inset 0 0 0 1.5px var(--solid-edge), var(--solid-glow); }
+/* a meeting called off stays where it was, an outline struck through: it takes no time */
+.cal-item.event.cancelled { background: transparent; box-shadow: inset 0 0 0 1px var(--hairline-on-glass-strong); color: var(--pewter); }
+.cal-item.event.cancelled.stacked { background: var(--paper); box-shadow: 0 0 0 1px var(--paper), inset 0 0 0 1px var(--hairline-on-glass-strong); }
+.cal-item.cancelled .item-title { text-decoration: line-through; }
 .cal-item.block[data-state="completed"] { background: var(--fog); color: var(--pewter); box-shadow: 0 0 #0000; cursor: pointer; }
 .cal-item.block[data-state="completed"] .item-title { text-decoration: line-through; }
 .cal-item.ghost { background: transparent; border: 1.5px dashed var(--steel); color: var(--pewter); pointer-events: none; }
 .cal-item.preview {
-  left: 2px; right: 3px; z-index: 6; pointer-events: none;
+  left: 2px; right: 3px; width: auto; z-index: 6; pointer-events: none;
   background: var(--spark-tint); border: 1.5px dashed var(--spark); color: var(--spark-deep); font-weight: 600;
 }
 .resize-handle { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; cursor: ns-resize; }
@@ -1199,6 +1224,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   content: ""; position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%);
   width: 20px; height: 2px; border-radius: 0; background: var(--solid-handle);
 }
+.cal-item.event .resize-handle::after { background: var(--steel); }
 
 /* tray: tasks waiting for a slot or a day */
 .tray { position: sticky; top: var(--s-6); padding: var(--s-4) 0 var(--s-2); overflow: clip; }
@@ -1220,13 +1246,51 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .tray .empty { padding: var(--s-2) var(--s-4) var(--s-3); }
 
 /* floating UI: opaque paper and a shadow, never glass */
-.block-menu {
-  position: absolute; z-index: 50; width: max-content; min-width: 200px; max-width: 280px;
+.block-menu, .event-card, .event-composer {
+  position: absolute; z-index: 50;
   display: flex; flex-direction: column; gap: var(--s-2);
   padding: var(--s-3);
   background: var(--paper); border: 1px solid var(--hairline); border-radius: var(--r-ctl);
   box-shadow: var(--shadow-dropdown);
 }
+.block-menu { width: max-content; min-width: 200px; max-width: 280px; }
+
+/* an event's card: what, when, where; Oscar's own also changed here */
+.event-card { width: 380px; max-width: calc(100vw - 24px); padding: var(--s-4); outline: none; }
+.event-card-body { display: flex; flex-direction: column; gap: var(--s-2); }
+.event-card-head { display: flex; align-items: flex-start; gap: var(--s-2); }
+.event-card-title { flex: 1; font-size: var(--t-body); font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.event-card-title.cancelled { color: var(--graphite); text-decoration: line-through; }
+.event-card-head .chip { flex: none; margin-top: 2px; }
+.event-card-when { font-size: var(--t-body-sm); color: var(--ink); font-variant-numeric: tabular-nums; }
+.event-card-meta { font-size: var(--t-body-sm); color: var(--graphite); overflow-wrap: anywhere; }
+.event-card-source { font-size: var(--t-caption); color: var(--pewter); }
+.event-join { align-self: flex-start; margin-top: var(--s-1); text-decoration: none; }
+.event-card-form { display: flex; flex-direction: column; gap: var(--s-3); }
+.event-card-form .event-card-meta { margin-top: calc(-1 * var(--s-2)); }
+.event-card-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+/* an event's title is its card's heading, written on its line; its day and times under it */
+.field-line > input.event-title { font-size: var(--t-body); font-weight: 600; }
+.event-fields { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: var(--s-3); }
+.event-fields > .field { min-width: 0; }
+
+/* the event composer: a title, its fields, and over a time drawn, the tasks it could go to */
+.event-composer { width: 380px; max-width: calc(100vw - 24px); gap: var(--s-3); padding: var(--s-4); }
+.composer-fields .field:last-child { grid-column: 1 / -1; }
+.composer-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
+.composer-note { font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums; }
+.composer-note.error { color: var(--err-fg); }
+.composer-tasks { margin: 0 calc(-1 * var(--s-4)) calc(-1 * var(--s-4)); border-top: 1px solid var(--hairline); }
+.composer-tasks h3 { padding: var(--s-3) var(--s-4) var(--s-1); font-size: var(--t-caption); font-weight: 600; color: var(--pewter); }
+.composer-task-list { list-style: none; margin: 0; padding: 0 0 var(--s-2); }
+/* one line a task: its title, then its badges and flag at the right */
+.composer-task {
+  display: flex; align-items: center; gap: var(--s-2); width: 100%; min-height: 32px; padding: 4px var(--s-4); text-align: left;
+  transition: background-color var(--dur) var(--ease);
+}
+.composer-task:hover, .composer-task.active { background: var(--fog); }
+.composer-task .tray-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-body-sm); font-weight: 500; }
+.composer-task .tray-meta { flex: none; display: flex; align-items: center; gap: var(--s-2); font-size: var(--t-caption); color: var(--pewter); }
 .block-menu-title { font-size: var(--t-body-sm); font-weight: 600; overflow-wrap: anywhere; }
 /* the task's sub-tasks, tickable while in its block */
 .block-menu-checklist:empty { display: none; }
@@ -1253,7 +1317,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 @media (max-width: 900px) {
   .calendar-layout { grid-template-columns: minmax(0, 1fr); }
   .calendar-grid[data-days="7"] { overflow-x: auto; }
-  .calendar-grid[data-days="7"] :is(.grid-head, .grid-allday, .grid-body) { min-width: 640px; }
+  .calendar-grid[data-days="7"] :is(.grid-top, .grid-body) { min-width: 640px; }
   .tray { position: static; }
 }
 
@@ -1264,7 +1328,6 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .timeline-header { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); margin: 6px 0 var(--s-4); }
 .timeline-header h2 { font-size: var(--t-body); }
 .today-timeline .calendar-grid { max-height: calc(100vh - 110px); overflow-y: auto; overscroll-behavior: contain; }
-.today-timeline .grid-allday { position: sticky; top: 0; z-index: 7; background: var(--paper); }
 .task-row[draggable="true"] { cursor: grab; }
 .task-row[draggable="true"] :is(button, input) { cursor: pointer; }
 

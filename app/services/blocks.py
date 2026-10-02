@@ -35,7 +35,8 @@ def next_free_slot(
 ) -> datetime | None:
     """The earliest start at or after `after`, on a quarter-hour boundary, where
     `duration` fits before `until` without overlapping a timed event or another
-    planned or completed block. All-day events and missed blocks take no time."""
+    planned or completed block. All-day events, cancelled meetings and missed
+    blocks take no time."""
     events = db.scalars(
         select(Event).where(Event.start < until, Event.end > after, Event.all_day.is_(False))
     )
@@ -44,7 +45,9 @@ def next_free_slot(
             Block.start < until, Block.end > after, Block.state != BlockState.missed
         )
     )
-    busy = sorted([(e.start, e.end) for e in events] + [(b.start, b.end) for b in blocks])
+    busy = sorted(
+        [(e.start, e.end) for e in events if not e.cancelled] + [(b.start, b.end) for b in blocks]
+    )
     step = timedelta(minutes=step_minutes)
 
     def on_step(moment: datetime) -> datetime:

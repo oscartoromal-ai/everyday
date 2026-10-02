@@ -79,6 +79,14 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   Each day shows its planned tasks, deadlines, and personal events; the work calendar is condensed to a load figure (meetings and busy hours) rather than listed.
   Dragging a task between days replans it (sets planned_for); an Unplanned tray holds tasks with no do-date, and dragging back to it unplans.
   It supersedes the earlier seven-day next-days list.
+- **Calendar** (Oscar's call on 2026-10-02, against Google Calendar, Notion Calendar and Fantastical) is the time grid of events and task blocks, as a day, three days or a week (D, X, W), the choice remembered on each device and a phone starting on three days.
+  The grid runs the whole day, scrolled within the window to the usual day (06:00 to 22:00) with now in view; Left and Right step by the days shown, and a switch keeps today in view.
+  Items starting within half an hour of each other sit side by side; one starting later is laid over those still running, stepped in, so each keeps its width and its title.
+  A meeting called off (Outlook's "Canceled: " subject) stays in its place, struck through, and takes no time: free slots and Weeks' load pass over it.
+  A click on an event opens its card: when and where, a meeting link as its Join button.
+  Oscar's own events are changed and deleted there (one of a series alone, or it and the later ones), and dragged and resized on the grid as blocks are; work meetings stay read-only.
+  Drawing on the empty grid, or clicking an hour, writes an event there in the composer, whose title takes the task sheet's words ("saturday", "at 7pm", "every week"); New event (E) opens it on its own, all day until given a time.
+  Over a time drawn, the tasks to schedule in the days shown are offered too, narrowed by the words written, and the one picked takes the time as its block.
 - **A project as a Gantt chart** (Oscar's call on 2026-09-30: "I work in weeks", "a kind of Excel interface"): each project opens (`/projects/<id>`, from its card's bars icon) as a spreadsheet of its plan by week.
   A row per workstream, its tasks under it and a row to write one more; then the other tasks, and a row to write a workstream; a column per week (the ISO week, over its Monday), frozen beside Task, Start, Wks and Due.
   It drills down to days (Oscar's call on 2026-10-01): a Weeks / Days switch (or V) for the whole sheet, remembered, the same days kept in view; in Days a column per day, weekends tinted, the length in days, and every move by days.
@@ -313,7 +321,7 @@ Per [Architecture](tracker/tickets/009-architecture.md) and [Decision: security 
 ### Frontend
 
 - Server-rendered: Jinja templates plus HTMX for pages, lists, and forms; no build step, state server-side.
-- Real client JS is limited to a few focused vanilla islands, each built well once: the drag-to-slot calendar (week grid and Today's timeline), drag-to-replan on the Weeks view, the task sheet (one editor for adding and editing, with its line-based description editor), Today's notebook (the same line editor in prose mode, with the sheet as its task box), and the chats with Claude on Nutrition and Spending (the answer streamed as it is written).
+- Real client JS is limited to a few focused vanilla islands, each built well once: the calendar (its grid and Today's timeline: drag-to-slot, drawing and writing events, their cards), drag-to-replan on the Weeks view, the task sheet (one editor for adding and editing, with its line-based description editor), Today's notebook (the same line editor in prose mode, with the sheet as its task box), and the chats with Claude on Nutrition and Spending (the answer streamed as it is written).
 
 ### Background jobs
 

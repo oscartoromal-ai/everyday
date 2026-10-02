@@ -139,6 +139,8 @@ def weeks_ctx(db: Session, anchor: date, today: date) -> dict[str, Any]:
             slot = days[day]
             if event.all_day:
                 slot["all_day"].append({"title": event.title, "source": event.source.value})
+            elif event.cancelled:
+                pass  # called off: no load, and nothing to show
             elif event.source == EventSource.work:
                 day_start = datetime.combine(day, time.min)
                 slot["work_spans"].append(

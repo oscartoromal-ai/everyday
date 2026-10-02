@@ -65,7 +65,7 @@ Field names are 12px/500 graphite Inter, as the notes' "Task" label is: Inter is
 - **Radii:** none. Every corner in the app is square (Oscar's call, 2026-09-27): `app.css` sets the system's `--r-tag`, `--r-ctl` and `--r-pill` to 0 after `design.css` loads, and no rule rounds a corner of its own, dots and the now mark included.
 - **Inputs are see-through:** every place Oscar writes lets the page show through: a field has no fill, only its line; Today's notepad card and the ruled sheets (Tasks, Me) are the paper at 35%; and checkboxes are unfilled until ticked.
 - **Spacing:** the `--s-*` scale (4, 8, 12, 16, 24, 32, 48).
-- **Elevation:** resting glass has no shadow; only the block menu, the add-a-task popover, the task sheet's menus and the toast float, on opaque paper with `--shadow-dropdown`.
+- **Elevation:** resting glass has no shadow; only the block menu, an event's card, the event composer, the add-a-task popover, the task sheet's menus and the toast float, on opaque paper with `--shadow-dropdown`.
   There is one toast, `window.toast` in `shell.js`, for every page; a newer message gets its own full moment.
 
 ## Shell
@@ -241,19 +241,25 @@ Their buttons are the app's own, 36px beside a form's fields; the task sheet's a
 Projects' status select is its words in 12px/500 graphite and the steel chevron, the fog under it on hover.
 Focus elsewhere in the app is unchanged: every other focus ring is `--spark-deep`, not `--spark`, since accent text holds 4.5:1 on every surface where the bright spark can sink into a glow of its own colour.
 
-**Time grid** (Calendar's week and Today's one-day timeline, one partial).
+**Time grid** (Calendar's day, three days and week, and Today's one-day timeline, one partial).
+The page title names the days shown ("Friday 2 October 2026", "2–4 October 2026", "28 Sep – 4 Oct 2026"), and the header's Day, 3 days and Week is the segmented control, as Weeks' Grid and Rows is; on a phone its options take 10px sides so it fits beside the steps.
+New event, a quiet "+" line as Add a workstream is, starts the tools row under the title, Sync work at its right.
+The grid runs the whole day, 48px an hour, in a card that scrolls within the window; the day heads and all-day events stay on paper at its top as the hours pass under them.
 Day heads are 12px pewter over a 14px/600 number, with today in `--spark-deep`, glowing at night.
-Weekend columns carry `--ink-tint-faint`.
-Items are 6px-radius tags with a 2px gap below, so back-to-back items never merge:
+Weekend columns carry `--ink-tint-faint`, whichever days are shown.
+Items are square tags with a 2px gap below, so back-to-back items never merge:
 
 - work meetings are a quiet ink tint in graphite;
 - personal events are glass with a hairline;
 - task blocks are solid `--solid`, with `--solid-glow`;
 - completed blocks are fog with a strikethrough;
+- a cancelled meeting is a hairline outline, its title pewter and struck through;
 - today's missed blocks are a dashed mist ghost;
-- a drag preview is `--spark-tint` with a dashed spark edge.
+- a drag preview, and the time being written in the composer, is `--spark-tint` with a dashed spark edge.
 
-Titles wrap over the lines an item's height allows.
+Items starting within half an hour of each other share the column in lanes; one starting later is laid over the items still running, 14px further in for each step (three at most), opaque and ringed in 1px of paper, so neither blurs into the other.
+Titles wrap between words over the lines an item's height allows, stopping above any item laid over it; a word too long for its lane is cut, never broken.
+A five-minute meeting is still drawn 20px tall, and laid out as drawn.
 The grid's one light is the now-line in `--signal` (cyan in Neon Signage, glowing at night), whose time is written in `--signal-deep` in the gutter.
 An hour label whose digits the time would overlap (centres within 12px) is hidden, so the gutter never shows a clipped "06:00" behind "06:21".
 
@@ -313,11 +319,18 @@ Beyond that, only these move: the toast, the confirm dialog (an 8px rise with fa
 
 **Calendar drag** (`app/static/calendar.js`, vanilla, listeners on `document` so they survive htmx swaps).
 A tray card, or an open Today row inside a `[data-drag-to-grid]` list, can be dropped on a day column to create a block, with a live preview.
-Planned blocks move and resize, snapping to 15-minute increments.
-A click opens the opaque block menu; it loads the task's sub-tasks under its title (a caption with the done count, then the checklist, scrolling past 40% of the viewport), so they tick off while in the block, and it re-fits to the viewport once they arrive.
+Planned blocks and Oscar's own events move and resize, snapping to 15-minute increments, an item keeping the place it was held by; on events the resize grip is steel, on blocks `--solid-handle`.
+A click on a block opens the opaque block menu; it loads the task's sub-tasks under its title (a caption with the done count, then the checklist, scrolling past 40% of the viewport), so they tick off while in the block, and it re-fits to the viewport once they arrive.
 Context lines stay in the task's description; only the sub-tasks come along.
-Every mutation re-asks the server by firing `calendar:refresh`; on Today that re-renders the list too.
-A height-capped timeline opens an hour and a half before now and keeps its scroll position across refreshes.
+A click on an event, or an all-day event, opens its card (380px, beside the item): a work meeting's title in 16px/600, its day and times, its place, its link as the primary "Join on zoom.us" and a pewter note that it is read-only; a cancelled one has the neutral Cancelled chip and no Join.
+One of Oscar's own is written on its card instead: its title in 16px/600 on its line, its repeat and place in graphite, Date, Starts and Ends on lines, then Save and Delete (for a series, Delete this one and This and later), each delete asking first.
+Dragging down an empty column draws a new event's time; a click takes the half hour it lands in, for an hour; on touch only a tap writes one, so the grid still scrolls.
+Either opens the composer (380px) beside the time: the title on its line in 16px/600, Date, Starts and Ends, Repeat on a line of its own, the length (or "No time: all day") in 12px pewter beside Add event.
+Over a time, "Or give a task this time" lists the tasks to schedule, a row each with its badges and flag at the right, the arrow keys lighting one in fog.
+New event and E open the composer under the button, on today if it is shown.
+Only one card floats at a time; a press outside closes it and does nothing else, and Esc closes it.
+Every mutation re-asks the server by firing `calendar:refresh`; the grid, the tray and on Today the list re-render.
+A height-capped grid opens on the usual day, 06:00 at its top, or with now in view an hour and a half under the top as far as 22:00 allows, and keeps its scroll position across refreshes.
 
 **Weeks drag** (`app/static/weeks.js`, native HTML5 drag and drop).
 Any `[data-plan-task]` can be dropped on a future day to set its do-date, or on the Unplanned tray to clear it.
@@ -327,7 +340,7 @@ After the PATCH, `weeks:refresh` re-renders the board.
 **Writing tasks** (`app/static/task-sheet.js`, `app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`).
 `task-sheet.js` runs the task sheet: the title line, its field icons and their menus, typed words becoming fields, adding, and saving an edit when focus leaves it.
 Every field is a hidden input the form posts, so the icons and menus only read and write those inputs; the menus live in the body, since list cards clip what overflows them.
-`tasks.js` runs the row disclosures, the Done folds, the cursor on Tasks, Today and Projects, and filing by drag; `shell.js` the keys that work on every page, 1 to 9 for the nav's pages and ? for the keys dialog, and Left and Right (outside a field) on a page of days, a day back or on, and on Calendar, a week.
+`tasks.js` runs the row disclosures, the Done folds, the cursor on Tasks, Today and Projects, and filing by drag; `shell.js` the keys that work on every page, 1 to 9 for the nav's pages and ? for the keys dialog, and Left and Right (outside a field) on a page of days, a day back or on, and on Calendar, the days it shows.
 The list keys: Up/Down or J/K move (a Done fold's or shelf's header is a stop, opened by Enter or Space), Shift jumps a group (a project, on Projects), Home and End go to the ends; Enter or E edits, N writes a new task (into the cursor's project where it has one, else the page's own composer), X done, T today, M tomorrow (posted directly where rows have no do-date buttons), B books the next free hour today (the keyboard's drop on Today's timeline; a toast says what it booked, or that today is full), R replans a missed task, D and P open the task sheet on its day or project menu, Space opens the description, Delete deletes after asking, V switches Tasks' views, Esc leaves.
 The cursor lands where the work leaves it: on the row that followed one dated, filed, finished or deleted away; on the same task after an edit, wherever it regrouped to; on a task just added when Esc leaves the composer; and on the same task across V's reload (`sessionStorage` key `pc-task-cursor`).
 htmx wires up swapped-in content in the same step as the swap (`defaultSettleDelay: 0`, in base.html): with its default 20ms settle, a re-rendered list missed a refresh fired in that gap, and keys and submits met controls not yet wired up. Keys are never queued, since a replayed key cannot type; a sheet htmx has not taken over never submits natively and leaves the page; an open edit caught in a list's re-render keeps its sheet, words, fields and caret where the task's new row lands.

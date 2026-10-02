@@ -9,7 +9,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse
 
 from app.db import DbSession
-from app.ui.calendar_view import grid_ctx, tray_tasks, week_monday
+from app.ui.calendar_view import VIEWS, calendar_nav, grid_ctx, tray_tasks, view_start
 from app.ui.views import (
     TASKS_VIEWS,
     day_page_ctx,
@@ -140,19 +140,46 @@ def me_page(request: Request, db: DbSession):
     return templates.TemplateResponse(request, "me.html", {**_base(request, "me"), **ctx})
 
 
+CALENDAR_VIEW_COOKIE = "calendar_view"
+
+
+def _calendar_view(request: Request, view: str | None) -> str:
+    """The view asked for, else the one last chosen on this device, else a
+    week, or three days on a phone, where seven columns cannot be read."""
+    chosen = view or request.cookies.get(CALENDAR_VIEW_COOKIE)
+    if chosen in VIEWS:
+        return chosen
+    return "3days" if "Mobi" in request.headers.get("user-agent", "") else "week"
+
+
 @router.get("/calendar")
-def calendar_page(request: Request, db: DbSession, week: date | None = None):
+def calendar_page(
+    request: Request,
+    db: DbSession,
+    start: date | None = None,
+    week: date | None = None,  # the week view's earlier links
+    view: str | None = None,
+):
     now = datetime.now()
-    week_start = week_monday(week or date.today())
-    return templates.TemplateResponse(
+    view = _calendar_view(request, view)
+    first_day = view_start(view, start or week or now.date())
+    days = VIEWS[view]
+    response = templates.TemplateResponse(
         request,
         "calendar.html",
         {
             **_base(request, "calendar"),
-            "grid": grid_ctx(db, week_start, now),
-            "tray": tray_tasks(db, week_start, now),
+            "grid": grid_ctx(db, first_day, now, days),
+            "nav": calendar_nav(view, first_day, now.date()),
+            "tray": tray_tasks(db, first_day, now, days),
         },
     )
+    if view in (request.query_params.get("view"), request.cookies.get(CALENDAR_VIEW_COOKIE)):
+        # Remembered once chosen; a phone's own default stays a default.
+        response.set_cookie(
+            CALENDAR_VIEW_COOKIE, view, max_age=60 * 60 * 24 * 365, samesite="strict"
+        )
+    return response
 
 
 @router.get("/calendar/grid")
@@ -161,15 +188,39 @@ def calendar_grid(
     db: DbSession,
     start: date | None = None,
     days: Annotated[int, Query(ge=1, le=7)] = 7,
+    head: bool | None = None,
 ):
     now = datetime.now()
     start = start or date.today()
-    if days == 7:
-        start = week_monday(start)
+    if days == VIEWS["week"]:
+        start = view_start("week", start)
     return templates.TemplateResponse(
         request,
         "partials/calendar_grid.html",
-        {"request": request, "grid": grid_ctx(db, start, now, day_count=days)},
+        {"request": request, "grid": grid_ctx(db, start, now, day_count=days, head=head)},
+    )
+
+
+@router.get("/calendar/tray")
+def calendar_tray(
+    request: Request,
+    db: DbSession,
+    start: date,
+    days: Annotated[int, Query(ge=1, le=7)] = 7,
+    pick: bool = False,
+):
+    """The tasks worth giving time in the days shown: Calendar's tray, or as
+    picks (`pick`), the choices of the event composer drawn on a grid."""
+    return templates.TemplateResponse(
+        request,
+        "partials/calendar_tray.html",
+        {
+            "request": request,
+            "tray": tray_tasks(db, start, datetime.now(), days),
+            "start": start,
+            "days": days,
+            "pick": pick,
+        },
     )
 
 
