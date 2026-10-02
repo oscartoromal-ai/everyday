@@ -18,8 +18,6 @@ poll_times = ["06:30", "12:30", "16:30"]
 ntfy_server = "https://ntfy.sh"
 ntfy_topic_file = "local/ntfy-topic.txt"
 ntfy_token_file = "local/ntfy-token.txt"
-# No break-through pushes between these local times.
-quiet_hours = ["22:30", "07:30"]
 digest_time = "07:45"
 
 [backup]

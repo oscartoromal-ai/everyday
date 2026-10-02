@@ -52,42 +52,16 @@ def test_domain_error_maps_to_422(client) -> None:
     assert "title" in response.json()["detail"].lower()
 
 
-def test_calendar_endpoint_classifies_ghosts(client, db) -> None:
-    from app.services import blocks as blocks_svc
-
-    # The past block sits at the very start of today and the missed-block pass
-    # runs just after it, so the test holds at any wall-clock time (a block a
-    # few hours back is yesterday's between midnight and 2am, and never a ghost).
-    midnight = datetime.combine(NOW.date(), datetime.min.time())
-    task = client.post("/api/tasks", json={"title": "deep work"}).json()
-    past = client.post(
-        "/api/blocks",
-        json={
-            "task_id": task["id"],
-            "start": midnight.isoformat(),
-            "end": (midnight + timedelta(minutes=1)).isoformat(),
-        },
-    ).json()
-    future = client.post(
-        "/api/blocks",
-        json={
-            "task_id": task["id"],
-            "start": (NOW + timedelta(hours=1)).isoformat(),
-            "end": (NOW + timedelta(hours=2)).isoformat(),
-        },
-    ).json()
-    params = {
-        "start": midnight.isoformat(),
-        "end": (NOW + timedelta(hours=12)).isoformat(),
-    }
-
+def test_calendar_endpoint_lists_the_events_in_its_window(client) -> None:
+    soon = client.post("/api/events", json={
+        "title": "dentist", "start": (NOW + timedelta(hours=1)).isoformat(),
+        "end": (NOW + timedelta(hours=2)).isoformat(),
+    }).json()
+    client.post("/api/events", json={
+        "title": "next week", "start": (NOW + timedelta(days=9)).isoformat(),
+        "end": (NOW + timedelta(days=9, hours=1)).isoformat(),
+    })
+    params = {"start": NOW.isoformat(), "end": (NOW + timedelta(hours=12)).isoformat()}
     cal = client.get("/api/calendar", params=params).json()
-    assert {b["id"] for b in cal["blocks"]} == {past["id"], future["id"]}
-    assert cal["ghosts"] == []
-
-    # After the periodic job runs, today's missed block becomes a ghost outline.
-    blocks_svc.mark_missed_blocks(db, midnight + timedelta(minutes=2))
-    cal = client.get("/api/calendar", params=params).json()
-    assert [b["id"] for b in cal["blocks"]] == [future["id"]]
-    assert [g["id"] for g in cal["ghosts"]] == [past["id"]]
-    assert cal["ghosts"][0]["task_title"] == "deep work"
+    assert [e["id"] for e in cal["events"]] == [soon["id"]]
+    assert client.post("/api/blocks", json={}).status_code in (404, 405)

@@ -47,7 +47,6 @@ class PushConfig(BaseModel):
     ntfy_server: str = "https://ntfy.sh"
     ntfy_topic_file: str = "local/ntfy-topic.txt"
     ntfy_token_file: str = "local/ntfy-token.txt"
-    quiet_hours: tuple[str, str] = ("22:30", "07:30")
     digest_time: str = "07:45"
 
 

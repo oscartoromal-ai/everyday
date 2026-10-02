@@ -1,10 +1,9 @@
-from datetime import date, datetime, time, timedelta
+from datetime import date, timedelta
 
 import pytest
 
 from app.models import TaskStatus
 from app.services import DomainError, notebook
-from app.services import blocks as blocks_svc
 from app.services import tasks as tasks_svc
 
 TODAY = date.today()
@@ -93,19 +92,6 @@ def test_a_task_whose_reference_never_landed_still_shows(db) -> None:
     assert [b["kind"] for b in blocks] == ["text", "task"]
     assert blocks[1]["id"] == stray.id
     assert notebook.task_ids_on(db, TODAY) == [stray.id]
-
-
-def test_time_on_a_day_creates_moves_and_clears_the_block(db) -> None:
-    task = tasks_svc.create_task(db, title="Run", planned_for=TODAY)
-    block = blocks_svc.set_day_time(db, task, TODAY, time(7), None)
-    assert (block.start, block.end) == (
-        datetime.combine(TODAY, time(7)),
-        datetime.combine(TODAY, time(8)),
-    )
-    moved = blocks_svc.set_day_time(db, task, TODAY, time(18), time(18, 30))
-    assert moved.id == block.id and moved.end == datetime.combine(TODAY, time(18, 30))
-    blocks_svc.set_day_time(db, task, TODAY, None, None)
-    assert task.blocks == []
 
 
 def test_folded_task_rows_follow_their_text(db) -> None:

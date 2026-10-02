@@ -735,19 +735,19 @@ def test_a_task_title_takes_its_fields_from_words(page, live, app_db) -> None:
     page.keyboard.press("Backspace")
     assert text_of(page) == "- [ ] Call the bank tomorrow"
     assert value("planned_for") == "today"
+    # A task takes no time on the calendar: a time stays words.
     page.keyboard.type(" at 3pm ")
-    assert text_of(page) == "- [ ] Call the bank tomorrow "
-    assert value("time") == "15:00–16:00"
+    assert text_of(page) == "- [ ] Call the bank tomorrow at 3pm "
+    assert title.locator(".prop[data-prop=time]").count() == 0
     # A title's last words are taken as it is closed.
     page.keyboard.type("due friday")
     page.keyboard.press("Control+Enter")
-    page.locator(".cal-toast.show", has_text="Task added: Call the bank tomorrow").wait_for()
+    page.locator(".cal-toast.show", has_text="Task added: Call the bank tomorrow at 3pm").wait_for()
     with app_db() as db:
         [task] = tasks_svc.list_tasks(db)
         weekday = (4 - TODAY.weekday() - 1) % 7 + 1
-        assert (task.title, task.planned_for) == ("Call the bank tomorrow", TODAY)
+        assert (task.title, task.planned_for) == ("Call the bank tomorrow at 3pm", TODAY)
         assert task.due == TODAY + timedelta(days=weekday)
-        assert [(b.start.hour, b.end.hour) for b in task.blocks] == [(15, 16)]
 
 
 def test_a_title_s_words_made_a_field_come_back_with_undo(page, live, app_db) -> None:

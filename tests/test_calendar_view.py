@@ -4,7 +4,6 @@ meetings, the day / three days / week views, and an event's card."""
 from datetime import date, datetime, time, timedelta
 
 from app.models import Event, EventSource
-from app.services import blocks as blocks_svc
 from app.services import events as events_svc
 from app.services import recurrence as recurrence_svc
 from app.ui.calendar_view import grid_ctx
@@ -76,10 +75,8 @@ def test_a_cancelled_meeting_shows_struck_and_takes_no_time(db) -> None:
     assert not work(db, "Cancellation policy review", at(11), at(12)).cancelled
     item = items_of(db)["Team sync"]
     assert item["cancelled"]
-    # The hour is free to book.
-    assert blocks_svc.next_free_slot(
-        db, duration=timedelta(hours=1), after=at(9), until=at(10)
-    ) == at(9)
+    # The hour is free.
+    assert events_svc.busy_spans(db, at(9), at(10)) == []
 
 
 def test_an_all_day_event_shows_on_its_own_day_only(db) -> None:
@@ -200,18 +197,6 @@ def test_deleting_one_of_a_series_and_the_rest_from_it(client, db) -> None:
     assert [e.id for e in series()] == [first.id]
 
 
-def test_the_tray_refreshes_and_offers_its_tasks_to_the_composer(client, db) -> None:
-    from app.services import tasks as tasks_svc
-
-    tasks_svc.create_task(db, title="Write the report", planned_for=DAY)
-    tray = client.get(f"/calendar/tray?start={DAY.isoformat()}&days=3").text
-    assert 'id="calendar-tray"' in tray and "calendar:refresh from:body" in tray
-    assert "Write the report" in tray
-    picks = client.get(f"/calendar/tray?start={DAY.isoformat()}&days=3&pick=true").text
-    assert 'class="composer-task"' in picks and "Write the report" in picks
-    assert "calendar-tray" not in picks
-
-
 def test_a_days_load_weighs_its_planned_tasks_against_its_free_time(db) -> None:
     from app.services import tasks as tasks_svc
     from app.ui.calendar_view import day_load
@@ -221,26 +206,19 @@ def test_a_days_load_weighs_its_planned_tasks_against_its_free_time(db) -> None:
     work(db, "Overlapping catch-up", at(12, day=tuesday), at(14, day=tuesday))
     work(db, "Canceled: Retro", at(15, day=tuesday), at(16, day=tuesday))
     tasks_svc.create_task(db, title="Write", planned_for=tuesday, estimate_minutes=90)
-    booked = tasks_svc.create_task(db, title="Review", planned_for=tuesday, estimate_minutes=60)
-    blocks_svc.schedule_block(
-        db, task_id=booked.id, start=at(16, day=tuesday), end=at(17, day=tuesday),
-    )
+    tasks_svc.create_task(db, title="Review", planned_for=tuesday, estimate_minutes=60)
     tasks_svc.create_task(db, title="No estimate", planned_for=tuesday)
     db.flush()
     planned = tasks_svc.list_tasks(db)
     load = day_load(db, tuesday, at(8), planned)
-    # 06:00-22:00 is 16h; 09:00-14:00 and the 16:00 block take 6h (the
-    # cancelled retro none); only the unbooked task's estimate is planned.
-    assert (load["planned"], load["free"], load["over"]) == ("1h 30m", "10h", False)
-    assert load["title"] == (
-        "6h booked, 1h 30m of tasks planned without a time, 10h free from 06:00 to 22:00"
-    )
-    # Today's free time runs from now; a day gone has no load.
+    # 06:00-22:00 is 16h; 09:00-14:00 takes 5h (the cancelled retro none);
+    # the estimates add up to 2h 30m.
+    assert (load["planned"], load["free"], load["over"]) == ("2h 30m", "11h", False)
+    assert load["title"] == "5h booked, 2h 30m of tasks planned, 11h free from 06:00 to 22:00"
+    # Today's free time runs from now, and the plan no longer fits it; a day
+    # gone has no load.
     today_load = day_load(db, tuesday, at(20, 10, day=tuesday), planned)
-    assert (today_load["free"], today_load["over"]) == ("1h 45m", False)
-    tasks_svc.create_task(db, title="Late push", planned_for=tuesday, estimate_minutes=60)
-    today_load = day_load(db, tuesday, at(20, 10, day=tuesday), tasks_svc.list_tasks(db))
-    assert today_load["over"]
+    assert (today_load["free"], today_load["over"]) == ("1h 45m", True)
     assert day_load(db, DAY, at(8, day=tuesday), planned) is None
 
 
@@ -266,3 +244,19 @@ def test_the_header_names_the_iso_weeks_shown(client) -> None:
     page = client.get(f"/calendar?view=week&start={DAY.isoformat()}").text
     assert '<span class="week-number" title="ISO week">W40</span>' in page
     assert f'data-jump-date value="{DAY.isoformat()}"' in page
+
+
+def test_the_hour_label_under_the_now_label_gives_way(db) -> None:
+    from app.ui.calendar_view import week_monday
+
+    monday = week_monday(DAY)
+    # 15:05 sits 4px under the 15:00 line: that label would peek out, so it hides.
+    assert grid_ctx(db, monday, at(15, 5))["hours_under_now"] == [15]
+    # 06:41 comes within a line box of 07:00, but the digits never meet: it stays.
+    assert grid_ctx(db, monday, at(6, 41))["hours_under_now"] == []
+    # 15:30 is clear of both 15:00 and 16:00.
+    assert grid_ctx(db, monday, at(15, 30))["hours_under_now"] == []
+    # 06:10 is 8px under the 06:00 line.
+    assert grid_ctx(db, monday, at(6, 10))["hours_under_now"] == [6]
+    # 00:10 is just under the first label, which sits 2px from the top.
+    assert grid_ctx(db, monday, at(0, 10))["hours_under_now"] == [0]

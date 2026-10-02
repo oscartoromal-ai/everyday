@@ -1,13 +1,13 @@
-"""Event domain logic and the unified calendar range query."""
+"""Event domain logic, the calendar range query, and the time events take."""
 
 from __future__ import annotations
 
 from datetime import datetime
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
-from app.models import Block, Event, EventSource
+from app.models import Event, EventSource
 from app.services import DomainError
 
 
@@ -83,24 +83,31 @@ def get_event(db: Session, event_id: int) -> Event:
     return event
 
 
-def calendar_range(
-    db: Session, start: datetime, end: datetime
-) -> tuple[list[Event], list[Block]]:
-    """Everything the calendar grid renders for [start, end): events of both
-    sources plus task blocks, one query path per the spec."""
-    events = list(
+def calendar_range(db: Session, start: datetime, end: datetime) -> list[Event]:
+    """Every event the calendar shows in [start, end), of both sources."""
+    return list(
         db.scalars(
             select(Event)
             .where(Event.start < end, Event.end > start)
             .order_by(Event.start)
         )
     )
-    blocks = list(
-        db.scalars(
-            select(Block)
-            .options(selectinload(Block.task))
-            .where(Block.start < end, Block.end > start)
-            .order_by(Block.start)
-        )
+
+
+def busy_spans(db: Session, start: datetime, end: datetime) -> list[tuple[datetime, datetime]]:
+    """The time taken between `start` and `end`, as sorted spans that never
+    overlap: timed events, clipped to the window. All-day events and
+    cancelled meetings take none."""
+    spans = sorted(
+        (e.start, e.end)
+        for e in calendar_range(db, start, end)
+        if not e.all_day and not e.cancelled
     )
-    return events, blocks
+    merged: list[tuple[datetime, datetime]] = []
+    for s, e in spans:
+        s, e = max(s, start), min(e, end)
+        if merged and s <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+        else:
+            merged.append((s, e))
+    return merged

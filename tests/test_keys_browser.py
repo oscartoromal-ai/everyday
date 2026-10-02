@@ -194,42 +194,6 @@ def test_keys_that_work_anywhere(page, live, tasks) -> None:
     page.wait_for_url("**/projects")
 
 
-def fixed_clock(monkeypatch, hour: int) -> None:
-    """Pin the fragment endpoints' clock (the live server runs in this process)."""
-    import datetime as dt
-
-    import app.ui.fragments as fragments
-
-    moment = dt.datetime.combine(TODAY, dt.time(hour))
-
-    class Fixed(dt.datetime):
-        @classmethod
-        def now(cls, tz=None):  # noqa: ANN001, ANN206
-            return moment
-
-    monkeypatch.setattr(fragments, "datetime", Fixed)
-
-
-def test_booking_from_the_keyboard(page, live, app_db, monkeypatch) -> None:
-    fixed_clock(monkeypatch, 10)
-    with app_db() as db:
-        first = tasks_svc.create_task(db, title="Golf", planned_for=TODAY)
-        tasks_svc.create_task(db, title="Hotel", planned_for=TODAY)
-        db.commit()
-        first_id = first.id
-    page.goto(live)
-
-    # B: the next free hour today, and on to the next row.
-    press(page, "j")
-    cursor_on(page, "Golf")
-    press(page, "b")
-    page.locator(".cal-toast.show", has_text="Booked 10:00–11:00: Golf").wait_for()
-    cursor_on(page, "Hotel")
-    with app_db() as db:
-        blocks = tasks_svc.get_task(db, first_id).blocks
-        assert [(b.start.hour, b.end.hour) for b in blocks] == [(10, 11)]
-
-
 def test_today_from_the_keyboard(page, live, app_db) -> None:
     page.goto(f"{live}/today")
 

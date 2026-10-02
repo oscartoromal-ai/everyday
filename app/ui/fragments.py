@@ -8,11 +8,9 @@ from typing import Annotated
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from app.dates import duration_label
 from app.db import DbSession
 from app.models import ProjectStatus, RecurrenceKind, TaskOwner, TaskStatus, WorkstreamStatus
 from app.services import DomainError
-from app.services import blocks as blocks_svc
 from app.services import events as events_svc
 from app.services import health as health_svc
 from app.services import projects as projects_svc
@@ -20,14 +18,9 @@ from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
 from app.ui.calendar_view import event_card_ctx
 from app.ui.views import (
-    focus_card_ctx,
-    last_missed_block,
     me_ctx,
-    next_slot_in,
-    next_slot_today,
     project_card_ctx,
     projects_list_ctx,
-    replan_slot,
     row_ctx,
     sheet_ctx,
     templates,
@@ -39,7 +32,7 @@ router = APIRouter(prefix="/ui", include_in_schema=False)
 
 def _row_context(request: Request) -> str:
     """Where a task is being shown, as its page marks its requests: "plan"
-    (the Tasks page), "block" (a calendar block's menu), or "" (a list)."""
+    (the Tasks page), or "" (a list)."""
     return request.headers.get("X-Row-Context", "")
 
 
@@ -49,12 +42,6 @@ def _planning(request: Request) -> bool:
     return _row_context(request) == "plan"
 
 
-def _checklist_response(request: Request, db, task_id: int) -> HTMLResponse:  # noqa: ANN001
-    task = tasks_svc.get_task(db, task_id)
-    context = {"request": request, "row": row_ctx(task, datetime.now())}
-    return templates.TemplateResponse(request, "partials/block_checklist.html", context)
-
-
 def _row_day(request: Request) -> date | None:
     """The day the row is shown under, as a day page marks its requests."""
     value = request.headers.get("X-Row-Day", "")
@@ -62,17 +49,6 @@ def _row_day(request: Request) -> date | None:
         return date.fromisoformat(value) if value else None
     except ValueError:
         return None
-
-
-def _time_range(value: str) -> tuple[time | None, time | None]:
-    """The sheet's time field: "HH:MM", "HH:MM-HH:MM", or empty for none."""
-    if not value:
-        return None, None
-    start, _, end = value.partition("-")
-    try:
-        return time.fromisoformat(start), time.fromisoformat(end) if end else None
-    except ValueError as exc:
-        raise DomainError(f"Not a time: {value}") from exc
 
 
 def _estimate(value: str) -> int | None:
@@ -104,28 +80,20 @@ def _add_task(
     title: str,
     notes: str = "",
     planned_for: str = "",
-    time_range: str = "",
     due: str = "",
     repeat: str = "none",
     project_id: str = "",
     workstream_id: str = "",
-    list_day: str = "",
     done: bool = False,
     estimate: str = "",
 ):
     """A new task as written (quick-add, the task sheet, the notepad's rows),
-    its time booked and its repeat set. Returns it, and whether it was given
-    a time."""
-    start, end = _time_range(time_range)
-    day = date.fromisoformat(planned_for) if planned_for else None
-    if start is not None and day is None:
-        # A time needs a day: the list's, else today.
-        day = date.fromisoformat(list_day) if list_day else date.today()
+    its repeat set."""
     task = tasks_svc.create_task(
         db,
         title=title,
         notes=notes,
-        planned_for=day,
+        planned_for=date.fromisoformat(planned_for) if planned_for else None,
         due=date.fromisoformat(due) if due else None,
         project_id=int(project_id) if project_id else None,
         workstream_id=int(workstream_id) if workstream_id else None,
@@ -133,9 +101,7 @@ def _add_task(
         estimate_minutes=_estimate(estimate),
     )
     _apply_task_repeat(db, task, repeat)
-    if start is not None:
-        blocks_svc.set_day_time(db, task, day, start, end)
-    return task, start is not None
+    return task
 
 
 @router.post("/tasks/quick-add")
@@ -145,7 +111,6 @@ def quick_add(
     title: Annotated[str, Form()],
     notes: Annotated[str, Form()] = "",
     planned_for: Annotated[str, Form()] = "",
-    time_range: Annotated[str, Form(alias="time")] = "",
     due: Annotated[str, Form()] = "",
     repeat: Annotated[str, Form()] = "none",
     project_id: Annotated[str, Form()] = "",
@@ -155,22 +120,21 @@ def quick_add(
     title = title.strip()
     if not title:
         return HTMLResponse("")
-    task, timed = _add_task(
-        db, title=title, notes=notes, planned_for=planned_for, time_range=time_range,
-        due=due, repeat=repeat, project_id=project_id, list_day=list_day, estimate=estimate,
+    task = _add_task(
+        db, title=title, notes=notes, planned_for=planned_for, due=due, repeat=repeat,
+        project_id=project_id, estimate=estimate,
     )
     db.commit()
-    triggers = ["calendar:refresh"] if timed else []
     if list_day and task.planned_for != date.fromisoformat(list_day):
         # Dated away from the list it was written in: it does not join that
         # list, and the page regroups; tasks.js carries the composer.
         response = HTMLResponse("")
-        response.headers["HX-Trigger"] = ", ".join([*triggers, "tasks:changed"])
+        response.headers["HX-Trigger"] = "tasks:changed"
         return response
     response = _row_response(request, db, task.id)
     # Only the page's open count follows; a full list refresh would re-render
     # the composer and pull focus out of it mid-entry.
-    response.headers["HX-Trigger"] = ", ".join([*triggers, "task:added"])
+    response.headers["HX-Trigger"] = "task:added"
     return response
 
 
@@ -198,18 +162,7 @@ def toggle_subtask(
     # A stale toggle changes nothing; either way the fresh render shows the truth.
     tasks_svc.toggle_subtask(db, task_id, index, text)
     db.commit()
-    if _row_context(request) == "block":
-        response = _checklist_response(request, db, task_id)
-        # The task's row elsewhere on the page (Today's list) shows the new count.
-        response.headers["HX-Trigger"] = "tasks:changed"
-        return response
     return _row_response(request, db, task_id, expanded=True)
-
-
-@router.get("/tasks/{task_id}/checklist")
-def task_checklist(request: Request, db: DbSession, task_id: int):
-    """The sub-tasks alone, for a calendar block's menu."""
-    return _checklist_response(request, db, task_id)
 
 
 @router.post("/tasks/{task_id}/toggle")
@@ -221,68 +174,6 @@ def toggle_task(request: Request, db: DbSession, task_id: int):
     response = _row_response(request, db, task_id)
     response.headers["HX-Trigger"] = "calendar:refresh"  # keeps Today's open count honest
     return response
-
-
-@router.post("/tasks/{task_id}/replan")
-def replan_task(request: Request, db: DbSession, task_id: int):
-    """Put a missed task back on the plan in one step: its missed block's
-    length in the next free slot today, or tomorrow when today is full."""
-    task = tasks_svc.get_task(db, task_id)
-    now = datetime.now()
-    missed_block = last_missed_block(task)
-    slot = replan_slot(task, now) if tasks_svc.has_missed_marker(task, now) else None
-    if slot is not None and missed_block is not None:
-        blocks_svc.schedule_block(
-            db, task_id=task_id, start=slot, end=slot + (missed_block.end - missed_block.start)
-        )
-        tasks_svc.update_task(db, task_id, planned_for=now.date())
-    elif missed_block is not None:
-        tasks_svc.update_task(db, task_id, planned_for=now.date() + timedelta(days=1))
-    db.commit()
-    response = _row_response(request, db, task_id)
-    # Today's list and timeline re-render; the Tasks page regroups.
-    response.headers["HX-Trigger"] = "calendar:refresh, tasks:changed"
-    return response
-
-
-@router.post("/tasks/{task_id}/book")
-def book_task(
-    db: DbSession,
-    task_id: int,
-    start: Annotated[str, Form()] = "",
-    days: Annotated[int, Form(ge=1, le=7)] = 1,
-):
-    """Give a task the next free stretch as long as its estimate (an hour
-    without one): today's (B, the keyboard's drop on the timeline), or the
-    days shown from `start` (Book, on Calendar's tray). Its do-date becomes
-    that day. Answers the time booked, its block and the do-date it had, so
-    the booking can be undone; or 422 when there is no room."""
-    now = datetime.now()
-    task = tasks_svc.get_task(db, task_id)
-    had = task.planned_for
-    length = blocks_svc.task_length(task)
-    if start:
-        slot = next_slot_in(db, length, date.fromisoformat(start), days, now)
-        where = "today" if days == 1 and start == now.date().isoformat() else (
-            "on that day" if days == 1 else "in these days"
-        )
-    else:
-        slot = next_slot_today(db, length, now)
-        where = "today"
-    if slot is None:
-        if length == blocks_svc.DEFAULT_LENGTH:
-            raise DomainError(f"No free hour left {where}.")
-        raise DomainError(
-            f"No {duration_label(length // timedelta(minutes=1))} free left {where}."
-        )
-    block = blocks_svc.schedule_block(db, task_id=task_id, start=slot, end=slot + length)
-    tasks_svc.update_task(db, task_id, planned_for=slot.date())
-    db.commit()
-    return JSONResponse({
-        "start": f"{slot:%H:%M}", "end": f"{slot + length:%H:%M}",
-        "day": slot.date().isoformat(), "block_id": block.id,
-        "had": had.isoformat() if had else "",
-    })
 
 
 @router.get("/tasks/{task_id}/edit")
@@ -309,16 +200,10 @@ def save_task(
     project_id: Annotated[str, Form()] = "",
     workstream_id: Annotated[str, Form()] = "",
     planned_for: Annotated[str, Form()] = "",
-    time_range: Annotated[str, Form(alias="time")] = "",
     due: Annotated[str, Form()] = "",
     repeat: Annotated[str, Form()] = "none",
     estimate: Annotated[str, Form()] = "",
 ):
-    was = tasks_svc.get_task(db, task_id).planned_for
-    day = date.fromisoformat(planned_for) if planned_for else None
-    start, end = _time_range(time_range)
-    if start is not None and day is None:
-        day = was or date.today()  # a time needs a day
     task = tasks_svc.update_task(
         db,
         task_id,
@@ -328,23 +213,15 @@ def save_task(
         owner=owner,
         project_id=int(project_id) if project_id else None,
         workstream_id=int(workstream_id) if workstream_id else None,
-        planned_for=day,
+        planned_for=date.fromisoformat(planned_for) if planned_for else None,
         due=date.fromisoformat(due) if due else None,
         estimate_minutes=_estimate(estimate),
     )
     _apply_task_repeat(db, task, repeat)
-    # Its time rides with its day: moved with it, set, or taken away.
-    had = blocks_svc.day_block(task, was) if was else None
-    had_time = f"{had.start:%H:%M}-{had.end:%H:%M}" if had else ""
-    if time_range != had_time or (had is not None and day != was):
-        if day is not None:
-            blocks_svc.set_day_time(db, task, day, start, end, was=was)
-        elif had is not None:
-            blocks_svc.delete_block(db, had.id)
     db.commit()
     response = _row_response(request, db, task_id)
-    # Its day or time may have changed: lists grouped or filtered by day, and
-    # the time grid, re-render.
+    # Its day or estimate may have changed: lists grouped or filtered by day,
+    # and the days' loads on the time grid, re-render.
     response.headers["HX-Trigger"] = "tasks:changed, calendar:refresh"
     return response
 
@@ -387,8 +264,8 @@ def delete_task(db: DbSession, task_id: int):
     tasks_svc.delete_task(db, task_id)
     db.commit()
     response = HTMLResponse("")
-    # Its blocks went with it: the time grid (and on Today, the list and its
-    # open count) re-render from the server.
+    # The days' loads on the time grid (and on Today, the list and its open
+    # count) re-render from the server.
     response.headers["HX-Trigger"] = "calendar:refresh"
     return response
 
@@ -432,13 +309,6 @@ def add_event(
     response = HTMLResponse("")
     response.headers["HX-Trigger"] = "calendar:refresh"
     return response
-
-
-@router.get("/today/focus")
-def today_focus(request: Request, db: DbSession):
-    """Today's focus card: the block running now, or the next one."""
-    context = {"request": request, **focus_card_ctx(db, datetime.now())}
-    return templates.TemplateResponse(request, "partials/focus_card.html", context)
 
 
 @router.get("/search")
@@ -663,9 +533,7 @@ async def save_notebook(request: Request, db: DbSession, day: date):
     return JSONResponse({"version": page.version})
 
 
-NEW_ROW_FIELDS = (
-    "planned_for", "time", "due", "repeat", "project_id", "workstream_id", "estimate",
-)
+NEW_ROW_FIELDS = ("planned_for", "due", "repeat", "project_id", "workstream_id", "estimate")
 
 
 def _add_new_rows(db, block):  # noqa: ANN001, ANN202
@@ -684,9 +552,9 @@ def _add_new_rows(db, block):  # noqa: ANN001, ANN202
         if not title:
             continue
         fields = {name: str(written.get(name) or "") for name in NEW_ROW_FIELDS}
-        task, _ = _add_task(
+        task = _add_task(
             db, title=title, notes=str(written.get("notes", "")),
-            planned_for=fields["planned_for"], time_range=fields["time"], due=fields["due"],
+            planned_for=fields["planned_for"], due=fields["due"],
             repeat=fields["repeat"] or "none", project_id=fields["project_id"],
             workstream_id=fields["workstream_id"], done=written.get("done") is True,
             estimate=fields["estimate"],

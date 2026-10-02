@@ -1,4 +1,4 @@
-"""Task domain logic: lifecycle, list queries, the missed marker."""
+"""Task domain logic: lifecycle and list queries."""
 
 from __future__ import annotations
 
@@ -6,12 +6,11 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app import checklist
 from app.dates import monday
 from app.models import (
-    BlockState,
     Task,
     TaskOwner,
     TaskStatus,
@@ -160,40 +159,15 @@ def toggle_subtask(db: Session, task_id: int, index: int, expected_text: str) ->
     return True
 
 
-def has_missed_marker(task: Task, now: datetime) -> bool:
-    """Missed marker: a block was missed and the task is neither replanned nor closed.
-
-    Derived from block state per the spec; missed is never a task status.
-    Replanned means a block still to come, or a do-date after the day of the
-    last miss that has not itself passed yet.
-    """
-    if task.status in (TaskStatus.done, TaskStatus.cancelled):
-        return False
-    missed = [b for b in task.blocks if b.state == BlockState.missed]
-    if not missed:
-        return False
-    if any(b.state == BlockState.planned and b.start >= now for b in task.blocks):
-        return False
-    missed_on = max(b.start for b in missed).date()
-    redated = task.planned_for is not None and task.planned_for > missed_on
-    return not (redated and task.planned_for >= now.date())
-
-
-def _with_blocks(stmt):  # noqa: ANN001, ANN202
-    return stmt.options(selectinload(Task.blocks))
-
-
 def daily_list(db: Session, day: date) -> list[Task]:
     """Tasks Oscar intends to work on `day`, driven by planned_for."""
-    stmt = _with_blocks(
-        select(Task).where(Task.planned_for == day).order_by(Task.status_changed_at)
-    )
+    stmt = select(Task).where(Task.planned_for == day).order_by(Task.status_changed_at)
     return list(db.scalars(stmt))
 
 
 def backlog(db: Session) -> list[Task]:
     """Open tasks with neither a do-date nor a deadline."""
-    stmt = _with_blocks(
+    stmt = (
         select(Task)
         .where(
             Task.planned_for.is_(None),
@@ -229,9 +203,7 @@ def one_per_series(tasks: list[Task], today: date) -> list[Task]:
 
 def planning_list(db: Session, today: date) -> list[Task]:
     """Oscar's open tasks, for the Tasks page where he gives them days."""
-    stmt = _with_blocks(
-        select(Task).where(Task.owner == TaskOwner.oscar, Task.status.in_(OPEN_STATUSES))
-    )
+    stmt = select(Task).where(Task.owner == TaskOwner.oscar, Task.status.in_(OPEN_STATUSES))
     return one_per_series(list(db.scalars(stmt)), today)
 
 
@@ -255,7 +227,7 @@ def for_day(db: Session, day: date, today: date) -> list[Task]:
 
 def recently_done(db: Session, since: datetime) -> list[Task]:
     """Oscar's tasks finished since `since`, latest first: the Done fold."""
-    stmt = _with_blocks(
+    stmt = (
         select(Task)
         .where(
             Task.owner == TaskOwner.oscar,
@@ -269,7 +241,7 @@ def recently_done(db: Session, since: datetime) -> list[Task]:
 
 def delegated(db: Session) -> list[Task]:
     """The Delegated-to-Claude section: open Claude-owned tasks."""
-    stmt = _with_blocks(
+    stmt = (
         select(Task)
         .where(Task.owner == TaskOwner.claude, Task.status.in_(OPEN_STATUSES))
         .order_by(Task.status_changed_at.desc())
@@ -282,11 +254,9 @@ def next_days(db: Session, start: date, days: int = 7) -> dict[date, dict[str, l
     end = start + timedelta(days=days - 1)
     tasks = list(
         db.scalars(
-            _with_blocks(
-                select(Task).where(
-                    Task.status.in_(OPEN_STATUSES),
-                    (Task.planned_for.between(start, end)) | (Task.due.between(start, end)),
-                )
+            select(Task).where(
+                Task.status.in_(OPEN_STATUSES),
+                (Task.planned_for.between(start, end)) | (Task.due.between(start, end)),
             )
         )
     )
@@ -311,7 +281,7 @@ def list_tasks(
     planned_from: date | None = None,
     planned_to: date | None = None,
 ) -> list[Task]:
-    stmt = _with_blocks(select(Task).order_by(Task.created_at))
+    stmt = select(Task).order_by(Task.created_at)
     if project_id is not None:
         stmt = stmt.where(Task.project_id == project_id)
     if status is not None:

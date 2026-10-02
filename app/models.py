@@ -55,12 +55,6 @@ class TaskOwner(enum.StrEnum):
     claude = "claude"
 
 
-class BlockState(enum.StrEnum):
-    planned = "planned"
-    completed = "completed"
-    missed = "missed"
-
-
 class EventSource(enum.StrEnum):
     local = "local"
     work = "work"
@@ -153,8 +147,7 @@ class Task(Base):
     occurrence_date: Mapped[date | None] = mapped_column(Date, default=None)
     # The day whose notebook page it was written on, if it was written in one.
     written_on: Mapped[date | None] = mapped_column(Date, default=None)
-    # How long its work is thought to take, in minutes: the length of the time
-    # it is given on the calendar, and its weight in a day's plan.
+    # How long its work is thought to take, in minutes: its weight in a day's plan.
     estimate_minutes: Mapped[int | None] = mapped_column(Integer, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     # When the current status was entered; drives the needs_review-age nudge.
@@ -162,26 +155,9 @@ class Task(Base):
 
     project: Mapped[Project | None] = relationship(back_populates="tasks")
     workstream: Mapped[Workstream | None] = relationship(back_populates="tasks")
-    blocks: Mapped[list[Block]] = relationship(back_populates="task", cascade="all, delete-orphan")
     # A nudge is about its task; deleting the task retires its nudges with it.
     nudges: Mapped[list[Nudge]] = relationship(back_populates="task", cascade="all, delete-orphan")
     recurrence_template: Mapped[RecurrenceTemplate | None] = relationship()
-
-
-class Block(Base):
-    __tablename__ = "blocks"
-    __table_args__ = (
-        Index("ix_blocks_start", "start"),
-        Index("ix_blocks_state", "state"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"))
-    start: Mapped[datetime] = mapped_column(DateTime)
-    end: Mapped[datetime] = mapped_column(DateTime)
-    state: Mapped[BlockState] = mapped_column(_enum(BlockState), default=BlockState.planned)
-
-    task: Mapped[Task] = relationship(back_populates="blocks")
 
 
 class Event(Base):
@@ -224,7 +200,6 @@ CANCELLED_PREFIX = re.compile(r"^\s*cancell?ed\s*:\s*", re.IGNORECASE)
 
 
 class NudgeType(enum.StrEnum):
-    missed_block = "missed_block"
     due_soon = "due_soon"
     needs_review = "needs_review"
     # A bill of Finances coming due, not yet paid.

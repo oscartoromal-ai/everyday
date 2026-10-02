@@ -1,16 +1,13 @@
 """Calendar's grid in a real browser: an event drawn on it and written in
-the composer, a task given the time instead, an event's card, an event
-dragged, and the view keys. The `live`, `page` and `app_db` fixtures are
-conftest.py's."""
+the composer, an event's card, an event dragged, and the view keys. The
+`live`, `page` and `app_db` fixtures are conftest.py's."""
 
 from datetime import date, datetime, time, timedelta
 
 import pytest
 
-from app.models import Block, Event, EventSource
-from app.services import blocks as blocks_svc
+from app.models import Event
 from app.services import events as events_svc
-from app.services import tasks as tasks_svc
 
 pytest.importorskip("playwright.sync_api")
 
@@ -58,6 +55,8 @@ def test_an_event_drawn_on_the_grid_and_written_in_the_composer(page, live, app_
     assert composer.locator("[name=start_time]").input_value() == "10:00"
     assert composer.locator("[name=end_time]").input_value() == "11:30"
     assert composer.locator(".composer-note").text_content() == "1h 30m"
+    # The time is an event's: no tasks are offered to take it.
+    assert composer.locator(".composer-tasks").count() == 0
     # The time drawn shows on the grid, with the title as it is written.
     page.keyboard.type("Physio")
     page.locator(".cal-item.preview.composing", has_text="Physio").wait_for()
@@ -93,32 +92,6 @@ def test_words_in_the_title_set_the_events_fields(page, live, app_db) -> None:
     [event] = events_titled(app_db, "Lunch with Ana")
     assert event.start == datetime.combine(tomorrow, time(13))
     assert event.end == datetime.combine(tomorrow, time(14))
-
-
-def test_a_time_drawn_can_go_to_a_task(page, live, app_db) -> None:
-    with app_db() as db:
-        task = tasks_svc.create_task(db, title="Write the report", planned_for=WEDNESDAY)
-        tasks_svc.create_task(db, title="Book flights", planned_for=WEDNESDAY)
-        db.commit()
-        task_id = task.id
-    open_week(page, live)
-    page.mouse.click(x_of(page, WEDNESDAY), y_of(page, 14) + 10)
-    picks = page.locator(".composer-tasks")
-    picks.wait_for()
-    # The title's words narrow the tasks offered.
-    page.keyboard.type("report")
-    assert picks.locator("li:not([hidden])").count() == 1
-    page.keyboard.press("ArrowDown")
-    page.keyboard.press("Enter")
-    page.locator(".cal-item.block", has_text="Write the report").wait_for()
-    with app_db() as db:
-        [block] = db.query(Block).filter(Block.task_id == task_id).all()
-        assert (block.start, block.end) == (
-            datetime.combine(WEDNESDAY, time(14)), datetime.combine(WEDNESDAY, time(15)),
-        )
-    # The tray caught up: the task is no longer waiting for a slot.
-    page.locator("#calendar-tray .tray-task", has_text="Book flights").wait_for()
-    assert page.locator("#calendar-tray .tray-task", has_text="Write the report").count() == 0
 
 
 def test_an_event_is_changed_on_its_card_dragged_and_deleted(page, live, app_db) -> None:
@@ -201,76 +174,6 @@ def test_keys_switch_the_days_shown_and_step_by_them(page, live) -> None:
     page.keyboard.press("w")
     page.wait_for_url("**/calendar?view=week**")
     assert page.locator(".day-col").count() == 7
-
-
-def test_a_task_dropped_on_the_grid_takes_its_estimate(page, live, app_db) -> None:
-    with app_db() as db:
-        task = tasks_svc.create_task(
-            db, title="Write the report", planned_for=WEDNESDAY, estimate_minutes=90,
-        )
-        db.commit()
-        task_id = task.id
-    open_week(page, live)
-    tray = page.locator("#calendar-tray .tray-task", has_text="Write the report")
-    assert tray.locator(".estimate").text_content() == "1h 30m"
-    tray.drag_to(
-        page.locator(f'.day-col[data-date="{WEDNESDAY.isoformat()}"]'),
-        target_position={"x": 40, "y": 10 * 48 + 2},
-    )
-    page.locator(".cal-item.block", has_text="Write the report").wait_for()
-    with app_db() as db:
-        [block] = db.query(Block).filter(Block.task_id == task_id).all()
-        assert block.end - block.start == timedelta(minutes=90)
-
-
-def test_book_puts_a_task_in_the_next_free_stretch_and_undo_takes_it_back(
-    page, live, app_db,
-) -> None:
-    with app_db() as db:
-        task = tasks_svc.create_task(db, title="Write the report", estimate_minutes=45)
-        db.add(Event(
-            title="Standup", source=EventSource.work, read_only=True, external_id="s",
-            start=datetime.combine(MONDAY, time(6)), end=datetime.combine(MONDAY, time(7)),
-        ))
-        db.commit()
-        task_id = task.id
-    open_week(page, live)
-    card = page.locator("#calendar-tray .tray-task", has_text="Write the report")
-    card.locator(".tray-book").click()
-    page.locator(".cal-toast.show", has_text="Booked “Write the report”").wait_for()
-    page.locator(".cal-item.block", has_text="Write the report").wait_for()
-    with app_db() as db:
-        [block] = db.query(Block).filter(Block.task_id == task_id).all()
-        # Next week's Monday, first thing after its standup, for its 45 minutes.
-        assert (block.start, block.end) == (
-            datetime.combine(MONDAY, time(7)), datetime.combine(MONDAY, time(7, 45)),
-        )
-        assert tasks_svc.get_task(db, task_id).planned_for == MONDAY
-    page.locator(".cal-toast.show .toast-action").click()
-    page.locator(".cal-item.block", has_text="Write the report").wait_for(state="detached")
-    with app_db() as db:
-        assert db.query(Block).filter(Block.task_id == task_id).count() == 0
-        assert tasks_svc.get_task(db, task_id).planned_for is None
-
-
-def test_the_focus_card_ticks_sub_tasks_and_completes_the_block(page, live, app_db) -> None:
-    now = datetime.now()
-    with app_db() as db:
-        task = tasks_svc.create_task(db, title="Deep work", notes="- read\n- write")
-        blocks_svc.schedule_block(
-            db, task_id=task.id, start=now - timedelta(minutes=5), end=now + timedelta(minutes=55),
-        )
-        db.commit()
-        task_id = task.id
-    page.goto(f"{live}/today")
-    card = page.locator(".focus-card")
-    card.locator(".subtask-check").first.check()
-    card.locator(".progress", has_text="1/2").wait_for()
-    with app_db() as db:
-        assert tasks_svc.get_task(db, task_id).notes.startswith("- [x] read")
-    card.get_by_role("button", name="Completed").click()
-    page.locator(".focus-card").wait_for(state="detached")
-    page.locator('.cal-item.block[data-state="completed"]', has_text="Deep work").wait_for()
 
 
 def test_a_date_picked_in_the_header_opens_its_days(page, live) -> None:

@@ -1,8 +1,7 @@
 {% from "partials/project_flag.html" import project_flag %}
 <li class="task-row{% if row.done %} done{% endif %}{% if row.project %} in-project{% endif %}" id="task-{{ row.task.id }}"
     {%- if row.project %} style="--project: var(--hue-{{ row.project.color }})"{% endif %}
-    data-task-id="{{ row.task.id }}" data-task-title="{{ row.task.title }}"
-    {%- if row.task.estimate_minutes %} data-estimate="{{ row.task.estimate_minutes }}"{% endif %} tabindex="-1">
+    data-task-id="{{ row.task.id }}" data-task-title="{{ row.task.title }}" tabindex="-1">
   <input type="checkbox" class="task-check" {% if row.done %}checked{% endif %}
          hx-post="/ui/tasks/{{ row.task.id }}/toggle"
          hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML"
@@ -13,7 +12,7 @@
             hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML">
       <span class="task-title">{{ row.task.title }}</span>
     </button>
-    {% if row.description or row.chip or row.project or row.due_label or row.missed or row.block_label or row.planned_label or row.estimate_label %}
+    {% if row.description or row.chip or row.project or row.due_label or row.planned_label or row.estimate_label %}
     <div class="task-meta">
       {% if row.description %}
       <button type="button" class="notes-toggle"
@@ -27,16 +26,9 @@
       <span class="chip {{ row.chip_class }}">{% if row.chip_class == "running" %}<span class="dot"></span>{% endif %}{{ row.chip }}</span>
       {% endif %}
       {% if row.planned_label %}<span class="planned">{{ row.planned_label }}</span>{% endif %}
-      {% if row.block_label %}<span class="when">{{ row.block_label }}</span>{% endif %}
       {% if row.estimate_label %}<span class="estimate" title="Estimate">{{ row.estimate_label }}</span>{% endif %}
       {% if row.project %}{{ project_flag(row.project) }}{% endif %}
       {% if row.due_label %}<span class="due{% if row.due_soon %} soon{% endif %}">{{ row.due_label }}</span>{% endif %}
-      {% if row.missed %}<span class="missed">{{ row.missed_label }}</span>
-      <button type="button" class="replan-btn"
-              hx-post="/ui/tasks/{{ row.task.id }}/replan"
-              hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML">
-        {%- if row.replan_at %}Replan at {{ row.replan_at }}{% else %}Move to tomorrow{% endif -%}
-      </button>{% endif %}
     </div>
     {% endif %}
     {% if row.description %}
@@ -96,7 +88,7 @@
           hx-confirm="Delete task?"
           data-confirm-title="Delete task?"
           data-confirm-name="{{ row.task.title }}"
-          data-confirm-detail="will be deleted, along with any time blocked for it on the calendar. This can't be undone."
+          data-confirm-detail="will be deleted. This can't be undone."
           data-confirm-action="Delete">
     <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>
   </button>

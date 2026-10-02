@@ -25,10 +25,9 @@ def test_typed_words_become_fields_and_backspace_takes_them_back(page, live) -> 
     title = sheet.locator(".sheet-title")
     sheet.locator(".sheet-line").click()
 
-    page.keyboard.type("Buy flowers friday at 5pm due saturday every week ")
+    page.keyboard.type("Buy flowers friday due saturday every week ")
     assert title.text_content() == "Buy flowers "
     assert sheet.locator("input[name=planned_for]").input_value() == next_weekday(4).isoformat()
-    assert sheet.locator("input[name=time]").input_value() == "17:00-18:00"
     assert sheet.locator("input[name=due]").input_value() == next_weekday(5).isoformat()
     assert sheet.locator("input[name=repeat]").input_value() == "weekly"
 
@@ -40,10 +39,10 @@ def test_typed_words_become_fields_and_backspace_takes_them_back(page, live) -> 
     page.keyboard.type(" for mum ")
     assert title.text_content() == "Buy flowers tomorrow for mum "
 
-    # A time is a time only when it says so: a colon, am/pm, or "at".
-    page.keyboard.type("and 2 cards 9-10:30am ")
-    assert title.text_content() == "Buy flowers tomorrow for mum and 2 cards "
-    assert sheet.locator("input[name=time]").input_value() == "09:00-10:30"
+    # A task takes no time on the calendar: a time stays words.
+    page.keyboard.type("at 5pm ")
+    assert title.text_content() == "Buy flowers tomorrow for mum at 5pm "
+    assert sheet.locator("input[name=time]").count() == 0
 
 
 def test_the_composer_adds_with_its_fields(page, live, app_db) -> None:

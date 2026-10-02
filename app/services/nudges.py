@@ -13,15 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.dates import short_date
-from app.models import (
-    Block,
-    BlockState,
-    MoneyBill,
-    Nudge,
-    NudgeType,
-    Task,
-    TaskStatus,
-)
+from app.models import MoneyBill, Nudge, NudgeType, Task, TaskStatus
 from app.services import events as events_svc
 from app.services import money as money_svc
 from app.services import tasks as tasks_svc
@@ -52,33 +44,11 @@ def evaluate(db: Session, now: datetime) -> list[Nudge]:
     today = now.date()
     created: list[Nudge] = []
 
-    # 1. Missed blocks: nudge to replan the fallen-back task.
     open_tasks = list(
-        db.scalars(
-            select(Task)
-            .options(selectinload(Task.blocks))
-            .where(Task.status.in_(tasks_svc.OPEN_STATUSES))
-        )
+        db.scalars(select(Task).where(Task.status.in_(tasks_svc.OPEN_STATUSES)))
     )
-    for task in open_tasks:
-        if not tasks_svc.has_missed_marker(task, now):
-            continue
-        missed_blocks = [b for b in task.blocks if b.state == BlockState.missed]
-        block: Block = max(missed_blocks, key=lambda b: b.start)
-        nudge = _raise_nudge(
-            db,
-            type_=NudgeType.missed_block,
-            dedup_key=f"missed:{block.id}",
-            message=(
-                f"“{task.title}” missed its block {short_date(block.start.date(), today)} "
-                f"at {block.start:%H:%M}. Replan it?"
-            ),
-            task_id=task.id,
-        )
-        if nudge:
-            created.append(nudge)
 
-    # 3. Upcoming due dates within the lookahead window.
+    # 1. Upcoming due dates within the lookahead window.
     horizon = today + timedelta(days=DUE_LOOKAHEAD_DAYS)
     for task in open_tasks:
         if task.due is not None and today <= task.due <= horizon:
@@ -92,7 +62,7 @@ def evaluate(db: Session, now: datetime) -> list[Nudge]:
             if nudge:
                 created.append(nudge)
 
-    # 4. Needs-review backlog beyond the threshold.
+    # 2. Needs-review backlog beyond the threshold.
     for task in open_tasks:
         if (
             task.status == TaskStatus.needs_review
@@ -110,7 +80,7 @@ def evaluate(db: Session, now: datetime) -> list[Nudge]:
             )
             if nudge:
                 created.append(nudge)
-    # 5. Bills of Finances coming due, not yet seen paid.
+    # 3. Bills of Finances coming due, not yet seen paid.
     for day, bill in money_svc.upcoming(db, today, DUE_LOOKAHEAD_DAYS + 1):
         if money_svc.payment(db, bill, day) is not None:
             continue
@@ -135,30 +105,28 @@ def _bill_still_due(db: Session, nudge: Nudge) -> bool:
     return money_svc.payment(db, bill, due) is None
 
 
-def _still_holds(nudge: Nudge, now: datetime) -> bool:
-    """Whether the fact a task's nudge names is still true: a replanned or
-    finished task has had its answer, so its nudge stops asking."""
+def _still_holds(nudge: Nudge) -> bool:
+    """Whether the fact a task's nudge names is still true: a finished task
+    has had its answer, so its nudge stops asking."""
     task = nudge.task
     if task is None:
         return True
-    if nudge.type == NudgeType.missed_block:
-        return tasks_svc.has_missed_marker(task, now)
     if nudge.type == NudgeType.needs_review:
         return task.status == TaskStatus.needs_review
     return task.status in tasks_svc.OPEN_STATUSES
 
 
-def active_nudges(db: Session, now: datetime) -> list[Nudge]:
+def active_nudges(db: Session) -> list[Nudge]:
     """Undismissed nudges whose fact still holds, newest first."""
     nudges = db.scalars(
         select(Nudge)
-        .options(selectinload(Nudge.task).selectinload(Task.blocks))
+        .options(selectinload(Nudge.task))
         .where(Nudge.dismissed_at.is_(None))
         .order_by(Nudge.created_at.desc())
     )
     return [
         n for n in nudges
-        if (_bill_still_due(db, n) if n.type == NudgeType.bill_due else _still_holds(n, now))
+        if (_bill_still_due(db, n) if n.type == NudgeType.bill_due else _still_holds(n))
     ]
 
 
@@ -170,22 +138,13 @@ def dismiss(db: Session, nudge_id: int, now: datetime | None = None) -> None:
 
 
 def build_morning_digest(db: Session, now: datetime) -> str:
-    """The day's shape in one message: plan, events, misses, dues, review pile."""
+    """The day's shape in one message: plan, events, dues, review pile."""
     today = now.date()
     day_start = datetime.combine(today, datetime.min.time())
     day_end = day_start + timedelta(days=1)
 
     planned = [t for t in tasks_svc.daily_list(db, today) if t.status in tasks_svc.OPEN_STATUSES]
-    events, _ = events_svc.calendar_range(db, day_start, day_end)
-    missed = [
-        t
-        for t in db.scalars(
-            select(Task)
-            .options(selectinload(Task.blocks))
-            .where(Task.status.in_(tasks_svc.OPEN_STATUSES))
-        )
-        if tasks_svc.has_missed_marker(t, now)
-    ]
+    events = events_svc.calendar_range(db, day_start, day_end)
     horizon = today + timedelta(days=DUE_LOOKAHEAD_DAYS)
     due = list(
         db.scalars(
@@ -202,8 +161,6 @@ def build_morning_digest(db: Session, now: datetime) -> str:
     lines.append(
         f"{len(planned)} task(s) planned, {len(events)} event(s) on the calendar."
     )
-    if missed:
-        lines.append("Missed and unreplanned: " + "; ".join(t.title for t in missed[:5]) + ".")
     if due:
         lines.append(
             "Due soon: "

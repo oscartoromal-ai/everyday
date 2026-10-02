@@ -18,7 +18,6 @@ from app.api.tasks import task_out
 from app.db import session_scope
 from app.models import ProjectStatus, TaskOwner, TaskStatus
 from app.services import DomainError
-from app.services import blocks as blocks_svc
 from app.services import events as events_svc
 from app.services import habits as habits_svc
 from app.services import history as history_svc
@@ -29,8 +28,8 @@ from app.services import tasks as tasks_svc
 mcp = FastMCP(
     "personal-calendar",
     instructions=(
-        "Oscar's personal planner: projects, tasks, calendar events, and scheduled "
-        "task blocks. The app database is canonical for cross-project plan state. "
+        "Oscar's personal planner: projects, tasks and calendar events. "
+        "The app database is canonical for cross-project plan state. "
         "Dates are calendar dates (YYYY-MM-DD); datetimes are naive local wall time. "
         "A task's notes are its free-form description: lines starting with '- ' are "
         "its sub-tasks ('- [x] ' once done), and other lines are context around them. "
@@ -102,8 +101,7 @@ def list_tasks(
     planned_from: date | None = None,
     planned_to: date | None = None,
 ) -> list[dict[str, Any]]:
-    """List tasks, optionally filtered. Each task carries its blocks and a `missed`
-    flag (a scheduled block passed uncompleted and was not replanned)."""
+    """List tasks, optionally filtered."""
     with session_scope("claude") as db:
         found = tasks_svc.list_tasks(
             db,
@@ -113,8 +111,7 @@ def list_tasks(
             planned_from=planned_from,
             planned_to=planned_to,
         )
-        now = datetime.now()
-        return [task_out(t, now).model_dump() for t in found]
+        return [task_out(t).model_dump() for t in found]
 
 
 class TaskUpsert(BaseModel):
@@ -138,8 +135,8 @@ def upsert_tasks(tasks: list[TaskUpsert]) -> list[dict[str, Any]]:
     due is the deadline. starts_on is the day its work starts on its project's
     Gantt (a week's work starts on its Monday): its bar runs from there to its
     due, so give a due with it (alone it ends that week's Friday); null clears
-    it. estimate_minutes is how long its work is thought to take (the length
-    of the time it is given on the calendar); null clears it. owner is oscar
+    it. estimate_minutes is how long its work is thought to take (its weight
+    in a day's plan); null clears it. owner is oscar
     or claude. notes is the description: write
     sub-tasks as '- ' lines (tick one by rewriting it as '- [x] '), keeping context
     lines next to the sub-tasks they explain."""
@@ -169,12 +166,12 @@ def update_task_status(task_id: int, status: TaskStatus) -> dict[str, Any]:
 @mcp.tool
 def get_agenda(start: date | None = None, days: int = 1) -> dict[str, Any]:
     """The plan for `days` days from `start` (default today): calendar events,
-    scheduled task blocks, tasks planned per day, and upcoming dues."""
+    tasks planned per day, and upcoming dues."""
     with session_scope("claude") as db:
         first = start or date.today()
         window_start = datetime.combine(first, datetime.min.time())
         window_end = window_start + timedelta(days=days)
-        events, blocks = events_svc.calendar_range(db, window_start, window_end)
+        events = events_svc.calendar_range(db, window_start, window_end)
         view = tasks_svc.next_days(db, first, days=days)
         pages = {
             first + timedelta(days=i): _notebook_payload(db, first + timedelta(days=i), brief=True)
@@ -182,17 +179,6 @@ def get_agenda(start: date | None = None, days: int = 1) -> dict[str, Any]:
         }
         return {
             "events": [EventOut.model_validate(e).model_dump() for e in events],
-            "blocks": [
-                {
-                    "id": b.id,
-                    "task_id": b.task_id,
-                    "task_title": b.task.title,
-                    "start": b.start,
-                    "end": b.end,
-                    "state": b.state,
-                }
-                for b in blocks
-            ],
             "days": {
                 str(day): {
                     "planned": [task_out(t).model_dump() for t in v["planned"]],
@@ -345,15 +331,6 @@ def get_task_history(task_id: int) -> list[dict[str, Any]]:
             {"at": c["at"], "actor": c["actor"], "change": c["change"], "fields": c["fields"]}
             for c in history_svc.changes(db, task_id)
         ]
-
-
-@mcp.tool
-def schedule_block(task_id: int, start: datetime, end: datetime) -> dict[str, Any]:
-    """Give a task a calendar block (protected time). Naive local datetimes."""
-    with session_scope("claude") as db:
-        block = blocks_svc.schedule_block(db, task_id=task_id, start=start, end=end)
-        return {"id": block.id, "task_id": block.task_id, "start": block.start,
-                "end": block.end, "state": block.state}
 
 
 @mcp.tool

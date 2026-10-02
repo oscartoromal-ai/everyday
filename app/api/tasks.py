@@ -1,6 +1,6 @@
 ﻿from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 
 from fastapi import APIRouter
 
@@ -12,10 +12,8 @@ from app.services import tasks as tasks_svc
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
 
-def task_out(task: Task, now: datetime | None = None) -> TaskOut:
-    out = TaskOut.model_validate(task)
-    out.missed = tasks_svc.has_missed_marker(task, now or datetime.now())
-    return out
+def task_out(task: Task) -> TaskOut:
+    return TaskOut.model_validate(task)
 
 
 @router.get("")
@@ -35,8 +33,7 @@ def list_tasks(
         planned_from=planned_from,
         planned_to=planned_to,
     )
-    now = datetime.now()
-    return [task_out(t, now) for t in tasks]
+    return [task_out(t) for t in tasks]
 
 
 @router.post("", status_code=201)

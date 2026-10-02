@@ -44,7 +44,7 @@ With the app running, add it as a user-level MCP server:
 claude mcp add --scope user --transport http personal-calendar http://127.0.0.1:8377/mcp/
 ```
 
-This gives any Claude Code session the planner tools (list/upsert projects and tasks, update task status, get the agenda, read the day's notes and a task's history, schedule a block, add an event) against the same database the web UI uses.
+This gives any Claude Code session the planner tools (list/upsert projects and tasks, update task status, get the agenda, read the day's notes and a task's history, add an event) against the same database the web UI uses.
 No auth is required locally; the trust boundary is the network (localhost and the tailnet), not a token.
 
 ## Nutrition and Spending chat setup
@@ -98,8 +98,8 @@ Push notifications go through a managed [ntfy.sh](https://ntfy.sh) topic.
 1. Pick an unguessable topic name (ntfy topics are unauthenticated by name alone) and create an access token for it at ntfy.sh.
 2. Put the topic name into `local/ntfy-topic.txt` and the token into `local/ntfy-token.txt`.
    Both files are git-ignored.
-3. Quiet hours and the morning digest time are set in `config.toml` under `[push]`.
-   Only the morning digest and genuinely time-sensitive nudges (a block just missed) push through; everything else waits for the in-app nudge center.
+3. The morning digest time is set in `config.toml` under `[push]`.
+   Only the morning digest pushes through; everything else waits for the in-app nudge center.
 
 ## Tailscale access
 

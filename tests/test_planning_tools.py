@@ -1,9 +1,7 @@
-"""The planning tools around a task: keyboard triage hooks, filing by drag,
-and a block's checklist on the calendar."""
+"""The planning tools around a task: keyboard triage hooks and filing by drag."""
 
-from datetime import date, datetime, timedelta
+from datetime import date
 
-from app.services import blocks as blocks_svc
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
@@ -60,42 +58,6 @@ def test_filing_moves_a_task_between_workstreams_projects_and_none(client, db) -
         f"/api/tasks/{task.id}", json={"project_id": other.id, "workstream_id": m.id}
     )
     assert refused.status_code >= 400 and "workstream" in refused.json()["detail"].lower()
-
-
-def test_block_menu_lists_the_tasks_subtasks(client, db) -> None:
-    task = tasks_svc.create_task(
-        db, title="ship sync", planned_for=TODAY, notes="Context.\n- fetch\n- [x] parse"
-    )
-    start = datetime.combine(TODAY, datetime.min.time()) + timedelta(hours=12)
-    blocks_svc.schedule_block(db, task_id=task.id, start=start, end=start + timedelta(hours=1))
-
-    page = client.get("/today").text
-    assert f'data-task-id="{task.id}" data-state="planned"' in page
-    assert f'hx-get="/ui/tasks/{task.id}/checklist"' not in page  # set when a menu opens
-
-    checklist = client.get(f"/ui/tasks/{task.id}/checklist").text
-    assert "fetch" in checklist and "parse" in checklist
-    assert "Context." not in checklist  # context stays in the description
-    assert '<span class="progress">1/2</span>' in checklist
-    assert 'hx-target="closest .block-menu-checklist"' in checklist
-
-
-def test_ticking_in_a_block_menu_returns_the_checklist(client, db) -> None:
-    task = tasks_svc.create_task(db, title="ship sync", notes="- fetch\n- parse")
-    response = client.post(
-        f"/ui/tasks/{task.id}/subtasks/0/toggle",
-        data={"text": "fetch"},
-        headers={"X-Row-Context": "block"},
-    )
-    assert task.notes == "- [x] fetch\n- parse"
-    assert "block-checklist" in response.text and "task-row" not in response.text
-    # Today's list, beside the timeline, catches up with the count.
-    assert response.headers["HX-Trigger"] == "tasks:changed"
-
-
-def test_a_task_without_subtasks_adds_nothing_to_its_menu(client, db) -> None:
-    task = tasks_svc.create_task(db, title="plain", notes="Only context.")
-    assert client.get(f"/ui/tasks/{task.id}/checklist").text.strip() == ""
 
 
 def test_a_save_is_committed_before_its_response_is_sent() -> None:

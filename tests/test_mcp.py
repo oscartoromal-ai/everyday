@@ -7,7 +7,7 @@ from fastmcp.exceptions import ToolError
 from app.mcp.server import mcp
 
 TODAY = date.today()
-# Midday, so the block stays on today's agenda whatever the time the suite runs.
+# Midday, so the event stays on today's agenda whatever the time the suite runs.
 NOON = datetime.combine(TODAY, time(12, 0))
 
 EXPECTED_TOOLS = {
@@ -17,7 +17,6 @@ EXPECTED_TOOLS = {
     "upsert_tasks",
     "update_task_status",
     "get_agenda",
-    "schedule_block",
     "add_event",
     "get_notebook",
     "get_task_history",
@@ -30,6 +29,7 @@ async def test_planner_surface(app_db) -> None:
     async with Client(mcp) as client:
         tools = {t.name for t in await client.list_tools()}
     assert tools >= EXPECTED_TOOLS
+    assert "schedule_block" not in tools  # a task takes no time on the calendar
 
 
 async def test_upsert_project_matches_by_name(app_db) -> None:
@@ -73,20 +73,14 @@ async def test_task_flow_through_tools(app_db) -> None:
         ).data
         assert updated["status"] == "in_progress"
 
-        block = (
-            await client.call_tool(
-                "schedule_block",
-                {
-                    "task_id": task["id"],
-                    "start": NOON.isoformat(),
-                    "end": NOON.replace(hour=13).isoformat(),
-                },
-            )
-        ).data
-        assert block["task_id"] == task["id"]
+        one_pm = NOON.replace(hour=13)
+        await client.call_tool(
+            "add_event", {"title": "pairing", "start": NOON.isoformat(), "end": one_pm.isoformat()}
+        )
 
         agenda = (await client.call_tool("get_agenda", {"start": str(TODAY)})).data
-        assert [b["task_title"] for b in agenda["blocks"]] == ["wire the MCP server"]
+        assert [e["title"] for e in agenda["events"]] == ["pairing"]
+        assert "blocks" not in agenda
         assert [t["id"] for t in agenda["days"][str(TODAY)]["planned"]] == [task["id"]]
 
 

@@ -1,8 +1,8 @@
 """A task's estimate: how long its work is thought to take, set in the task
 sheet (its menu, or words such as "45m"), in Today's notes and by Claude,
-and the length of the time it is given on the calendar."""
+and its weight in a day's plan (test_calendar_view.py)."""
 
-from datetime import date, datetime, time
+from datetime import date
 
 import pytest
 from fastmcp import Client
@@ -15,10 +15,6 @@ from app.services import tasks as tasks_svc
 from app.ui.views import history_ctx
 
 TODAY = date.today()
-
-
-def at(hour: int, minute: int = 0) -> datetime:
-    return datetime.combine(TODAY, time(hour, minute))
 
 
 def test_a_duration_reads_as_it_is_written() -> None:
@@ -43,7 +39,6 @@ def test_the_sheet_writes_and_clears_it(client, db) -> None:
     assert task.estimate_minutes == 45
     row = client.get(f"/ui/tasks/{task.id}/row").text
     assert '<span class="estimate" title="Estimate">45m</span>' in row
-    assert 'data-estimate="45"' in row  # what a drop on the grid takes as its length
     sheet = client.get(f"/ui/tasks/{task.id}/edit").text
     assert 'name="estimate" value="45"' in sheet and ">45m</span>" in sheet
 
@@ -64,25 +59,6 @@ def test_its_history_says_how_it_changed(db) -> None:
     lines = [line for step in history_ctx(history_svc.changes(db, task.id), TODAY)
              for line in step["lines"]]
     assert "Estimate: none → 1h 30m" in lines
-
-
-def test_booking_gives_a_task_its_estimate(client, db, monkeypatch) -> None:
-    from tests.test_ui import _fixed_now
-
-    _fixed_now(monkeypatch, at(9, 10))
-    task = tasks_svc.create_task(db, title="Write the report", estimate_minutes=90)
-    response = client.post(f"/ui/tasks/{task.id}/book")
-    assert (response.json()["start"], response.json()["end"]) == ("09:15", "10:45")
-
-
-def test_booking_says_when_its_estimate_does_not_fit(client, db, monkeypatch) -> None:
-    from tests.test_ui import _fixed_now
-
-    _fixed_now(monkeypatch, at(20, 50))
-    task = tasks_svc.create_task(db, title="Write the report", estimate_minutes=90)
-    response = client.post(f"/ui/tasks/{task.id}/book")
-    assert response.status_code == 422
-    assert response.json() == {"detail": "No 1h 30m free left today."}
 
 
 def test_a_task_written_in_todays_notes_keeps_its_estimate(client, db) -> None:
@@ -108,31 +84,3 @@ async def test_claude_sets_an_estimate(app_db) -> None:
         )).data
         assert task["estimate_minutes"] is None
 
-
-def test_book_finds_the_next_free_stretch_in_the_days_shown(client, db, monkeypatch) -> None:
-    from datetime import timedelta
-
-    from app.models import Event, EventSource
-    from tests.test_ui import _fixed_now
-
-    tomorrow = TODAY + timedelta(days=1)
-    _fixed_now(monkeypatch, at(21))
-    task = tasks_svc.create_task(db, title="Write the report", estimate_minutes=120)
-    db.add(Event(
-        title="Workshop", source=EventSource.work, read_only=True,
-        start=datetime.combine(tomorrow, time(6)), end=datetime.combine(tomorrow, time(9)),
-    ))
-    db.flush()
-    # Today has an hour left: the stretch goes to tomorrow, after its workshop.
-    response = client.post(
-        f"/ui/tasks/{task.id}/book", data={"start": TODAY.isoformat(), "days": "3"},
-    )
-    answer = response.json()
-    when = (answer["day"], answer["start"], answer["end"])
-    assert when == (tomorrow.isoformat(), "09:00", "11:00")
-    db.refresh(task)
-    assert task.planned_for == tomorrow
-    # Within one day with no room, it says so.
-    other = tasks_svc.create_task(db, title="Read", estimate_minutes=120)
-    response = client.post(f"/ui/tasks/{other.id}/book", data={"start": TODAY.isoformat()})
-    assert response.json() == {"detail": "No 2h free left today."}

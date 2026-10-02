@@ -7,7 +7,7 @@ Every section gists a decision made on that map and links the ticket that holds 
 ## 1. Product shape
 
 - Single user (Oscar), single machine (Windows 11), browser UI, no cloud backend.
-- The app is the canonical store for personal plan state: projects, tasks, events, blocks.
+- The app is the canonical store for personal plan state: projects, tasks, events.
 - Claude is a first-class client: it reads and writes the plan through MCP from day one.
 - The work calendar is visible read-only inside the app; the app never writes to it.
 
@@ -15,7 +15,7 @@ Every section gists a decision made on that map and links the ticket that holds 
 
 Per [v1 phasing](tracker/tickets/002-v1-phasing.md):
 
-- **v1**: the hybrid planner: calendar (events plus chosen task blocks), todos, projects with workstreams, manual entry, recurrence for both events and tasks, the work-calendar ICS feed, the MCP planner interface, nudges (three of four triggers), Tailscale phone access.
+- **v1**: the hybrid planner: calendar (events), todos, projects with workstreams, manual entry, recurrence for both events and tasks, the work-calendar ICS feed, the MCP planner interface, nudges (three of four triggers), Tailscale phone access.
 - **v2**: automatic capture of Claude Code session work (MCP plan tools as the semantic channel, lifecycle hooks as the deterministic trace); enables the fourth nudge trigger.
 - **v3**: goals, which projects roll up into.
 - **v4**: habits and routines. Habits came early (Oscar's call on 2026-09-27): written in the notepad as "/habit name" (see Today), kept as their own entity rather than recurring tasks, so they never crowd the task lists; a table of when each was done and missed is next.
@@ -30,18 +30,14 @@ Review flows are deliberately unspecified here; they sharpen as their phase near
 
 Per [Planning model](tracker/tickets/001-planning-model.md), decided against interactive prototypes ([asset](tracker/prototypes/planning-model.html)):
 
-- **Hybrid**: to-dos live in lists by default; a task gets a calendar block only when Oscar chooses to give it a slot.
-  The calendar shows real events plus deliberately scheduled task blocks, never a forced block per task.
+- **Tasks take no time on the calendar** (Oscar's call on 2026-10-02, after the blocks went unused): to-dos live in lists and on their days; the calendar shows events alone.
+  Task blocks went with it: the To schedule tray, giving a drawn time to a task, Book, a task's time in the sheet, Today's focus card, and the missed marker with its replan, nudge and ghost outline (all in git history).
 - **Delegated to Claude** is a list section with status chips (queued, running, needs review), not a calendar lane.
-- **Missed blocks**: when a scheduled block passes uncompleted, the task falls back to the list wearing a visible "missed" marker until replanned or completed.
-  Replanned means a block still to come, or a do-date after the day it missed that has not itself passed; the row offers one step back onto the plan, the next free slot today or else tomorrow.
-  The empty slot stays on today's calendar as a faded ghost outline, gone tomorrow.
-  The calendar's future is a plan; its past stays honest.
 - **Tasks** is where the app opens, because planning comes before doing: every open task of Oscar's, grouped by do-date (Overdue, No date, Today, Tomorrow, Later this week, Next week, Later), each with one-click Today and Tomorrow buttons and a date picker.
   No date is the backlog, always shown and sorted deadlines first; a repeating series shows only its next occurrence (on Projects too); Claude's tasks stay in Delegated to Claude.
   A By date / By project switch (remembered) regroups the same tasks as Projects' cards (workstreams, then other tasks, each card with its quick add and Add a workstream), followed by a No project card.
 - **Done folds away**: finished tasks leave their lists for a collapsed Done fold, under Today's list and at the foot of Tasks (the last 14 days), where unticking one sends it back.
-- **Sub-tasks and the calendar**: sub-tasks have no blocks of their own; a task's block is the time its checklist is worked, and the block's menu on the calendar lists the sub-tasks so they tick off there. Workstreams likewise hold tasks, never sub-tasks.
+- **Sub-tasks** live in their task's description and tick off on its row; workstreams hold tasks, never sub-tasks.
 - **The command menu** (Oscar's call on 2026-10-02, after Akiflow and Notion Calendar): Ctrl+K (or Cmd+K) anywhere, or Search in the rail (the phone's tab bar), is one line to find and go.
   It finds tasks (open first, by their words or their description), projects, events (a series once, at its meeting nearest now) and the days' notes; a task found opens Tasks with the cursor on it, a project its Gantt, an event its day on Calendar with its card open, and notes their day.
   A day's words ("friday", "tomorrow", "12 oct", "2026-10-12") go to that day on Calendar or to its notes; every page is there by name, and the things to do from anywhere (a new task, a new event, the theme, compact rows, the keys).
@@ -56,7 +52,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   Spelling is marked only in the row being written (Oscar's call on 2026-09-28): a row left, and every row once out of the notes, shows no marks; the task sheet's title and description lines likewise.
   A task is written in them: "- [ ] " at a row's start makes the row a task, drawn indented as a checkbox and "Task" (not text); the rows added under it with Enter are indented the same way and are its description, and "- [ ] " on one of them makes it a sub-task, with its own box; plain rows stay at the left.
   A ticked sub-task is crossed out, and a ticked task, title and rows; a sub-task's tick is written to its task's description at once.
-  Writing a task never needs the mouse (Oscar's call on 2026-09-28): Tab and Shift+Tab stay in the notes, Tab going from a task's title to the row under it (a new one when it has none), taking a plain row right under a task into it, and making a task's row a sub-task, Shift+Tab stepping back out; and as in the task sheet, "friday", "at 3pm", "due friday" or "every week" and a space in a task's title set that field, a title's last words taken as it is closed; since a word can be meant as a word, each is an undo step of its own that Ctrl+Z (or Backspace straight after) takes back with its field, the words then staying words, and a title closed with words taken says so in its toast ("Task added: Book flights, due Fri 2 Oct"), with Undo.
+  Writing a task never needs the mouse (Oscar's call on 2026-09-28): Tab and Shift+Tab stay in the notes, Tab going from a task's title to the row under it (a new one when it has none), taking a plain row right under a task into it, and making a task's row a sub-task, Shift+Tab stepping back out; and as in the task sheet, "friday", "due friday", "every week" or "30m" and a space in a task's title set that field, a title's last words taken as it is closed; since a word can be meant as a word, each is an undo step of its own that Ctrl+Z (or Backspace straight after) takes back with its field, the words then staying words, and a title closed with words taken says so in its toast ("Task added: Book flights, due Fri 2 Oct"), with Undo.
   Lines pasted inside a task (its title or a row) stay inside it: each after the first becomes one of its rows, a "- [ ] " line a sub-task, so a paste never ends a task early or starts another (reflections, habits and stays likewise).
   A row deleted from inside a task (by Backspace, Delete or a cut, its words, box and tab all gone) goes whole, the caret at the end of the row above, so the rows under it stay the task's.
   Every task stays bracketed by a rule above and below its rows (one rule between two right under each other), and one with rows under its title folds to its title and back, and stays so; Ctrl+Enter or Esc in a task saves it (added for that day, or the task it made updated), Ctrl+Enter then going on to a plain row.
@@ -78,25 +74,22 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   Its items are his to name (place and accommodation to begin with; a new stay starts with the items the last one had), and under the date the day's stay reads item by item, the unsorted ones in amber.
   A stay is written day by day, not as a range; a view of all days' stays together is next.
   Every day has its notepad: Left and Right (outside the text) go a day back or on, and past days stay editable.
-  Above today's timeline, its focus (Oscar's call on 2026-10-02, after Sunsama's focus mode, without its timer): the block running now, the time left in it, its task's sub-tasks to tick and Completed; with none running, the next block today and how long until it; nothing once the day's blocks are done.
   A glance under the date (Oscar's call on 2026-10-02, after Oura's and Garmin's morning scores and Notion Calendar's next meeting) reads the day at once; whether its plan fits is the timeline's line above its hours.
-  On today's it names the event on now (till when) and the next (in how long), each with its meeting link's Join; a cancelled meeting and an all-day event are passed over, and task blocks are the focus's.
+  On today's it names the event on now (till when) and the next (in how long), each with its meeting link's Join; a cancelled meeting and an all-day event are passed over.
   Then how Oscar came into the day, from his watch: readiness (a low one, Garmin's POOR or LOW, asking to keep the day light), sleep and its score, and body battery; a past day's page shows its own.
   Today's is redrawn each minute and as the calendar changes.
   On a phone the page stacks: the header with its glance first, so the next thing on is the first thing seen, then the notes and their lists, then the timeline in a window of its own (75% of the screen), opened on now.
   N writes a new task from Today in the capture window, as on Calendar; the day's plan is made on Tasks, where the nudge center opens.
   It replaces [the notebook](#the-notebook-decided-2026-09-26), where lines became tasks and reflections, and the storyboard sheet that followed it; both are in git history.
-- **Calendar** (Oscar's call on 2026-10-02, against Google Calendar, Notion Calendar and Fantastical) is the time grid of events and task blocks, as a day, three days or a week (D, X, W), the choice remembered on each device and a phone starting on three days.
+- **Calendar** (Oscar's call on 2026-10-02, against Google Calendar, Notion Calendar and Fantastical) is the time grid of events, as a day, three days or a week (D, X, W), the choice remembered on each device and a phone starting on three days.
   The grid runs the whole day, scrolled within the window to the usual day (06:00 to 22:00) with now in view; Left and Right step by the days shown, and a switch keeps today in view.
   The title names the ISO weeks shown after the days ("W40", "W40–41"), as the Gantt counts weeks, and a calendar icon after the steps (or G) picks any date to go to.
-  Each day to come says whether its plan fits it (Oscar's call on 2026-10-02, after Sunsama): under its head (and above Today's timeline), its planned tasks without a time, by their estimates, against the time still free in its usual hours (today's from now), a warn badge when they do not fit; what is booked is in the tooltip.
+  Each day to come says whether its plan fits it (Oscar's call on 2026-10-02, after Sunsama): under its head (and above Today's timeline), its planned tasks, by their estimates, against the time its meetings leave free in its usual hours (today's from now), a warn badge when they do not fit; the meetings' time is in the tooltip.
   Items starting within half an hour of each other sit side by side; one starting later is laid over those still running, stepped in, so each keeps its width and its title.
   A meeting called off (Outlook's "Canceled: " subject) stays in its place, struck through, and takes no time: free slots pass over it.
   A click on an event opens its card: when and where, a meeting link as its Join button.
-  Oscar's own events are changed and deleted there (one of a series alone, or it and the later ones), and dragged and resized on the grid as blocks are; work meetings stay read-only.
-  Drawing on the empty grid, or clicking an hour, writes an event there in the composer, whose title takes the task sheet's words ("saturday", "at 7pm", "every week"); New event (E) opens it on its own, all day until given a time.
-  Over a time drawn, the tasks to schedule in the days shown are offered too, narrowed by the words written, and the one picked takes the time as its block.
-  Each task in the To schedule tray has Book: the next free stretch in the days shown (the usual hours, none past), as long as its estimate, its do-date that day; the toast says when, with Undo (Oscar's call on 2026-10-02: a one-click place, never automatic scheduling).
+  Oscar's own events are changed and deleted there (one of a series alone, or it and the later ones), and dragged and resized on the grid; work meetings stay read-only.
+  Drawing on the empty grid, or clicking an hour, writes an event there in the composer, whose title takes words as the task sheet's does, and a time ("saturday", "at 7pm", "every week"); New event (E) opens it on its own, all day until given a time.
 - **A project as a Gantt chart** (Oscar's call on 2026-09-30: "I work in weeks", "a kind of Excel interface"): each project opens (`/projects/<id>`, from its card's bars icon) as a spreadsheet of its plan by week.
   A row per workstream, its tasks under it and a row to write one more; then the other tasks, and a row to write a workstream; a column per week (the ISO week, over its Monday), frozen beside Task, Start, Wks and Due.
   It drills down to days (Oscar's call on 2026-10-01): a Weeks / Days switch (or V) for the whole sheet, remembered, the same days kept in view; in Days a column per day, weekends tinted, the length in days, and every move by days.
@@ -141,19 +134,13 @@ A stream of the project's work run beside its others, a lane of its tasks with n
 Deleting one leaves its tasks in the project, in none.
 
 **Task**: title, notes, status, owner (oscar / claude), optional project, optional workstream (only of its own project), optional planned_for (do-date), optional due (deadline), optional starts_on (its start week on its project's Gantt), optional position (its place among its group's rows there), optional written_on (the notebook page it was written on), optional estimate (how long its work is thought to take, a minute to a day).
-An estimate is set in the task sheet (its stopwatch icon, or "45m", "1h30" or "2 hours" as the title is written), in Today's notes the same way, and by Claude; it is the length of the time the task is given on the calendar (dropped on the grid, or booked with B), an hour without one, and its weight in a day's plan.
+An estimate is set in the task sheet (its stopwatch icon, or "45m", "1h30" or "2 hours" as the title is written), in Today's notes the same way, and by Claude; it is the task's weight in a day's plan.
 Notes are the task's free-form description, and sub-tasks live inside it: a line starting with "- " (or "* ") is a sub-task, "- [x] " once done, and every other line is context kept where it was written.
 Sub-tasks are text, not rows: they carry no status, owner, or dates of their own, and ticking one rewrites only its own line.
 A repeating task's occurrences start with every sub-task open.
 planned_for is the day Oscar intends to work it and drives the daily list; due is the obligation and drives urgency.
 Backlog tasks have neither.
 starts_on always comes with a due, never after it: its span is its start day to its due, a start given alone ends that week's Friday (or on itself at a weekend), a due cleared takes the start with it, and a due moved before the start pulls the start back to its week's Monday.
-
-**Block**: belongs to one task; start, end, state (planned / completed / missed).
-A task accumulates blocks over time (missed Tuesday, re-slotted Thursday).
-The missed marker and the ghost outline both derive from block state; missed is a block-level fact, never a task status.
-
-A task's time is a block on its do-date: giving a task a time (in the sheet, or "at 3pm" as it is written) creates, moves or removes that block, an hour long unless an end is given.
 
 **TaskRevision**: one step in a task's history: when, who (oscar, claude or system), the kind of change (created, updated, deleted), and the task's fields as they stood after it.
 Recorded by the ORM on every flush that touches a task, whatever path made the change, and kept after the task is deleted; the history started on 2026-09-26 with a baseline of every task as it stood.
@@ -301,18 +288,17 @@ The web UI writing to the same database; nothing extra to build.
 Per [Decision: AI nudging and notifications](tracker/tickets/013-ai-nudging.md):
 
 - **Triggers (rule-based, no Claude in the loop)**:
-  1. Missed blocks: a scheduled block passed uncompleted; nudge to replan.
-  2. Activity without plan update (arrives with v2 data): sessions ran in a project but no MCP plan update followed.
-  3. Upcoming due dates within about 3 days, task not done.
-  4. Needs-review backlog: tasks sitting in needs_review beyond a threshold.
-  5. A bill of Finances due within about 3 days and not yet seen paid; its nudge retires once a payment is seen.
+  1. Upcoming due dates within about 3 days, task not done.
+  2. Needs-review backlog: tasks sitting in needs_review beyond a threshold.
+  3. A bill of Finances due within about 3 days and not yet seen paid; its nudge retires once a payment is seen.
+  4. Activity without plan update (arrives with v2 data): sessions ran in a project but no MCP plan update followed.
+  Missed blocks were the first, until task blocks went (2026-10-02).
 - Nudges are templated by APScheduler jobs; Claude remains the planner Oscar talks to, not a background voice.
-- A task's nudge shows only while its fact still holds: replanning a missed task, finishing a task, or clearing its review retires the nudge without a dismissal.
+- A task's nudge shows only while its fact still holds: finishing a task, or clearing its review, retires the nudge without a dismissal.
 - **Channels**: an in-app nudge center (inbox/banner, each nudge dismissable or actionable) plus phone push via a relay.
   Windows toasts explicitly not used.
-- **Cadence**: a morning digest bundles the day's shape, missed blocks, upcoming dues, and review backlog.
-  Only genuinely time-sensitive items (due-today slipping, a block just missed) break through during the day.
-  Quiet hours are configurable.
+- **Cadence**: a morning digest bundles the day's shape, upcoming dues, bills and the review backlog; it is the only push, the rest waiting in the app.
+  The time-sensitive break-through push (a block just missed) went with task blocks, and its quiet hours with it.
 
 ## 8. Architecture
 
@@ -331,7 +317,7 @@ Per [Architecture](tracker/tickets/009-architecture.md) and [Decision: security 
 ### Frontend
 
 - Server-rendered: Jinja templates plus HTMX for pages, lists, and forms; no build step, state server-side.
-- Real client JS is limited to a few focused vanilla islands, each built well once: the calendar (its grid and Today's timeline: drag-to-slot, drawing and writing events, their cards), the task sheet (one editor for adding and editing, with its line-based description editor), Today's notebook (the same line editor in prose mode, with the sheet as its task box), and the chats with Claude on Nutrition and Spending (the answer streamed as it is written).
+- Real client JS is limited to a few focused vanilla islands, each built well once: the calendar (its grid and Today's timeline: drawing, writing and dragging events, their cards), the task sheet (one editor for adding and editing, with its line-based description editor), Today's notebook (the same line editor in prose mode, with the sheet as its task box), and the chats with Claude on Nutrition and Spending (the answer streamed as it is written).
 
 ### Background jobs
 

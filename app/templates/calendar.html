@@ -39,13 +39,7 @@
     </button>
   </div>
 
-  <div class="calendar-layout">
-    {% include "partials/calendar_grid.html" %}
-
-    {% with start = grid.start, days = grid.day_count, pick = False %}
-      {% include "partials/calendar_tray.html" %}
-    {% endwith %}
-  </div>
+  {% include "partials/calendar_grid.html" %}
 </div>
 
 <script src="{{ asset('calendar.js') }}" defer></script>

@@ -5,7 +5,6 @@ Oscar came into the day)."""
 from datetime import date, datetime, timedelta
 
 from app.models import GarminDay, TaskOwner, TaskStatus
-from app.services import blocks as blocks_svc
 from app.services import events as events_svc
 from app.services import notebook as notebook_svc
 from app.services import tasks as tasks_svc
@@ -101,9 +100,6 @@ def test_the_glance_names_the_events_on_now_and_next(db) -> None:
         location="https://example.zoom.us/j/123?pwd=x",
     )
     events_svc.create_event(db, title="Canceled: Lunch", start=at(9, 40), end=at(10))
-    # A task's block is the focus card's, not the glance's.
-    block_task = tasks_svc.create_task(db, title="Write", planned_for=DAY)
-    blocks_svc.schedule_block(db, task_id=block_task.id, start=at(9, 45), end=at(10))
     db.flush()
 
     on_now, on_next = day_glance_ctx(db, DAY, NOW)["on"]

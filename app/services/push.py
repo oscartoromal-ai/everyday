@@ -1,13 +1,12 @@
 """Phone push via managed ntfy.sh (SPEC.md section 8).
 
-Topic and token live in git-ignored files under local/. Quiet hours suppress
-break-through pushes; the morning digest is scheduled outside them.
+Topic and token live in git-ignored files under local/. The morning digest
+is the only push.
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, time
 
 import httpx
 
@@ -28,17 +27,6 @@ def _read_local(path_str: str) -> str | None:
         return None
     value = path.read_text(encoding="utf-8").strip()
     return value or None
-
-
-def in_quiet_hours(now: datetime) -> bool:
-    settings = get_settings()
-    start_s, end_s = settings.push.quiet_hours
-    start = time.fromisoformat(start_s)
-    end = time.fromisoformat(end_s)
-    current = now.time()
-    if start <= end:
-        return start <= current < end
-    return current >= start or current < end  # window wraps midnight
 
 
 def send_push(title: str, message: str) -> bool:

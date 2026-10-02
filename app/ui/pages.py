@@ -9,7 +9,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse
 
 from app.db import DbSession
-from app.ui.calendar_view import VIEWS, calendar_nav, grid_ctx, tray_tasks, view_start
+from app.ui.calendar_view import VIEWS, calendar_nav, grid_ctx, view_start
 from app.ui.views import (
     TASKS_VIEWS,
     day_glance_ctx,
@@ -45,7 +45,7 @@ def tasks_page(request: Request, db: DbSession, view: str | None = None):
             **_base(request, "tasks"),
             **tasks_page_ctx(db, now, view),
             # The nudge center opens the app, where the day's plan is made.
-            "nudges": nudges_svc.active_nudges(db, now),
+            "nudges": nudges_svc.active_nudges(db),
         },
     )
     response.set_cookie(TASKS_VIEW_COOKIE, view, max_age=60 * 60 * 24 * 365, samesite="strict")
@@ -135,7 +135,6 @@ def calendar_page(
             # Each day headed, a single one too: its head carries its load.
             "grid": grid_ctx(db, first_day, now, days, head=True),
             "nav": calendar_nav(view, first_day, now.date()),
-            "tray": tray_tasks(db, first_day, now, days),
         },
     )
     if view in (request.query_params.get("view"), request.cookies.get(CALENDAR_VIEW_COOKIE)):
@@ -162,29 +161,6 @@ def calendar_grid(
         request,
         "partials/calendar_grid.html",
         {"request": request, "grid": grid_ctx(db, start, now, day_count=days, head=head)},
-    )
-
-
-@router.get("/calendar/tray")
-def calendar_tray(
-    request: Request,
-    db: DbSession,
-    start: date,
-    days: Annotated[int, Query(ge=1, le=7)] = 7,
-    pick: bool = False,
-):
-    """The tasks worth giving time in the days shown: Calendar's tray, or as
-    picks (`pick`), the choices of the event composer drawn on a grid."""
-    return templates.TemplateResponse(
-        request,
-        "partials/calendar_tray.html",
-        {
-            "request": request,
-            "tray": tray_tasks(db, start, datetime.now(), days),
-            "start": start,
-            "days": days,
-            "pick": pick,
-        },
     )
 
 

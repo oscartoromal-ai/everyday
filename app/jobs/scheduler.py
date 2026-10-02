@@ -1,8 +1,7 @@
 """APScheduler wiring: background jobs share app code and database sessions.
 
-Jobs land here as their milestones arrive: missed blocks (M4), recurrence
-materialization (M5), work-calendar poll (M6), nudges and digest (M7),
-backups (M8).
+Jobs land here as their milestones arrive: recurrence materialization (M5),
+work-calendar poll (M6), nudges and digest (M7), backups (M8).
 """
 
 from __future__ import annotations
@@ -16,9 +15,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.config import get_settings
 from app.db import get_session_factory, session_scope
-from app.models import NudgeType
 from app.services import backup as backup_svc
-from app.services import blocks as blocks_svc
 from app.services import garmin as garmin_svc
 from app.services import nudges as nudges_svc
 from app.services import push as push_svc
@@ -26,17 +23,6 @@ from app.services import recurrence as recurrence_svc
 from app.services import work_calendar as work_calendar_svc
 
 log = logging.getLogger(__name__)
-
-# Only genuinely time-sensitive nudge types break through during the day.
-BREAK_THROUGH_TYPES = {NudgeType.missed_block}
-
-
-def run_mark_missed_blocks() -> None:
-    with session_scope() as db:
-        missed = blocks_svc.mark_missed_blocks(db, datetime.now())
-        if missed:
-            log.info("Marked %d block(s) missed", len(missed))
-
 
 def run_materialize_recurrence() -> None:
     with session_scope() as db:
@@ -58,17 +44,11 @@ def run_work_calendar_sync() -> None:
 
 
 def run_nudge_evaluation() -> None:
-    now = datetime.now()
+    # Nudges wait in the app; the morning digest is the only push.
     with session_scope() as db:
-        created = nudges_svc.evaluate(db, now)
-    if not created:
-        return
-    log.info("Raised %d nudge(s)", len(created))
-    if push_svc.in_quiet_hours(now):
-        return
-    for nudge in created:
-        if nudge.type in BREAK_THROUGH_TYPES:
-            push_svc.send_push("Personal Calendar", nudge.message)
+        created = nudges_svc.evaluate(db, datetime.now())
+    if created:
+        log.info("Raised %d nudge(s)", len(created))
 
 
 def run_morning_digest() -> None:
@@ -100,12 +80,6 @@ def run_garmin_sync() -> None:
 def create_scheduler() -> BackgroundScheduler:
     scheduler = BackgroundScheduler()
     scheduler.add_job(
-        run_mark_missed_blocks,
-        IntervalTrigger(minutes=5),
-        id="mark_missed_blocks",
-        next_run_time=datetime.now(),  # also run at startup
-    )
-    scheduler.add_job(
         run_materialize_recurrence,
         CronTrigger(hour=4, minute=0),
         id="materialize_recurrence",
@@ -122,7 +96,7 @@ def create_scheduler() -> BackgroundScheduler:
         run_nudge_evaluation,
         IntervalTrigger(minutes=15),
         id="nudge_evaluation",
-        next_run_time=datetime.now() + timedelta(seconds=30),  # after the missed-block pass
+        next_run_time=datetime.now() + timedelta(seconds=30),  # soon after startup
     )
     digest_hour, digest_minute = get_settings().push.digest_time.split(":")
     scheduler.add_job(

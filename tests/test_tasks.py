@@ -2,9 +2,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app.models import BlockState, TaskOwner, TaskStatus
+from app.models import TaskOwner, TaskStatus
 from app.services import DomainError
-from app.services import blocks as blocks_svc
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
@@ -40,78 +39,6 @@ def test_status_change_stamps_status_changed_at(db) -> None:
     assert task.status_changed_at == before
     tasks_svc.set_status(db, task.id, TaskStatus.in_progress)
     assert task.status_changed_at > before
-
-
-def test_missed_marker_derives_from_blocks(db) -> None:
-    task = tasks_svc.create_task(db, title="deep work", planned_for=TODAY)
-    block = blocks_svc.schedule_block(
-        db, task_id=task.id, start=NOW - timedelta(hours=3), end=NOW - timedelta(hours=2)
-    )
-    assert not tasks_svc.has_missed_marker(task, NOW)
-
-    missed = blocks_svc.mark_missed_blocks(db, NOW)
-    assert [b.id for b in missed] == [block.id]
-    assert tasks_svc.has_missed_marker(task, NOW)
-
-    # Replanning to a future slot clears the marker; the missed block stays missed.
-    blocks_svc.schedule_block(
-        db, task_id=task.id, start=NOW + timedelta(hours=1), end=NOW + timedelta(hours=2)
-    )
-    assert not tasks_svc.has_missed_marker(task, NOW)
-    assert block.state == BlockState.missed
-
-
-def test_a_new_do_date_after_the_miss_replans(db) -> None:
-    yesterday = TODAY - timedelta(days=1)
-    task = tasks_svc.create_task(db, title="call", planned_for=yesterday)
-    start = NOW - timedelta(days=1)
-    blocks_svc.schedule_block(db, task_id=task.id, start=start, end=start + timedelta(hours=1))
-    blocks_svc.mark_missed_blocks(db, NOW)
-    assert tasks_svc.has_missed_marker(task, NOW)
-
-    # Given a day after the miss (Weeks drag, T on Tasks, Move to tomorrow): replanned.
-    for day in (TODAY, TODAY + timedelta(days=1)):
-        tasks_svc.update_task(db, task.id, planned_for=day)
-        assert not tasks_svc.has_missed_marker(task, NOW)
-    # Once that new day passes too, it is missed again.
-    assert tasks_svc.has_missed_marker(task, NOW + timedelta(days=2))
-
-
-def test_a_block_missed_on_its_do_date_stays_missed(db) -> None:
-    task = tasks_svc.create_task(db, title="write", planned_for=TODAY)
-    blocks_svc.schedule_block(
-        db, task_id=task.id, start=NOW - timedelta(hours=3), end=NOW - timedelta(hours=2)
-    )
-    blocks_svc.mark_missed_blocks(db, NOW)
-    assert tasks_svc.has_missed_marker(task, NOW)
-
-
-
-def test_missed_marker_gone_when_done(db) -> None:
-    task = tasks_svc.create_task(db, title="t")
-    blocks_svc.schedule_block(
-        db, task_id=task.id, start=NOW - timedelta(hours=3), end=NOW - timedelta(hours=2)
-    )
-    blocks_svc.mark_missed_blocks(db, NOW)
-    tasks_svc.set_status(db, task.id, TaskStatus.done)
-    assert not tasks_svc.has_missed_marker(task, NOW)
-
-
-def test_ghost_blocks_scoped_to_day(db) -> None:
-    task = tasks_svc.create_task(db, title="t")
-    yesterday = blocks_svc.schedule_block(
-        db,
-        task_id=task.id,
-        start=NOW - timedelta(days=1, hours=2),
-        end=NOW - timedelta(days=1, hours=1),
-    )
-    today = blocks_svc.schedule_block(
-        db, task_id=task.id, start=NOW - timedelta(hours=2), end=NOW - timedelta(hours=1)
-    )
-    blocks_svc.mark_missed_blocks(db, NOW)
-    ghosts = blocks_svc.ghost_blocks(db, TODAY)
-    assert [g.id for g in ghosts] == [today.id]
-    assert yesterday.state == BlockState.missed  # still missed, just not today's ghost
 
 
 def test_daily_backlog_delegated_lists(db) -> None:
@@ -184,31 +111,17 @@ def test_workstream_progress(db) -> None:
     assert projects_svc.workstream_progress(db, m.id) == (1, 2)
 
 
-def test_block_requires_open_task(db) -> None:
-    task = tasks_svc.create_task(db, title="t")
-    tasks_svc.set_status(db, task.id, TaskStatus.done)
-    with pytest.raises(DomainError):
-        blocks_svc.schedule_block(
-            db, task_id=task.id, start=NOW, end=NOW + timedelta(hours=1)
-        )
-
-
-def test_deleting_a_task_takes_its_blocks_and_nudges(db) -> None:
+def test_deleting_a_task_takes_its_nudges(db) -> None:
     from sqlalchemy import select
 
-    from app.models import Block, Nudge
+    from app.models import Nudge
     from app.services import nudges as nudges_svc
 
-    task = tasks_svc.create_task(db, title="slipped", planned_for=TODAY)
-    blocks_svc.schedule_block(
-        db, task_id=task.id, start=NOW - timedelta(hours=3), end=NOW - timedelta(hours=2)
-    )
-    blocks_svc.mark_missed_blocks(db, NOW)
-    assert nudges_svc.evaluate(db, NOW)  # a missed-block nudge now points at the task
+    task = tasks_svc.create_task(db, title="invoice", due=TODAY + timedelta(days=1))
+    assert nudges_svc.evaluate(db, NOW)  # a due nudge now points at the task
 
     tasks_svc.delete_task(db, task.id)
 
-    assert db.scalars(select(Block)).all() == []
     assert db.scalars(select(Nudge)).all() == []
 
 

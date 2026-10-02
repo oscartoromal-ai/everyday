@@ -18,8 +18,8 @@
    box or tab away, and the row is plain again. Tab and Shift+Tab never
    leave the notes: Tab goes from a title to the row under it, takes a
    plain row into the task above it, and makes a task's row a sub-task;
-   Shift+Tab steps back out. As in the task sheet, "friday", "at 3pm",
-   "due friday" or "every week" and a space in a title become its fields.
+   Shift+Tab steps back out. As in the task sheet, "friday", "due friday",
+   "every week" or "30m" and a space in a title become its fields.
 
    Every task is bracketed by a rule above its title and below its last row,
    always (one rule between a task and the one right under it); the task
@@ -99,10 +99,10 @@
 
   // Each task row's task: {id, saved, fields}. id once it is added; saved:
   // its title and description as last written to it; fields: its do date,
-  // time, project and the rest, as the sheet posts them. A task not yet
+  // project and the rest, as the sheet posts them. A task not yet
   // added is for the notes' day.
   const newFields = () => ({
-    planned_for: day, time: "", due: "", repeat: "none", estimate: "",
+    planned_for: day, due: "", repeat: "none", estimate: "",
     project_id: "", workstream_id: "", status: "todo", owner: "oscar",
   });
   const newTask = () => ({ id: null, saved: null, fields: newFields(), folded: false });
@@ -910,10 +910,10 @@
   let converted = null; // {m, name, previous, at, words, doc}: the last, for Backspace
   const toField = (v, line, caret, { closing = false } = {}) => {
     const text = `${line.text.slice(BOX, caret - line.from)} `;
-    const field = window.TaskSheet?.fieldOfWords(text);
-    if (!field) return null;
     const m = v.state.field(tasksField).find(({ pos }) => pos === line.from)?.m;
-    if (!m || m.kept?.has(field.start)) return null;
+    if (!m) return null;
+    const field = window.TaskSheet?.fieldOfWords(text, (name) => !!controlsOf(m).elements[name]);
+    if (!field || m.kept?.has(field.start)) return null;
     const at = line.from + BOX + field.start;
     const words = v.state.sliceDoc(at, caret);
     // Closing, the space before the words goes with them.
@@ -966,7 +966,6 @@
     const shown = button?.querySelector(".prop-value")?.textContent || "";
     if (c.name === "planned_for") return `do ${shown}`;
     if (c.name === "due") return `due ${shown}`;
-    if (c.name === "time") return `at ${shown}`;
     if (c.name === "estimate") return `${shown} estimate`;
     return (button?.title || "").toLowerCase();
   };

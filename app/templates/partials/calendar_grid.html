@@ -9,7 +9,7 @@
      hx-swap="outerHTML">
   {% set has_all_day = grid.days | selectattr("all_day") | list | length > 0 %}
   {# A day's load: what its planned tasks are estimated at against the time
-     still free in its usual hours, in the tooltip with what is booked. #}
+     still free in its usual hours, in the tooltip with the meetings' time. #}
   {% macro load_line(load) %}
   <span class="day-load{% if load.over %} over{% endif %}" title="{{ load.title }}">
     {%- if load.planned %}<span class="planned">{{ load.planned }} planned</span><span class="sep"> · </span>{% endif -%}
@@ -74,7 +74,6 @@
       {% set geometry = "top: %spx; height: %spx; --lane: %s; --lanes: %s; --indent: %spx; z-index: %s; --title-lines: %s;" | format(item.top, item.height, item.lane, item.lanes, item.indent_px, 2 + item.depth, item.title_lines) %}
       {% set wrap = " wrap" if item.title_lines > 1 else "" %}
       {% set stacked = " stacked" if item.depth else "" %}
-      {% if item.kind == "event" %}
       <div class="cal-item event {{ item.source }}{{ wrap }}{{ stacked }}{% if item.cancelled %} cancelled{% endif %}{% if item.movable %} movable{% endif %}"
            style="{{ geometry }}" data-event-id="{{ item.id }}"
            data-start="{{ item.start_iso }}" data-end="{{ item.end_iso }}"
@@ -83,35 +82,13 @@
         {% if item.show_time %}<span class="item-time">{{ item.time_label }}{% if item.location_label %} · {{ item.location_label }}{% endif %}</span>{% endif %}
         {% if item.movable %}<div class="resize-handle" aria-hidden="true"></div>{% endif %}
       </div>
-      {% elif item.kind == "ghost" %}
-      <div class="cal-item ghost{{ wrap }}{{ stacked }}" style="{{ geometry }}" title="Missed: {{ item.title }}">
-        <span class="item-title">{{ item.title }}</span>
-      </div>
-      {% else %}
-      <div class="cal-item block{{ wrap }}{{ stacked }}{% if item.state == 'planned' %} movable{% endif %}" style="{{ geometry }}"
-           data-block-id="{{ item.id }}" data-task-id="{{ item.task_id }}" data-state="{{ item.state }}"
-           data-start="{{ item.start_iso }}" data-end="{{ item.end_iso }}"
-           title="{{ item.title }}">
-        <span class="item-title">{{ item.title }}</span>
-        {% if item.show_time %}<span class="item-time">{{ item.time_label }}</span>{% endif %}
-        {% if item.state == "planned" %}<div class="resize-handle" aria-hidden="true"></div>{% endif %}
-      </div>
-      {% endif %}
       {% endfor %}
     </div>
     {% endfor %}
   </div>
-  <template id="block-menu-template">
-    <div class="block-menu" role="menu">
-      <div class="block-menu-title"></div>
-      <div class="block-menu-checklist" hx-trigger="load" hx-headers='{"X-Row-Context": "block"}'></div>
-      <button type="button" class="btn primary" data-action="complete">Completed</button>
-      <button type="button" class="btn danger-quiet" data-action="delete">Remove block</button>
-    </div>
-  </template>
   {# The event composer: opened over a time drawn on the grid, or by New event
      (E) with the day's own fields; words in its title set them as the task
-     sheet's do (calendar.js). Over a time, a task can take it instead. #}
+     sheet's do (calendar.js). #}
   <template id="event-composer-template">
     <form class="event-composer" role="dialog" aria-label="New event" autocomplete="off">
       <span class="field-line"><input class="composer-title event-title" name="title" placeholder="New event" aria-label="Event title" required></span>
@@ -141,10 +118,6 @@
         <span class="composer-note"></span>
         <button type="submit" class="btn primary">Add event</button>
       </div>
-      <section class="composer-tasks" hidden>
-        <h3>Or give a task this time</h3>
-        <ul class="composer-task-list"></ul>
-      </section>
     </form>
   </template>
 </div>

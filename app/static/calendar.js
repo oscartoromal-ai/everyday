@@ -1,15 +1,14 @@
-/* The calendar island, on Calendar's grid and Today's timeline: drag a task
-   onto the grid to give it time; move and resize planned blocks and Oscar's
-   own events; draw on the grid (or click it) to write an event there, or to
-   give the time to a task; click an event for its card, a block for its
-   menu. On Calendar, D, X and W switch the days shown and E writes an event.
+/* The calendar island, on Calendar's grid and Today's timeline: move and
+   resize Oscar's own events; draw on the grid (or click it) to write an event
+   there; click an event for its card. On Calendar, D, X and W switch the days
+   shown and E writes an event.
    The grid is server-rendered and re-rendered via htmx (calendar:refresh);
    all listeners live on document so they survive swaps. */
 
 (() => {
   const SNAP_MIN = 15;
   const CLICK_SNAP_MIN = 30;
-  const DEFAULT_BLOCK_MIN = 60;
+  const DEFAULT_EVENT_MIN = 60;
   const DAY_MIN = 24 * 60;
 
   const grid = () => document.getElementById("calendar-grid");
@@ -127,7 +126,7 @@
     document.elementsFromPoint(x, y).find((el) => el.classList?.contains("day-col"));
   const colOf = (dateStr) => grid()?.querySelector(`.day-col[data-date="${dateStr}"]`);
 
-  /* ---- a preview on the grid: a drop, a move, or the time being written ---- */
+  /* ---- a preview on the grid: a move, or the time being written ---- */
 
   const makePreview = () => {
     const el = document.createElement("div");
@@ -148,7 +147,7 @@
   };
   const clearPreview = () => { preview?.remove(); preview = null; };
 
-  /* ---- floating cards: one at a time (the block menu, an event's card, the composer) ---- */
+  /* ---- floating cards: one at a time (an event's card, the composer) ---- */
 
   let floating = null; // {el, close}
   const closeFloating = () => {
@@ -198,60 +197,7 @@
     closeFloating();
   });
 
-  /* ---- 1. drag a task (tray, or Today's list) onto the grid ---- */
-
-  // Task rows inside a [data-drag-to-grid] list become drag sources; re-armed
-  // whenever htmx swaps a row in (toggle, edit, quick-add).
-  const armRows = () =>
-    document
-      .querySelectorAll("[data-drag-to-grid] .task-row[data-task-id]")
-      .forEach((row) => { row.draggable = !row.classList.contains("done"); });
-  armRows();
-  document.addEventListener("htmx:load", armRows);
-
-  // A task dropped takes its estimate's length, else an hour. A drag's data
-  // cannot be read until the drop, so the length is kept as it starts.
-  let dragLength = DEFAULT_BLOCK_MIN;
-  const lengthOf = (el) => Math.min(Number(el.dataset.estimate) || DEFAULT_BLOCK_MIN, DAY_MIN);
-
-  document.addEventListener("dragstart", (e) => {
-    const source = e.target.closest?.("[draggable='true'][data-task-id]");
-    if (!source) return;
-    e.dataTransfer.setData("text/task-id", source.dataset.taskId);
-    e.dataTransfer.setData("text/task-title", source.dataset.taskTitle);
-    e.dataTransfer.effectAllowed = "copyMove";
-    dragLength = lengthOf(source);
-  });
-
-  document.addEventListener("dragover", (e) => {
-    if (!e.dataTransfer.types.includes("text/task-id")) return;
-    const col = e.target.closest?.(".day-col");
-    if (!col) { clearPreview(); return; }
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
-    const start = Math.min(snapMinutes(col, e.clientY), DAY_MIN - dragLength);
-    showPreview(col, start, dragLength, lengthLabel(dragLength));
-  });
-
-  document.addEventListener("drop", async (e) => {
-    const taskId = e.dataTransfer.getData("text/task-id");
-    if (!taskId) return;
-    const col = e.target.closest?.(".day-col");
-    clearPreview();
-    if (!col) return;
-    e.preventDefault();
-    const startMin = Math.min(snapMinutes(col, e.clientY), DAY_MIN - dragLength);
-    await api("POST", "/api/blocks", {
-      task_id: Number(taskId),
-      start: isoAt(col.dataset.date, startMin),
-      end: isoAt(col.dataset.date, startMin + dragLength),
-    });
-    refresh();
-  });
-
-  document.addEventListener("dragend", clearPreview);
-
-  /* ---- 2. on the grid with the pointer: move and resize what is movable,
+  /* ---- 1. on the grid with the pointer: move and resize what is movable,
      open what is clicked, draw a new event's time on the empty grid ---- */
 
   let gesture = null;
@@ -268,7 +214,7 @@
       gesture = {
         kind: e.target.classList.contains("resize-handle") ? "resize" : "move",
         el: item,
-        url: item.dataset.blockId ? `/api/blocks/${item.dataset.blockId}` : `/api/events/${item.dataset.eventId}`,
+        url: `/api/events/${item.dataset.eventId}`,
         date,
         startMin,
         endMin: minutesOf(item.dataset.end, date),
@@ -338,16 +284,16 @@
     if (g.kind === "draw") {
       if (e.type !== "pointerup" || (g.touch && g.moved)) { clearPreview(); return; }
       // A click takes the half hour it landed in, for an hour.
-      const startMin = g.moved ? g.startMin : Math.min(g.clickMin, DAY_MIN - DEFAULT_BLOCK_MIN);
-      const endMin = g.moved ? g.endMin : startMin + DEFAULT_BLOCK_MIN;
+      const startMin = g.moved ? g.startMin : Math.min(g.clickMin, DAY_MIN - DEFAULT_EVENT_MIN);
+      const endMin = g.moved ? g.endMin : startMin + DEFAULT_EVENT_MIN;
       clearPreview();
-      openComposer({ day: g.col.dataset.date, startMin, endMin, onGrid: true });
+      openComposer({ day: g.col.dataset.date, startMin, endMin });
       return;
     }
     clearPreview();
     g.el.style.opacity = "";
     if (!g.moved) {
-      if (e.type === "pointerup") openItem(g.el);
+      if (e.type === "pointerup") openEventCard(g.el);
       return;
     }
     if (!g.target) return;
@@ -361,45 +307,14 @@
   document.addEventListener("pointerup", endGesture);
   document.addEventListener("pointercancel", endGesture);
 
-  // What isn't movable opens on a click: a work meeting, an all-day event, a completed block.
+  // What isn't movable opens on a click: a work meeting, an all-day event.
   document.addEventListener("click", (e) => {
     if (!grid()?.contains(e.target)) return;
     const item = e.target.closest(".cal-item:not(.movable), .allday-pill");
-    if (item) openItem(item);
+    if (item) openEventCard(item);
   });
 
-  const openItem = (item) => {
-    if (item.dataset.eventId) openEventCard(item);
-    else if (item.dataset.blockId) openBlockMenu(item);
-  };
-
-  /* ---- 3. a block's menu: its sub-tasks, complete, remove ---- */
-
-  function openBlockMenu(block) {
-    const template = document.getElementById("block-menu-template");
-    const menu = template.content.firstElementChild.cloneNode(true);
-    menu.querySelector(".block-menu-title").textContent =
-      block.querySelector(".item-title").textContent;
-    // The task's sub-tasks load into the menu, tickable while in the block.
-    menu.querySelector(".block-menu-checklist")
-      .setAttribute("hx-get", `/ui/tasks/${block.dataset.taskId}/checklist`);
-    float(menu);
-    const place = () => placeBeside(menu, block.getBoundingClientRect());
-    place();
-    menu.addEventListener("htmx:afterSettle", place); // re-fit once the checklist is in
-    htmx.process(menu);
-    const blockId = block.dataset.blockId;
-    menu.addEventListener("click", async (ev) => {
-      const action = ev.target.dataset?.action;
-      if (!action) return;
-      closeFloating();
-      if (action === "complete") await api("POST", `/api/blocks/${blockId}/complete`);
-      if (action === "delete") await api("DELETE", `/api/blocks/${blockId}`);
-      refresh();
-    });
-  }
-
-  /* ---- 4. an event's card: what, when, where (Join), and for Oscar's own, change or delete ---- */
+  /* ---- 2. an event's card: what, when, where (Join), and for Oscar's own, change or delete ---- */
 
   async function openEventCard(item) {
     const card = document.createElement("div");
@@ -420,11 +335,11 @@
     });
   }
 
-  /* ---- 5. the composer: an event written over the time drawn, or a task given it ---- */
+  /* ---- 3. the composer: an event written over the time drawn ---- */
 
   let composer = null; // {form, sync, ...}
 
-  // A time in the title's words: "13:00-14:00", as the task sheet writes it.
+  // Words in the title: a day, a time ("at 3pm", "13:00-14:00") or a repeat.
   const applyWords = (form, field) => {
     const f = form.elements;
     if (field.name === "planned_for") {
@@ -447,14 +362,12 @@
     return null; // "due friday" means nothing for an event: the words stay words
   };
 
-  function openComposer({ day, startMin = null, endMin = null, onGrid = false, anchor = null }) {
+  function openComposer({ day, startMin = null, endMin = null, anchor = null }) {
     const template = document.getElementById("event-composer-template");
     const form = template.content.firstElementChild.cloneNode(true);
     const f = form.elements;
     const title = form.querySelector(".composer-title");
     const note = form.querySelector(".composer-note");
-    const picks = form.querySelector(".composer-tasks");
-    const pickList = form.querySelector(".composer-task-list");
     f.day.value = day;
     if (startMin !== null) {
       f.start_time.value = hhmm(startMin);
@@ -470,8 +383,7 @@
       return end > start ? { start, end } : null;
     };
 
-    // The note says what the fields make; the preview shows it on the grid,
-    // and the tasks are offered while there is a time to give.
+    // The note says what the fields make; the preview shows it on the grid.
     const sync = () => {
       const t = times();
       const empty = !f.start_time.value && !f.end_time.value;
@@ -480,39 +392,6 @@
       const col = t && f.day.value && colOf(f.day.value);
       if (col) drawPreview(ownPreview, col, t.start, t.end, title.value.trim() || "New event");
       else ownPreview.remove();
-      picks.hidden = !onGrid || !t || !filterPicks();
-    };
-
-    // The tasks offered: those to schedule in the days shown, narrowed by the title's words.
-    let active = -1;
-    const visiblePicks = () => [...pickList.querySelectorAll(".composer-task")].filter((b) => !b.closest("li").hidden);
-    const filterPicks = () => {
-      const words = title.value.trim().toLowerCase();
-      let shown = 0;
-      pickList.querySelectorAll("li").forEach((li) => {
-        const match = shown < 6 && li.textContent.toLowerCase().includes(words);
-        li.hidden = !match;
-        if (match) shown += 1;
-      });
-      setActive(Math.min(active, shown - 1));
-      return shown;
-    };
-    const setActive = (i) => {
-      active = i;
-      visiblePicks().forEach((b, n) => b.classList.toggle("active", n === i));
-    };
-
-    const giveTask = async (button) => {
-      const t = times();
-      if (!t) return;
-      await api("POST", "/api/blocks", {
-        task_id: Number(button.dataset.taskId),
-        start: isoAt(f.day.value, t.start),
-        end: isoAt(f.day.value, t.end),
-      });
-      closeFloating();
-      window.toast(`“${button.dataset.taskTitle}” booked ${dayLabel(f.day.value)}, ${hhmm(t.start)}–${hhmm(t.end)}`);
-      refresh();
     };
 
     // Typed words become fields, as in the task sheet; Backspace right after puts them back.
@@ -541,23 +420,11 @@
         title.value = before.slice(0, caret - 1) + before.slice(caret); // the space goes with the Backspace
         title.setSelectionRange(caret - 1, caret - 1);
         sync();
-        return;
-      }
-      const shown = visiblePicks();
-      if (!picks.hidden && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
-        e.preventDefault();
-        const step = e.key === "ArrowDown" ? 1 : -1;
-        setActive(Math.max(-1, Math.min(shown.length - 1, active + step)));
-        return;
-      }
-      if (e.key === "Enter" && !picks.hidden && active >= 0) {
-        e.preventDefault();
-        giveTask(shown[active]);
       }
     });
 
     // A start moved keeps the length; an end is never left before the start.
-    let length = times() ? times().end - times().start : DEFAULT_BLOCK_MIN;
+    let length = times() ? times().end - times().start : DEFAULT_EVENT_MIN;
     f.start_time.addEventListener("change", () => {
       const start = minutesOfField(f.start_time.value);
       if (start !== null) f.end_time.value = hhmm(Math.min(start + length, DAY_MIN - 1));
@@ -570,11 +437,6 @@
     });
     f.day.addEventListener("change", sync);
     form.addEventListener("input", (e) => { if (e.target !== title) sync(); });
-
-    pickList.addEventListener("click", (e) => {
-      const button = e.target.closest(".composer-task");
-      if (button) giveTask(button);
-    });
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -614,18 +476,6 @@
     if (anchor) placeBelow(form, anchorRect);
     else placeBeside(form, anchorRect);
     title.focus({ preventScroll: true });
-
-    if (onGrid) {
-      const g = grid();
-      fetch(`/calendar/tray?start=${g.dataset.start}&days=${g.dataset.days}&pick=true`)
-        .then((res) => (res.ok ? res.text() : ""))
-        .then((html) => {
-          if (composer?.form !== form) return;
-          pickList.innerHTML = html;
-          sync();
-          placeBeside(form, ownPreview.isConnected ? ownPreview.getBoundingClientRect() : anchorRect);
-        });
-    }
   }
 
   // New event (E): today if it is shown, else the first day shown; no time yet (all day).
@@ -639,39 +489,7 @@
     if (button) newEvent(button);
   });
 
-  /* ---- 6. Book, on Calendar's tray: the next free stretch in the days shown ---- */
-
-  const post = (url, fields) => fetch(url, {
-    method: "POST",
-    headers: { "X-CSRF": window.csrfToken() },
-    body: new URLSearchParams(fields),
-  });
-
-  document.addEventListener("click", async (e) => {
-    const button = e.target.closest?.("[data-book]");
-    if (!button) return;
-    const g = grid();
-    const title = button.closest("[data-task-title]").dataset.taskTitle;
-    const res = await post(`/ui/tasks/${button.dataset.book}/book`, { start: g.dataset.start, days: g.dataset.days });
-    let answer = {};
-    try { answer = await res.json(); } catch { /* no body */ }
-    if (!res.ok) {
-      window.toast(answer.detail || "Could not book that task.");
-      return;
-    }
-    refresh();
-    // Undone: its block goes, and its do-date is the one it had.
-    window.toast(`Booked “${title}” ${dayLabel(answer.day)}, ${answer.start}–${answer.end}`, {
-      action: "Undo",
-      run: async () => {
-        await api("DELETE", `/api/blocks/${answer.block_id}`);
-        await post(`/ui/tasks/${button.dataset.book}/plan`, { planned_for: answer.had });
-        refresh();
-      },
-    });
-  });
-
-  /* ---- 7. arriving from the command menu: an event's card (?event=), or a new event (?new=1) ---- */
+  /* ---- 4. arriving from the command menu: an event's card (?event=), or a new event (?new=1) ---- */
 
   const arrival = new URLSearchParams(window.location.search);
   if (document.querySelector(".calendar-page") && (arrival.has("event") || arrival.has("new"))) {
@@ -691,7 +509,7 @@
     window.history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}`);
   }
 
-  /* ---- 8. any day, from the header's picker ---- */
+  /* ---- 5. any day, from the header's picker ---- */
 
   const jump = document.querySelector("[data-jump-date]");
   if (jump) {
@@ -701,7 +519,7 @@
     });
   }
 
-  /* ---- 9. Calendar's keys: D, X and W the days shown, E a new event, G a date ---- */
+  /* ---- 6. Calendar's keys: D, X and W the days shown, E a new event, G a date ---- */
 
   document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;

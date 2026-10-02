@@ -26,7 +26,6 @@ def test_today_is_a_notepad_beside_the_timeline(client, db) -> None:
     assert 'id="capture-dialog"' in page
 
 
-
 def task_rows_of(pad: str) -> list[dict]:
     """The notepad's task rows, as the page hands them to notepad.js."""
     import json
@@ -169,7 +168,6 @@ def test_done_work_folds_away_on_tasks(client, db) -> None:
     assert "last 14 days" in fold
 
 
-
 def test_projects_show_one_occurrence_of_a_repeating_task(client, db) -> None:
     from app.models import RecurrenceKind
     from app.services import recurrence as rec_svc
@@ -212,23 +210,18 @@ def test_backlog_folds_into_tasks(client) -> None:
     assert response.headers["location"] == "/"
 
 
-def test_today_page_has_timeline_with_events_and_blocks(client, db) -> None:
+def test_today_page_has_timeline_with_its_events(client, db) -> None:
     from datetime import datetime, time
 
-    from app.services import blocks as blocks_svc
     from app.services import events as events_svc
 
     morning = datetime.combine(TODAY, time(9))
     events_svc.create_event(db, title="standup", start=morning, end=morning + timedelta(minutes=30))
-    task = tasks_svc.create_task(db, title="focus", planned_for=TODAY)
-    blocks_svc.schedule_block(
-        db, task_id=task.id, start=morning + timedelta(hours=2), end=morning + timedelta(hours=3)
-    )
 
     page = client.get("/today").text
     timeline = page.split('class="today-timeline"')[1]
     assert 'data-days="1"' in timeline
-    assert "standup" in timeline and "focus" in timeline
+    assert "standup" in timeline
 
 
 def test_grid_fragment_refreshes_one_day_and_a_week(client) -> None:
@@ -416,50 +409,35 @@ def test_a_task_dated_away_from_todays_list_regroups_instead(client, db) -> None
     assert task.planned_for == TODAY + timedelta(days=1)
 
 
-
-
-def test_calendar_page_renders_grid_and_tray(client, db) -> None:
+def test_calendar_page_is_the_grid_of_events_alone(client, db) -> None:
     from datetime import datetime, timedelta
 
-    from app.services import blocks as blocks_svc
+    from app.services import events as events_svc
 
-    # Tomorrow at 10, and that day's week: always ahead (a block already past
-    # is missed, and offered again), and on the grid shown (an hour from now
-    # can fall past midnight, and on a Sunday into next week).
     day = TODAY + timedelta(days=1)
-    task = tasks_svc.create_task(db, title="deep work", planned_for=day)
-    tasks_svc.create_task(db, title="loose end", planned_for=day)
     start = datetime.combine(day, datetime.min.time()) + timedelta(hours=10)
-    blocks_svc.schedule_block(db, task_id=task.id, start=start, end=start + timedelta(hours=1))
+    events_svc.create_event(db, title="dentist", start=start, end=start + timedelta(hours=1))
+    tasks_svc.create_task(db, title="loose end", planned_for=day)
 
     page = client.get(f"/calendar?week={day.isoformat()}").text
-    assert "calendar-grid" in page
-    assert "deep work" in page  # rendered as a block on the grid
-    assert "loose end" in page  # waiting in the tray
-    tray_part = page.split('class="tray"')[1]
-    assert "loose end" in tray_part
-    assert "deep work" not in tray_part  # already slotted; not offered again
+    assert "calendar-grid" in page and "dentist" in page
+    # Tasks take no time here: no tray of them to schedule.
+    assert "loose end" not in page and 'id="calendar-tray"' not in page
 
 
 def test_nudge_banner_and_dismiss(client, db) -> None:
     from datetime import datetime, timedelta
 
-    from app.services import blocks as blocks_svc
     from app.services import nudges as nudges_svc
 
     now = datetime.now()
-    task = tasks_svc.create_task(db, title="slipped", planned_for=TODAY)
-    blocks_svc.schedule_block(
-        db, task_id=task.id, start=now - timedelta(hours=3), end=now - timedelta(hours=2)
-    )
-    blocks_svc.mark_missed_blocks(db, now)
+    tasks_svc.create_task(db, title="pay invoice", due=TODAY + timedelta(days=1))
     [nudge] = nudges_svc.evaluate(db, now)
 
     # The nudge center opens the app, on Tasks.
     page = client.get("/").text
     assert "nudge-center" in page
-    assert "missed its block" in page
-    assert "Replan" in page
+    assert "“pay invoice” is due" in page
 
     assert client.post(f"/ui/nudges/{nudge.id}/dismiss").status_code == 200
     assert "nudge-center" not in client.get("/").text
@@ -616,22 +594,16 @@ def test_task_rows_carry_a_delete_bin(client, db) -> None:
 def test_delete_removes_task_and_refreshes_the_grid(client, db) -> None:
     from datetime import datetime
 
-    from app.services import blocks as blocks_svc
     from app.services import nudges as nudges_svc
 
-    now = datetime.now()
-    task = tasks_svc.create_task(db, title="slipped", planned_for=TODAY)
-    blocks_svc.schedule_block(
-        db, task_id=task.id, start=now - timedelta(hours=3), end=now - timedelta(hours=2)
-    )
-    blocks_svc.mark_missed_blocks(db, now)
-    assert nudges_svc.evaluate(db, now)
+    task = tasks_svc.create_task(db, title="pay invoice", planned_for=TODAY, due=TODAY)
+    assert nudges_svc.evaluate(db, datetime.now())
 
     response = client.post(f"/ui/tasks/{task.id}/delete")
     assert response.status_code == 200
     assert response.headers["hx-trigger"] == "calendar:refresh"
-    page = client.get("/today").text
-    assert "slipped" not in page
+    page = client.get("/").text
+    assert "pay invoice" not in page
     assert "nudge-center" not in page
 
 
@@ -662,111 +634,6 @@ def test_shell_has_theme_toggle_and_collapse_control(client) -> None:
     assert head.index("/static/design/design.css?v=") < head.index("/static/app.css?v=")
     for font in design_system()["fonts"]:
         assert f'href="/static/design/{font}" as="font"' in head
-
-
-def at(hour: int, minute: int):  # noqa: ANN201
-    """A wall-clock time today."""
-    from datetime import datetime, time
-
-    return datetime.combine(TODAY, time(hour, minute))
-
-
-def _fixed_now(monkeypatch, moment):  # noqa: ANN001, ANN202
-    """Pin datetime.now() for the fragments module (the replan endpoint's clock)."""
-    import datetime as dt
-
-    import app.ui.fragments as fragments
-
-    class Fixed(dt.datetime):
-        @classmethod
-        def now(cls, tz=None):  # noqa: ANN001, ANN206
-            return moment
-
-    monkeypatch.setattr(fragments, "datetime", Fixed)
-
-
-def test_missed_row_replans_into_the_next_free_slot(client, db, monkeypatch) -> None:
-    from app.models import Event, EventSource
-    from app.services import blocks as blocks_svc
-
-    now = at(14, 7)
-    _fixed_now(monkeypatch, now)
-    task = tasks_svc.create_task(db, title="slipped", planned_for=TODAY - timedelta(days=1))
-    blocks_svc.schedule_block(
-        db, task_id=task.id, start=at(9, 0), end=at(9, 45)
-    )
-    blocks_svc.mark_missed_blocks(db, now)
-    db.add(Event(title="1:1", start=at(14, 15), end=at(15, 0),
-                 source=EventSource.work, read_only=True))
-    db.flush()
-
-    row = client.get(f"/ui/tasks/{task.id}/row").text
-    assert 'class="replan-btn"' in row and f'hx-post="/ui/tasks/{task.id}/replan"' in row
-
-    response = client.post(f"/ui/tasks/{task.id}/replan")
-    assert response.status_code == 200
-    assert response.headers["hx-trigger"] == "calendar:refresh, tasks:changed"
-    planned = [b for b in task.blocks if b.state.value == "planned"]
-    assert [(b.start, b.end) for b in planned] == [
-        (at(15, 0), at(15, 45))
-    ]
-    assert task.planned_for == TODAY
-    assert "missed" not in response.text and "15:00–15:45" in response.text
-
-
-def test_missed_row_moves_to_tomorrow_when_today_is_full(client, db, monkeypatch) -> None:
-    from app.models import Event, EventSource
-    from app.services import blocks as blocks_svc
-
-    now = at(14, 7)
-    _fixed_now(monkeypatch, now)
-    task = tasks_svc.create_task(db, title="slipped", planned_for=TODAY)
-    blocks_svc.schedule_block(
-        db, task_id=task.id, start=at(9, 0), end=at(10, 0)
-    )
-    blocks_svc.mark_missed_blocks(db, now)
-    db.add(Event(title="Offsite", start=at(14, 0), end=at(22, 0),
-                 source=EventSource.work, read_only=True))
-    db.flush()
-
-    response = client.post(f"/ui/tasks/{task.id}/replan")
-    assert response.status_code == 200
-    assert task.planned_for == TODAY + timedelta(days=1)
-    assert not [b for b in task.blocks if b.state.value == "planned"]
-    assert "missed" not in response.text and "tomorrow" in response.text
-
-
-def test_book_gives_a_task_the_next_free_hour_today(client, db, monkeypatch) -> None:
-    from app.models import Event, EventSource
-
-    _fixed_now(monkeypatch, at(14, 7))
-    task = tasks_svc.create_task(db, title="deep work")
-    db.add(Event(title="1:1", start=at(14, 15), end=at(15, 0),
-                 source=EventSource.work, read_only=True))
-    db.flush()
-
-    response = client.post(f"/ui/tasks/{task.id}/book")
-    assert response.status_code == 200
-    answer = response.json()
-    assert (answer["start"], answer["end"], answer["day"]) == ("15:00", "16:00", TODAY.isoformat())
-    assert answer["had"] == "" and answer["block_id"] == task.blocks[0].id
-    assert [(b.start, b.end) for b in task.blocks] == [(at(15, 0), at(16, 0))]
-    assert task.planned_for == TODAY
-
-
-def test_book_says_when_today_is_full(client, db, monkeypatch) -> None:
-    from app.models import Event, EventSource
-
-    _fixed_now(monkeypatch, at(14, 7))
-    task = tasks_svc.create_task(db, title="deep work")
-    db.add(Event(title="Offsite", start=at(14, 0), end=at(22, 0),
-                 source=EventSource.work, read_only=True))
-    db.flush()
-
-    response = client.post(f"/ui/tasks/{task.id}/book")
-    assert response.status_code == 422
-    assert response.json() == {"detail": "No free hour left today."}
-    assert task.blocks == []
 
 
 def test_a_task_shows_its_project_as_its_flag_in_its_colour(client, db) -> None:

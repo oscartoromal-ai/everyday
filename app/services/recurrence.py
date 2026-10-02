@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 
 from app import checklist
 from app.models import (
-    Block,
     Event,
     EventSource,
     RecurrenceFrequency,
@@ -218,9 +217,7 @@ def _drop_pristine_future(
             )
         )
         for task in tasks:
-            has_blocks = db.scalar(select(func.count()).where(Block.task_id == task.id))
-            if not has_blocks:
-                db.delete(task)
+            db.delete(task)
     else:
         for event in db.scalars(
             select(Event).where(

@@ -3,7 +3,7 @@
   - compose: the last row of a list card. Context comes from the include:
     target (the list a new row joins), planned_for, project_id, placeholder.
   - edit: the task in place of its row, from sheet_ctx() (views.py).
-  The title wraps like a line of a document and the do-date, time, due and
+  The title wraps like a line of a document and the do-date, due and
   repeat icons trail its last word. The description follows. In edit mode the sheet
   ends with Project › Workstream, owner (and status once it is Claude's), and
   delete; it saves when focus leaves it.
@@ -12,10 +12,10 @@
 {% set editing = mode == "edit" %}
 {% set s = sheet if editing else {
   "title": "", "notes": "", "status": "todo", "owner": "oscar", "repeat": "none",
-  "planned_for": planned_for.isoformat() if planned_for else "", "due": "", "time": "",
+  "planned_for": planned_for.isoformat() if planned_for else "", "due": "",
   "estimate": "", "estimate_label": "",
   "project_id": project_id or "", "workstream_id": "",
-  "planned_label": planned_for | short_date if planned_for else "", "due_label": "", "time_label": "",
+  "planned_label": planned_for | short_date if planned_for else "", "due_label": "",
 } %}
 {% if editing %}<li id="task-{{ s.id }}" class="sheet-item">{% else %}<div class="compose-slot">{% endif %}
 <form class="task-sheet" data-sheet="{{ mode }}"
@@ -26,7 +26,7 @@
       hx-post="/ui/tasks/quick-add" hx-target="#{{ target }}" hx-swap="beforeend"
   {%- endif %}>
   <input type="hidden" name="title" value="{{ s.title }}">
-  {% for name in ["planned_for", "time", "due", "repeat", "estimate", "project_id", "owner", "status"] %}
+  {% for name in ["planned_for", "due", "repeat", "estimate", "project_id", "owner", "status"] %}
   <input type="hidden" name="{{ name }}" value="{{ s[name] }}" data-default="{{ s[name] }}">
   {% endfor %}
   {% if editing %}
@@ -54,11 +54,6 @@
                 title="Do date" aria-label="Do date{{ ': ' ~ s.planned_label if s.planned_label }}">
           <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/></svg>
           <span class="prop-value">{{ s.planned_label }}</span>
-        </button>
-        <button type="button" class="prop" data-prop="time" aria-haspopup="menu"
-                title="Time" aria-label="Time{{ ': ' ~ s.time_label if s.time_label }}">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2"/></svg>
-          <span class="prop-value">{{ s.time_label }}</span>
         </button>
         <button type="button" class="prop" data-prop="due" aria-haspopup="menu"
                 title="Due" aria-label="Due{{ ': ' ~ s.due_label if s.due_label }}">
@@ -113,7 +108,7 @@
                 hx-confirm="Delete task?"
                 data-confirm-title="Delete task?"
                 data-confirm-name="{{ s.title }}"
-                data-confirm-detail="will be deleted, along with any time blocked for it on the calendar. This can't be undone."
+                data-confirm-detail="will be deleted. This can't be undone."
                 data-confirm-action="Delete"
                 hx-target="#task-{{ s.id }}" hx-swap="outerHTML">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>

@@ -3,9 +3,9 @@
    place of its row (edit).
 
    The title is a line of a document: a plaintext contenteditable that wraps,
-   with the do-date, time, due and repeat icons trailing its last word.
-   Typing "tomorrow", "friday", "at 3pm", "15:00-16:30", "due friday" or
-   "every week" followed by a space turns the words into the matching field;
+   with the do-date, due and repeat icons trailing its last word.
+   Typing "tomorrow", "friday", "due friday", "every week" or "30m" followed
+   by a space turns the words into the matching field;
    Backspace straight after puts them back. Each field is a hidden input the
    form posts; the icons and the small menus they open only read and write
    those inputs.
@@ -78,15 +78,11 @@
   };
   const REPEATS = { day: "daily", weekday: "weekdays", week: "weekly", month: "monthly" };
 
-  // "at 3", "3pm", "15:30", "9-10:30am", "15:00-16:30": a time needs "at",
-  // a colon or am/pm, so a bare number ("buy 2 ") stays a word. Without an
-  // end it lasts an hour, as a drop on the timeline does.
+  // "at 3", "3pm", "15:30", "9-10:30am", "15:00-16:30": a time, for an
+  // event's title (calendar.js). It needs "at", a colon or am/pm, so a bare
+  // number ("buy 2 ") stays a word. Without an end it lasts an hour.
   const TIME = /(?:^|\s)((at )?(\d{1,2})(?::([0-5]\d))?(am|pm)?(?:-(\d{1,2})(?::([0-5]\d))?(am|pm)?)?) $/i;
   const hhmm = (minutes) => `${pad(Math.floor(minutes / 60) % 24)}:${pad(minutes % 60)}`;
-  const minutesOf = (value) => {
-    const [h, m] = value.split(":").map(Number);
-    return h * 60 + m;
-  };
   const DEFAULT_MINUTES = 60;
   const timeOfWords = (m) => {
     const [, , at, h1, m1, ap1, h2, m2, ap2] = m;
@@ -170,9 +166,11 @@
   };
 
   // The field the words ending `text` (ending in the space just typed) make:
-  // {name, value, start}, start where the words begin; or null.
-  const fieldOfWords = (text) => {
+  // {name, value, start}, start where the words begin; or null. Only fields
+  // `takes` (a name) are made: a task's sheet has no time.
+  const fieldOfWords = (text, takes = () => true) => {
     for (const rule of RULES) {
+      if (!takes(rule.name)) continue;
       const m = rule.re.exec(text);
       if (!m) continue;
       const value = rule.value(m);
@@ -184,7 +182,7 @@
 
   // `text` is the title up to the caret, ending in the space just typed.
   const convert = (form, text, caret, { moveCaret = true } = {}) => {
-    const field = fieldOfWords(text);
+    const field = fieldOfWords(text, (name) => !!form.elements[name]);
     if (!field) return false;
     const { name, value, start } = field;
     if (kept.get(form)?.has(start)) return false;
@@ -261,11 +259,6 @@
         set = value !== "";
         text = set ? shortDate(value) : "";
         if (set) spoken = `${button.title}: ${text}`;
-      } else if (name === "time") {
-        const value = valueOf(form, "time");
-        set = value !== "";
-        text = set ? value.replace("-", "–") : "";
-        if (set) spoken = `Time: ${text}`;
       } else if (name === "estimate") {
         const value = valueOf(form, "estimate");
         set = value !== "";
@@ -446,55 +439,8 @@
     return items;
   };
 
-  // A native time picker under a menu item, as the date picker's is.
-  const timePickItem = (label, current, aside, apply) => {
-    const pickItem = item(label, { tag: "div", aside });
-    const input = document.createElement("input");
-    input.type = "time";
-    input.step = 900;
-    input.tabIndex = -1;
-    input.value = current;
-    input.addEventListener("change", () => {
-      if (input.value) apply(input.value);
-      closeMenu();
-    });
-    pickItem.classList.add("pick");
-    pickItem.append(input);
-    pickItem._pick = () => {
-      try {
-        input.showPicker();
-      } catch {
-        input.focus();
-      }
-      return "keep";
-    };
-    return pickItem;
-  };
-
-  const timeItems = (form) => {
-    const current = valueOf(form, "time");
-    const [start, end] = current ? current.split("-") : ["", ""];
-    const length = current ? minutesOf(end) - minutesOf(start) : DEFAULT_MINUTES;
-    const items = [
-      // A new start keeps the length the time had.
-      timePickItem(current ? "Change the start…" : "Pick a time…", start, start, (value) => {
-        const from = minutesOf(value);
-        setField(form, "time", `${value}-${hhmm(Math.min(from + length, 24 * 60 - 1))}`);
-      }),
-    ];
-    if (current) {
-      items.push(timePickItem("Change the end…", end, end, (value) => {
-        if (minutesOf(value) > minutesOf(start)) setField(form, "time", `${start}-${value}`);
-        else window.toast?.("The end has to come after the start.");
-      }));
-      items.push(item("No time", { pick: () => setField(form, "time", "") }));
-    }
-    return items;
-  };
-
   const menuItems = (form, name) => {
     if (name === "planned_for" || name === "due") return dateItems(form, name);
-    if (name === "time") return timeItems(form);
     if (name === "repeat") {
       const current = valueOf(form, "repeat") || "none";
       return Object.entries(REPEAT_LABELS).map(([value, label]) =>
@@ -1023,7 +969,7 @@
   // Today's list and the Tasks page re-render from the server whenever the
   // plan changes, composers included. Carry a half-written task, its fields
   // and focus over to the fresh composer with the same key.
-  const FIELDS = ["planned_for", "time", "due", "repeat", "project_id"];
+  const FIELDS = ["planned_for", "due", "repeat", "project_id"];
   const carried = new WeakMap(); // request -> drafts
   document.addEventListener("htmx:beforeSwap", (e) => {
     const drafts = [...e.detail.target.querySelectorAll(".task-sheet[data-composer]")]

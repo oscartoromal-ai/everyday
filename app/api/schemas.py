@@ -7,7 +7,6 @@ from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict
 
 from app.models import (
-    BlockState,
     EventSource,
     ProjectStatus,
     TaskOwner,
@@ -85,16 +84,6 @@ class TaskPatch(BaseModel):
     estimate_minutes: int | None = None
 
 
-class BlockOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    task_id: int
-    start: datetime
-    end: datetime
-    state: BlockState
-
-
 class TaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -109,19 +98,6 @@ class TaskOut(BaseModel):
     due: date | None
     starts_on: date | None = None
     estimate_minutes: int | None = None
-    missed: bool = False
-    blocks: list[BlockOut] = []
-
-
-class BlockIn(BaseModel):
-    task_id: int
-    start: datetime
-    end: datetime
-
-
-class BlockMove(BaseModel):
-    start: datetime
-    end: datetime
 
 
 class EventIn(BaseModel):
@@ -153,11 +129,5 @@ class EventOut(BaseModel):
     read_only: bool
 
 
-class CalendarBlockOut(BlockOut):
-    task_title: str
-
-
 class CalendarOut(BaseModel):
     events: list[EventOut]
-    blocks: list[CalendarBlockOut]
-    ghosts: list[CalendarBlockOut]

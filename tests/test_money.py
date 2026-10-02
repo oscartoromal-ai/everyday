@@ -296,5 +296,5 @@ def test_a_bill_coming_due_nudges_until_it_is_paid(db) -> None:
     db.add(MoneyTransaction(account_id=account.id, day=date(2026, 10, 13),
                             description="NETFLIX.COM", cents=-2299, fingerprint="n"))
     db.flush()
-    assert nudges_svc.active_nudges(db, now) == []
+    assert nudges_svc.active_nudges(db) == []
     assert "Bills due" not in nudges_svc.build_morning_digest(db, now)

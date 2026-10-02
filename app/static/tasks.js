@@ -26,8 +26,8 @@
   // it, Shift jumps a group (a project, on Projects), Home/End go to the
   // ends; Enter or E edits, N
   // writes a new task (into the cursor's project where there is one), X
-  // done, T today, M tomorrow, B books the next free hour today, R replans a
-  // missed task, D picks a day and P a project (the task sheet's menus),
+  // done, T today, M tomorrow, D picks a day and P a project (the task
+  // sheet's menus),
   // Space opens the description, Delete deletes after asking, V switches
   // Tasks' views, Esc leaves. The lists re-render from the server after
   // every change, and the cursor lands where it belongs: on the row that
@@ -116,24 +116,6 @@
     restore() { return onCursorPage() && focusStop(byId(last) || stops()[0]); },
     // A task just added: the cursor's next stop.
     remember(id) { last = id; },
-  };
-
-  // B: the next free hour today, the keyboard's drop on Today's timeline.
-  // The page says what it booked, or that today is full.
-  const book = async (row, next) => {
-    const res = await fetch(`/ui/tasks/${row.dataset.taskId}/book`, {
-      method: "POST", headers: { "X-CSRF": window.csrfToken() },
-    });
-    let answer = {};
-    try { answer = await res.json(); } catch { /* no body */ }
-    if (!res.ok) {
-      window.toast(answer.detail || "Could not book that task.");
-      return;
-    }
-    window.toast(`Booked ${answer.start}–${answer.end}: ${row.dataset.taskTitle}`);
-    landOn = next;
-    htmx.trigger(document.body, "calendar:refresh");
-    htmx.trigger(document.body, "tasks:changed");
   };
 
   document.addEventListener("keydown", (e) => {
@@ -234,14 +216,6 @@
       htmx.ajax("POST", `/ui/tasks/${row.dataset.taskId}/plan`, {
         source: row, swap: "none", values: { planned_for: isoDay(key === "t" ? 0 : 1) },
       });
-    } else if (key === "b") {
-      e.preventDefault();
-      book(row, neighbour(row)?.id ?? null);
-    } else if (key === "r") {
-      if (!row.querySelector(".replan-btn")) return;
-      e.preventDefault();
-      leaving();
-      click(".replan-btn");
     } else if (key === "d" || key === "p") {
       e.preventDefault();
       // The sheet opens on the field's menu; a change lands on the next row.
@@ -293,7 +267,7 @@
 
   // A row's key pressed while its list was re-rendering, done once it has
   // settled, on the row as it is now.
-  const ROW_KEYS = new Set(["t", "m", "b", "r", "d", "p", "x", "e", "Enter", " ", "Delete", "Backspace"]);
+  const ROW_KEYS = new Set(["t", "m", "d", "p", "x", "e", "Enter", " ", "Delete", "Backspace"]);
   const listBusy = () => !!document.querySelector("[hx-trigger*='tasks:changed'].htmx-request");
   let waiting = null; // {id, key, shiftKey}
   document.addEventListener("htmx:afterSettle", () => {

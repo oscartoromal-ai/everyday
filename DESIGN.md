@@ -24,11 +24,11 @@ node ../design-language/bin/design-language.mjs update app/static/design
 
 The system's rules, as they apply here:
 
-- **Ink draws the interface.** Text, icons, checkboxes and the plan's own blocks are ink; there is no decorative colour in the chrome.
+- **Ink draws the interface.** Text, icons, checkboxes and the plan's own bars are ink; there is no decorative colour in the chrome.
 - **Two lights with two jobs.** Pink, `--spark`, is you: the active nav item in the sidebar, the primary button in a form, focus, today on a time grid.
   Cyan, `--signal`, is time: the now-line and its label.
   Each still marks one thing per region.
-- **Night emits, Day prints.** At night the spark elements glow (`--spark-glow`), the now-line glows (`--signal-glow`), and the plan's own blocks are white tubes with a soft bloom (`--solid-glow`).
+- **Night emits, Day prints.** At night the spark elements glow (`--spark-glow`), the now-line glows (`--signal-glow`), and the plan's own bars are white tubes with a soft bloom (`--solid-glow`).
   By day every glow is flat, and the same roles are printed colour on a pale sky.
 - **Glass.** The canvas (`--canvas`) is the system's: sign glow over black by night, a pale pink-and-sky wash by day; resting surfaces are translucent glass with no shadow; only floating UI is opaque and casts a shadow.
 - **Quiet status, loud action.** Status colour (ok, warn, err, neutral pairs) appears only inside badges, never as coloured text runs or large fills.
@@ -45,8 +45,7 @@ With no saved choice, `shell.js` keeps following the system live.
   `--steel` never draws text: it is for marks (empty checkboxes, muted icons, grips) at 3:1 or more.
 - **Spark:** `--spark` with `--spark-deep` for hover and for spark-coloured text, `--spark-tint` for selection and drop-target state only, and `--on-spark` for text on it (near-black at night, since white on neon pink fails contrast).
 - **Signal:** `--signal` draws the now-line, `--signal-deep` writes its time.
-- **Solid:** `--solid`, `--on-solid` and `--solid-handle` make task blocks solid ink in both modes: deep indigo by day, white tubes at night.
-  Without the inversion, dark-mode blocks sat at almost the same grey as work meetings.
+- **Solid:** `--solid` makes a Gantt's bars solid ink in both modes: deep indigo by day, white tubes at night.
 - **Status pairs:** `--ok-*`, `--warn-*`, `--err-*`, `--neutral-*`, rendered on glass through the `--badge-*-glass` fills.
 - **Canvas and glass:** `--canvas` (fixed to the viewport), `--chrome-flank` (the matte sidebar), `--glass-card`, `--glass-border`, `--glass-input`, `--glass-btn`, `--glass-hover`, `--glass-row-hover`, and ink-alpha hairlines `--hairline-on-glass(-strong)`; `--ink-tint-faint` tints weekends.
 - **Hues:** the contract's eight hues colour projects (their flags and their tasks' rules) and, in the notes, habits (`--hue-4`), stays (`--hue-3`) and a habit name that cannot be one (`--hue-8`); inputs use none.
@@ -65,7 +64,7 @@ Field names are 12px/500 graphite Inter, as the notes' "Task" label is: Inter is
 - **Radii:** none. Every corner in the app is square (Oscar's call, 2026-09-27): `app.css` sets the system's `--r-tag`, `--r-ctl` and `--r-pill` to 0 after `design.css` loads, and no rule rounds a corner of its own, dots and the now mark included.
 - **Inputs are see-through:** every place Oscar writes lets the page show through: a field has no fill, only its line; Today's notepad card and the ruled sheets (Tasks, Me) are the paper at 35%; and checkboxes are unfilled until ticked.
 - **Spacing:** the `--s-*` scale (4, 8, 12, 16, 24, 32, 48).
-- **Elevation:** resting glass has no shadow; only the block menu, an event's card, the event composer, the add-a-task popover, the task sheet's menus and the toast float, on opaque paper with `--shadow-dropdown`.
+- **Elevation:** resting glass has no shadow; only an event's card, the event composer, the add-a-task popover, the task sheet's menus and the toast float, on opaque paper with `--shadow-dropdown`.
   There is one toast, `window.toast` in `shell.js`, for every page; a newer message gets its own full moment.
 
 ## Shell
@@ -89,16 +88,15 @@ On Today a panel icon at the day header's right (or Ctrl+\) folds the timeline a
 
 ## Components
 
-**List cards.** Each project, each week in Rows, the nudge center (at the top of Tasks) and the trays are glass cards; Tasks' groups are not, but rows of its ruled sheet (see Tasks).
+**List cards.** Each project and the nudge center (at the top of Tasks) are glass cards; Tasks' groups are not, but rows of its ruled sheet (see Tasks).
 A title row sits on a stronger hairline, and rows below are full-bleed, dividing with hairlines and lighting on hover with `--glass-row-hover`.
 
 **Task rows.** An 18px checkbox with a 6px radius fills with ink when checked; there is no draw-in animation.
 Every empty box (rows, sub-tasks, the description editor) is drawn in `--steel`, not `--mist`: mist falls under the 3:1 a control needs against the cards, in both modes.
 The box the user has just ticked plays the system's `--check-pulse` once (in Neon Signage, a ring of spark light that fades in 640ms); `tasks.js` marks the fresh row `.just-done` for it.
 The title is 14px/500 ink, and the meta line is 12px pewter.
-Today's block time is ink 500, and a do-date off Today is graphite.
-"Due soon" and "missed" are warn and err badges.
-A missed task offers one step back onto the plan beside its badge, a quiet 12px pewter button like the do-date buttons: "Replan at 16:30" books the missed block's length into the next free quarter-hour slot today (past timed events and other blocks, before 22:00), or "Move to tomorrow" gives it tomorrow as its do-date when today has no room.
+A do-date off Today is graphite.
+"Due soon" is a warn badge.
 The meta line sits 4px under the title, so the description disclosure can take a full 24px target (WCAG 2.5.8) without touching the title's.
 Claude's statuses are badges too: Queued neutral, Running ok (with a static dot), Needs review warn, Blocked err.
 A task with a description adds a pewter disclosure to the start of its meta line: a chevron and the sub-task count ("1/3"), or "Notes" when it has none.
@@ -113,14 +111,14 @@ Each opening hears only its own answer: a dialog's close arrives a moment after 
 
 **Task sheet.** Adding a task and editing one are the same sheet, written like a document rather than filled in like a form.
 It is written on the line (see Inputs), shaped like the row it becomes: the row's box (or, to add, a plus in steel, ink once writing), then the title in 14px/500 ink, which wraps as a line of text.
-The do-date, time, due, repeat and estimate fields trail the title's last word as small icons in `--steel`, 14px, with the value beside the icon in 12px graphite once set ("tomorrow", "15:00–16:00", "Fri 2 Oct", "1h 30m"); repeat stays an icon, its rule in the tooltip.
+The do-date, due, repeat and estimate fields trail the title's last word as small icons in `--steel`, 14px, with the value beside the icon in 12px graphite once set ("tomorrow", "Fri 2 Oct", "1h 30m"); repeat stays an icon, its rule in the tooltip.
 The estimate's icon is a stopwatch; its menu offers 15m to 4h, the current length ticked, and No estimate.
-A task's estimate shows on its row's meta line in 12px graphite figures while it has no time of its own, and on the trays' cards.
+A task's estimate shows on its row's meta line in 12px graphite figures.
 The gaps before and between them are the line's own spaces, widened, so when they wrap they start flush with the title's text.
-Each is a 24px target that opens a small menu on paper with the dropdown shadow: Today, Tomorrow, Next week, Pick a date (the native picker) and No date; for the time, Pick a time, then Change the start, Change the end and No time (native pickers, 15-minute steps; a new start keeps the length); or the repeat presets.
+Each is a 24px target that opens a small menu on paper with the dropdown shadow: Today, Tomorrow, Next week, Pick a date (the native picker) and No date; or the repeat presets.
 The current choice is 600 with a tick, and choosing hands the caret back to where it was.
-Writing sets them too: "today", "tomorrow", a weekday's name or "next week" followed by a space becomes the do-date, "at 3", "3pm", "15:30" or "9-10:30am" the time (an hour when no end is given; a bare number stays a word), "due friday" the due date, "every day", "every weekday", "every week" or "every month" the repeat, and "45m", "1h", "1.5h", "1h30" or "2 hours" the estimate.
-A time is the task's block on its do-date: set, it books that time on the calendar; changed, it moves it, with the day if the day changes; cleared, it frees it.
+Writing sets them too: "today", "tomorrow", a weekday's name or "next week" followed by a space becomes the do-date, "due friday" the due date, "every day", "every weekday", "every week" or "every month" the repeat, and "45m", "1h", "1.5h", "1h30" or "2 hours" the estimate (a bare number stays a word).
+A task has no time of its own, so "at 3pm" stays words; in an event's title (the calendar's composer) "at 3", "3pm", "15:30" or "9-10:30am" is its time, an hour when no end is given.
 The words leave the title as they convert, and Backspace straight after puts them back as words, which then stay words.
 The description follows under the title, aligned with its text.
 Editing adds an end line under the description: the project (its flag, filled in the project's colour with the project and workstream named on hover; an outline and "No project" when there is none; one menu of open projects, each after its flag, with their open workstreams indented), a person icon that names Claude when the task is Claude's, its status once it is Claude's or beyond the box, History, and the bin.
@@ -261,17 +259,13 @@ The grid runs the whole day, 48px an hour, in a card that scrolls within the win
 Day heads are 12px pewter over a 14px/600 number, with today in `--spark-deep`, glowing at night.
 Under the number, a day to come carries its load in 12px figures: "45m planned" in graphite over "3h free" in pewter, one to a line; when the planned is more than the free, both sit in the warn badge.
 Today's timeline, which has no heads, carries the same on one line ("45m planned · 3h free") above its hours.
-Above the timeline, today's focus is a glass card with a hairline: "Now · 23m left, until 19:55" in 12px/600 figures in `--signal-deep` (time is the signal's, as the now-line's label is), or "Next · 15:00–16:00, in 1h 30m" in pewter; the task's title in 16px/600; and while it runs, its sub-tasks as a block's menu lists them and a quiet Completed.
 The timeline's column holds the window's height, the card first and the hours in the rest; under the notes, on a narrow window, the hours scroll in 75% of it.
 Weekend columns carry `--ink-tint-faint`, whichever days are shown.
 Items are square tags with a 2px gap below, so back-to-back items never merge:
 
 - work meetings are a quiet ink tint in graphite;
 - personal events are glass with a hairline;
-- task blocks are solid `--solid`, with `--solid-glow`;
-- completed blocks are fog with a strikethrough;
 - a cancelled meeting is a hairline outline, its title pewter and struck through;
-- today's missed blocks are a dashed mist ghost;
 - a drag preview, and the time being written in the composer, is `--spark-tint` with a dashed spark edge.
 
 Items starting within half an hour of each other share the column in lanes; one starting later is laid over the items still running, 14px further in for each step (three at most), opaque and ringed in 1px of paper, so neither blurs into the other.
@@ -280,7 +274,7 @@ A five-minute meeting is still drawn 20px tall, and laid out as drawn.
 The grid's one light is the now-line in `--signal` (cyan in Neon Signage, glowing at night), whose time is written in `--signal-deep` in the gutter.
 An hour label whose digits the time would overlap (centres within 12px) is hidden, so the gutter never shows a clipped "06:00" behind "06:21".
 
-**Projects' colours.** A project is one of the eight hues (`--hue-1` to `--hue-8`), shown wherever its tasks are as its flag: a 14px flag filled in the colour, the name said on hover and to a screen reader, never written beside it (task rows, the trays, the task sheet, the notes).
+**Projects' colours.** A project is one of the eight hues (`--hue-1` to `--hue-8`), shown wherever its tasks are as its flag: a 14px flag filled in the colour, the name said on hover and to a screen reader, never written beside it (task rows, the task sheet, the notes).
 On Tasks a task in a project also has its rule below it in that colour, 55% into the paper (the colour itself under the keyboard's cursor).
 A new project takes the hue fewest open projects have; the project editor offers the eight flags in a row, the chosen one ringed in its colour.
 
@@ -311,7 +305,7 @@ A cell being written takes its words on its own line (500 ink, on the paper), th
 A task's row number is its grip (a steel six-dot mark beside it on hover): dragged, the row fades to 40%, a 2px spark line (glowing at night) marks where it would land, and the group it would land in takes `--spark-deep` rules.
 On phones the Task column narrows to 150px and Start, Wks and Due fold away; the bars are still drawn and dragged.
 
-**Nudges.** A glass card of rows with graphite icons, a secondary "Replan" or "Open" action and a steel dismiss control.
+**Nudges.** A glass card of rows with graphite icons, a secondary "Open" action and a steel dismiss control.
 
 ## Interaction grammar
 
@@ -321,26 +315,21 @@ Beyond that, only these move: the toast, the confirm dialog (an 8px rise with fa
 `prefers-reduced-motion` collapses every transition.
 
 **Calendar drag** (`app/static/calendar.js`, vanilla, listeners on `document` so they survive htmx swaps).
-A tray card, or an open Today row inside a `[data-drag-to-grid]` list, can be dropped on a day column to create a block, with a live preview.
-Planned blocks and Oscar's own events move and resize, snapping to 15-minute increments, an item keeping the place it was held by; on events the resize grip is steel, on blocks `--solid-handle`.
-A click on a block opens the opaque block menu; it loads the task's sub-tasks under its title (a caption with the done count, then the checklist, scrolling past 40% of the viewport), so they tick off while in the block, and it re-fits to the viewport once they arrive.
-Context lines stay in the task's description; only the sub-tasks come along.
+Oscar's own events move and resize, snapping to 15-minute increments, an item keeping the place it was held by, with a live preview; the resize grip is steel.
 A click on an event, or an all-day event, opens its card (380px, beside the item): a work meeting's title in 16px/600, its day and times, its place, its link as the primary "Join on zoom.us" and a pewter note that it is read-only; a cancelled one has the neutral Cancelled chip and no Join.
 One of Oscar's own is written on its card instead: its title in 16px/600 on its line, its repeat and place in graphite, Date, Starts and Ends on lines, then Save and Delete (for a series, Delete this one and This and later), each delete asking first.
 Dragging down an empty column draws a new event's time; a click takes the half hour it lands in, for an hour; on touch only a tap writes one, so the grid still scrolls.
 Either opens the composer (380px) beside the time: the title on its line in 16px/600, Date, Starts and Ends, Repeat on a line of its own, the length (or "No time: all day") in 12px pewter beside Add event.
-Over a time, "Or give a task this time" lists the tasks to schedule, a row each with its badges and flag at the right, the arrow keys lighting one in fog.
 New event and E open the composer under the button, on today if it is shown.
 Only one card floats at a time; a press outside closes it and does nothing else, and Esc closes it.
-Each tray card ends in Book, at its top right in 12px/500 pewter (graphite on the card's hover, ink with the hover fill on its own), as quiet as the do-date buttons; its tooltip names the length it books.
-Every mutation re-asks the server by firing `calendar:refresh`; the grid, the tray and on Today the list re-render.
+Every mutation re-asks the server by firing `calendar:refresh`; the grid re-renders.
 A height-capped grid opens on the usual day, 06:00 at its top, or with now in view an hour and a half under the top as far as 22:00 allows, and keeps its scroll position across refreshes.
 
 **Writing tasks** (`app/static/task-sheet.js`, `app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`).
 `task-sheet.js` runs the task sheet: the title line, its field icons and their menus, typed words becoming fields, adding, and saving an edit when focus leaves it.
 Every field is a hidden input the form posts, so the icons and menus only read and write those inputs; the menus live in the body, since list cards clip what overflows them.
 `tasks.js` runs the row disclosures, the Done folds, the cursor on Tasks, Today and Projects, and filing by drag; `shell.js` the keys that work on every page, 1 to 9 for the nav's pages and ? for the keys dialog, and Left and Right (outside a field) on a page of days, a day back or on, and on Calendar, the days it shows.
-The list keys: Up/Down or J/K move (a Done fold's or shelf's header is a stop, opened by Enter or Space), Shift jumps a group (a project, on Projects), Home and End go to the ends; Enter or E edits, N writes a new task (into the cursor's project where it has one, else the page's own composer), X done, T today, M tomorrow (posted directly where rows have no do-date buttons), B books the next free hour today (the keyboard's drop on Today's timeline; a toast says what it booked, or that today is full), R replans a missed task, D and P open the task sheet on its day or project menu, Space opens the description, Delete deletes after asking, V switches Tasks' views, Esc leaves.
+The list keys: Up/Down or J/K move (a Done fold's or shelf's header is a stop, opened by Enter or Space), Shift jumps a group (a project, on Projects), Home and End go to the ends; Enter or E edits, N writes a new task (into the cursor's project where it has one, else the page's own composer), X done, T today, M tomorrow (posted directly where rows have no do-date buttons), D and P open the task sheet on its day or project menu, Space opens the description, Delete deletes after asking, V switches Tasks' views, Esc leaves.
 The cursor lands where the work leaves it: on the row that followed one dated, filed, finished or deleted away; on the same task after an edit, wherever it regrouped to; on a task just added when Esc leaves the composer; and on the same task across V's reload (`sessionStorage` key `pc-task-cursor`).
 htmx wires up swapped-in content in the same step as the swap (`defaultSettleDelay: 0`, in base.html): with its default 20ms settle, a re-rendered list missed a refresh fired in that gap, and keys and submits met controls not yet wired up. Keys are never queued, since a replayed key cannot type; a sheet htmx has not taken over never submits natively and leaves the page; an open edit caught in a list's re-render keeps its sheet, words, fields and caret where the task's new row lands.
 Keys never fire while typing in a field or over a dialog, and reaching for the mouse ends the pass.

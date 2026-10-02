@@ -9,14 +9,13 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.dates import duration_label, short_date, upper_first, week_label
-from app.models import BlockState, Task, TaskOwner
-from app.services import blocks as blocks_svc
+from app.models import Task, TaskOwner
 from app.services import events as events_svc
 from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
 
-# The usual day: where the grid opens, and where the next free slot is looked
-# for. The grid itself runs the whole day, so nothing is squeezed to its edge.
+# The usual day: where the grid opens, and the hours a day's free time is
+# counted in. The grid itself runs the whole day, so nothing is squeezed to its edge.
 DAY_START_HOUR = 6
 DAY_END_HOUR = 22
 HOUR_PX = 48
@@ -157,7 +156,6 @@ def _event_entry(event, day: date) -> dict[str, Any]:  # noqa: ANN001
     # Meeting-link locations stay in the event's card; a URL is noise on the grid.
     location_label = "" if location.startswith(("http://", "https://")) else location
     return {
-        "kind": "event",
         "id": event.id,
         "title": event.shown_title,
         "location": location,
@@ -177,9 +175,8 @@ def _floor_quarter(minutes: float) -> int:
 
 def day_load(db: Session, day: date, now: datetime, planned: list[Task]) -> dict[str, Any] | None:
     """Whether a day's plan fits it: the time already taken in its usual
-    hours (meetings and blocks), what its planned tasks without a time are
-    estimated at, and the time still free (today's from now). None for a day
-    already past."""
+    hours (meetings), what its planned tasks are estimated at, and the time
+    still free (today's from now). None for a day already past."""
     if day < now.date():
         return None
     window_start = datetime.combine(day, time(DAY_START_HOUR))
@@ -187,23 +184,16 @@ def day_load(db: Session, day: date, now: datetime, planned: list[Task]) -> dict
     if day == now.date():
         window_start = min(max(window_start, now), window_end)
     booked = sum(
-        ((e - s) for s, e in blocks_svc.busy_spans(db, window_start, window_end)),
+        ((e - s) for s, e in events_svc.busy_spans(db, window_start, window_end)),
         timedelta(),
     )
     free = _floor_quarter(((window_end - window_start) - booked).total_seconds() / 60)
     booked_minutes = round(booked.total_seconds() / 60)
-    planned_minutes = sum(
-        t.estimate_minutes or 0
-        for t in planned
-        if t.planned_for == day
-        and not any(
-            b.state != BlockState.missed and b.start.date() == day for b in t.blocks
-        )
-    )
+    planned_minutes = sum(t.estimate_minutes or 0 for t in planned if t.planned_for == day)
     since = "from now" if day == now.date() else f"from {DAY_START_HOUR:02d}:00"
     parts = [f"{duration_label(booked_minutes)} booked" if booked_minutes else "nothing booked"]
     if planned_minutes:
-        parts.append(f"{duration_label(planned_minutes)} of tasks planned without a time")
+        parts.append(f"{duration_label(planned_minutes)} of tasks planned")
     parts.append(
         f"{duration_label(free) if free else 'no time'} free {since} to {DAY_END_HOUR:02d}:00"
     )
@@ -230,7 +220,7 @@ def grid_ctx(
     week_days = [first_day + timedelta(days=i) for i in range(day_count)]
     range_start = datetime.combine(first_day, time.min)
     range_end = range_start + timedelta(days=day_count)
-    events, blocks = events_svc.calendar_range(db, range_start, range_end)
+    events = events_svc.calendar_range(db, range_start, range_end)
     today = now.date()
     planned = [
         t for t in tasks_svc.list_tasks(
@@ -257,23 +247,6 @@ def grid_ctx(
                 )
                 continue
             day_items.append(_event_entry(event, day))
-        for block in blocks:
-            if block.start.date() != day:
-                continue
-            if block.state == BlockState.missed and day != today:
-                continue  # the past stays honest: old missed slots vanish
-            day_items.append(
-                {
-                    "kind": "ghost" if block.state == BlockState.missed else "block",
-                    "id": block.id,
-                    "title": block.task.title,
-                    "task_id": block.task_id,
-                    "state": block.state.value,
-                    "start": block.start,
-                    "end": block.end,
-                    "time_label": f"{block.start:%H:%M}",
-                }
-            )
         day_items.sort(key=lambda i: (i["start"], i["start"] - i["end"]))
         _layout(day_items)
         for item in day_items:
@@ -420,43 +393,3 @@ def link_host(url: str) -> str:
     parts = host.split(".")
     return ".".join(parts[-2:]) if len(parts) > 2 else host
 
-
-def tray_tasks(
-    db: Session, first_day: date, now: datetime, day_count: int = 7
-) -> list[dict[str, Any]]:
-    """Open tasks worth giving time in the days shown: planned or due in them,
-    fallen-back missed tasks, and a slice of the backlog."""
-    last_day = first_day + timedelta(days=day_count - 1)
-    seen: set[int] = set()
-    out: list[dict[str, Any]] = []
-
-    def add(task, reason: str) -> None:  # noqa: ANN001
-        if task.id in seen or task.owner != TaskOwner.oscar:
-            return
-        # Already slotted into protected time ahead: nothing left to schedule.
-        if any(b.state == BlockState.planned and b.start >= now for b in task.blocks):
-            return
-        seen.add(task.id)
-        out.append(
-            {
-                "task": task,
-                "reason": reason,
-                "project": task.project,
-            }
-        )
-
-    for task in tasks_svc.list_tasks(db, planned_from=first_day, planned_to=last_day):
-        if task.status in tasks_svc.OPEN_STATUSES:
-            add(task, "planned")
-    for task in tasks_svc.list_tasks(db):
-        if task.status in tasks_svc.OPEN_STATUSES and tasks_svc.has_missed_marker(task, now):
-            add(task, "missed")
-        elif (
-            task.status in tasks_svc.OPEN_STATUSES
-            and task.due is not None
-            and first_day <= task.due <= last_day
-        ):
-            add(task, "due")
-    for task in tasks_svc.backlog(db)[:8]:
-        add(task, "backlog")
-    return out[:24]

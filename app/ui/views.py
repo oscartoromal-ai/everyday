@@ -10,13 +10,11 @@ from typing import Any
 
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
-from sqlalchemy.orm import Session, object_session
+from sqlalchemy.orm import Session
 
 from app import checklist
 from app.dates import duration_label, human_date, short_date, upper_first, week_label
 from app.models import (
-    Block,
-    BlockState,
     GarminDay,
     Project,
     ProjectStatus,
@@ -26,7 +24,6 @@ from app.models import (
     Workstream,
     WorkstreamStatus,
 )
-from app.services import blocks as blocks_svc
 from app.services import events as events_svc
 from app.services import garmin as garmin_svc
 from app.services import habits as habits_svc
@@ -35,7 +32,7 @@ from app.services import notebook as notebook_svc
 from app.services import projects as projects_svc
 from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
-from app.ui.calendar_view import DAY_END_HOUR, DAY_START_HOUR, link_host
+from app.ui.calendar_view import link_host
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 
@@ -75,48 +72,6 @@ def design_system() -> dict[str, Any]:
 templates.env.globals["design"] = design_system
 
 
-def last_missed_block(task: Task) -> Block | None:
-    missed = [b for b in task.blocks if b.state == BlockState.missed]
-    return max(missed, key=lambda b: b.start) if missed else None
-
-
-def todays_block(task: Task, today: date) -> Block | None:
-    """The first of today's non-missed blocks, if the task has time today."""
-    todays = [
-        b for b in task.blocks if b.start.date() == today and b.state != BlockState.missed
-    ]
-    return min(todays, key=lambda b: b.start) if todays else None
-
-
-def focus_ctx(db: Session, now: datetime) -> dict[str, Any] | None:
-    """Today's focus: the planned block running now, and how long is left in
-    it; else the next one today, and how long until it; None for neither."""
-    day_end = datetime.combine(now.date(), time.max)
-    planned = db.scalars(
-        select(Block)
-        .where(Block.state == BlockState.planned, Block.end > now, Block.start <= day_end)
-        .order_by(Block.start)
-    ).all()
-    if not planned:
-        return None
-    block = planned[0]
-
-    def span(delta: timedelta) -> str:
-        return duration_label(max(1, round(delta.total_seconds() / 60)))
-
-    if block.start <= now:
-        return {"block": block, "now": True, "left": span(block.end - now)}
-    return {"block": block, "now": False, "until": span(block.start - now)}
-
-
-def focus_card_ctx(db: Session, now: datetime) -> dict[str, Any]:
-    """The focus card's context (partials/focus_card.html): the focus, and
-    while a block runs, its task's sub-tasks as a block's menu has them."""
-    focus = focus_ctx(db, now)
-    row = row_ctx(focus["block"].task, now) if focus and focus["now"] else None
-    return {"focus": focus, "row": row}
-
-
 def description_blocks(notes: str) -> list[dict[str, Any]]:
     """The description as the row renders it: runs of context lines become
     paragraphs, runs of sub-tasks become checklists, blank lines separate.
@@ -145,47 +100,6 @@ def description_blocks(notes: str) -> list[dict[str, Any]]:
         for i, b in enumerate(blocks)
         if b["kind"] != "gap" or (0 < i < len(blocks) - 1 and blocks[i + 1]["kind"] != "gap")
     ]
-
-
-def next_slot_today(db: Session, duration: timedelta, now: datetime) -> datetime | None:
-    """The next free stretch of today's calendar this long, from now (or the
-    grid's first hour) to the grid's last; None when today has no room left."""
-    today = now.date()
-    return blocks_svc.next_free_slot(
-        db,
-        duration=duration,
-        after=max(now, datetime.combine(today, time(DAY_START_HOUR))),
-        until=datetime.combine(today, time(DAY_END_HOUR)),
-    )
-
-
-def next_slot_in(
-    db: Session, duration: timedelta, first_day: date, day_count: int, now: datetime
-) -> datetime | None:
-    """The next free stretch this long in the usual hours of the days from
-    `first_day`, the earliest first and none in the past; None when they have
-    no room left."""
-    for i in range(day_count):
-        day = first_day + timedelta(days=i)
-        start = datetime.combine(day, time(DAY_START_HOUR))
-        until = datetime.combine(day, time(DAY_END_HOUR))
-        if until <= now:
-            continue
-        slot = blocks_svc.next_free_slot(db, duration=duration, after=max(now, start), until=until)
-        if slot is not None:
-            return slot
-    return None
-
-
-def replan_slot(task: Task, now: datetime) -> datetime | None:
-    """Where a missed task's time would go if replanned now: the next free
-    stretch of today's calendar as long as its last missed block, or None when
-    today has no room left (the row then offers tomorrow instead)."""
-    missed_block = last_missed_block(task)
-    db = object_session(task)
-    if missed_block is None or db is None:
-        return None
-    return next_slot_today(db, missed_block.end - missed_block.start, now)
 
 
 def project_choices(
@@ -217,7 +131,6 @@ def sheet_ctx(db: Session, task: Task, today: date) -> dict[str, Any]:
     template = task.recurrence_template
     repeat = recurrence_svc.preset_of(template) if template and template.active else "none"
     projects = project_choices(db, task.project_id, task.workstream_id)
-    block = blocks_svc.day_block(task, task.planned_for) if task.planned_for else None
     project_label = ""
     if task.project:
         project_label = task.project.name
@@ -236,9 +149,6 @@ def sheet_ctx(db: Session, task: Task, today: date) -> dict[str, Any]:
         "workstream_id": task.workstream_id or "",
         "planned_label": short_date(task.planned_for, today) if task.planned_for else "",
         "due_label": short_date(task.due, today) if task.due else "",
-        # Its time on its do-date, as the sheet's time field writes it.
-        "time": f"{block.start:%H:%M}-{block.end:%H:%M}" if block else "",
-        "time_label": f"{block.start:%H:%M}–{block.end:%H:%M}" if block else "",
         # How long it is thought to take, in minutes, as the sheet's field holds it.
         "estimate": task.estimate_minutes or "",
         "estimate_label": duration_label(task.estimate_minutes) if task.estimate_minutes else "",
@@ -256,25 +166,16 @@ def row_ctx(
     `planning` rows (the Tasks page) always name their do-date, today
     included, and carry the quick do-date buttons. `day` is the day the row
     is shown under (a day page's), today by default: a do-date of that day
-    goes without saying, and the time shown is the task's time then."""
-    missed = tasks_svc.has_missed_marker(task, now)
-    missed_block = last_missed_block(task) if missed else None
-    replan = replan_slot(task, now) if missed else None
+    goes without saying."""
     today = now.date()
     day = day or today
-    # Its time on the day it is shown under, else on its own do-date.
-    block = todays_block(task, day) or (
-        todays_block(task, task.planned_for) if task.planned_for else None
-    )
     subtasks_done, subtasks_total = checklist.progress(task.notes)
     return {
         "description": description_blocks(task.notes),
         "subtasks_done": subtasks_done,
         "subtasks_total": subtasks_total,
-        "block_label": f"{block.start:%H:%M}–{block.end:%H:%M}" if block else None,
-        # Its estimate, while it has no time to say how long it takes.
         "estimate_label": (
-            duration_label(task.estimate_minutes) if task.estimate_minutes and not block else None
+            duration_label(task.estimate_minutes) if task.estimate_minutes else None
         ),
         # A day's list is that day by definition; while planning, the day always matters.
         "planned_label": (
@@ -288,12 +189,6 @@ def row_ctx(
         # The Tasks page's quick do-date buttons.
         "plan_today": today,
         "plan_tomorrow": today + timedelta(days=1),
-        "missed": missed,
-        # One step back onto the plan: the next free slot today, else tomorrow.
-        "replan_at": f"{replan:%H:%M}" if replan else None,
-        "missed_label": (
-            f"missed {short_date(missed_block.start.date(), today)}" if missed_block else None
-        ),
         "chip": (
             CHIPS[task.status][0]
             if task.owner == TaskOwner.claude and task.status in CHIPS
@@ -460,8 +355,7 @@ TASK_ROW = re.compile(r"^- \[[ xX]\] ")
 HABIT = "/habit"
 # A task's fields as the sheet posts them (fragments.save_task).
 TASK_FIELDS = (
-    "planned_for", "time", "due", "repeat", "project_id", "workstream_id", "status", "owner",
-    "estimate",
+    "planned_for", "due", "repeat", "project_id", "workstream_id", "status", "owner", "estimate",
 )
 
 
@@ -544,7 +438,7 @@ def day_tasks_ctx(db: Session, day: date, today: date) -> dict[str, Any]:
     planned for the day or due on it, overdue ones on today's, and on today's
     also those still open from the last page before it (notebook.still_open);
     each with its words, its fields as they will stand once brought (do-date
-    this day, and so no time yet unless it had one on it), and its due."""
+    this day), and its due."""
     tasks = tasks_svc.for_day(db, day, today)
     if day == today:
         _, still_open = notebook_svc.still_open(db, day)
@@ -555,7 +449,7 @@ def day_tasks_ctx(db: Session, day: date, today: date) -> dict[str, Any]:
         fields = {k: sheet[k] for k in TASK_FIELDS}
         moves = task.planned_for != day
         if moves:
-            fields |= {"planned_for": day.isoformat(), "time": ""}
+            fields["planned_for"] = day.isoformat()
         out.append({
             "id": task.id, "title": task.title, "notes": task.notes or "",
             "fields": fields, "moves": moves,
@@ -617,10 +511,9 @@ def day_glance_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
     if not ctx["live"]:
         return ctx
 
-    # The day's timed events, a cancelled one passed over; the task blocks
-    # are the focus card's, over the timeline.
+    # The day's timed events, a cancelled one passed over.
     midnight = datetime.combine(day, time.min)
-    events, _ = events_svc.calendar_range(db, midnight, midnight + timedelta(days=1))
+    events = events_svc.calendar_range(db, midnight, midnight + timedelta(days=1))
     items = sorted(
         (e.start, e.end, e.shown_title, e.location.strip())
         for e in events if not e.all_day and not e.cancelled
@@ -647,8 +540,6 @@ def day_page_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
         "notepad": notepad_ctx(db, day),
         "day_tasks": day_tasks_ctx(db, day, now.date()),
         "glance": day_glance_ctx(db, day, now),
-        # Drawn with the page, so the timeline is laid out at its height from the start.
-        "focus_card": focus_card_ctx(db, now) if is_today else None,
     }
 
 
