@@ -2285,8 +2285,9 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 }
 :root[data-density="compact"] .day-sheet { --ds-line: 28px; }
 .day-sheet-table { width: 100%; min-width: max-content; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
-.ds-col-day { width: 104px; }
+.ds-col-day { width: 128px; }
 .ds-col-stay { width: 176px; }
+.ds-col-check { width: 120px; }
 .ds-col-plan { width: auto; min-width: 320px; }
 .ds-col-habit { width: 84px; }
 .day-sheet-table :is(th, td) {
@@ -2320,15 +2321,42 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 }
 .day-sheet:focus-within .ds-cell.is-cursor::after { box-shadow: inset 0 0 0 2px var(--spark-deep), var(--spark-glow); }
 
-/* where he stays: its box, then its value; amber until sorted */
+/* where he stays: its words; accommodation is its box alone, steel on a
+   day with no stay, edged amber while not sorted (as under Today's date),
+   ink with a tick once it is */
 .ds-stay { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ds-sorted {
-  display: inline-block; width: 10px; height: 10px; margin-right: var(--s-2); vertical-align: -1px;
-  border: 1.5px solid color-mix(in srgb, var(--hue-3) 85%, var(--ink)); cursor: pointer;
+.ds-value { color: var(--ink); }
+.day-sheet-table .ds-check-col { text-align: center; }
+td.ds-check-col { cursor: pointer; }
+.ds-box {
+  display: inline-grid; place-content: center; width: 14px; height: 14px; vertical-align: middle;
+  border: 1.5px solid var(--steel);
 }
-.ds-stay.is-sorted .ds-sorted { background: var(--ink); border-color: var(--ink); }
-.ds-value { color: color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
-.ds-stay.is-sorted .ds-value { color: var(--ink); }
+.ds-check-col.is-open .ds-box { border-color: color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
+.ds-check-col.is-sorted .ds-box, .ds-check-col.is-painted .ds-box { background: var(--ink); border-color: var(--ink); }
+.ds-check-col.is-unpainted .ds-box { background: none; border-color: var(--steel); }
+:is(.ds-check-col.is-sorted, .ds-check-col.is-painted) .ds-box::before {
+  content: ""; width: 8px; height: 8px; background: var(--paper);
+  clip-path: polygon(14% 52%, 5% 65%, 38% 95%, 97% 18%, 85% 8%, 37% 71%);
+}
+.ds-check-col.is-unpainted .ds-box::before { content: none; }
+
+/* a day folds to its plan's first line (its chevron before the date), the
+   line saying how many more it holds */
+.day-sheet-table .ds-day { padding-left: 26px; }
+.ds-fold {
+  position: absolute; top: 50%; left: 4px; display: grid; place-content: center; width: 20px; height: 20px; margin-top: -10px;
+  padding: 0; border: none; border-radius: 0; background: none; cursor: pointer;
+}
+thead .ds-fold { top: auto; bottom: 5px; margin-top: 0; }
+.ds-fold svg { width: 12px; height: 12px; fill: none; stroke: var(--steel); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--dur) var(--ease); }
+.ds-fold:hover svg { stroke: var(--ink); }
+.ds-fold:focus-visible { box-shadow: none; }
+tr.is-folded .ds-fold svg, .day-sheet.all-folded .ds-fold-all svg { transform: rotate(-90deg); }
+.ds-more { display: none; flex: none; font-size: var(--t-caption); font-weight: 500; color: var(--pewter); font-variant-numeric: tabular-nums; }
+tr.is-folded .ds-plan-list li:not(:first-child) { display: none; }
+tr.is-folded .ds-more { display: inline; }
+tr.is-folded .ds-plan-list li:first-child .ds-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* the plan: the day's tasks, each with its box, then its own events */
 .ds-plan { padding-top: 7px; padding-bottom: 6px; }

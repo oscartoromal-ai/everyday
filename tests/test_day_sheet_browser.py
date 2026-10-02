@@ -10,6 +10,7 @@ import pytest
 from app.models import Task, TaskStatus
 from app.services import habits as habits_svc
 from app.services import notebook
+from app.services import tasks as tasks_svc
 from app.ui.day_sheet_view import home_start
 
 pytest.importorskip("playwright.sync_api")
@@ -37,27 +38,38 @@ def stay(app_db, day: date) -> list[dict]:
 def test_a_stay_is_written_ticked_and_filled_down(page, live, app_db) -> None:
     open_sheet(page, live)
     monday = START
+    tuesday = monday + timedelta(days=1)
+    wednesday = monday + timedelta(days=2)
     cell(page, monday, '[data-name="place"]').click()
     # Typing writes over the cell; Enter writes it and goes down.
     page.keyboard.type("Leiden")
     page.keyboard.press("Enter")
     cell(page, monday, '[data-name="place"][data-value="Leiden"]').wait_for()
     assert page.locator(".ds-cell.is-cursor").get_attribute("data-col") == "1"
-    tuesday = (monday + timedelta(days=1)).isoformat()
-    assert page.locator("tr.has-cursor").get_attribute("data-day") == tuesday
-    # Space ticks it sorted; the next day's is filled down from it.
+    assert page.locator("tr.has-cursor").get_attribute("data-day") == tuesday.isoformat()
+    # Accommodation is a checkbox: Space ticks it sorted.
     page.keyboard.press("ArrowUp")
+    page.keyboard.press("ArrowRight")
     page.keyboard.press(" ")
-    cell(page, monday, '[data-name="place"][data-done="true"]').wait_for()
+    cell(page, monday, '[data-kind="check"][data-done="true"]').wait_for()
+    # Both filled down the next two days from it.
+    page.keyboard.press("ArrowLeft")
+    page.keyboard.press("Shift+ArrowRight")
     page.keyboard.press("Shift+ArrowDown")
     page.keyboard.press("Shift+ArrowDown")
     page.keyboard.press("Control+d")
-    wednesday = monday + timedelta(days=2)
-    cell(page, wednesday, '[data-name="place"][data-value="Leiden"]').wait_for()
-    for day in (monday, monday + timedelta(days=1), wednesday):
-        assert stay(app_db, day)[0] == {"name": "place", "value": "Leiden", "done": True}
-    # Delete clears it; Esc while writing keeps what was there.
+    cell(page, wednesday, '[data-name="accommodation"][data-done="true"]').wait_for()
+    for day in (monday, tuesday, wednesday):
+        assert stay(app_db, day) == [
+            {"name": "place", "value": "Leiden", "done": False},
+            {"name": "accommodation", "value": "", "done": True},
+        ]
+    # Delete clears the words and unticks the box; Esc while writing keeps
+    # what was there.
     page.keyboard.press("Escape")
+    page.keyboard.press("Delete")
+    cell(page, wednesday, '[data-name="accommodation"][data-done="false"]').wait_for()
+    page.keyboard.press("ArrowLeft")
     page.keyboard.press("Delete")
     cell(page, wednesday, '[data-name="place"][data-value=""]').wait_for()
     page.keyboard.press("Enter")
@@ -66,8 +78,38 @@ def test_a_stay_is_written_ticked_and_filled_down(page, live, app_db) -> None:
     page.locator(".ds-input").wait_for(state="detached")
     assert cell(page, wednesday, '[data-name="place"]').get_attribute("data-value") == ""
     assert stay(app_db, monday)[0]["value"] == "Leiden"
+    # A click ticks a day's box, as it does a habit's.
+    cell(page, tuesday, '[data-name="accommodation"]').click()
+    cell(page, tuesday, '[data-name="accommodation"][data-done="false"]').wait_for()
     # The sheet's own keys do not reach the page's: "Leiden" switched no view.
     assert "view=day" not in page.url
+
+
+def test_a_day_folds_to_its_first_line_and_stays_folded(page, live, app_db) -> None:
+    with app_db() as db:
+        for title in ("Book driving test", "Lunch at Delft", "Do taxes"):
+            tasks_svc.create_task(db, title=title, planned_for=TODAY)
+        tasks_svc.create_task(db, title="Alone", planned_for=TODAY + timedelta(days=1))
+        db.commit()
+    open_sheet(page, live)
+    row = page.locator(f'tr[data-day="{TODAY.isoformat()}"]')
+    tall = row.bounding_box()["height"]
+    # A day with one line has nothing to fold.
+    assert cell(page, TODAY + timedelta(days=1), "[data-fold]").count() == 0
+    row.locator("[data-fold]").click()
+    page.locator("tr.is-folded").wait_for()
+    assert row.bounding_box()["height"] < tall
+    assert row.locator(".ds-more").inner_text() == "+2"
+    assert row.locator(".ds-task:visible").count() == 1
+    # Folded it stays, through a redraw and a visit.
+    page.reload()
+    page.locator("tr.is-folded").wait_for()
+    # Alt+Right on the day opens it; the header's chevron folds every day.
+    cell(page, TODAY, '[data-kind="plan"]').click(position={"x": 300, "y": 8})
+    page.keyboard.press("Alt+ArrowRight")
+    page.locator("tr.is-folded").wait_for(state="detached")
+    page.locator("[data-fold-all]").click()
+    page.locator(f'tr.is-folded[data-day="{TODAY.isoformat()}"]').wait_for()
 
 
 def test_a_task_is_written_for_its_day_and_ticked(page, live, app_db) -> None:

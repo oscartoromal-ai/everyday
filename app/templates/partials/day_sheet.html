@@ -2,20 +2,29 @@
    edit: a row a day, its Day frozen at the left, then where Oscar stays (an
    item a column), the day's plan (its tasks, then its own events) and a
    column per habit. A cell names what it writes (data-kind) and its column
-   (data-col); day-sheet.js moves a cursor over them and writes in them. #}
+   (data-col); day-sheet.js moves a cursor over them and writes in them. A
+   stay item that is a checkbox (accommodation) is its box alone, ticked once
+   sorted. A day whose plan runs over a line folds to its first (its
+   chevron), and stays so in that browser. #}
+{% macro chevron() %}<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>{% endmacro %}
 {% set sheet_cols = 1 + sheet.columns | length + 1 + sheet.habits | length %}
 <div class="day-sheet" id="day-sheet" data-start="{{ sheet.start.isoformat() }}" data-cols="{{ sheet_cols }}">
   <table class="day-sheet-table" role="grid" aria-label="Days">
     <colgroup>
       <col class="ds-col-day">
-      {% for c in sheet.columns %}<col class="ds-col-stay">{% endfor %}
+      {% for c in sheet.columns %}<col class="{{ 'ds-col-check' if c.check else 'ds-col-stay' }}">{% endfor %}
       <col class="ds-col-plan">
       {% for h in sheet.habits %}<col class="ds-col-habit">{% endfor %}
     </colgroup>
     <thead>
       <tr>
-        <th class="ds-day" scope="col">Day</th>
-        {% for c in sheet.columns %}<th class="ds-stay" scope="col" title="Where you stay: {{ c.name }}, ticked once sorted">{{ c.label }}</th>{% endfor %}
+        <th class="ds-day" scope="col">
+          <button type="button" class="ds-fold ds-fold-all" data-fold-all tabindex="-1" aria-label="Fold every day" title="Fold or open every day (Alt+click a day's)">{{ chevron() }}</button>Day
+        </th>
+        {% for c in sheet.columns %}
+        {% if c.check %}<th class="ds-check-col" scope="col" title="Where you stay: {{ c.name }}, ticked once sorted">{{ c.label }}</th>
+        {% else %}<th class="ds-stay" scope="col" title="Where you stay: {{ c.name }}">{{ c.label }}</th>{% endif %}
+        {% endfor %}
         <th class="ds-plan" scope="col">Plan</th>
         {% for h in sheet.habits %}
         <th class="ds-habit" scope="col" title="{{ h.slug }}">{% for part in h.slug.split("-") %}{{ part }}{% if not loop.last %}-<wbr>{% endif %}{% endfor %}</th>
@@ -24,28 +33,39 @@
     </thead>
     <tbody>
       {% for row in sheet.rows %}
-      <tr data-day="{{ row.iso }}" class="{% if row.is_today %}is-today{% endif %}{% if row.is_weekend %} is-weekend{% endif %}{% if row.week_start %} week-start{% endif %}">
+      <tr data-day="{{ row.iso }}" class="{% if row.is_today %}is-today{% endif %}{% if row.is_weekend %} is-weekend{% endif %}{% if row.week_start %} week-start{% endif %}"{% if row.plan_count > 1 %} data-foldable{% endif %}>
         <th class="ds-cell ds-day" scope="row" data-col="0" data-kind="day" tabindex="-1">
+          {%- if row.plan_count > 1 %}<button type="button" class="ds-fold" data-fold tabindex="-1" aria-label="Fold {{ row.dow }} {{ row.label }}" title="Fold or open the day (Alt+Left, Alt+Right)">{{ chevron() }}</button>{% endif -%}
           <a href="/day/{{ row.iso }}" tabindex="-1" title="The day's notes"><span class="ds-dow">{{ row.dow }}</span> {{ row.label }}</a>
         </th>
         {% for c in sheet.columns %}
         {% set item = row.stay[loop.index0] %}
-        <td class="ds-cell ds-stay{% if item and item.done %} is-sorted{% endif %}" data-col="{{ loop.index }}" data-kind="stay"
-            data-name="{{ c.name }}" data-value="{{ item.value if item else '' }}" data-done="{{ 'true' if item and item.done else 'false' }}" tabindex="-1">
-          {%- if item %}<span class="ds-sorted" role="checkbox" aria-checked="{{ 'true' if item.done else 'false' }}" aria-label="{{ c.label }} sorted" title="Sorted (Space)"></span><span class="ds-value">{{ item.value }}</span>{% endif -%}
+        {% set done = item and item.done %}
+        {% if c.check %}
+        <td class="ds-cell ds-check-col{% if done %} is-sorted{% elif item %} is-open{% endif %}" data-col="{{ loop.index }}" data-kind="check"
+            data-name="{{ c.name }}" data-done="{{ 'true' if done else 'false' }}" tabindex="-1"
+            role="checkbox" aria-checked="{{ 'true' if done else 'false' }}" aria-label="{{ c.label }} sorted"
+            {%- if item and item.value %} title="{{ item.value }}"{% endif %}><span class="ds-box" aria-hidden="true"></span></td>
+        {% else %}
+        <td class="ds-cell ds-stay" data-col="{{ loop.index }}" data-kind="stay"
+            data-name="{{ c.name }}" data-value="{{ item.value if item else '' }}" tabindex="-1">
+          {%- if item %}<span class="ds-value">{{ item.value }}</span>{% endif -%}
         </td>
+        {% endif %}
         {% endfor %}
         <td class="ds-cell ds-plan" data-col="{{ sheet.columns | length + 1 }}" data-kind="plan" tabindex="-1">
           {%- if row.tasks or row.events %}
           <ul class="ds-plan-list">
+            {# Folded, the first line says how many more it holds. #}
+            {% set more %}{% if row.plan_count > 1 %}<span class="ds-more">+{{ row.plan_count - 1 }}</span>{% endif %}{% endset %}
             {% for t in row.tasks %}
             <li class="ds-task{% if t.done %} is-done{% endif %}">
               <span class="ds-check" role="checkbox" aria-checked="{{ 'true' if t.done else 'false' }}" data-task="{{ t.id }}" aria-label="{{ t.title }}"></span>
-              <span class="ds-title">{{ t.title }}</span>{% if t.due %}<span class="ds-due">due</span>{% endif %}
+              <span class="ds-title">{{ t.title }}</span>{% if t.due %}<span class="ds-due">due</span>{% endif %}{% if loop.first %}{{ more }}{% endif %}
             </li>
             {% endfor %}
             {% for e in row.events %}
-            <li class="ds-event"><span class="ds-time">{{ e.time or "all day" }}</span> {{ e.title }}</li>
+            <li class="ds-event"><span class="ds-time">{{ e.time or "all day" }}</span> <span class="ds-title">{{ e.title }}</span>{% if loop.first and not row.tasks %}{{ more }}{% endif %}</li>
             {% endfor %}
           </ul>
           {%- endif -%}

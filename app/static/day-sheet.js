@@ -2,11 +2,13 @@
    Oscar planned his days in Excel: a cell cursor moved by the keys or the
    pointer, a range held with Shift or a drag, cells written by typing.
 
-   Where he stays is written in its cells (an item a column), Space ticking
-   it sorted; a Plan cell writes a task for its day; a habit's cell is
-   ticked by a click or Space, and a drag down its column paints the days
-   it crosses. Ctrl+D fills the range from its first row (one cell, from
-   the row above), Delete clears it.
+   Where he stays is written in its cells (an item a column), accommodation
+   a checkbox, sorted or not; a Plan cell writes a task for its day; a
+   habit's cell, or accommodation's, is ticked by a click or Space, and a
+   drag down its column paints the days it crosses. Ctrl+D fills the range
+   from its first row (one cell, from the row above), Delete clears it. A
+   day whose plan runs over a line folds to its first (its chevron, or
+   Alt+Left and Right), and stays folded in this browser.
 
    Every edit is one POST of ops (/ui/day-sheet), written into the days'
    notes and tasks as they would be there, answered with the sheet drawn
@@ -22,6 +24,13 @@
   const colCount = () => Number(sheet.dataset.cols);
   const cellAt = (row, col) => row?.querySelector(`.ds-cell[data-col="${col}"]`);
   const writable = (cell) => cell && (cell.dataset.kind === "stay" || cell.dataset.kind === "plan");
+  const dayOf = (cell) => cell.closest("tr").dataset.day;
+  // Ticked by a click, Space or a drag: a habit's cell, or a stay's checkbox.
+  const tickable = (cell) => cell && (cell.dataset.kind === "habit" || cell.dataset.kind === "check");
+  const isTicked = (cell) => (cell.dataset.kind === "habit" ? cell.dataset.state === "done" : cell.dataset.done === "true");
+  const tickOp = (cell, done) => (cell.dataset.kind === "habit"
+    ? { op: "habit", day: dayOf(cell), slug: cell.dataset.slug, done }
+    : { op: "stay", day: dayOf(cell), name: cell.dataset.name, done });
 
   /* ---- the cursor and the range ---- */
 
@@ -107,6 +116,7 @@
     const focused = sheet.contains(document.activeElement);
     sheet.dataset.cols = fresh.dataset.cols;
     sheet.replaceChildren(...fresh.childNodes);
+    showFolds();
     if (!cursor) return;
     const cell = place();
     if (focused && cell && !editing) cell.focus({ preventScroll: true });
@@ -146,16 +156,10 @@
     if (document.visibilityState === "visible") refresh();
   });
 
-  const dayOf = (cell) => cell.closest("tr").dataset.day;
-
   // What a cell holds, as an op writing the same into another day's cell.
   const fillOp = (from, to) => {
-    if (from.dataset.kind === "stay") {
-      return { op: "stay", day: dayOf(to), name: to.dataset.name, value: from.dataset.value, done: from.dataset.done === "true" };
-    }
-    if (from.dataset.kind === "habit") {
-      return { op: "habit", day: dayOf(to), slug: to.dataset.slug, done: from.dataset.state === "done" };
-    }
+    if (from.dataset.kind === "stay") return { op: "stay", day: dayOf(to), name: to.dataset.name, value: from.dataset.value };
+    if (tickable(from)) return tickOp(to, isTicked(from));
     return null;
   };
 
@@ -173,26 +177,48 @@
     send(targets.flatMap((row) => range.cols.map((c) => fillOp(cellAt(sources, c), cellAt(row, c))).filter(Boolean)));
   };
 
-  // Delete: the range's stay cleared and its habits unticked.
+  // Delete: the range's stay cleared, its habits and checkboxes unticked.
   const clear = () => {
     send(rangeCells().cells.flatMap((cell) => {
       if (cell.dataset.kind === "stay" && cell.dataset.value) return [{ op: "stay", day: dayOf(cell), name: cell.dataset.name, value: "" }];
-      if (cell.dataset.kind === "habit" && cell.dataset.state) return [{ op: "habit", day: dayOf(cell), slug: cell.dataset.slug, done: false }];
+      if (cell.dataset.kind === "habit" && cell.dataset.state) return [tickOp(cell, false)];
+      if (cell.dataset.kind === "check" && isTicked(cell)) return [tickOp(cell, false)];
       return [];
     }));
   };
 
-  // Space: the range's habits ticked (unticked when the cursor's is), its
-  // stay items sorted (or not, as the cursor's).
+  // Space: the range's habits and checkboxes ticked (unticked when the
+  // cursor's is).
   const tick = () => {
     const cell = cellAt(rowOf(cursor.day), cursor.col);
-    if (cell.dataset.kind === "habit") {
-      const done = cell.dataset.state !== "done";
-      send(rangeCells().cells.filter((c) => c.dataset.kind === "habit").map((c) => ({ op: "habit", day: dayOf(c), slug: c.dataset.slug, done })));
-    } else if (cell.dataset.kind === "stay") {
-      const done = cell.dataset.done !== "true";
-      send(rangeCells().cells.filter((c) => c.dataset.kind === "stay").map((c) => ({ op: "stay", day: dayOf(c), name: c.dataset.name, done })));
+    if (!tickable(cell)) return;
+    const done = !isTicked(cell);
+    send(rangeCells().cells.filter(tickable).map((c) => tickOp(c, done)));
+  };
+
+  /* ---- folding a day to its plan's first line, remembered in this browser ---- */
+
+  const FOLDED = "pc-sheet-folded";
+  const folded = new Set((() => {
+    try { return JSON.parse(localStorage.getItem(FOLDED)) || []; } catch { return []; }
+  })());
+  const foldable = () => [...sheet.querySelectorAll("tbody tr[data-foldable]")];
+
+  function showFolds() {
+    for (const row of rows()) row.classList.toggle("is-folded", row.hasAttribute("data-foldable") && folded.has(row.dataset.day));
+    const all = foldable();
+    sheet.classList.toggle("all-folded", all.length > 0 && all.every((r) => folded.has(r.dataset.day)));
+  }
+
+  const fold = (days, folding) => {
+    for (const row of days) {
+      if (folding) folded.add(row.dataset.day);
+      else folded.delete(row.dataset.day);
     }
+    // The latest days kept, so the list never grows without end.
+    try { localStorage.setItem(FOLDED, JSON.stringify([...folded].sort().slice(-400))); } catch { /* private mode */ }
+    showFolds();
+    if (cursor) reveal(cellAt(rowOf(cursor.day), cursor.col));
   };
 
   /* ---- writing in a cell: a stay's value, or a task for the day ---- */
@@ -276,7 +302,14 @@
       if (key === "End") { const all = rows(); handled(); moveTo(all[all.length - 1].dataset.day, colCount() - 1, { extend: e.shiftKey }); return; }
       return; // other Ctrl keys stay the browser's
     }
-    if (e.altKey) return;
+    if (e.altKey) {
+      if (key === "ArrowLeft" || key === "ArrowRight") {
+        // The range's days (or the cursor's) folded, or opened.
+        handled();
+        fold(rangeCells().rows.filter((r) => r.hasAttribute("data-foldable")), key === "ArrowLeft");
+      }
+      return;
+    }
     const arrows = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
     if (arrows[key]) { handled(); step(...arrows[key], { extend: e.shiftKey }); return; }
     if (key === "PageUp" || key === "PageDown") { handled(); step(key === "PageUp" ? -7 : 7, 0, { extend: e.shiftKey }); return; }
@@ -299,7 +332,7 @@
       handled();
       if (cell.dataset.kind === "day") window.location.href = `/day/${cursor.day}`;
       else if (writable(cell)) edit(cell);
-      else if (cell.dataset.kind === "habit") tick();
+      else if (tickable(cell)) tick();
       return;
     }
     if (key === " ") { handled(); tick(); return; }
@@ -312,13 +345,13 @@
     }
   });
 
-  /* ---- the pointer: a cell, a range, a habit's days painted ---- */
+  /* ---- the pointer: a cell, a range, a column's days painted, a day folded ---- */
 
-  let paint = null; // {slug, done, cells}
+  let paint = null; // {col, done, cells}
   let selecting = false;
 
   const paintCell = (cell) => {
-    if (!cell || cell.dataset.kind !== "habit" || cell.dataset.slug !== paint.slug || paint.cells.has(cell)) return;
+    if (!tickable(cell) || cell.dataset.col !== paint.col || paint.cells.has(cell)) return;
     paint.cells.add(cell);
     cell.classList.toggle("is-painted", paint.done);
     cell.classList.toggle("is-unpainted", !paint.done);
@@ -335,18 +368,21 @@
       send([{ op: "toggle", task: Number(task.dataset.task) }]);
       return;
     }
-    if (e.target.closest(".ds-sorted")) {
+    const chevron = e.target.closest("[data-fold]");
+    if (chevron) {
+      // Alt folds or opens every day at once.
       e.preventDefault();
-      moveTo(dayOf(cell), Number(cell.dataset.col));
-      send([{ op: "stay", day: dayOf(cell), name: cell.dataset.name, done: cell.dataset.done !== "true" }]);
+      const row = chevron.closest("tr");
+      fold(e.altKey ? foldable() : [row], !row.classList.contains("is-folded"));
+      moveTo(row.dataset.day, 0);
       return;
     }
     if (e.target.closest("a")) return; // the day's notes
     e.preventDefault();
     if (editing) commit();
     moveTo(dayOf(cell), Number(cell.dataset.col), { extend: e.shiftKey });
-    if (cell.dataset.kind === "habit" && !e.shiftKey) {
-      paint = { slug: cell.dataset.slug, done: cell.dataset.state !== "done", cells: new Set() };
+    if (tickable(cell) && !e.shiftKey) {
+      paint = { col: cell.dataset.col, done: !isTicked(cell), cells: new Set() };
       paintCell(cell);
     } else {
       selecting = true;
@@ -375,11 +411,9 @@
   const endPointer = () => {
     selecting = false;
     if (!paint) return;
-    const { slug, done, cells } = paint;
+    const { done, cells } = paint;
     paint = null;
-    const ops = [...cells]
-      .filter((c) => (c.dataset.state === "done") !== done)
-      .map((c) => ({ op: "habit", day: dayOf(c), slug, done }));
+    const ops = [...cells].filter((c) => isTicked(c) !== done).map((c) => tickOp(c, done));
     if (ops.length) send(ops);
     else cells.forEach((c) => c.classList.remove("is-painted", "is-unpainted"));
   };
@@ -388,11 +422,17 @@
 
   sheet.addEventListener("dblclick", (e) => {
     const cell = e.target.closest(".ds-cell");
-    if (writable(cell) && !e.target.closest("[data-task], .ds-sorted, input")) edit(cell);
+    if (writable(cell) && !e.target.closest("[data-task], input")) edit(cell);
+  });
+
+  // The Day header's chevron folds every day, or opens them all again.
+  sheet.addEventListener("click", (e) => {
+    if (e.target.closest("[data-fold-all]")) fold(foldable(), !sheet.classList.contains("all-folded"));
   });
 
   // Today's row in view as the sheet opens, the cursor on it, unfocused, so
   // the page's own keys (the views, Left and Right) still work until a click.
+  showFolds();
   place();
   const today = sheet.querySelector("tr.is-today");
   if (today) reveal(cellAt(today, 0));

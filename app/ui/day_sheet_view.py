@@ -21,6 +21,9 @@ from app.services import tasks as tasks_svc
 # Four weeks: the last one, this one, and two to plan.
 SHEET_DAYS = 28
 HABIT_STATES = {"done": "Done", "skipped": "Skipped", "missed": "Missed"}
+# Stay items read as a checkbox, whether they are sorted, as Oscar's Excel
+# had its AC column (Oscar's call on 2026-10-03); the rest are their words.
+CHECK_ITEMS = ("accommodation",)
 
 
 def home_start(today: date) -> date:
@@ -133,6 +136,8 @@ def day_sheet_ctx(db: Session, first: date, today: date, days: int = SHEET_DAYS)
             "stay": [stay.get(name.lower()) for name in columns],
             "tasks": tasks.get(day, []),
             "events": events.get(day, []),
+            # What its plan holds: a day with more than one line folds to its first.
+            "plan_count": len(tasks.get(day, [])) + len(events.get(day, [])),
             "habits": [
                 {**h["checks"][i], "label": HABIT_STATES.get(h["checks"][i]["state"], "")}
                 for h in habits
@@ -141,7 +146,14 @@ def day_sheet_ctx(db: Session, first: date, today: date, days: int = SHEET_DAYS)
     return {
         "start": first,
         "days": days,
-        "columns": [{"name": name, "label": name[:1].upper() + name[1:]} for name in columns],
+        "columns": [
+            {
+                "name": name,
+                "label": name[:1].upper() + name[1:],
+                "check": name.lower() in CHECK_ITEMS,
+            }
+            for name in columns
+        ],
         "habits": [{"slug": h["slug"], "days": h["days"]} for h in habits],
         "rows": rows,
     }

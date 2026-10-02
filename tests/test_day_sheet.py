@@ -90,7 +90,10 @@ def test_the_sheet_reads_each_days_stay_plan_and_habits(db) -> None:
 
     sheet = day_sheet_ctx(db, MONDAY, MONDAY + timedelta(days=2))
     assert len(sheet["rows"]) == 28
-    assert [c["label"] for c in sheet["columns"]] == ["Place", "Accommodation"]
+    assert [(c["label"], c["check"]) for c in sheet["columns"]] == [
+        ("Place", False), ("Accommodation", True),
+    ]
+    assert row(sheet, MONDAY)["plan_count"] == 5
     assert [h["slug"] for h in sheet["habits"]] == ["exercise-run"]
     monday = row(sheet, MONDAY)
     stays = [(i["value"], i["done"]) for i in monday["stay"]]
@@ -139,7 +142,7 @@ def test_writing_in_the_sheet(client, db) -> None:
     task = tasks_svc.create_task(db, title="Send documents", planned_for=MONDAY)
     ops = [
         {"op": "stay", "day": MONDAY.isoformat(), "name": "place", "value": "Leiden"},
-        {"op": "stay", "day": MONDAY.isoformat(), "name": "place", "done": True},
+        {"op": "stay", "day": MONDAY.isoformat(), "name": "accommodation", "done": True},
         {"op": "habit", "day": MONDAY.isoformat(), "slug": "morning-run", "done": True},
         {"op": "habit", "day": TUESDAY.isoformat(), "slug": "morning-run", "done": True},
         {"op": "task", "day": MONDAY.isoformat(), "title": " Book driving test "},
@@ -149,7 +152,8 @@ def test_writing_in_the_sheet(client, db) -> None:
     answer = client.post(f"/ui/day-sheet?start={MONDAY.isoformat()}", json={"ops": ops})
     assert answer.status_code == 200
     # Answered with the sheet drawn again.
-    assert 'data-name="place" data-value="Leiden" data-done="true"' in answer.text
+    assert 'data-name="place" data-value="Leiden"' in answer.text
+    assert 'data-name="accommodation" data-done="true"' in answer.text
     assert answer.text.count('data-slug="morning-run" data-state="done"') == 2
     assert [b.get("slug") for b in notebook.blocks_of(db, MONDAY)] == ["morning-run", None]
     assert db.query(Task).filter_by(title="Book driving test").one().planned_for == MONDAY

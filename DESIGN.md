@@ -307,10 +307,11 @@ On phones the Task column narrows to 150px and Start, Wks and Due fold away; the
 
 **Calendar's sheet** (`partials/day_sheet.html`, Calendar's fourth view).
 Under the calendar's header, a key line in place of New event, then one table that scrolls both ways inside itself to the window's foot (as the grid does), on the sheets' see-through paper under a mist line.
-Its header row (48px, 12px/500 graphite names at the foot) and its Day column (104px: the weekday in pewter, the date in ink 500, today's both `--spark-deep` 600) stay put on opaque paper, the Day column edged by a mist line.
-The columns: a stay item's 176px, Plan the rest (320px at least), a habit's 84px, its name broken at its hyphens.
+Its header row (48px, 12px/500 graphite names at the foot) and its Day column (128px: a fold chevron, the weekday in pewter, the date in ink 500, today's both `--spark-deep` 600) stay put on opaque paper, the Day column edged by a mist line.
+The columns: a stay item's 176px (accommodation's, a checkbox, 120px), Plan the rest (320px at least), a habit's 84px, its name broken at its hyphens.
 Rows are 36px (28px compact) and grow with their plan; cells carry hairline rules both ways, each week's Monday is ruled in mist, and weekends are tinted `--ink-tint-faint`.
-A stay's cell is its 10px box (ink once sorted, edged in amber till then, as under Today's date) and its value, amber until sorted, then ink.
+A stay's cell is its value in ink; accommodation's is a centred 14px box, steel on a day with no stay, edged amber while its stay has it unsorted (as under Today's date), and ink with a paper tick once sorted.
+A day that folds has a 12px steel chevron before its date (ink on hover, turned right while folded; the Day header's folds them all); folded, its plan is its first line, cut short with an ellipsis, then "+N" in 12px/500 pewter.
 Plan lists the day's tasks, each a 14px box in steel (`--ok-fg` once done, its title pewter and struck through) and its title in ink, a warn "due" badge after a deadline still open, and then the day's own events, the time in 12px pewter figures before the title in graphite.
 A habit done fills its cell with `--hue-4` at 30%, the habits' green, with a 16px tick in it; skipped is a 10px steel box, missed a 10px steel dash, and the cell's tooltip says which, with the day's note.
 A habit's cells being painted fill (or empty) as the drag passes, before the sheet is drawn again.
