@@ -72,7 +72,7 @@ def test_booking_gives_a_task_its_estimate(client, db, monkeypatch) -> None:
     _fixed_now(monkeypatch, at(9, 10))
     task = tasks_svc.create_task(db, title="Write the report", estimate_minutes=90)
     response = client.post(f"/ui/tasks/{task.id}/book")
-    assert response.json() == {"start": "09:15", "end": "10:45"}
+    assert (response.json()["start"], response.json()["end"]) == ("09:15", "10:45")
 
 
 def test_booking_says_when_its_estimate_does_not_fit(client, db, monkeypatch) -> None:
@@ -107,3 +107,32 @@ async def test_claude_sets_an_estimate(app_db) -> None:
             "upsert_tasks", {"tasks": [{"task_id": task["id"], "estimate_minutes": None}]},
         )).data
         assert task["estimate_minutes"] is None
+
+
+def test_book_finds_the_next_free_stretch_in_the_days_shown(client, db, monkeypatch) -> None:
+    from datetime import timedelta
+
+    from app.models import Event, EventSource
+    from tests.test_ui import _fixed_now
+
+    tomorrow = TODAY + timedelta(days=1)
+    _fixed_now(monkeypatch, at(21))
+    task = tasks_svc.create_task(db, title="Write the report", estimate_minutes=120)
+    db.add(Event(
+        title="Workshop", source=EventSource.work, read_only=True,
+        start=datetime.combine(tomorrow, time(6)), end=datetime.combine(tomorrow, time(9)),
+    ))
+    db.flush()
+    # Today has an hour left: the stretch goes to tomorrow, after its workshop.
+    response = client.post(
+        f"/ui/tasks/{task.id}/book", data={"start": TODAY.isoformat(), "days": "3"},
+    )
+    answer = response.json()
+    when = (answer["day"], answer["start"], answer["end"])
+    assert when == (tomorrow.isoformat(), "09:00", "11:00")
+    db.refresh(task)
+    assert task.planned_for == tomorrow
+    # Within one day with no room, it says so.
+    other = tasks_svc.create_task(db, title="Read", estimate_minutes=120)
+    response = client.post(f"/ui/tasks/{other.id}/book", data={"start": TODAY.isoformat()})
+    assert response.json() == {"detail": "No 2h free left today."}

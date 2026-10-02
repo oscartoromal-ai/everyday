@@ -28,6 +28,9 @@
         {%- if t.task.estimate_minutes %} data-estimate="{{ t.task.estimate_minutes }}"{% endif %}>
       <span class="tray-title">{{ t.task.title }}</span>
       {{ tray_meta(t) }}
+      {# The next free stretch in the days shown, as long as its estimate (calendar.js). #}
+      <button type="button" class="tray-book" data-book="{{ t.task.id }}"
+              title="Book the next free {{ (t.task.estimate_minutes | duration) if t.task.estimate_minutes else 'hour' }}">Book</button>
     </li>
     {% endfor %}
   </ul>

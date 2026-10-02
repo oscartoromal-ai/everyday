@@ -808,7 +808,9 @@ def test_book_gives_a_task_the_next_free_hour_today(client, db, monkeypatch) -> 
 
     response = client.post(f"/ui/tasks/{task.id}/book")
     assert response.status_code == 200
-    assert response.json() == {"start": "15:00", "end": "16:00"}
+    answer = response.json()
+    assert (answer["start"], answer["end"], answer["day"]) == ("15:00", "16:00", TODAY.isoformat())
+    assert answer["had"] == "" and answer["block_id"] == task.blocks[0].id
     assert [(b.start, b.end) for b in task.blocks] == [(at(15, 0), at(16, 0))]
     assert task.planned_for == TODAY
 

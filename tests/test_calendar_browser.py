@@ -7,7 +7,7 @@ from datetime import date, datetime, time, timedelta
 
 import pytest
 
-from app.models import Block, Event
+from app.models import Block, Event, EventSource
 from app.services import events as events_svc
 from app.services import tasks as tasks_svc
 
@@ -220,3 +220,33 @@ def test_a_task_dropped_on_the_grid_takes_its_estimate(page, live, app_db) -> No
     with app_db() as db:
         [block] = db.query(Block).filter(Block.task_id == task_id).all()
         assert block.end - block.start == timedelta(minutes=90)
+
+
+def test_book_puts_a_task_in_the_next_free_stretch_and_undo_takes_it_back(
+    page, live, app_db,
+) -> None:
+    with app_db() as db:
+        task = tasks_svc.create_task(db, title="Write the report", estimate_minutes=45)
+        db.add(Event(
+            title="Standup", source=EventSource.work, read_only=True, external_id="s",
+            start=datetime.combine(MONDAY, time(6)), end=datetime.combine(MONDAY, time(7)),
+        ))
+        db.commit()
+        task_id = task.id
+    open_week(page, live)
+    card = page.locator("#calendar-tray .tray-task", has_text="Write the report")
+    card.locator(".tray-book").click()
+    page.locator(".cal-toast.show", has_text="Booked “Write the report”").wait_for()
+    page.locator(".cal-item.block", has_text="Write the report").wait_for()
+    with app_db() as db:
+        [block] = db.query(Block).filter(Block.task_id == task_id).all()
+        # Next week's Monday, first thing after its standup, for its 45 minutes.
+        assert (block.start, block.end) == (
+            datetime.combine(MONDAY, time(7)), datetime.combine(MONDAY, time(7, 45)),
+        )
+        assert tasks_svc.get_task(db, task_id).planned_for == MONDAY
+    page.locator(".cal-toast.show .toast-action").click()
+    page.locator(".cal-item.block", has_text="Write the report").wait_for(state="detached")
+    with app_db() as db:
+        assert db.query(Block).filter(Block.task_id == task_id).count() == 0
+        assert tasks_svc.get_task(db, task_id).planned_for is None

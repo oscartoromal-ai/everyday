@@ -127,6 +127,24 @@ def next_slot_today(db: Session, duration: timedelta, now: datetime) -> datetime
     )
 
 
+def next_slot_in(
+    db: Session, duration: timedelta, first_day: date, day_count: int, now: datetime
+) -> datetime | None:
+    """The next free stretch this long in the usual hours of the days from
+    `first_day`, the earliest first and none in the past; None when they have
+    no room left."""
+    for i in range(day_count):
+        day = first_day + timedelta(days=i)
+        start = datetime.combine(day, time(DAY_START_HOUR))
+        until = datetime.combine(day, time(DAY_END_HOUR))
+        if until <= now:
+            continue
+        slot = blocks_svc.next_free_slot(db, duration=duration, after=max(now, start), until=until)
+        if slot is not None:
+            return slot
+    return None
+
+
 def replan_slot(task: Task, now: datetime) -> datetime | None:
     """Where a missed task's time would go if replanned now: the next free
     stretch of today's calendar as long as its last missed block, or None when

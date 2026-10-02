@@ -333,6 +333,7 @@ Either opens the composer (380px) beside the time: the title on its line in 16px
 Over a time, "Or give a task this time" lists the tasks to schedule, a row each with its badges and flag at the right, the arrow keys lighting one in fog.
 New event and E open the composer under the button, on today if it is shown.
 Only one card floats at a time; a press outside closes it and does nothing else, and Esc closes it.
+Each tray card ends in Book, at its top right in 12px/500 pewter (graphite on the card's hover, ink with the hover fill on its own), as quiet as the do-date buttons; its tooltip names the length it books.
 Every mutation re-asks the server by firing `calendar:refresh`; the grid, the tray and on Today the list re-render.
 A height-capped grid opens on the usual day, 06:00 at its top, or with now in view an hour and a half under the top as far as 22:00 allows, and keeps its scroll position across refreshes.
 

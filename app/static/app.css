@@ -1258,6 +1258,16 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   transition: background-color var(--dur) var(--ease);
 }
 .tray-task:last-child { border-bottom: none; }
+/* Book: the next free stretch in the days shown, quiet as the do-date buttons */
+.tray-task:has(.tray-book) { position: relative; padding-right: 64px; }
+.tray-book {
+  position: absolute; top: 7px; right: 10px;
+  min-height: 24px; padding: 3px 6px; border-radius: var(--r-tag);
+  font-size: var(--t-caption); font-weight: 500; color: var(--pewter);
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.tray-task:hover .tray-book { color: var(--graphite); }
+.tray-book:hover, .tray-task:hover .tray-book:hover { color: var(--ink); background: var(--glass-hover); }
 .tray-task:hover { background: var(--glass-row-hover); }
 .tray-task:active { cursor: grabbing; }
 .tray-task .tray-title { display: block; font-weight: 500; }

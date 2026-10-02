@@ -22,6 +22,7 @@ from app.ui.calendar_view import event_card_ctx
 from app.ui.views import (
     last_missed_block,
     me_ctx,
+    next_slot_in,
     next_slot_today,
     project_card_ctx,
     projects_list_ctx,
@@ -244,21 +245,43 @@ def replan_task(request: Request, db: DbSession, task_id: int):
 
 
 @router.post("/tasks/{task_id}/book")
-def book_task(db: DbSession, task_id: int):
-    """Give a task the next free stretch today as long as its estimate (an
-    hour without one): the keyboard's drop on the timeline. Answers the
-    booked time, or 422 when today has no room for it."""
+def book_task(
+    db: DbSession,
+    task_id: int,
+    start: Annotated[str, Form()] = "",
+    days: Annotated[int, Form(ge=1, le=7)] = 1,
+):
+    """Give a task the next free stretch as long as its estimate (an hour
+    without one): today's (B, the keyboard's drop on the timeline), or the
+    days shown from `start` (Book, on Calendar's tray). Its do-date becomes
+    that day. Answers the time booked, its block and the do-date it had, so
+    the booking can be undone; or 422 when there is no room."""
     now = datetime.now()
-    length = blocks_svc.task_length(tasks_svc.get_task(db, task_id))
-    start = next_slot_today(db, length, now)
-    if start is None:
+    task = tasks_svc.get_task(db, task_id)
+    had = task.planned_for
+    length = blocks_svc.task_length(task)
+    if start:
+        slot = next_slot_in(db, length, date.fromisoformat(start), days, now)
+        where = "today" if days == 1 and start == now.date().isoformat() else (
+            "on that day" if days == 1 else "in these days"
+        )
+    else:
+        slot = next_slot_today(db, length, now)
+        where = "today"
+    if slot is None:
         if length == blocks_svc.DEFAULT_LENGTH:
-            raise DomainError("No free hour left today.")
-        raise DomainError(f"No {duration_label(length // timedelta(minutes=1))} free left today.")
-    blocks_svc.schedule_block(db, task_id=task_id, start=start, end=start + length)
-    tasks_svc.update_task(db, task_id, planned_for=now.date())
+            raise DomainError(f"No free hour left {where}.")
+        raise DomainError(
+            f"No {duration_label(length // timedelta(minutes=1))} free left {where}."
+        )
+    block = blocks_svc.schedule_block(db, task_id=task_id, start=slot, end=slot + length)
+    tasks_svc.update_task(db, task_id, planned_for=slot.date())
     db.commit()
-    return JSONResponse({"start": f"{start:%H:%M}", "end": f"{start + length:%H:%M}"})
+    return JSONResponse({
+        "start": f"{slot:%H:%M}", "end": f"{slot + length:%H:%M}",
+        "day": slot.date().isoformat(), "block_id": block.id,
+        "had": had.isoformat() if had else "",
+    })
 
 
 @router.get("/tasks/{task_id}/edit")

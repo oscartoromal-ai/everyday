@@ -639,7 +639,39 @@
     if (button) newEvent(button);
   });
 
-  /* ---- 6. Calendar's keys: D, X and W the days shown, E a new event ---- */
+  /* ---- 6. Book, on Calendar's tray: the next free stretch in the days shown ---- */
+
+  const post = (url, fields) => fetch(url, {
+    method: "POST",
+    headers: { "X-CSRF": window.csrfToken() },
+    body: new URLSearchParams(fields),
+  });
+
+  document.addEventListener("click", async (e) => {
+    const button = e.target.closest?.("[data-book]");
+    if (!button) return;
+    const g = grid();
+    const title = button.closest("[data-task-title]").dataset.taskTitle;
+    const res = await post(`/ui/tasks/${button.dataset.book}/book`, { start: g.dataset.start, days: g.dataset.days });
+    let answer = {};
+    try { answer = await res.json(); } catch { /* no body */ }
+    if (!res.ok) {
+      window.toast(answer.detail || "Could not book that task.");
+      return;
+    }
+    refresh();
+    // Undone: its block goes, and its do-date is the one it had.
+    window.toast(`Booked “${title}” ${dayLabel(answer.day)}, ${answer.start}–${answer.end}`, {
+      action: "Undo",
+      run: async () => {
+        await api("DELETE", `/api/blocks/${answer.block_id}`);
+        await post(`/ui/tasks/${button.dataset.book}/plan`, { planned_for: answer.had });
+        refresh();
+      },
+    });
+  });
+
+  /* ---- 7. Calendar's keys: D, X and W the days shown, E a new event ---- */
 
   document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
