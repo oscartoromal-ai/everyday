@@ -20,7 +20,6 @@ from app.ui.calendar_view import event_card_ctx
 from app.ui.views import (
     me_ctx,
     project_card_ctx,
-    projects_list_ctx,
     row_ctx,
     sheet_ctx,
     templates,
@@ -28,27 +27,6 @@ from app.ui.views import (
 )
 
 router = APIRouter(prefix="/ui", include_in_schema=False)
-
-
-def _row_context(request: Request) -> str:
-    """Where a task is being shown, as its page marks its requests: "plan"
-    (the Tasks page), or "" (a list)."""
-    return request.headers.get("X-Row-Context", "")
-
-
-def _planning(request: Request) -> bool:
-    """On the Tasks page, re-rendered rows stay in planning form (do-date
-    buttons, dates always shown)."""
-    return _row_context(request) == "plan"
-
-
-def _row_day(request: Request) -> date | None:
-    """The day the row is shown under, as a day page marks its requests."""
-    value = request.headers.get("X-Row-Day", "")
-    try:
-        return date.fromisoformat(value) if value else None
-    except ValueError:
-        return None
 
 
 def _estimate(value: str) -> int | None:
@@ -69,8 +47,7 @@ def _row_response(
     expanded: bool = False,
 ) -> HTMLResponse:
     task = tasks_svc.get_task(db, task_id)
-    row = row_ctx(task, datetime.now(), planning=_planning(request), day=_row_day(request))
-    context = {"request": request, "row": row, "expanded": expanded}
+    context = {"request": request, "row": row_ctx(task, datetime.now()), "expanded": expanded}
     return templates.TemplateResponse(request, "partials/task_row.html", context)
 
 
@@ -146,7 +123,7 @@ def plan_task(db: DbSession, task_id: int, planned_for: Annotated[str, Form()] =
     )
     db.commit()
     response = HTMLResponse("")
-    # The Tasks page regroups; the task moves to its new day's group.
+    # Projects' list re-renders, the row naming its new day.
     response.headers["HX-Trigger"] = "tasks:changed"
     return response
 
@@ -408,32 +385,32 @@ def work_sync(db: DbSession):
     return response
 
 
-def _projects_list(request: Request, db) -> HTMLResponse:  # noqa: ANN001
-    context = {"request": request, **projects_list_ctx(db, datetime.now())}
-    return templates.TemplateResponse(request, "partials/projects_list.html", context)
+def _projects_changed() -> HTMLResponse:
+    """Projects' list re-renders from the server (projects.html)."""
+    response = HTMLResponse("")
+    response.headers["HX-Trigger"] = "tasks:changed"
+    return response
 
 
 def _project_partial(request: Request, db, project_id: int, template: str) -> HTMLResponse:  # noqa: ANN001
     project = projects_svc.get_project(db, project_id)
-    card = project_card_ctx(db, project, datetime.now(), planning=_planning(request))
+    card = project_card_ctx(db, project, datetime.now())
     return templates.TemplateResponse(request, template, {"request": request, "card": card})
 
 
 @router.post("/projects")
-def create_project(request: Request, db: DbSession, name: str = Form(...)):
+def create_project(db: DbSession, name: str = Form(...)):
     projects_svc.create_project(db, name=name)
     db.commit()
-    return _projects_list(request, db)
+    return _projects_changed()
 
 
 @router.post("/projects/{project_id}/status")
-def set_project_status(
-    request: Request, db: DbSession, project_id: int, status: Annotated[ProjectStatus, Form()]
-):
+def set_project_status(db: DbSession, project_id: int, status: Annotated[ProjectStatus, Form()]):
     projects_svc.update_project(db, project_id, status=status)
     db.commit()
-    # Status moves the card between the active list and the shelves.
-    return _projects_list(request, db)
+    # Status moves the card between the active projects and the shelves.
+    return _projects_changed()
 
 
 @router.post("/projects/{project_id}/fold", status_code=204)

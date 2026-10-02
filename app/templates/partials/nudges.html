@@ -1,19 +1,21 @@
+{# The nudge center (pages.py): each nudge's words as of today, what it
+   names to open, and its dismissal. #}
 {% if nudges %}
 <section class="nudge-center" id="nudge-center" aria-label="Nudges">
   <ul class="nudge-list">
     {% for n in nudges %}
-    <li class="nudge {{ n.type.value }}" id="nudge-{{ n.id }}">
+    <li class="nudge {{ n.type }}" id="nudge-{{ n.id }}">
       <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        {% if n.type.value == "needs_review" %}
+        {% if n.type == "needs_review" %}
         <path d="M3 10s2.5-4.5 7-4.5S17 10 17 10s-2.5 4.5-7 4.5S3 10 3 10z"/><circle cx="10" cy="10" r="2"/>
-        {% elif n.type.value == "bill_due" %}
+        {% elif n.type == "bill_due" %}
         <path d="M5 2.5h10v15l-1.7-1.2-1.6 1.2-1.7-1.2-1.7 1.2-1.6-1.2L5 17.5z"/><path d="M7.5 6.5h5"/><path d="M7.5 9.5h5"/><path d="M7.5 12.5h3"/>
         {% else %}
         <path d="M10 3v9"/><circle cx="10" cy="15.5" r="0.9" fill="currentColor" stroke="none"/>
         {% endif %}
       </svg>
       <span class="nudge-text">{{ n.message }}</span>
-      {% if n.type.value == "bill_due" %}
+      {% if n.type == "bill_due" %}
       <a class="nudge-action" href="/bills">Open</a>
       {% elif n.task_id %}
       <button type="button" class="nudge-action"

@@ -155,8 +155,8 @@
 
   /* ---- keys that work on every page: 1-9 go to the nav's pages that have a key, in order,
      ? shows every key (#keys-dialog), and N or Shift+N writes a new task (on
-     the list pages, tasks.js puts it in the page's own list; elsewhere it
-     opens #capture-dialog). Never while typing, or over a dialog. ---- */
+     Projects, tasks.js puts it in the page's own list; elsewhere it opens
+     #capture-dialog). Never while typing, or over a dialog. ---- */
 
   const TYPING = "input, textarea, select, [contenteditable]";
   document.addEventListener("keydown", (e) => {

@@ -21,6 +21,16 @@ def test_a_nudge_is_raised_once(db) -> None:
     assert nudges_svc.active_nudges(db) == []
 
 
+def test_a_nudge_says_its_days_from_today(db) -> None:
+    task = tasks_svc.create_task(db, title="pay invoice", due=TODAY + timedelta(days=1))
+    [nudge] = nudges_svc.evaluate(db, NOW)
+    assert nudge.message == "“pay invoice” is due tomorrow."
+    # Read the next day, the same nudge says today.
+    assert nudges_svc.wording(db, nudge, TODAY + timedelta(days=1)) == "“pay invoice” is due today."
+    tasks_svc.update_task(db, task.id, title="pay the invoice")
+    assert nudges_svc.wording(db, nudge, TODAY) == "“pay the invoice” is due tomorrow."
+
+
 def test_due_nudges_within_lookahead(db) -> None:
     tasks_svc.create_task(db, title="near", due=TODAY + timedelta(days=3))
     tasks_svc.create_task(db, title="far", due=TODAY + timedelta(days=10))

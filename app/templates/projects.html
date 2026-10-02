@@ -1,25 +1,94 @@
 {% extends "base.html" %}
 {% block title %}Projects · Personal Calendar{% endblock %}
 {% block content %}
-<header class="page-header">
-  <div>
-    <h1>Projects</h1>
-    <p class="keys-hint">
-      <kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Shift</kbd> next project · <kbd>←</kbd><kbd>→</kbd> fold · <kbd>Enter</kbd> edit · <kbd>N</kbd> new · <kbd>P</kbd> file · <kbd>?</kbd> all keys
-    </p>
+{# Every open task, filed under its project, for giving them days: on one
+   sheet ruled as Today's notepad is, the composer first, then the tasks in
+   no project, each active project, the paused and done ones shelved, and
+   the last two weeks' finished work. #}
+<div class="projects-page">
+  <header class="page-header">
+    <div>
+      <h1>Projects</h1>
+      <div class="rest" id="projects-rest">
+        {% if open_count == 0 %}nothing open{% elif open_count == 1 %}1 task open{% else %}{{ open_count }} tasks open{% endif %}
+        {% if undated_count %}· {{ undated_count }} without a day{% endif %}
+      </div>
+      <p class="keys-hint">
+        <kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> edit · <kbd>N</kbd> new · <kbd>X</kbd> done · <kbd>T</kbd> today · <kbd>?</kbd> all keys
+      </p>
+    </div>
+    {# Outside the sheet, so a list re-rendered mid-word keeps the name. #}
+    <form class="new-project" hx-post="/ui/projects" hx-swap="none"
+          hx-on::after-request="if (event.detail.successful) this.reset()">
+      <span class="field-line"><input name="name" placeholder="New project…" aria-label="New project" autocomplete="off" required></span>
+      <button type="submit" class="btn quiet">Add</button>
+    </form>
+  </header>
+
+  <div class="tasks-sheet ruled-sheet">
+  <section class="capture" aria-label="Add a task">
+    {% with mode = "compose", target = "loose-list", planned_for = None, placeholder = "Add a task…" %}
+      {% include "partials/task_sheet.html" %}
+    {% endwith %}
+  </section>
+
+  {# Re-renders whenever a task or a project changes; task-sheet.js carries
+     any half-written composer across the swap. #}
+  <div id="task-groups" class="tasks-groups" data-cursor
+       hx-get="/projects" hx-select="#task-groups" hx-select-oob="#projects-rest" hx-swap="outerHTML"
+       hx-trigger="task:added from:body, tasks:changed from:body, calendar:refresh from:body"
+       hx-disinherit="hx-get hx-select hx-select-oob hx-swap hx-trigger">
+    {# Styled as a project card, so it reads as a sibling of the ones below. #}
+    <section class="project-card" id="group-loose" data-file-project="">
+      <header>
+        <span class="project-fold slot" aria-hidden="true"></span>{# nothing to fold; keeps the name in line #}
+        <h2>No project</h2>
+        <span class="open-count">{% if loose_rows | length == 1 %}1 open{% elif loose_rows %}{{ loose_rows | length }} open{% endif %}</span>
+        {# Nothing to set, open or edit: unseen stand-ins keep the counts in line. #}
+        <select class="status-select slot" aria-hidden="true" tabindex="-1" disabled>
+          {% for label in ["Active", "Paused", "Done"] %}<option>{{ label }}</option>{% endfor %}
+        </select>
+        <span class="card-edit-btn slot" aria-hidden="true"></span><span class="card-edit-btn slot" aria-hidden="true"></span>
+      </header>
+      <ul class="task-list" id="loose-list">
+        {% for row in loose_rows %}{% include "partials/task_row.html" %}{% endfor %}
+      </ul>
+      {% if not loose_rows %}
+      <p class="empty">Every open task belongs to a project.</p>
+      {% endif %}
+    </section>
+
+    {% for card in active_cards %}{% include "partials/project_card.html" %}{% endfor %}
+    {% if not active_cards %}
+    <section class="list-section">
+      <p class="empty">No active projects. Add one above; workstreams and tasks hang off it.</p>
+    </section>
+    {% endif %}
+
+    {% for shelf in shelves %}
+    {# Open shelves stay open through the list's refreshes (tasks.js, pc-open-folds). #}
+    <section class="list-section project-shelf">
+      <details class="done-fold" id="shelf-{{ shelf.key }}" data-remember>
+        <summary>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>
+          {{ shelf.label }} <span class="count">{{ shelf.cards | length }}</span>
+        </summary>
+        {% for card in shelf.cards %}{% include "partials/project_card.html" %}{% endfor %}
+      </details>
+    </section>
+    {% endfor %}
+
+    {% if done_rows %}
+    <section class="list-section done-section">
+      {% with fold_id = "tasks-done", fold_note = "last " ~ done_days ~ " days" %}
+        {% include "partials/done_fold.html" %}
+      {% endwith %}
+    </section>
+    {% endif %}
+
+    {# The empty rows under the last, numbered on, to the sheet's foot. #}
+    <div class="sheet-filler" aria-hidden="true"><ol>{% for _ in range(60) %}<li></li>{% endfor %}</ol></div>
   </div>
-</header>
-
-{% include "partials/projects_list.html" %}
-
-<form class="inline-form new-project"
-      hx-post="/ui/projects"
-      hx-target="#projects" hx-swap="outerHTML"
-      hx-on::after-request="if (event.detail.successful) this.reset()">
-  <label class="field" style="flex: 2;">
-    <span class="field-label">New project</span>
-    <span class="field-line"><input name="name" placeholder="Start a project…" required></span>
-  </label>
-  <button type="submit" class="btn primary">Create</button>
-</form>
+  </div>
+</div>
 {% endblock %}

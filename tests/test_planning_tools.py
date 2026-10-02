@@ -14,13 +14,14 @@ def _row(page: str, task_id: int) -> str:
 
 def test_planning_rows_take_keyboard_focus_and_name_their_actions(client, db) -> None:
     task = tasks_svc.create_task(db, title="triage me")
-    row = client.get("/").text.split(f'id="task-{task.id}"')[1].split(">")[0]
+    page = client.get("/projects").text
+    row = page.split(f'id="task-{task.id}"')[1].split(">")[0]
     # The row itself is focusable (the keys act on it), but not a Tab stop.
     assert 'tabindex="-1"' in row
-    buttons = _row(client.get("/").text, task.id)
+    buttons = _row(page, task.id)
     assert 'data-plan="today"' in buttons and 'data-plan="tomorrow"' in buttons
-    # Projects' rows are cursor stops too, inside the page's cursor area.
-    assert 'id="projects" data-cursor' in client.get("/projects").text
+    # The rows are cursor stops, inside the page's cursor area.
+    assert 'id="task-groups" class="tasks-groups" data-cursor' in page
 
 
 def test_project_cards_and_workstreams_are_drop_targets(client, db) -> None:
@@ -29,13 +30,12 @@ def test_project_cards_and_workstreams_are_drop_targets(client, db) -> None:
     tasks_svc.create_task(db, title="parse", project_id=p.id, workstream_id=m.id)
     tasks_svc.create_task(db, title="loose one")
 
-    page = client.get("/?view=project").text
+    page = client.get("/projects").text
     assert f'data-file-project="{p.id}"' in page
     assert f'data-file-workstream="{m.id}"' in page
     assert 'id="group-loose" data-file-project=""' in page
-    # Projects re-renders when a task is filed elsewhere.
-    projects = client.get("/projects").text
-    assert 'hx-trigger="tasks:changed from:body"' in projects.split('id="projects"')[1][:300]
+    # The list re-renders when a task is filed elsewhere.
+    assert "tasks:changed from:body" in page.split('id="task-groups"')[1][:400]
 
 
 def test_filing_moves_a_task_between_workstreams_projects_and_none(client, db) -> None:

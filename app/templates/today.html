@@ -32,6 +32,9 @@
       <p class="keys-hint"><kbd>- [ ]</kbd> task · <kbd>/reflection</kbd> · <kbd>/habit</kbd> · <kbd>/stay</kbd> ·<kbd>Ctrl</kbd><kbd>Enter</kbd> close it · <kbd>←</kbd><kbd>→</kbd> days · <kbd>?</kbd> all keys</p>
     </header>
 
+    {# What asks for attention today: dues, reviews, bills (today's page only). #}
+    {% include "partials/nudges.html" %}
+
     <section class="notepad-card">
       {# The notes as the server has them; notepad.js puts its editor in their
          place (rows numbered, tasks drawn with their box and controls). #}

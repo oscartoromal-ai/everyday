@@ -10,15 +10,7 @@ from fastapi.responses import RedirectResponse
 
 from app.db import DbSession
 from app.ui.calendar_view import VIEWS, calendar_nav, grid_ctx, view_start
-from app.ui.views import (
-    TASKS_VIEWS,
-    day_glance_ctx,
-    day_page_ctx,
-    me_ctx,
-    projects_list_ctx,
-    tasks_page_ctx,
-    templates,
-)
+from app.ui.views import day_glance_ctx, day_page_ctx, me_ctx, projects_page_ctx, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -27,29 +19,10 @@ def _base(request: Request, active: str) -> dict:
     return {"request": request, "active": active, "today": date.today()}
 
 
-TASKS_VIEW_COOKIE = "tasks_view"
-
-
 @router.get("/")
-def tasks_page(request: Request, db: DbSession, view: str | None = None):
-    # The app opens here: planning (giving tasks days) comes before doing.
-    chosen = view or request.cookies.get(TASKS_VIEW_COOKIE)
-    view = chosen if chosen in TASKS_VIEWS else TASKS_VIEWS[0]
-    from app.services import nudges as nudges_svc
-
-    now = datetime.now()
-    response = templates.TemplateResponse(
-        request,
-        "tasks.html",
-        {
-            **_base(request, "tasks"),
-            **tasks_page_ctx(db, now, view),
-            # The nudge center opens the app, where the day's plan is made.
-            "nudges": nudges_svc.active_nudges(db),
-        },
-    )
-    response.set_cookie(TASKS_VIEW_COOKIE, view, max_age=60 * 60 * 24 * 365, samesite="strict")
-    return response
+def home():
+    # The app opens on the day: what is on, and the notes to write it in.
+    return RedirectResponse("/today", status_code=303)
 
 
 @router.get("/today")
@@ -76,7 +49,10 @@ def day_page(request: Request, db: DbSession, day: date):
 
 
 def _day_page(request: Request, db: DbSession, day: date):
-    """A day's page: its notepad beside its timeline. Today's is /today."""
+    """A day's page: its notepad beside its timeline. Today's is /today,
+    and opens with the nudge center."""
+    from app.services import nudges as nudges_svc
+
     now = datetime.now()
     return templates.TemplateResponse(
         request,
@@ -85,14 +61,19 @@ def _day_page(request: Request, db: DbSession, day: date):
             **_base(request, "today"),
             **day_page_ctx(db, day, now),
             "grid": grid_ctx(db, day, now, day_count=1),
+            "nudges": [
+                {"id": n.id, "type": n.type.value, "task_id": n.task_id,
+                 "message": nudges_svc.wording(db, n, day)}
+                for n in (nudges_svc.active_nudges(db) if day == now.date() else [])
+            ],
         },
     )
 
 
 @router.get("/backlog")
 def backlog_page():
-    # Tasks' No date group is the backlog, beside everything already dated.
-    return RedirectResponse("/", status_code=301)
+    # The backlog is Projects' tasks without a day.
+    return RedirectResponse("/projects", status_code=301)
 
 
 @router.get("/me")
@@ -166,8 +147,9 @@ def calendar_grid(
 
 @router.get("/projects")
 def projects_page(request: Request, db: DbSession):
+    # Every open task, filed under its project, for giving tasks days.
     return templates.TemplateResponse(
         request,
         "projects.html",
-        {**_base(request, "projects"), **projects_list_ctx(db, datetime.now())},
+        {**_base(request, "projects"), **projects_page_ctx(db, datetime.now())},
     )

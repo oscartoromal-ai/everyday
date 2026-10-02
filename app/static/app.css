@@ -309,7 +309,7 @@ label.me-row:hover, .weight-log .me-row:hover { background: var(--glass-row-hove
   transition: background-color var(--dur) var(--ease);
 }
 .task-row:hover { background: var(--glass-row-hover); }
-/* the keyboard cursor on Tasks: focus is the spark's job, drawn as the nav's inset bar */
+/* the keyboard cursor on Projects: focus is the spark's job, drawn as the nav's inset bar */
 .task-row[tabindex]:focus { outline: none; }
 .task-row[tabindex] { position: relative; }
 .task-row[tabindex]:focus-visible { border-radius: 0; box-shadow: none; background: var(--glass-row-hover); }
@@ -452,9 +452,9 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   }
 }
 
-/* ---------- Tasks: do-date buttons on each row ---------- */
+/* ---------- do-date buttons on each row ---------- */
 
-/* quiet but always there: this page exists to give tasks days */
+/* quiet but always there: Projects' list exists to give tasks days */
 .task-plan { flex: none; display: flex; align-items: center; gap: 2px; margin: -4px 0 -4px auto; }
 .plan-btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -477,7 +477,16 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   .plan-btn.slot { display: none; }
 }
 
-.tasks-page .page-header { margin-bottom: var(--s-4); }
+.projects-page .page-header { margin-bottom: var(--s-4); }
+/* a new project: its name on a line at the header's right, out of the list's refreshes */
+.new-project { flex: none; display: flex; align-items: flex-end; gap: var(--s-2); margin-top: var(--s-1); }
+.new-project .field-line { width: 200px; }
+.new-project .btn { height: 36px; padding-block: 0; }
+@media (max-width: 540px) {
+  .projects-page .page-header { flex-wrap: wrap; }
+  .new-project { flex: 1 1 100%; }
+  .new-project .field-line { flex: 1; width: auto; }
+}
 /* the triage keys, named where they are used; no keyboard, no hint */
 .keys-hint { margin: var(--s-2) 0 0; font-size: var(--t-caption); color: var(--pewter); }
 .keys-hint kbd { margin-right: 2px; }
@@ -855,7 +864,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 }
 .card-edit-btn:hover { color: var(--ink); background: var(--fog); }
 .card-edit-btn svg { stroke: currentColor; }
-.card-edit-btn.slot { visibility: hidden; }
+.card-edit-btn.slot, .status-select.slot { visibility: hidden; }
 .project-card .notes { margin: var(--s-1) var(--s-4) 0; font-size: var(--t-body-sm); color: var(--graphite); white-space: pre-line; }
 
 .workstream-groups:not(:empty) { margin-top: var(--s-3); }
@@ -926,20 +935,6 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   width: 3px; background: var(--spark); box-shadow: var(--spark-glow);
 }
 
-.project-shelf { margin-top: var(--s-8); }
-.project-shelf > summary {
-  display: flex; align-items: baseline; gap: var(--s-2);
-  margin-bottom: var(--s-4); cursor: pointer; list-style: none; user-select: none;
-  font-size: var(--t-body); font-weight: 600;
-}
-.project-shelf > summary::-webkit-details-marker { display: none; }
-.project-shelf > summary::before { content: "+"; width: var(--s-3); color: var(--pewter); font-weight: 400; }
-.project-shelf[open] > summary::before { content: "−"; }
-/* the keyboard cursor stops here too (tasks.js): its ::before is the sign,
-   so the rows' spark bar is drawn as an inset shadow instead */
-.project-shelf > summary { padding: var(--s-1) var(--s-2); margin-left: calc(-1 * var(--s-2)); border-radius: var(--r-tag); }
-.project-shelf > summary:focus-visible { border-radius: 0 var(--r-tag) var(--r-tag) 0; box-shadow: inset 3px 0 0 var(--spark), var(--spark-glow); background: var(--glass-row-hover); }
-.new-project { margin-top: var(--s-6); }
 
 .add-inline { font-size: var(--t-body-sm); color: var(--graphite); padding: var(--s-2) 0; transition: color var(--dur) var(--ease); }
 .add-inline:hover { color: var(--ink); }
@@ -983,14 +978,14 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 /* The page runs to the window's foot and the sheet takes what the header
    leaves. Ruled like the notepad: every row is 36px tall with its text in
    the middle, on its own hairline, numbered down the left on a fog wash;
-   each group (a do-date, a project, Done; a part of Me) is bracketed by a
+   each group (a project, a shelf, Done; a part of Me) is bracketed by a
    2px graphite rule above its title row and below its last row, one rule
    between two groups, in ink while the keyboard is in it. Empty numbered
    rows fill the sheet under the last group, the last of them cut at its
-   edge. Tasks' lists and rows are Projects' own, so the sheet restyles
-   them here rather than in their markup; Me's are .sheet-group and
-   .sheet-row. */
-:is(.tasks-page, .me-page, .garmin-page) { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-8)); }
+   edge. Projects' lists and rows are the cards' own markup, so the sheet
+   restyles them here rather than in their markup; Me's are .sheet-group
+   and .sheet-row. */
+:is(.projects-page, .me-page, .garmin-page) { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-8)); }
 /* compact rows: the sheets and Today's notes 28px a row, not 36px, the text its size */
 :root[data-density="compact"] :is(.ruled-sheet, .notepad-card) {
   --pad-line: 28px; --pad-text: 20px; --pad-above: 3px; --pad-below: 4px;
@@ -1015,7 +1010,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
     color-mix(in srgb, var(--paper) 35%, transparent);
   border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
 }
-/* Tasks' first row is its composer, above the first group's rule */
+/* Projects' first row is its composer, above the first group's rule */
 .tasks-sheet { padding-top: 0; }
 .tasks-groups { flex: 1; display: flex; flex-direction: column; }
 
@@ -1037,7 +1032,6 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 /* the keyboard's group, or the one being written in */
 :is(.sheet-group:focus-within, .tasks-sheet :is(.list-section, .project-card):has(:focus-visible, .sheet-item, .task-sheet:focus-within)) { --bracket: var(--ink); }
 :is(.sheet-group:focus-within, .tasks-sheet :is(.list-section, .project-card):has(:focus-visible, .sheet-item, .task-sheet:focus-within))::after { z-index: 1; }
-.tasks-sheet .projects:empty { display: none; }
 
 /* every row: 36px or more, text from the numbers' edge, its own hairline */
 :is(.ruled-sheet .sheet-row, .ruled-sheet .sheet-filler li, .tasks-sheet :is(.capture, .list-section > h2, .project-card > header,
@@ -1134,7 +1128,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .sheet-filler > ol { position: absolute; inset: 0 0 auto; margin: 0; padding: 0; list-style: none; }
 
 @media (max-width: 720px) {
-  .tasks-page { min-height: calc(100vh - var(--s-6) - 96px); }
+  .projects-page { min-height: calc(100vh - var(--s-6) - 96px); }
   .tasks-sheet { --pad-rows: 34px; --pad-gap: var(--s-2); }
 }
 @media (max-width: 540px) {
@@ -1985,7 +1979,7 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 
 /* ---------- a project's Gantt: a spreadsheet of its plan, in weeks or days ---------- */
 
-/* The sheet is ruled as Tasks' is (36px rows, 28px compact; numbered on a
+/* The sheet is ruled as Projects' is (36px rows, 28px compact; numbered on a
    fog wash; each workstream's rows bracketed by 2px rules, in ink while the
    cursor is in them), and scrolls both ways inside the window: its header
    row and its frozen pane (the numbers, the box, Task, Start, the length

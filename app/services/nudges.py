@@ -56,7 +56,7 @@ def evaluate(db: Session, now: datetime) -> list[Nudge]:
                 db,
                 type_=NudgeType.due_soon,
                 dedup_key=f"due:{task.id}:{task.due.isoformat()}",
-                message=f"“{task.title}” is due {short_date(task.due, today)}.",
+                message=_due_words(task.title, task.due, today),
                 task_id=task.id,
             )
             if nudge:
@@ -72,10 +72,7 @@ def evaluate(db: Session, now: datetime) -> list[Nudge]:
                 db,
                 type_=NudgeType.needs_review,
                 dedup_key=f"review:{task.id}:{task.status_changed_at.isoformat()}",
-                message=(
-                    f"“{task.title}” has been waiting for review since "
-                    f"{short_date(task.status_changed_at.date(), today)}."
-                ),
+                message=_review_words(task.title, task.status_changed_at.date(), today),
                 task_id=task.id,
             )
             if nudge:
@@ -88,11 +85,39 @@ def evaluate(db: Session, now: datetime) -> list[Nudge]:
             db,
             type_=NudgeType.bill_due,
             dedup_key=f"bill:{bill.id}:{day.isoformat()}",
-            message=f"{bill.name}, {money_svc.money(bill.cents)}, is due {short_date(day, today)}.",
+            message=_bill_words(bill, day, today),
         )
         if nudge:
             created.append(nudge)
     return created
+
+
+def _due_words(title: str, due: date, today: date) -> str:
+    return f"“{title}” is due {short_date(due, today)}."
+
+
+def _review_words(title: str, since: date, today: date) -> str:
+    return f"“{title}” has been waiting for review since {short_date(since, today)}."
+
+
+def _bill_words(bill: MoneyBill, day: date, today: date) -> str:
+    return f"{bill.name}, {money_svc.money(bill.cents)}, is due {short_date(day, today)}."
+
+
+def wording(db: Session, nudge: Nudge, today: date) -> str:
+    """A nudge's words as of `today`: a nudge raised yesterday about a task
+    due "tomorrow" says "today" now. Its fact is in its dedup key; the
+    message kept is what was said when it was raised."""
+    kind, *fact = nudge.dedup_key.split(":", 2)
+    if kind == "due" and nudge.task is not None:
+        return _due_words(nudge.task.title, date.fromisoformat(fact[1]), today)
+    if kind == "review" and nudge.task is not None:
+        return _review_words(nudge.task.title, datetime.fromisoformat(fact[1]).date(), today)
+    if kind == "bill":
+        bill = db.get(MoneyBill, int(fact[0]))
+        if bill is not None:
+            return _bill_words(bill, date.fromisoformat(fact[1]), today)
+    return nudge.message
 
 
 def _bill_still_due(db: Session, nudge: Nudge) -> bool:

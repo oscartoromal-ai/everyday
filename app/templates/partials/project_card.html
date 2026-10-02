@@ -11,18 +11,13 @@
     {{ project_flag(p) }}
     <h2><a class="project-name" href="/projects/{{ p.id }}" title="Open {{ p.name }} as a Gantt chart">{{ p.name }}</a></h2>
     <span class="open-count">{% if card.open_count == 1 %}1 open{% elif card.open_count %}{{ card.open_count }} open{% endif %}</span>
-    {# Status moves cards between Projects' shelves, so it lives there only. #}
-    {% if not card.planning %}
+    {# Status moves the card between the active projects and the shelves. #}
     <select class="status-select" name="status" aria-label="Status of {{ p.name }}"
-            hx-post="/ui/projects/{{ p.id }}/status" hx-trigger="change"
-            hx-target="#projects" hx-swap="outerHTML">
+            hx-post="/ui/projects/{{ p.id }}/status" hx-trigger="change" hx-swap="none">
       {% for value, label in [("active", "Active"), ("paused", "Paused"), ("done", "Done")] %}
       <option value="{{ value }}" {% if p.status.value == value %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
-    {% elif p.status.value != "active" %}
-    <span class="chip queued">{{ p.status.value | capitalize }}</span>
-    {% endif %}
     <a class="card-edit-btn" href="/projects/{{ p.id }}" aria-label="Open {{ p.name }} as a Gantt chart" title="Gantt chart">
       <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3.5" width="7" height="3"/><rect x="6.5" y="8.5" width="8" height="3"/><rect x="10" y="13.5" width="7" height="3"/></svg>
     </a>

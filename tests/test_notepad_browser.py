@@ -969,7 +969,7 @@ def test_a_task_added_as_the_page_is_left_is_added_once(page, live, app_db) -> N
     page.keyboard.type("- [ ] Note app")
     page.keyboard.press("Enter")
     page.keyboard.type("- Improve")
-    page.goto(f"{live}/")  # left with the task row still open
+    page.goto(f"{live}/projects")  # left with the task row still open
 
     settled(lambda: [(title, notes) for _, title, notes in tasks()] == [("Note app", "- Improve")])
     [(task_id, _, _)] = tasks()
@@ -981,7 +981,7 @@ def test_a_task_added_as_the_page_is_left_is_added_once(page, live, app_db) -> N
     write_in(page)
     page.keyboard.press("Control+End")
     page.keyboard.type(" tasks screen")
-    page.goto(f"{live}/")
+    page.goto(f"{live}/projects")
     settled(lambda: tasks() == [(task_id, "Note app", "- Improve tasks screen")])
     time.sleep(0.5)
     assert tasks() == [(task_id, "Note app", "- Improve tasks screen")]

@@ -1,5 +1,6 @@
-"""Tasks from the keyboard alone, in a real browser: the cursor, every key
-that acts on it, writing and coming back, and the keys that work anywhere.
+"""Projects' list from the keyboard alone, in a real browser: the cursor,
+every key that acts on it, writing and coming back, and the keys that work
+anywhere.
 The `live` and `page` fixtures are conftest.py's."""
 
 from datetime import date, timedelta
@@ -14,12 +15,12 @@ pytest.importorskip("playwright.sync_api")
 
 TODAY = date.today()
 
-# Where the cursor is: the focused row's title, "Done" for a fold's header.
+# Where the cursor is: the focused row's title, a fold's name for its header
+# ("Done", or a shelf's "Paused").
 CURSOR = """(() => {
   const a = document.activeElement;
   if (a?.matches('.task-row')) return a.dataset.taskTitle;
-  if (a?.matches('.done-fold > summary')) return 'Done';
-  if (a?.matches('.project-shelf > summary')) return a.childNodes[0].textContent.trim();
+  if (a?.matches('.done-fold > summary')) return a.textContent.trim().split(/\\s/)[0];
   if (a?.matches('[data-project-fold]')) {
     return a.closest('.project-card').querySelector('.project-name').textContent;
   }
@@ -30,14 +31,13 @@ CURSOR = """(() => {
 STOPS = """[...document.querySelectorAll([
     '[data-cursor] .task-row[tabindex]',
     '[data-cursor] .done-fold > summary',
-    '[data-cursor] .project-shelf > summary',
     '[data-cursor] .project-card.folded [data-project-fold]',
   ].join(', '))]
   .filter((e) => e.checkVisibility())
   .map((e) => e.dataset.taskTitle
     || (e.matches('[data-project-fold]')
       && e.closest('.project-card').querySelector('.project-name').textContent)
-    || (e.closest('.done-fold') ? 'Done' : e.childNodes[0].textContent.trim()))"""
+    || e.textContent.trim().split(/\\s/)[0])"""
 
 # The task rows alone, in the cursor's order.
 ROWS = """[...document.querySelectorAll('[data-cursor] .task-row[tabindex]')]
@@ -88,28 +88,29 @@ def following(page) -> str:
 
 
 def test_the_cursor_moves_by_row_and_by_group(page, live, tasks) -> None:
-    page.goto(live)
-    stops = page.evaluate(STOPS)  # No date (two), Today, Tomorrow, then Done
+    page.goto(f"{live}/projects")
+    # No project's rows, soonest first (Home has none), then Done.
+    assert page.evaluate(STOPS) == ["Charlie", "Delta", "Alpha", "Bravo", "Done"]
     press(page, "j")
-    cursor_on(page, stops[0])
-    press(page, "j")
-    cursor_on(page, stops[1])
-    press(page, "Shift+J")  # No date -> Today
     cursor_on(page, "Charlie")
-    press(page, "Shift+K")  # back to No date's first row
-    cursor_on(page, stops[0])
+    press(page, "j")
+    cursor_on(page, "Delta")
+    press(page, "Shift+J")  # No project -> Done
+    cursor_on(page, "Done")
+    press(page, "Shift+K")  # back to No project's first row
+    cursor_on(page, "Charlie")
     press(page, "End")
     cursor_on(page, "Done")
     press(page, "Space", "j")  # Space opens the fold; its rows join the path
     cursor_on(page, "Echo")
     press(page, "Home")
-    cursor_on(page, stops[0])
+    cursor_on(page, "Charlie")
 
 
 def test_keys_act_on_the_row_and_the_cursor_moves_on(page, live, app_db, tasks) -> None:
-    page.goto(live)
-    press(page, "j")
-    cursor_on(page, page.evaluate(STOPS)[0])
+    page.goto(f"{live}/projects")
+    page.locator('.task-row[data-task-title="Alpha"]').focus()  # an undated one
+    cursor_on(page, "Alpha")
 
     first, after = cursor(page), following(page)
     press(page, "t")  # to today
@@ -140,7 +141,7 @@ def test_keys_act_on_the_row_and_the_cursor_moves_on(page, live, app_db, tasks) 
 
 
 def test_writing_and_coming_back_to_the_list(page, live, app_db, tasks) -> None:
-    page.goto(live)
+    page.goto(f"{live}/projects")
     # N: a new task; Esc lands the cursor on it.
     press(page, "j", "n")
     page.keyboard.type("Foxtrot")
@@ -170,17 +171,8 @@ def test_writing_and_coming_back_to_the_list(page, live, app_db, tasks) -> None:
         assert not [t for t in tasks_svc.list_tasks(db) if t.title.startswith("Foxtrot")]
 
 
-def test_v_switches_the_view_and_keeps_the_cursor(page, live, tasks) -> None:
-    page.goto(live)
-    press(page, "j", "j")
-    on = cursor(page)
-    press(page, "v")
-    page.wait_for_url("**/?view=project")
-    cursor_on(page, on)
-
-
 def test_keys_that_work_anywhere(page, live, tasks) -> None:
-    page.goto(live)
+    page.goto(f"{live}/projects")
     # Swapped-in content is live at once (base.html's htmx-config), which the
     # cursor, the sheet and the lists' refreshes all rely on.
     assert page.evaluate("htmx.config.defaultSettleDelay") == 0
@@ -188,9 +180,9 @@ def test_keys_that_work_anywhere(page, live, tasks) -> None:
     page.locator("#keys-dialog[open]").wait_for()
     press(page, "Escape")
     page.locator("#keys-dialog[open]").wait_for(state="detached")
-    press(page, "2")
+    press(page, "1")
     page.wait_for_url("**/today")
-    press(page, "4")
+    press(page, "3")
     page.wait_for_url("**/projects")
 
 
@@ -317,8 +309,8 @@ def test_folding_projects(page, live, app_db) -> None:
 
 
 def test_shift_n_writes_a_new_task_from_any_page(page, live, app_db, tasks) -> None:
-    # On a list page, into the page's own composer.
-    page.goto(live)
+    # On Projects, into the page's own composer.
+    page.goto(f"{live}/projects")
     press(page, "Shift+N")
     page.wait_for_function("document.activeElement.matches('.capture .sheet-title')", timeout=5000)
     press(page, "Escape")
@@ -352,7 +344,7 @@ def test_shift_n_writes_a_new_task_from_any_page(page, live, app_db, tasks) -> N
 def test_an_add_racing_a_list_refresh_lands_once(page, live, app_db) -> None:
     """A refresh fetched just before an add lands just after it: the new task
     still shows, and its words do not come back as a draft to add again."""
-    page.goto(live)
+    page.goto(f"{live}/projects")
     press(page, "n")
     page.keyboard.type("Kilo")
     # The refresh goes out first, then the add, in one tick.
@@ -360,9 +352,9 @@ def test_an_add_racing_a_list_refresh_lands_once(page, live, app_db) -> None:
       htmx.trigger(document.body, 'tasks:changed');
       document.querySelector('.capture .task-sheet').requestSubmit();
     }""")
-    page.locator("#nodate-list .task-row", has_text="Kilo").wait_for(timeout=5000)
+    page.locator("#loose-list .task-row", has_text="Kilo").wait_for(timeout=5000)
     page.wait_for_timeout(300)  # any second refresh has landed too
-    assert page.locator("#nodate-list .task-row", has_text="Kilo").count() == 1
+    assert page.locator("#loose-list .task-row", has_text="Kilo").count() == 1
     assert page.locator(".capture .task-sheet .sheet-title").text_content() == ""
     with app_db() as db:
         assert [t.title for t in tasks_svc.list_tasks(db)].count("Kilo") == 1
@@ -373,7 +365,7 @@ def test_a_key_racing_a_list_refresh_still_opens_its_row(page, live, app_db, tas
     P opens the row's sheet on its project menu, in the list as it is once
     the refresh lands, and the choice is saved. Held back on purpose, the
     refresh is always in flight when the key is pressed."""
-    page.goto(live)
+    page.goto(f"{live}/projects")
     press(page, "j")
     cursor_on(page, page.evaluate(STOPS)[0])
     on = cursor(page)
@@ -386,7 +378,7 @@ def test_a_key_racing_a_list_refresh_still_opens_its_row(page, live, app_db, tas
 
         return handle
 
-    page.route(lambda url: url.endswith(("/", "/?view=date")), later(300))
+    page.route(lambda url: url.endswith("/projects"), later(300))
     page.route("**/ui/tasks/*/edit", later(600))
     page.evaluate("htmx.trigger(document.body, 'tasks:changed')")
     press(page, "p")  # No project, Home, Garden
@@ -402,9 +394,9 @@ def test_left_and_right_step_the_calendar_a_week(page, live) -> None:
     from datetime import date, timedelta
 
     this = date.today() - timedelta(days=date.today().weekday())
-    page.goto(f"{live}/")
-    # From Tasks, 3 opens the Calendar on this week; Right goes on a week.
-    page.keyboard.press("3")
+    page.goto(f"{live}/projects")
+    # From Projects, 2 opens the Calendar on this week; Right goes on a week.
+    page.keyboard.press("2")
     page.wait_for_url("**/calendar")
     page.keyboard.press("ArrowRight")
     page.wait_for_url(f"**/calendar?start={(this + timedelta(days=7)).isoformat()}")

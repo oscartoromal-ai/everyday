@@ -1,9 +1,9 @@
-/* Task rows: dating from Tasks, keyboard triage, filing by drag, and the
-   rows' collapsible descriptions. Writing a task (adding or editing) is
+/* Task rows: dating, keyboard triage, filing by drag, and the rows'
+   collapsible descriptions. Writing a task (adding or editing) is
    task-sheet.js. Listeners sit on document, so they survive htmx swaps. */
 
 (() => {
-  /* ---- rows on Tasks: the calendar button opens its hidden date input ---- */
+  /* ---- a row's calendar button opens its hidden date input ---- */
 
   document.addEventListener("click", (e) => {
     const button = e.target.closest?.("[data-pick-date]");
@@ -16,22 +16,19 @@
     }
   });
 
-  /* ---- the keyboard cursor: Tasks, Today and Projects ---- */
+  /* ---- the keyboard cursor: Projects' list ---- */
 
-  // Every page with task lists works from the keyboard alone; each marks its
-  // lists' area with data-cursor. The cursor is the focused row (or a fold's
-  // header: Done, or a Projects shelf, which Enter or Space opens; or a
-  // folded project's, which Right, Enter or Space unfolds, and Left on one
-  // of its rows folds), drawn as the nav's spark bar. Up/Down or J/K move
-  // it, Shift jumps a group (a project, on Projects), Home/End go to the
-  // ends; Enter or E edits, N
-  // writes a new task (into the cursor's project where there is one), X
-  // done, T today, M tomorrow, D picks a day and P a project (the task
-  // sheet's menus),
-  // Space opens the description, Delete deletes after asking, V switches
-  // Tasks' views, Esc leaves. The lists re-render from the server after
-  // every change, and the cursor lands where it belongs: on the row that
-  // followed one acted on, and on the same task after an edit.
+  // The list works from the keyboard alone; it marks its area with
+  // data-cursor. The cursor is the focused row (or a fold's header: Done, or
+  // a shelf, which Enter or Space opens; or a folded project's, which Right,
+  // Enter or Space unfolds, and Left on one of its rows folds), drawn as the
+  // nav's spark bar. Up/Down or J/K move it, Shift jumps a project, Home/End
+  // go to the ends; Enter or E edits, N writes a new task (into the cursor's
+  // project where there is one), X done, T today, M tomorrow, D picks a day
+  // and P a project (the task sheet's menus), Space opens the description,
+  // Delete deletes after asking, Esc leaves. The list re-renders from the
+  // server after every change, and the cursor lands where it belongs: on the
+  // row that followed one acted on, and on the same task after an edit.
   const TYPING = "input, textarea, select, [contenteditable]";
   const STOPS = [
     "[data-cursor] .task-row[tabindex]",
@@ -42,7 +39,7 @@
     "[data-cursor] .project-card.folded [data-project-fold]",
     "[data-cursor] [data-project-fold]:focus",
   ].join(", ");
-  const CURSOR_KEY = "pc-task-cursor"; // carries the cursor across V's reload
+  const CURSOR_KEY = "pc-task-cursor"; // a task found in the command menu, to land on
   const onCursorPage = () => !!document.querySelector("[data-cursor]");
   const shown = (el) => (el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null);
   const stops = () => [...document.querySelectorAll(STOPS)].filter(shown);
@@ -145,7 +142,7 @@
     if (key === "n") {
       e.preventDefault();
       // Into the cursor's project where it has one; else the page's own
-      // composer (Tasks' capture card, Today's), else the first project's.
+      // composer (the sheet's first row), else the first project's.
       const card = stop?.closest(".project-card");
       if (card?.classList.contains("folded")) fold(card, false);
       const composers = [...document.querySelectorAll(".task-sheet[data-composer]")];
@@ -153,16 +150,6 @@
         || composers.find((form) => !form.closest(".project-card, dialog"))
         || composers.find((form) => !form.closest("dialog"));
       window.TaskSheet.compose(composer);
-      return;
-    }
-    if (key === "v") {
-      const other = document.querySelector(".tasks-page .segmented a:not([aria-current])");
-      if (!other) return;
-      e.preventDefault();
-      try {
-        if (last) sessionStorage.setItem(CURSOR_KEY, last);
-      } catch { /* storage blocked: the cursor starts over */ }
-      other.click();
       return;
     }
     if (key === "Escape" && stop) {
@@ -211,7 +198,7 @@
     if (key === "t" || key === "m") {
       e.preventDefault();
       leaving();
-      // Only Tasks' rows carry the do-date buttons; elsewhere the key posts it.
+      // A row's do-date button takes it; a done row has none, so the key posts it.
       if (click(`[data-plan="${key === "t" ? "today" : "tomorrow"}"]`)) return;
       htmx.ajax("POST", `/ui/tasks/${row.dataset.taskId}/plan`, {
         source: row, swap: "none", values: { planned_for: isoDay(key === "t" ? 0 : 1) },
@@ -280,7 +267,7 @@
     row.dispatchEvent(new KeyboardEvent("keydown", { key, shiftKey, bubbles: true, cancelable: true }));
   });
 
-  // After V's reload, the cursor comes back to the task it was on.
+  // Arriving from the command menu, the cursor lands on the task found.
   const carried = (() => {
     try {
       const id = sessionStorage.getItem(CURSOR_KEY);

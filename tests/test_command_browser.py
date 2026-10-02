@@ -1,5 +1,5 @@
-"""The command menu (Ctrl+K) in a real browser: a task found opens Tasks on
-it, a day's words go to that day, an event found opens its card, and a thing
+"""The command menu (Ctrl+K) in a real browser: a task found opens Projects
+on it, a day's words go to that day, an event found opens its card, and a thing
 to do is done. The `live`, `page` and `app_db` fixtures are conftest.py's."""
 
 from datetime import date, datetime, time, timedelta
@@ -20,7 +20,7 @@ def menu(page, words: str) -> None:
     page.keyboard.type(words)
 
 
-def test_a_task_found_opens_tasks_with_the_cursor_on_it(page, live, app_db) -> None:
+def test_a_task_found_opens_projects_with_the_cursor_on_it(page, live, app_db) -> None:
     with app_db() as db:
         for title in ("Alpha", "Bravo", "Water the plants", "Delta"):
             tasks_svc.create_task(db, title=title)
@@ -29,14 +29,14 @@ def test_a_task_found_opens_tasks_with_the_cursor_on_it(page, live, app_db) -> N
     menu(page, "plants")
     page.locator(".command-item", has_text="Water the plants").wait_for()
     page.keyboard.press("Enter")
-    page.wait_for_url(f"{live}/")
+    page.wait_for_url(f"{live}/projects")
     page.wait_for_function(
         "document.activeElement?.matches('.task-row[data-task-title=\"Water the plants\"]')"
     )
 
 
 def test_a_days_words_go_to_that_day(page, live) -> None:
-    page.goto(f"{live}/")
+    page.goto(f"{live}/today")
     menu(page, "tomorrow")
     first = page.locator(".command-item").first
     assert "on the calendar" in first.text_content()
@@ -67,7 +67,7 @@ def test_an_event_found_opens_its_card(page, live, app_db) -> None:
 
 
 def test_new_event_from_another_page_opens_the_composer(page, live) -> None:
-    page.goto(f"{live}/")
+    page.goto(f"{live}/today")
     menu(page, "new event")
     page.keyboard.press("Enter")
     page.wait_for_url("**/calendar")

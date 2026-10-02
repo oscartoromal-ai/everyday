@@ -58,7 +58,7 @@
     </div>
     {% endif %}
   </div>
-  {% if row.plan_controls and not row.done %}
+  {% if not row.done %}
   <div class="task-plan" role="group" aria-label="Do-date for “{{ row.task.title }}”">
     {% for day, label, key in [(row.plan_today, "Today", "today"), (row.plan_tomorrow, "Tomorrow", "tomorrow")] %}
     {% if row.task.planned_for == day %}

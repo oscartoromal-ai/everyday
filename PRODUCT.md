@@ -17,7 +17,7 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 
 ## Core objects (v1)
 
-- Tasks planned on the Tasks page (grouped by do-date, undated ones first in line), worked from Today, with lifecycle todo / in_progress / blocked / needs_review / done / cancelled, and a history of every change.
+- Tasks planned on Projects, the one screen for tasks (Oscar's call on 2026-10-02: those in no project first, then each project's), worked from Today, with lifecycle todo / in_progress / blocked / needs_review / done / cancelled, and a history of every change.
 - Today as a notepad: plain notes for each day, beside the day's timeline (for now; the notebook that turned lines into tasks is set aside), under a glance at the day (what is on now and next, and readiness, sleep and body battery from Garmin), with the day's due and planned tasks offered to write in.
 - "Delegated to Claude" list section with status chips: queued, running, needs review.
 - Projects with workstreams (lanes of their work, computed progress), each opening as a Gantt chart: a spreadsheet of its tasks as bars over weeks or days, a bar running from the task's start day to its due.
@@ -31,7 +31,7 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 - Visual direction: **Neon Signage**, from Oscar's central design-language repo (`C:/Users/me/design-language/systems/neon-signage/SYSTEM.md`).
   Pink and cyan neon over black glass by night, the same signs unlit and printed on a pale sky by day; ink draws the interface; pink is you, cyan is time; Inter only.
 - The app consumes the system only through the repo's token contract, so switching to another of Oscar's systems (Brasa v2, Tokyo Night, Sumi & Neon) is one command.
-- Inputs (user-pinned 2026-09-30, replacing the 2026-09-27 settei plates): written on the line, as Today's notes are. Forms on Tasks and Health are ruled, numbered sheets, one field per row; elsewhere a field is its name over a single rule. No boxes, no graph paper, no red pencil.
+- Inputs (user-pinned 2026-09-30, replacing the 2026-09-27 settei plates): written on the line, as Today's notes are. Forms on Projects and Health are ruled, numbered sheets, one field per row; elsewhere a field is its name over a single rule. No boxes, no graph paper, no red pencil.
 - Theme: Day and Night, following the system theme until the user picks one.
 - Pixel-perfection matters; quality over development cost (SPEC.md section 10).
 
@@ -40,4 +40,4 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 - Server-rendered Jinja + HTMX; no build step; the only real client JS is a few small islands: the calendar's grid (Calendar's days and Today's timeline: drag, draw, an event's card and composer), the command menu (Ctrl+K), the task composer and description editor, Today's notepad, a project's Gantt sheet, and the chats with Claude on Nutrition and Spending (the answer streamed as Claude writes it).
   The notepad's editor is CodeMirror 6, one committed file (`app/static/vendor/codemirror.js`) built from `scripts/vendor/codemirror`, as htmx is one committed file; the app still builds nothing.
 - Works on desktop and phone widths; phone gets the full UI, not a cut-down version.
-- No login screens, no marketing surfaces; the app opens straight into Tasks, where the day's plan is made.
+- No login screens, no marketing surfaces; the app opens straight into Today.

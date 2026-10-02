@@ -62,7 +62,7 @@ Field names are 12px/500 graphite Inter, as the notes' "Task" label is: Inter is
 ## Shape, space, elevation
 
 - **Radii:** none. Every corner in the app is square (Oscar's call, 2026-09-27): `app.css` sets the system's `--r-tag`, `--r-ctl` and `--r-pill` to 0 after `design.css` loads, and no rule rounds a corner of its own, dots and the now mark included.
-- **Inputs are see-through:** every place Oscar writes lets the page show through: a field has no fill, only its line; Today's notepad card and the ruled sheets (Tasks, Me) are the paper at 35%; and checkboxes are unfilled until ticked.
+- **Inputs are see-through:** every place Oscar writes lets the page show through: a field has no fill, only its line; Today's notepad card and the ruled sheets (Projects, Me) are the paper at 35%; and checkboxes are unfilled until ticked.
 - **Spacing:** the `--s-*` scale (4, 8, 12, 16, 24, 32, 48).
 - **Elevation:** resting glass has no shadow; only an event's card, the event composer, the add-a-task popover, the task sheet's menus and the toast float, on opaque paper with `--shadow-dropdown`.
   There is one toast, `window.toast` in `shell.js`, for every page; a newer message gets its own full moment.
@@ -73,7 +73,7 @@ The shell is a 240px matte sidebar plus a content column on the canvas.
 The wordmark is Brasa's pattern: the name in 600 followed by a spark period, "Personal Calendar.".
 At night the name carries a faint halo (`--ink-glow-text`) and the period glows and strikes once on load, three stutters and then steady, like a tube coming on (`--spark-entrance`).
 Nav items are 14px/500 graphite; the active one is ink 600 with Brasa's 3px spark bar, glowing at night, inset 8px from the viewport edge.
-Nav is grouped in the Brasa manner: the planning pages (Tasks, Today, Calendar) sit under a 12px pewter "Planner" group label, Tasks first since the app opens on it; Projects follows as a second group, Health (Nutrition, Me, Garmin) a third, and Finances (Spending, Accounts, Bills, Goals) a fourth, each under its own label.
+Nav is grouped in the Brasa manner: the planning pages (Today, Calendar) sit under a 12px pewter "Planner" group label, Today first since the app opens on it; Projects follows as a second group, Health (Nutrition, Me, Garmin) a third, and Finances (Spending, Accounts, Bills, Goals) a fourth, each under its own label.
 The foot starts with Search, its magnifier and name, and its key ("Ctrl K") in a hairline box at the right, as the keys dialog draws keys; it opens the command menu.
 Then Brasa's shipped light/dark toggle: the current mode's sun or moon, which rotates and fades into the other, beside the mode's name in 12px pewter.
 The names are the installed system's own, read from `design-language.json`: "Day" and "Night" for Neon Signage.
@@ -82,13 +82,13 @@ The shell animates its column width on `--ease` over 220ms.
 When collapsed, the wordmark and labels hide, each link keeps its name as a tooltip, group labels become hairlines, and the spark bar stays.
 Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the spark bar moves above the active tab's icon, and the mode toggle ends the bar as a 44px sun or moon icon past a hairline, with no label; the collapse control stays desktop-only.
 Under 600px each tab is its icon, 44px wide; the tabs scroll sideways past the bar's width, it opens with the current page's tab in its middle, and an edge with tabs past it fades (`data-more`, `shell.js`).
-Content is 800px wide for list pages (Tasks, Projects), where more width only lengthens a row, and up to 1600px for Today and Calendar, so a wide window or a zoomed-out page widens them rather than their margins.
-Compact rows (the rail's toggle above the mode's, or C) set Tasks' sheet and Today's notes 28px a row rather than 36px, the text its size: 3px above a 20px line, 4px below; the toggle's three lines close up while it is on, its label the state (Roomy, Compact).
+Content is 800px wide for list pages (Projects), where more width only lengthens a row, and up to 1600px for Today and Calendar, so a wide window or a zoomed-out page widens them rather than their margins.
+Compact rows (the rail's toggle above the mode's, or C) set Projects' sheet and Today's notes 28px a row rather than 36px, the text its size: 3px above a 20px line, 4px below; the toggle's three lines close up while it is on, its label the state (Roomy, Compact).
 On Today a panel icon at the day header's right (or Ctrl+\) folds the timeline away, the notes taking its column, and back.
 
 ## Components
 
-**List cards.** Each project and the nudge center (at the top of Tasks) are glass cards; Tasks' groups are not, but rows of its ruled sheet (see Tasks).
+**List cards.** The nudge center (at the top of Today) is a glass card; Projects' groups are not, but rows of its ruled sheet (see Projects).
 A title row sits on a stronger hairline, and rows below are full-bleed, dividing with hairlines and lighting on hover with `--glass-row-hover`.
 
 **Task rows.** An 18px checkbox with a 6px radius fills with ink when checked; there is no draw-in animation.
@@ -157,7 +157,7 @@ Every task is bracketed by a 2px graphite rule above its title and below its las
 A task's "- [ ] " rows are its sub-tasks, each with the task box inline before its words; a ticked sub-task, and a ticked task (title and every row), is crossed out in pewter, its box, "Task" and icons not struck.
 A task (or reflection, habit, stay) right under another shares that one's rule, one line between them: it draws none above itself, and the shared rule takes its colour while the caret is in it.
 A task with rows under its title has a 12px pewter chevron after "Task" (ink on hover; pointing down when open, right when folded): folded, the task shows its title alone, its hidden rows counted in a pewter caption tag after it ("2 rows") and its row numbers skipping them, and it stays folded with the notes.
-At the right of a task's title come its controls, 12px or more after its last word: the task sheet's icons (do date, time, due, repeat, project), each a pewter icon with its value beside it once set, in graphite, and last the rows' trash bin (steel, red on hover).
+At the right of a task's title come its controls, 12px or more after its last word: the task sheet's icons (do date, due, repeat, estimate, project), each a pewter icon with its value beside it once set, in graphite, and last the rows' trash bin (steel, red on hover).
 They stand on the title's last line when they fit there, and when not, on a line of their own under it, still at the right: the row grows by a line, and no row is added to the notes.
 A reflection is drawn as a task's rows are, without a box or controls: "Reflection" in 12px `--signal-deep` in its first row's indent, its words in the body grey, and its rules light blue (`--signal` 45% into the paper; the signal itself while the caret is in it).
 A habit is drawn as a task is: in its indent its box (ticked by default, filled green) and "Habit" in green (`--hue-4` 85% into ink; pewter once unticked, with its name), then its name in ink at 500 and its note in the body grey, its rules green (`--hue-4` 45% into the paper; the green itself while the caret is in it), and at its row's right its days' icon, the task sheet's repeat icon with its days beside it once set ("Every day", "Weekdays", "Tue, Thu"); a name that cannot be one is underlined in a wavy `--hue-8`.
@@ -171,27 +171,27 @@ What is offered while writing (after "/" at a row's start, and after "/habit ") 
 No border, no focus ring and no resize handle; the pewter placeholder "Anything on your mind today."
 When the notes were saved in another window, a line under the card says so, with Show that version and Keep mine as secondary buttons.
 
-**Tasks.** A page header ("Tasks", the open and undated counts, and a By date / By project segmented control on the right), then the tasks on one sheet ruled as Today's notepad is, its first row the composer ("Add a task…" after the plus), above the first group's rule.
+**Projects.** A page header ("Projects", the open and undated counts, and at its right a new project's name on its line, 200px, with a quiet Add), then the tasks on one sheet ruled as Today's notepad is, its first row the composer ("Add a task…" after the plus), above the first group's rule.
 The page runs to the window's foot and the sheet takes what is left of it (at least 420px).
 It is the notepad card's paper at 35%, with the same metrics: every row at least 36px tall with its text in the middle (7px above a 22px line, 6px below), on its own `--hairline` rule, and the 44px column of row numbers (12px pewter, tabular) on a fog wash behind a hairline (34px on phones).
 Every row is numbered, headers and composers included, and empty numbered rows fill the sheet under the last group, the last of them cut at its edge; a Done fold's hidden rows are not counted.
 Each group is bracketed as a notepad task is: a 2px graphite rule above its title row and below its last row, across the row numbers too, one rule between two groups; the group the keyboard is in has its rules in ink, as has the cursor row's number.
 A group's title row is its name in 14px/600 ink with its count in pewter; a task row is the notepad's box (square, 14px, graphite-ruled, ink with a paper tick once done) 8px before its title, the meta line and an opened description on the row's own 22px lines, the row growing with them.
-By date is one group per do-date group; By project is Projects' cards drawn as groups (their title rows 14px/600, without their status control, which moves cards between Projects' shelves, and with a neutral badge on a parked project that still holds open work), a workstream's tasks one 24px step in, each project's composer a row of its own, then a No project group in the same form, its empty edit slot keeping the counts in line.
-The rows are Projects' own markup, so the sheet restyles them under `.tasks-sheet` and Projects keeps its cards.
-While planning, every row names its do-date, "today" included, whichever way it is grouped.
+First the No project group, its unseen status and edit slots keeping the counts in line with the cards'; then each active project's card drawn as a group (its title row 14px/600 with its status control), a workstream's tasks one 24px step in, each project's composer a row of its own; then Paused and Done, each a fold's row ("Paused 1") holding its projects' cards; then the Done fold.
+The rows are the cards' own markup, restyled under `.tasks-sheet`.
+Every row names its do-date, "today" included.
 Each row ends in quiet do-date buttons, always shown since dating is the page's job: "Today" and "Tomorrow" in 12px pewter, and a calendar icon that opens the native date picker.
 They darken to graphite on row hover and ink on their own hover; a button for the day the task already has leaves its slot empty, so the columns line up down the page.
 On phones they take their own line under the title's text, without empty slots.
 Dating a task regroups the page from the server.
-The page works from the keyboard alone, as do Today and Projects (each marks its lists' area `data-cursor`).
-A 12px pewter line under each of their headers names the page's first keys and ends in "? all keys" (hidden on touch and phones); the focused row is the cursor, drawn as the nav's own marker, a 3px spark bar inset on its left edge with the spark glow, over the row hover fill.
+The page works from the keyboard alone (it marks its list's area `data-cursor`).
+A 12px pewter line under its header (and Today's) names the page's first keys and ends in "? all keys" (hidden on touch and phones); the focused row is the cursor, drawn as the nav's own marker, a 3px spark bar inset on its left edge with the spark glow, over the row hover fill.
 The bar shows for keyboard focus only (`:focus-visible`), never after a click.
-It is the one cursor the app draws: a Done fold's header, a Projects shelf's header (as an inset shadow, since its `::before` is the +/− sign) and the item under the keyboard in a task sheet's menu take the same bar (on `--fog` in the menu, which is opaque paper).
-Projects' shelves remember being open like the Done folds, so a key acting inside one never folds it away.
+It is the one cursor the app draws: a fold's header (Done, or a shelf's) and the item under the keyboard in a task sheet's menu take the same bar (on `--fog` in the menu, which is opaque paper).
+The shelves remember being open like the Done fold, so a key acting inside one never folds it away.
 
 **Me** (Health).
-A page header, then one sheet ruled as Tasks' is, each part a group: At a glance (Weight, Age, BMI and Daily energy, read-only in ink at 500, "Not yet" in pewter, then a graphite row saying how the energy is estimated), Weight, Body, Activity and goal, Diet, and Health notes.
+A page header, then one sheet ruled as Projects' is, each part a group: At a glance (Weight, Age, BMI and Daily energy, read-only in ink at 500, "Not yet" in pewter, then a graphite row saying how the energy is estimated), Weight, Body, Activity and goal, Diet, and Health notes.
 Each field is a row: its name in a 112px indent (96px on phones), then its value written on the line, a number followed by its unit in graphite once set; the row takes the click and the hover fill.
 Diet, allergies and foods avoided wrap as a notes row does, the row growing, and Enter ends them; Health notes is one row that grows, with its placeholder as its name.
 The Weight group's first row writes a weigh-in (the weight, "on" and its day, and a quiet Log; Enter logs it), and each weigh-in follows as a row: its day in the indent, the weight in ink at 500, and the rows' bin on hover.
@@ -225,7 +225,7 @@ Goals: a group to write a new goal, then a group a goal: its name, its target an
 The ok, warn and err badges are `.chip.ok`, `.chip.warn` and `.chip.err`.
 
 **Done fold.** Finished tasks fold away under a list: a pewter "Done" summary with its count and a steel chevron that turns when open, then the rows, checked and struck through, ready to untick.
-On Tasks it is the sheet's last group, noting "last 14 days".
+On Projects it is the sheet's last group, noting "last 14 days".
 Which folds are open is remembered per tab (`sessionStorage` key `pc-open-folds`).
 
 **Keys dialog.** `?` on any page opens every key, grouped Anywhere, Writing a task and Lists, on the confirm dialog's paper, 760px wide in two columns (one under 640px).
@@ -235,7 +235,7 @@ The dialog takes focus itself, so no control opens ringed; Esc closes it.
 **Command menu** (`app/static/command.js`, Ctrl+K). The capture window's paper, 640px wide and 12vh from the top over the scrim: a 16px line to write on, ruled off from what it finds, then the results grouped under 12px/600 pewter names (Days, Pages, Do, Tasks, Projects, Events, Notes), at most 70% of the window tall, and a foot of keys.
 A result is a 36px row: its name in 14px/500 ink (a done task or cancelled meeting pewter and struck through, a project after an 8px square of its colour) and its detail at the right in 12px pewter figures (a do-date or due, a meeting's day and time, a page's or action's key in a hairline box); a day's notes give the words found the row's room.
 The row Enter opens is in fog, and follows the pointer.
-**Capture window.** N or Shift+N writes a new task from any page: on Tasks and Projects into the page's own list, and on Today and Calendar, which have no list to write in, in a window holding the task sheet (600px, 15vh from the top, on the confirm dialog's paper).
+**Capture window.** N or Shift+N writes a new task from any page: on Projects into the page's own list, and on Today and Calendar, which have no list to write in, in a window holding the task sheet (600px, 15vh from the top, on the confirm dialog's paper).
 It stays open for the next task, and a toast says where each one went ("Added “Call the plumber” for Fri 2 Oct", or "to No date"), since no list on the page shows it.
 Esc closes it and keeps a half-written draft for the next time.
 
@@ -244,7 +244,7 @@ Week navigation and nudge actions are secondary-style controls.
 
 **Inputs: written on the line, as Today's notes are** (Oscar's call, 2026-09-30, replacing the settei plates of 2026-09-27).
 Every place Oscar writes is a line of the notebook: no box, no fill and no focus ring, the words straight on a rule, 22px of 14px ink on a 36px line as the notes' rows are, pewter placeholders, date and time in `--font-num`, a select's words followed by a small steel chevron, and an empty date in pewter.
-On a ruled sheet (Tasks, Me) the rows are the lines: a field is a row, its name in the row's indent in 12px/500 graphite, and the field in use has its row number in ink 600 and its group's rules in ink, as the notes' caret row does.
+On a ruled sheet (Projects, Me) the rows are the lines: a field is a row, its name in the row's indent in 12px/500 graphite, and the field in use has its row number in ink 600 and its group's rules in ink, as the notes' caret row does.
 Elsewhere (the event, workstream and new-project forms, the project editor) a field is its name in 12px/500 graphite over a 1px steel line (3:1 as a field's edge), the line 2px ink and the name ink while it is in use.
 Their buttons are the app's own, 36px beside a form's fields; the task sheet's are words on its line (see Task sheet).
 Projects' status select is its words in 12px/500 graphite and the steel chevron, the fog under it on hover.
@@ -275,20 +275,19 @@ The grid's one light is the now-line in `--signal` (cyan in Neon Signage, glowin
 An hour label whose digits the time would overlap (centres within 12px) is hidden, so the gutter never shows a clipped "06:00" behind "06:21".
 
 **Projects' colours.** A project is one of the eight hues (`--hue-1` to `--hue-8`), shown wherever its tasks are as its flag: a 14px flag filled in the colour, the name said on hover and to a screen reader, never written beside it (task rows, the task sheet, the notes).
-On Tasks a task in a project also has its rule below it in that colour, 55% into the paper (the colour itself under the keyboard's cursor).
+On Projects a task in a project also has its rule below it in that colour, 55% into the paper (the colour itself under the keyboard's cursor).
 A new project takes the hue fewest open projects have; the project editor offers the eight flags in a row, the chosen one ringed in its colour.
 
-**Project cards.** The title is 20px/600, after the project's flag, and opens the project's Gantt (underlined on hover, as a task's title is); it is followed by the open count, a secondary-style status select, and a ghost pencil that swaps in the inline editor.
-Workstream rows are 14px/600 with steel circles that turn ink when done (the name then pewter at 500), and their done count.
+**Project cards.** The title, after the project's flag, opens the project's Gantt (underlined on hover, as a task's title is); it is followed by the open count, a secondary-style status select, and a ghost pencil that swaps in the inline editor.
+Workstream rows have steel circles that turn ink when done (the name then pewter at 500), and their done count.
 Each workstream's open tasks are indented beneath it; the other tasks follow under a pewter caption, then the project's task sheet for adding.
-Paused and done projects sit on collapsible shelves.
 A task files by drag: onto a workstream group, into that workstream; onto another card, into that project with no workstream; onto No project, out of any.
 The row in hand fades to 40%, and the target under it lights as a drop target, `--spark-tint` with an inset 1.5px spark ring.
 
 A ghost bars icon, before the pencil, opens the project as a Gantt chart.
 
 **Gantt** (a project's page, `/projects/<id>`, as wide as Calendar).
-A page header (a pewter "‹ Projects", the project's flag and name at 24px, the task counts and the plan's span, the key line) with, at its right, the Weeks / Days segmented control and a quiet This week (or Today) button, then one sheet, ruled as Tasks' is (36px rows, 28px compact, the row numbers on the fog), that runs to the window's foot and scrolls both ways inside itself.
+A page header (a pewter "‹ Projects", the project's flag and name at 24px, the task counts and the plan's span, the key line) with, at its right, the Weeks / Days segmented control and a quiet This week (or Today) button, then one sheet, ruled as Projects' is (36px rows, 28px compact, the row numbers on the fog), that runs to the window's foot and scrolls both ways inside itself.
 Its header row (48px) and its frozen pane stay put while it scrolls, as a spreadsheet's do: the numbers, a 32px box column, Task (280px, widened by dragging its header's edge, remembered as `pc-gantt-title`), Start, the length (Wks or Days) and Due, on opaque paper edged by a mist line, while the time is the sheet's see-through paper.
 Its time is a 52px column a week, or drilled down, a 36px column a day (Start then 112px, for its date).
 Column names are 12px/500 graphite; a week's head is its ISO week in 12px/600 ink over its Monday's day in pewter (graphite, with the month, where the month turns); a day's is its initial in pewter and its date in ink (pewter at weekends), under its week's name and Monday ("W41 · 5 Oct") running across the week from its Monday; now's head is `--spark-deep`, glowing at night.
@@ -328,8 +327,8 @@ A height-capped grid opens on the usual day, 06:00 at its top, or with now in vi
 **Writing tasks** (`app/static/task-sheet.js`, `app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`).
 `task-sheet.js` runs the task sheet: the title line, its field icons and their menus, typed words becoming fields, adding, and saving an edit when focus leaves it.
 Every field is a hidden input the form posts, so the icons and menus only read and write those inputs; the menus live in the body, since list cards clip what overflows them.
-`tasks.js` runs the row disclosures, the Done folds, the cursor on Tasks, Today and Projects, and filing by drag; `shell.js` the keys that work on every page, 1 to 9 for the nav's pages and ? for the keys dialog, and Left and Right (outside a field) on a page of days, a day back or on, and on Calendar, the days it shows.
-The list keys: Up/Down or J/K move (a Done fold's or shelf's header is a stop, opened by Enter or Space), Shift jumps a group (a project, on Projects), Home and End go to the ends; Enter or E edits, N writes a new task (into the cursor's project where it has one, else the page's own composer), X done, T today, M tomorrow (posted directly where rows have no do-date buttons), D and P open the task sheet on its day or project menu, Space opens the description, Delete deletes after asking, V switches Tasks' views, Esc leaves.
+`tasks.js` runs the row disclosures, the folds, the cursor on Projects, and filing by drag; `shell.js` the keys that work on every page, 1 to 7 for the nav's pages and ? for the keys dialog, and Left and Right (outside a field) on a page of days, a day back or on, and on Calendar, the days it shows.
+The list keys: Up/Down or J/K move (a fold's header, Done or a shelf, is a stop, opened by Enter or Space), Shift jumps a project, Home and End go to the ends; Enter or E edits, N writes a new task (into the cursor's project where it has one, else the page's own composer), X done, T today, M tomorrow (posted directly on a done row, which has no do-date buttons), D and P open the task sheet on its day or project menu, Space opens the description, Delete deletes after asking, Esc leaves.
 The cursor lands where the work leaves it: on the row that followed one dated, filed, finished or deleted away; on the same task after an edit, wherever it regrouped to; on a task just added when Esc leaves the composer; and on the same task across V's reload (`sessionStorage` key `pc-task-cursor`).
 htmx wires up swapped-in content in the same step as the swap (`defaultSettleDelay: 0`, in base.html): with its default 20ms settle, a re-rendered list missed a refresh fired in that gap, and keys and submits met controls not yet wired up. Keys are never queued, since a replayed key cannot type; a sheet htmx has not taken over never submits natively and leaves the page; an open edit caught in a list's re-render keeps its sheet, words, fields and caret where the task's new row lands.
 Keys never fire while typing in a field or over a dialog, and reaching for the mouse ends the pass.

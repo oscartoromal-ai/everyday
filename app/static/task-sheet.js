@@ -565,7 +565,7 @@
     menu = null;
     el.remove();
     button.setAttribute("aria-expanded", "false");
-    // A sheet opened for one field (D or P on Tasks) is done once its menu is.
+    // A sheet opened for one field (D or P on a row) is done once its menu is.
     if (form._quick) {
       save(form, { keyboard: true });
       return;
@@ -966,8 +966,8 @@
 
   /* ---- drafts survive live refreshes ---- */
 
-  // Today's list and the Tasks page re-render from the server whenever the
-  // plan changes, composers included. Carry a half-written task, its fields
+  // Projects' list re-renders from the server whenever the plan changes,
+  // composers included. Carry a half-written task, its fields
   // and focus over to the fresh composer with the same key.
   const FIELDS = ["planned_for", "due", "repeat", "project_id"];
   const carried = new WeakMap(); // request -> drafts

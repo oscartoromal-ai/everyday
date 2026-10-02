@@ -20,7 +20,7 @@ def next_weekday(day: int) -> date:
 
 
 def test_typed_words_become_fields_and_backspace_takes_them_back(page, live) -> None:
-    page.goto(f"{live}/")
+    page.goto(f"{live}/projects")
     sheet = page.locator(".task-sheet[data-sheet=compose]")
     title = sheet.locator(".sheet-title")
     sheet.locator(".sheet-line").click()
@@ -50,7 +50,7 @@ def test_the_composer_adds_with_its_fields(page, live, app_db) -> None:
         projects_svc.create_project(db, name="Home")
         db.commit()
     page.goto(f"{live}/projects")
-    sheet = page.locator(".task-sheet[data-sheet=compose]")
+    sheet = page.locator(".project-card .task-sheet[data-sheet=compose]")  # Home's
     sheet.locator(".sheet-line").click()
     page.keyboard.type("Water the plants")
     sheet.locator(".prop[data-prop=due]").click()
@@ -75,7 +75,7 @@ def test_editing_saves_when_focus_leaves_the_sheet(page, live, app_db) -> None:
         task = tasks_svc.create_task(db, title="Mow", planned_for=date.today(), notes="- oil")
         db.commit()
         task_id = task.id
-    page.goto(f"{live}/")
+    page.goto(f"{live}/projects")
 
     # Opened and left untouched: back to the row, with nothing posted.
     posts: list[str] = []
@@ -108,7 +108,7 @@ def test_editing_saves_when_focus_leaves_the_sheet(page, live, app_db) -> None:
 
 
 def test_spelling_is_marked_only_in_the_line_being_written(page, live) -> None:
-    page.goto(f"{live}/")
+    page.goto(f"{live}/projects")
     sheet = page.locator(".task-sheet[data-sheet=compose]")
     title = sheet.locator(".sheet-title")
     sheet.locator(".sheet-line").click()
@@ -140,7 +140,7 @@ def test_spelling_is_marked_only_in_the_line_being_written(page, live) -> None:
 
 
 def test_an_estimate_is_written_as_words_or_picked(page, live, app_db) -> None:
-    page.goto(f"{live}/")
+    page.goto(f"{live}/projects")
     sheet = page.locator(".task-sheet[data-sheet=compose]")
     title = sheet.locator(".sheet-title")
     estimate = sheet.locator("input[name=estimate]")

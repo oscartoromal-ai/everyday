@@ -289,6 +289,7 @@ def test_a_bill_coming_due_nudges_until_it_is_paid(db) -> None:
     now = datetime(2026, 10, 12, 9, 0)
     [nudge] = [n for n in nudges_svc.evaluate(db, now) if n.type == NudgeType.bill_due]
     assert nudge.message == "Netflix, $22.99, is due Wed 14 Oct."
+    assert nudges_svc.wording(db, nudge, date(2026, 10, 14)) == "Netflix, $22.99, is due today."
     assert nudges_svc.evaluate(db, now) == []  # once per due day
     assert "Bills due: Netflix $22.99 (Wed 14 Oct)." in nudges_svc.build_morning_digest(db, now)
     # Paid, it stops asking.

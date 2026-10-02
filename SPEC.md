@@ -33,19 +33,20 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Tasks take no time on the calendar** (Oscar's call on 2026-10-02, after the blocks went unused): to-dos live in lists and on their days; the calendar shows events alone.
   Task blocks went with it: the To schedule tray, giving a drawn time to a task, Book, a task's time in the sheet, Today's focus card, and the missed marker with its replan, nudge and ghost outline (all in git history).
 - **Delegated to Claude** is a list section with status chips (queued, running, needs review), not a calendar lane.
-- **Tasks** is where the app opens, because planning comes before doing: every open task of Oscar's, grouped by do-date (Overdue, No date, Today, Tomorrow, Later this week, Next week, Later), each with one-click Today and Tomorrow buttons and a date picker.
-  No date is the backlog, always shown and sorted deadlines first; a repeating series shows only its next occurrence (on Projects too); Claude's tasks stay in Delegated to Claude.
-  A By date / By project switch (remembered) regroups the same tasks as Projects' cards (workstreams, then other tasks, each card with its quick add and Add a workstream), followed by a No project card.
-- **Done folds away**: finished tasks leave their lists for a collapsed Done fold, under Today's list and at the foot of Tasks (the last 14 days), where unticking one sends it back.
+- **Projects is the one screen for tasks** (Oscar's call on 2026-10-02, replacing the Tasks page and its By date / By project views): every open task of Oscar's on one sheet, its first row the composer, then the tasks in no project, then each active project's card (workstreams, then other tasks, each card with its quick add, Add a workstream and its status), the paused and done projects on shelves, and the Done fold.
+  Each row names its do-date and has one-click Today and Tomorrow buttons and a date picker; rows go soonest first (do-date, then deadline, then oldest), and a repeating series shows only its next occurrence.
+  A new project is named at the header's right; a status moves its card between the active projects and the shelves.
+  The app opens on Today (`/` goes there); dates are planned on Today and each project's Gantt.
+- **Done folds away**: finished tasks leave their lists for a collapsed Done fold, at the foot of Projects (the last 14 days), where unticking one sends it back.
 - **Sub-tasks** live in their task's description and tick off on its row; workstreams hold tasks, never sub-tasks.
 - **The command menu** (Oscar's call on 2026-10-02, after Akiflow and Notion Calendar): Ctrl+K (or Cmd+K) anywhere, or Search in the rail (the phone's tab bar), is one line to find and go.
-  It finds tasks (open first, by their words or their description), projects, events (a series once, at its meeting nearest now) and the days' notes; a task found opens Tasks with the cursor on it, a project its Gantt, an event its day on Calendar with its card open, and notes their day.
+  It finds tasks (open first, by their words or their description), projects, events (a series once, at its meeting nearest now) and the days' notes; a task found opens Projects with the cursor on it, a project its Gantt, an event its day on Calendar with its card open, and notes their day.
   A day's words ("friday", "tomorrow", "12 oct", "2026-10-12") go to that day on Calendar or to its notes; every page is there by name, and the things to do from anywhere (a new task, a new event, the theme, compact rows, the keys).
-- **Triage by keyboard**: on Tasks, arrow keys move a row cursor and single keys act on it (T today, M tomorrow, D pick a day, X done, E edit), the cursor moving on to the next row as each one is dated or finished.
+- **Triage by keyboard**: on Projects, arrow keys move a row cursor and single keys act on it (T today, M tomorrow, D pick a day, X done, E edit), the cursor moving on to the next row as each one is dated or finished.
 - **A task's project is its colour** (Oscar's call on 2026-09-28, chosen from a prototype of four): each project has a colour, set in its editor on Projects, and a task in it shows the project as its flag filled in that colour, the name only on hover, wherever tasks are listed.
-  In Today's notes the task's rules take the colour too, and on Tasks its row's rule.
-- **Seeing more** (Oscar's call on 2026-09-28; the browser's zoom stays the browser's): compact rows (C, or the rail's toggle) fit more of Tasks and Today's notes on screen at the same text size; Today and Calendar widen with the window; and on Today, Ctrl+\ (or the day header's icon) folds the timeline away for the notes. All three are remembered.
-- **Filing by drag**: in By project (and on Projects) a task is dragged onto a workstream, another project, or No project to file it there.
+  In Today's notes the task's rules take the colour too, and on Projects its row's rule.
+- **Seeing more** (Oscar's call on 2026-09-28; the browser's zoom stays the browser's): compact rows (C, or the rail's toggle) fit more of Projects and Today's notes on screen at the same text size; Today and Calendar widen with the window; and on Today, Ctrl+\ (or the day header's icon) folds the timeline away for the notes. All three are remembered.
+- **Filing by drag**: on Projects a task is dragged onto a workstream, another project, or No project to file it there.
 - **Today is a notepad beside the day's timeline** (Oscar's call on 2026-09-27, "for now"): the whole left column is one plain notepad for the day, the right the day's timeline.
   The notes are plain text, saved as they are written.
   A row too long for the box wraps inside its row; nothing scrolls sideways.
@@ -79,7 +80,8 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   Then how Oscar came into the day, from his watch: readiness (a low one, Garmin's POOR or LOW, asking to keep the day light), sleep and its score, and body battery; a past day's page shows its own.
   Today's is redrawn each minute and as the calendar changes.
   On a phone the page stacks: the header with its glance first, so the next thing on is the first thing seen, then the notes and their lists, then the timeline in a window of its own (75% of the screen), opened on now.
-  N writes a new task from Today in the capture window, as on Calendar; the day's plan is made on Tasks, where the nudge center opens.
+  N writes a new task from Today in the capture window, as on Calendar.
+  Today's page opens with the nudge center, above the notes, each nudge saying its days from today ("due today" for one raised yesterday as "due tomorrow").
   It replaces [the notebook](#the-notebook-decided-2026-09-26), where lines became tasks and reflections, and the storyboard sheet that followed it; both are in git history.
 - **Calendar** (Oscar's call on 2026-10-02, against Google Calendar, Notion Calendar and Fantastical) is the time grid of events, as a day, three days or a week (D, X, W), the choice remembered on each device and a phone starting on three days.
   The grid runs the whole day, scrolled within the window to the usual day (06:00 to 22:00) with now in view; Left and Right step by the days shown, and a switch keeps today in view.
@@ -93,7 +95,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **A project as a Gantt chart** (Oscar's call on 2026-09-30: "I work in weeks", "a kind of Excel interface"): each project opens (`/projects/<id>`, from its card's bars icon) as a spreadsheet of its plan by week.
   A row per workstream, its tasks under it and a row to write one more; then the other tasks, and a row to write a workstream; a column per week (the ISO week, over its Monday), frozen beside Task, Start, Wks and Due.
   It drills down to days (Oscar's call on 2026-10-01): a Weeks / Days switch (or V) for the whole sheet, remembered, the same days kept in view; in Days a column per day, weekends tinted, the length in days, and every move by days.
-  A task's bar is its span: from its start day to its due, so the end of a bar is its deadline, and the Tasks page and nudges see the plan through the due they already read (Oscar's call: a task has to be done by a day).
+  A task's bar is its span: from its start day to its due, so the end of a bar is its deadline, and Projects and the nudges see the plan through the due they already read (Oscar's call: a task has to be done by a day).
   The do-date stays apart: when Oscar works on it, not when the plan says it runs.
   A task due with no start is a tick on its due; a workstream is a lane: a summary from its tasks' first start to their last due, its Start, length and Due theirs.
   A workstream folds to its row (its chevron, or Alt+Left and Right on it; Alt with the chevron folds or opens them all), its row then counting its tasks, and stays folded in that browser (Oscar's call on 2026-10-01).
