@@ -198,11 +198,21 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         <h3>Calendar</h3>
         <dl>
           <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>The days before or after (it opens on today's)</dd>
-          <dt><kbd>D</kbd> <kbd>X</kbd> <kbd>W</kbd></dt><dd>A day, three days, or the week</dd>
+          <dt><kbd>D</kbd> <kbd>X</kbd> <kbd>W</kbd> <kbd>S</kbd></dt><dd>A day, three days, the week, or the sheet</dd>
           <dt><kbd>E</kbd></dt><dd>New event; or draw its time on the grid, or click an hour there</dd>
           <dt><kbd>G</kbd></dt><dd>Go to a date</dd>
           <dt>friday <kbd>Space</kbd></dt><dd>In an event's title, words set its day, time and repeat ("friday", "at 3pm", "every week"); Backspace right after puts them back</dd>
           <dt><kbd>Esc</kbd></dt><dd>Close an event's card or the new event</dd>
+        </dl>
+        <h3>Calendar's sheet</h3>
+        <dl>
+          <dt><kbd>S</kbd></dt><dd>The sheet: four weeks of days as rows, where you stay, the day's plan and your habits</dd>
+          <dt>Arrows</dt><dd>Cell to cell (outside the sheet, Left and Right step four weeks); with <kbd>Shift</kbd>, a range</dd>
+          <dt>Typing <span class="or">or</span> <kbd>Enter</kbd></dt><dd>Write in the cell: where you stay, or a task for the day (Plan); <kbd>Enter</kbd> writes it and goes down, <kbd>Esc</kbd> lets it go</dd>
+          <dt><kbd>Space</kbd></dt><dd>Tick a habit done, or a stay sorted (the range too)</dd>
+          <dt>Drag</dt><dd>Down a habit's column, paints the days it crosses</dd>
+          <dt><kbd>Ctrl</kbd> <kbd>D</kbd></dt><dd>Fill down from the range's first row (one cell: from the row above)</dd>
+          <dt><kbd>Delete</kbd></dt><dd>Clear the range's stay, untick its habits</dd>
         </dl>
         <h3>Nutrition</h3>
         <dl>

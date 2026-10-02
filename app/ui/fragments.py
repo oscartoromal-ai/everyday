@@ -561,6 +561,59 @@ def set_habit_days(db: DbSession, slug: str, days: Annotated[str, Form()] = ""):
     return JSONResponse({"slug": habit.slug, "days": habit.days})
 
 
+@router.post("/day-sheet")
+async def day_sheet_edit(request: Request, db: DbSession, start: date):
+    """Calendar's sheet, written in (day_sheet.js): {"ops": [...]}, each
+    one of
+        {"op": "habit", "day", "slug", "done"}    a habit done that day, or not
+        {"op": "stay", "day", "name", "value"?, "done"?}   an item of its stay
+        {"op": "task", "day", "title"}            a task planned for the day
+        {"op": "toggle", "task"}                  a task ticked, or not
+    applied in order, as the day's notes and tasks would have them; answers
+    the sheet drawn again."""
+    from app.services import notebook as notebook_svc
+    from app.ui.day_sheet_view import day_sheet_ctx
+
+    body = await request.json()
+    ops = body.get("ops") if isinstance(body, dict) else None
+    if not isinstance(ops, list):
+        raise DomainError("Expected a list of ops")
+    for op in ops:
+        if not isinstance(op, dict):
+            raise DomainError(f"Not an op: {op!r}")
+        kind = op.get("op")
+        if kind == "toggle":
+            task = tasks_svc.get_task(db, int(op["task"]))
+            done = task.status == TaskStatus.done
+            tasks_svc.set_status(db, task.id, TaskStatus.todo if done else TaskStatus.done)
+            continue
+        try:
+            day = date.fromisoformat(str(op.get("day")))
+        except ValueError as exc:
+            raise DomainError(f"Not a day: {op.get('day')!r}") from exc
+        if kind == "habit":
+            notebook_svc.set_habit(db, day, str(op.get("slug")), op.get("done") is True)
+        elif kind == "stay":
+            value, done = op.get("value"), op.get("done")
+            notebook_svc.set_stay_item(
+                db, day, str(op.get("name", "")),
+                value=None if value is None else str(value),
+                done=None if done is None else done is True,
+            )
+        elif kind == "task":
+            title = str(op.get("title", "")).strip()
+            if title:
+                tasks_svc.create_task(db, title=title, planned_for=day)
+        else:
+            raise DomainError(f"Unknown op: {kind!r}")
+    db.commit()
+    return templates.TemplateResponse(
+        request,
+        "partials/day_sheet.html",
+        {"request": request, "sheet": day_sheet_ctx(db, start, date.today())},
+    )
+
+
 @router.get("/tasks/{task_id}/history")
 def task_history(request: Request, db: DbSession, task_id: int):
     """How the task changed, newest first, for its sheet."""

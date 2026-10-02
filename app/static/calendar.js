@@ -1,7 +1,7 @@
 /* The calendar island, on Calendar's grid and Today's timeline: move and
    resize Oscar's own events; draw on the grid (or click it) to write an event
    there; click an event for its card. On Calendar, D, X and W switch the days
-   shown and E writes an event.
+   shown (S to the sheet of days, day-sheet.js) and E writes an event.
    The grid is server-rendered and re-rendered via htmx (calendar:refresh);
    all listeners live on document so they survive swaps. */
 
@@ -492,7 +492,7 @@
   /* ---- 4. arriving from the command menu: an event's card (?event=), or a new event (?new=1) ---- */
 
   const arrival = new URLSearchParams(window.location.search);
-  if (document.querySelector(".calendar-page") && (arrival.has("event") || arrival.has("new"))) {
+  if (grid() && document.querySelector(".calendar-page") && (arrival.has("event") || arrival.has("new"))) {
     const eventId = arrival.get("event");
     const item = eventId && grid().querySelector(`[data-event-id="${CSS.escape(eventId)}"]`);
     if (item) {
@@ -519,7 +519,7 @@
     });
   }
 
-  /* ---- 6. Calendar's keys: D, X and W the days shown, E a new event, G a date ---- */
+  /* ---- 6. Calendar's keys: D, X, W and S the days shown, E a new event, G a date ---- */
 
   document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
@@ -532,7 +532,7 @@
       if (!view.hasAttribute("aria-current")) view.click();
       return;
     }
-    if (key === "E") {
+    if (key === "E" && grid()) {
       e.preventDefault();
       newEvent(document.querySelector("[data-new-event]"));
     } else if (key === "G" && jump) {

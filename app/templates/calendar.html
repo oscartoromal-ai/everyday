@@ -3,9 +3,9 @@
 {% block content %}
 <div class="calendar-page">
   <header class="page-header calendar-header">
-    <h1>{{ grid.label }} <span class="week-number" title="ISO week">{{ nav.weeks }}</span></h1>
+    <h1>{{ label }} <span class="week-number" title="ISO week">{{ nav.weeks }}</span></h1>
     <nav class="week-nav" aria-label="Days shown">
-      {# D, X and W switch them too (calendar.js); the choice is remembered. #}
+      {# D, X, W and S switch them too (calendar.js); the choice is remembered. #}
       <div class="segmented" role="group" aria-label="View">
         {% for v in nav.views %}
         <a href="/calendar?view={{ v.key }}&start={{ v.start }}" data-calendar-view="{{ v.key }}"
@@ -30,8 +30,12 @@
   </header>
 
   <div class="calendar-tools">
+    {% if sheet %}
+    <p class="keys-hint sheet-hint">Type to write · <kbd>Enter</kbd> down · <kbd>Space</kbd> tick · drag down a habit to paint its days · <kbd>Ctrl</kbd><kbd>D</kbd> fill down</p>
+    {% else %}
     {# E opens it too; drawing on the grid opens it over the time drawn (calendar.js). #}
     <button type="button" class="add-inline event-add" data-new-event aria-keyshortcuts="E">New event</button>
+    {% endif %}
     <span id="sync-note"></span>
     <button type="button" class="week-today" title="Fetch the work calendar now"
             hx-post="/ui/work-sync" hx-target="#sync-note" hx-swap="innerHTML">
@@ -39,8 +43,13 @@
     </button>
   </div>
 
+  {% if sheet %}
+  {% include "partials/day_sheet.html" %}
+  {% else %}
   {% include "partials/calendar_grid.html" %}
+  {% endif %}
 </div>
 
 <script src="{{ asset('calendar.js') }}" defer></script>
+{% if sheet %}<script src="{{ asset('day-sheet.js') }}" defer></script>{% endif %}
 {% endblock %}

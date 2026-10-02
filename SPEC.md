@@ -18,7 +18,7 @@ Per [v1 phasing](tracker/tickets/002-v1-phasing.md):
 - **v1**: the hybrid planner: calendar (events), todos, projects with workstreams, manual entry, recurrence for both events and tasks, the work-calendar ICS feed, the MCP planner interface, nudges (three of four triggers), Tailscale phone access.
 - **v2**: automatic capture of Claude Code session work (MCP plan tools as the semantic channel, lifecycle hooks as the deterministic trace); enables the fourth nudge trigger.
 - **v3**: goals, which projects roll up into.
-- **v4**: habits and routines. Habits came early (Oscar's call on 2026-09-27): written in the notepad as "/habit name" (see Today), kept as their own entity rather than recurring tasks, so they never crowd the task lists; a table of when each was done and missed is next.
+- **v4**: habits and routines. Habits came early (Oscar's call on 2026-09-27): written in the notepad as "/habit name" (see Today), kept as their own entity rather than recurring tasks, so they never crowd the task lists; Calendar's sheet shows when each was done and missed, a column a habit.
 - **v5**: reviews and reflection flows.
 - **Health** (Oscar's call on 2026-09-28): a module beside the planner, its own group in the nav, starting with Nutrition (see [Nutrition chat](#nutrition-chat), Oscar's call on 2026-09-30) and Me, the context health advice needs: height, birth date, sex, activity level, goal and target weight, dietary pattern, allergies and intolerances, foods avoided and health notes, saved as they change, and weight as a log of weigh-ins, one a day; from them, age, BMI and an estimated daily energy to keep his weight (Mifflin-St Jeor times the activity's factor). Claude reads it through `get_health_profile`.
   Then Garmin (Oscar's call on 2026-09-30, see [Garmin](#garmin)): what his watch measures, day by day, synced from Garmin Connect.
@@ -73,7 +73,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   The earlier page keeps its rows as written, each showing its task as it stands, so a task finished today reads ticked there too.
   Where Oscar stays is written in them too (Oscar's call on 2026-09-27: he moves around, and does not always have a bed sorted): "/stay" on a day's page, then its items, each "- [ ] name: value" with a box ticked once sorted, bracketed in amber.
   Its items are his to name (place and accommodation to begin with; a new stay starts with the items the last one had), and under the date the day's stay reads item by item, the unsorted ones in amber.
-  A stay is written day by day, not as a range; a view of all days' stays together is next.
+  A stay is written day by day, not as a range; Calendar's sheet shows the days' stays together, and fills one down the days.
   Every day has its notepad: Left and Right (outside the text) go a day back or on, and past days stay editable.
   A glance under the date (Oscar's call on 2026-10-02, after Oura's and Garmin's morning scores and Notion Calendar's next meeting) reads the day at once; whether its plan fits is the timeline's line above its hours.
   On today's it names the event on now (till when) and the next (in how long), each with its meeting link's Join; a cancelled meeting and an all-day event are passed over.
@@ -83,7 +83,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   N writes a new task from Today in the capture window, as on Calendar.
   Today's page opens with the nudge center, above the notes, each nudge saying its days from today ("due today" for one raised yesterday as "due tomorrow").
   It replaces [the notebook](#the-notebook-decided-2026-09-26), where lines became tasks and reflections, and the storyboard sheet that followed it; both are in git history.
-- **Calendar** (Oscar's call on 2026-10-02, against Google Calendar, Notion Calendar and Fantastical) is the time grid of events, as a day, three days or a week (D, X, W), the choice remembered on each device and a phone starting on three days.
+- **Calendar** (Oscar's call on 2026-10-02, against Google Calendar, Notion Calendar and Fantastical) is the time grid of events, as a day, three days or a week (D, X, W), or the sheet of days (S), the choice remembered on each device and a phone starting on three days.
   The grid runs the whole day, scrolled within the window to the usual day (06:00 to 22:00) with now in view; Left and Right step by the days shown, and a switch keeps today in view.
   The title names the ISO weeks shown after the days ("W40", "W40–41"), as the Gantt counts weeks, and a calendar icon after the steps (or G) picks any date to go to.
   Each day to come says whether its plan fits it (Oscar's call on 2026-10-02, after Sunsama): under its head (and above Today's timeline), its planned tasks, by their estimates, against the time its meetings leave free in its usual hours (today's from now), a warn badge when they do not fit; the meetings' time is in the tooltip.
@@ -92,6 +92,14 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   A click on an event opens its card: when and where, a meeting link as its Join button.
   Oscar's own events are changed and deleted there (one of a series alone, or it and the later ones), and dragged and resized on the grid; work meetings stay read-only.
   Drawing on the empty grid, or clicking an hour, writes an event there in the composer, whose title takes words as the task sheet's does, and a time ("saturday", "at 7pm", "every week"); New event (E) opens it on its own, all day until given a time.
+- **Calendar's sheet** (Oscar's call on 2026-10-02, after the Excel sheet he planned his days in: "a view that is kind of Excel like", habits drawn on it) is the days as the rows of a spreadsheet, a fourth view beside the grid's three.
+  It shows four weeks from a Monday: opened on today, last week first, so the days just gone sit above those to plan; Left and Right (outside the sheet) step four weeks.
+  A row a day: the day (a link to its notes), where Oscar stays (a column per item of the stays shown, place and accommodation to begin with), Plan, and a column per habit.
+  A stay's cell is its item's value, with its box, amber until sorted; writing in it writes the day's stay as "/stay" in its notes would (a day with none gets one at its page's top, with the items the last stay had), and Space ticks it sorted.
+  Plan is the day's tasks, Oscar's planned for it (done ones struck through) and then those still open due on it ("due"), each ticked from its box, and then his own events, all day first (work meetings stay on the grid); writing in it adds a task planned for the day.
+  A habit's cell is filled green with a tick on a day it was done, an empty box when skipped and a dash when missed; a click or Space ticks it (written in the day's notes after its habits, as "/habit name" would be) or unticks it (its rows leave the notes), and a drag down its column paints every day it crosses as the first was turned.
+  It is worked as the Gantt is: a cell cursor, a range with Shift or a drag, typing writes over a cell, Enter writes in it and keeps it going down, Esc lets it go; Ctrl+D fills the range from its first row (one cell, from the row above), and Delete clears the range's stays and unticks its habits.
+  A new event from the command menu opens the week instead, its composer being the grid's; the sheet stays the choice.
 - **A project as a Gantt chart** (Oscar's call on 2026-09-30: "I work in weeks", "a kind of Excel interface"): each project opens (`/projects/<id>`, from its card's bars icon) as a spreadsheet of its plan by week.
   A row per workstream, its tasks under it and a row to write one more; then the other tasks, and a row to write a workstream; a column per week (the ISO week, over its Monday), frozen beside Task, Start, Wks and Due.
   It drills down to days (Oscar's call on 2026-10-01): a Weeks / Days switch (or V) for the whole sheet, remembered, the same days kept in view; in Days a column per day, weekends tinted, the length in days, and every move by days.
@@ -319,7 +327,7 @@ Per [Architecture](tracker/tickets/009-architecture.md) and [Decision: security 
 ### Frontend
 
 - Server-rendered: Jinja templates plus HTMX for pages, lists, and forms; no build step, state server-side.
-- Real client JS is limited to a few focused vanilla islands, each built well once: the calendar (its grid and Today's timeline: drawing, writing and dragging events, their cards), the task sheet (one editor for adding and editing, with its line-based description editor), Today's notebook (the same line editor in prose mode, with the sheet as its task box), and the chats with Claude on Nutrition and Spending (the answer streamed as it is written).
+- Real client JS is limited to a few focused vanilla islands, each built well once: the calendar (its grid and Today's timeline: drawing, writing and dragging events, their cards), Calendar's sheet of days, the task sheet (one editor for adding and editing, with its line-based description editor), Today's notebook (the same line editor in prose mode, with the sheet as its task box), and the chats with Claude on Nutrition and Spending (the answer streamed as it is written).
 
 ### Background jobs
 

@@ -13,6 +13,7 @@ from app.models import Task, TaskOwner
 from app.services import events as events_svc
 from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
+from app.ui.day_sheet_view import SHEET_DAYS, home_start
 
 # The usual day: where the grid opens, and the hours a day's free time is
 # counted in. The grid itself runs the whole day, so nothing is squeezed to its edge.
@@ -38,10 +39,11 @@ STACK_GAP = timedelta(minutes=30)
 STACK_INDENT_PX = 14
 STACK_MAX_DEPTH = 3
 
-# Calendar's views: how many days each shows.
-VIEWS = {"day": 1, "3days": 3, "week": 7}
-VIEW_LABELS = {"day": "Day", "3days": "3 days", "week": "Week"}
-VIEW_KEYS = {"day": "D", "3days": "X", "week": "W"}
+# Calendar's views: how many days each shows. The sheet is the days as
+# rows (day_sheet_view), not the time grid.
+VIEWS = {"day": 1, "3days": 3, "week": 7, "sheet": SHEET_DAYS}
+VIEW_LABELS = {"day": "Day", "3days": "3 days", "week": "Week", "sheet": "Sheet"}
+VIEW_KEYS = {"day": "D", "3days": "X", "week": "W", "sheet": "S"}
 
 
 def _hour_label_centre(index: int) -> float:
@@ -53,9 +55,15 @@ def week_monday(anchor: date) -> date:
 
 
 def view_start(view: str, anchor: date) -> date:
-    """The first day a view shows around `anchor`: a week from its Monday,
-    fewer days from the day itself."""
-    return week_monday(anchor) if view == "week" else anchor
+    """The first day a view shows around `anchor`: a week (or the sheet's
+    weeks) from its Monday, fewer days from the day itself."""
+    return week_monday(anchor) if view in ("week", "sheet") else anchor
+
+
+def home_anchor(view: str, today: date) -> date:
+    """The day a view opens around: today, or for the sheet a week before,
+    so last week's days stay above this one's."""
+    return home_start(today) if view == "sheet" else today
 
 
 def _clamp_px(moment: datetime, day: date) -> float:
@@ -333,7 +341,9 @@ def calendar_nav(view: str, first_day: date, today: date) -> dict[str, Any]:
                 "key": key,
                 "label": VIEW_LABELS[key],
                 "shortcut": VIEW_KEYS[key],
-                "start": view_start(key, anchor).isoformat(),
+                "start": view_start(
+                    key, home_anchor(key, today) if shows_today else anchor
+                ).isoformat(),
             }
             for key in VIEWS
         ],

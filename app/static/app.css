@@ -2268,3 +2268,115 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
   .gantt-sheet :is(.gantt-start, .gantt-length, .gantt-due) { display: none; }
   .gantt-this-week { display: none; }
 }
+
+/* Calendar's sheet: the days as rows, as Oscar planned them in Excel. The
+   Day column and the heads stay as the sheet scrolls; a row grows with its
+   plan. Where he stays is amber until sorted, as under Today's date; a
+   habit done is its column's cell filled green, with a tick. */
+.day-sheet {
+  --ds-line: 36px;
+  --ds-bg: var(--paper);
+  max-height: calc(100dvh - 176px); min-height: 360px;
+  overflow: auto; overscroll-behavior: contain;
+  border-top: 1px solid var(--mist);
+  background: color-mix(in srgb, var(--paper) 35%, transparent);
+  font-size: var(--t-body-sm); line-height: 20px;
+  user-select: none;
+}
+:root[data-density="compact"] .day-sheet { --ds-line: 28px; }
+.day-sheet-table { width: 100%; min-width: max-content; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.ds-col-day { width: 104px; }
+.ds-col-stay { width: 176px; }
+.ds-col-plan { width: auto; min-width: 320px; }
+.ds-col-habit { width: 84px; }
+.day-sheet-table :is(th, td) {
+  height: var(--ds-line); box-sizing: border-box; padding: 0 var(--s-2);
+  border-bottom: 1px solid var(--hairline); box-shadow: inset -1px 0 0 var(--hairline);
+  text-align: left; vertical-align: middle; font-weight: 400;
+}
+.day-sheet-table thead th {
+  position: sticky; top: 0; z-index: 3; height: 48px; padding-bottom: 7px; vertical-align: bottom;
+  background: var(--ds-bg); border-bottom: 1px solid var(--mist);
+  font-size: var(--t-caption); font-weight: 500; line-height: 16px; color: var(--graphite);
+}
+.day-sheet-table thead .ds-habit { overflow-wrap: normal; }
+.day-sheet-table .ds-day { position: sticky; left: 0; z-index: 2; background: var(--ds-bg); box-shadow: inset -1px 0 0 var(--mist); }
+.day-sheet-table thead .ds-day { z-index: 4; }
+
+/* a week starts under a firmer rule; a weekend is tinted; today is the spark's */
+.day-sheet-table tr.week-start > * { border-top: 1px solid var(--mist); }
+.day-sheet-table tr.is-weekend > td { background: var(--ink-tint-faint); }
+.ds-day a { display: block; color: var(--ink); font-weight: 500; text-decoration: none; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ds-day a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.ds-dow { display: inline-block; width: 30px; color: var(--pewter); font-weight: 400; }
+.is-today .ds-day a, .is-today .ds-day .ds-dow { color: var(--spark-deep); font-weight: 600; }
+.day-sheet-table tr.has-cursor .ds-day { background: color-mix(in srgb, var(--fog) 70%, var(--paper)); }
+
+.ds-cell { position: relative; cursor: cell; color: var(--graphite); }
+.ds-cell:focus, .ds-cell:focus-visible { outline: none; }
+.ds-cell.is-cursor::after {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--steel);
+}
+.day-sheet:focus-within .ds-cell.is-cursor::after { box-shadow: inset 0 0 0 2px var(--spark-deep), var(--spark-glow); }
+
+/* where he stays: its box, then its value; amber until sorted */
+.ds-stay { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-sorted {
+  display: inline-block; width: 10px; height: 10px; margin-right: var(--s-2); vertical-align: -1px;
+  border: 1.5px solid color-mix(in srgb, var(--hue-3) 85%, var(--ink)); cursor: pointer;
+}
+.ds-stay.is-sorted .ds-sorted { background: var(--ink); border-color: var(--ink); }
+.ds-value { color: color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
+.ds-stay.is-sorted .ds-value { color: var(--ink); }
+
+/* the plan: the day's tasks, each with its box, then its own events */
+.ds-plan { padding-top: 7px; padding-bottom: 6px; }
+.ds-plan-list { margin: 0; padding: 0; list-style: none; }
+.ds-plan-list li { display: flex; align-items: baseline; gap: var(--s-2); min-width: 0; }
+.ds-task .ds-title { color: var(--ink); }
+.ds-task.is-done .ds-title { color: var(--pewter); text-decoration: line-through; text-decoration-thickness: 1px; }
+.ds-check {
+  flex: none; align-self: center; display: grid; place-content: center; width: 14px; height: 14px;
+  border: 1.5px solid var(--steel); cursor: pointer;
+}
+.ds-check:hover { border-color: var(--ink); }
+.ds-task.is-done .ds-check { background: var(--ok-fg); border-color: var(--ok-fg); }
+.ds-task.is-done .ds-check::before {
+  content: ""; width: 8px; height: 8px; background: var(--paper);
+  clip-path: polygon(14% 52%, 5% 65%, 38% 95%, 97% 18%, 85% 8%, 37% 71%);
+}
+.ds-due {
+  flex: none; padding: 0 var(--s-2); font-size: var(--t-caption); font-weight: 500; line-height: 18px;
+  color: var(--warn-fg); background: var(--badge-warn-glass);
+}
+.ds-event { color: var(--graphite); }
+.ds-time { flex: none; width: 46px; padding-left: 22px; box-sizing: content-box; color: var(--pewter); font-size: var(--t-caption); font-variant-numeric: tabular-nums; }
+.ds-event .ds-time { width: auto; min-width: 46px; }
+
+/* a habit: done is its cell filled green with a tick; skipped, an empty
+   box; missed (one of its days, nothing written), a dash */
+.day-sheet-table .ds-habit { text-align: center; }
+td.ds-habit { cursor: pointer; }
+.day-sheet-table :is(td.ds-habit.is-done, td.ds-habit.is-painted) { background: color-mix(in srgb, var(--hue-4) 30%, transparent); }
+.day-sheet-table td.ds-habit.is-unpainted { background: transparent; }
+td.ds-habit.is-unpainted > * { visibility: hidden; }
+.ds-tick { width: 16px; height: 16px; vertical-align: middle; fill: none; stroke: color-mix(in srgb, var(--hue-4) 70%, var(--ink)); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ds-skip { display: inline-block; width: 10px; height: 10px; vertical-align: middle; border: 1.5px solid var(--steel); }
+.ds-miss { display: inline-block; width: 10px; height: 2px; vertical-align: middle; background: var(--steel); }
+
+/* writing in a cell: the words on its own line, the ring kept */
+.ds-cell.is-editing { overflow: visible; }
+.ds-input {
+  display: block; width: 100%; height: 20px; padding: 0; border: none; border-radius: 0; outline: none;
+  background: transparent; color: var(--ink); font: inherit; font-weight: 500;
+}
+.ds-input:focus, .ds-input:focus-visible { outline: none; box-shadow: none; }
+.ds-input::placeholder { color: var(--pewter); font-weight: 400; }
+.ds-plan .ds-input { margin-left: 22px; width: calc(100% - 22px); }
+
+/* a range: the spark's tint, over a weekend's and a habit's fill */
+.day-sheet-table tr > .ds-cell.in-range { background: var(--spark-tint); }
+
+.ds-empty { margin: var(--s-3) var(--s-2); font-size: var(--t-caption); color: var(--pewter); }
+.sheet-hint { margin: 0 auto 0 0; }

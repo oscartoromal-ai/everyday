@@ -305,6 +305,17 @@ A cell being written takes its words on its own line (500 ink, on the paper), th
 A task's row number is its grip (a steel six-dot mark beside it on hover): dragged, the row fades to 40%, a 2px spark line (glowing at night) marks where it would land, and the group it would land in takes `--spark-deep` rules.
 On phones the Task column narrows to 150px and Start, Wks and Due fold away; the bars are still drawn and dragged.
 
+**Calendar's sheet** (`partials/day_sheet.html`, Calendar's fourth view).
+Under the calendar's header, a key line in place of New event, then one table that scrolls both ways inside itself to the window's foot (as the grid does), on the sheets' see-through paper under a mist line.
+Its header row (48px, 12px/500 graphite names at the foot) and its Day column (104px: the weekday in pewter, the date in ink 500, today's both `--spark-deep` 600) stay put on opaque paper, the Day column edged by a mist line.
+The columns: a stay item's 176px, Plan the rest (320px at least), a habit's 84px, its name broken at its hyphens.
+Rows are 36px (28px compact) and grow with their plan; cells carry hairline rules both ways, each week's Monday is ruled in mist, and weekends are tinted `--ink-tint-faint`.
+A stay's cell is its 10px box (ink once sorted, edged in amber till then, as under Today's date) and its value, amber until sorted, then ink.
+Plan lists the day's tasks, each a 14px box in steel (`--ok-fg` once done, its title pewter and struck through) and its title in ink, a warn "due" badge after a deadline still open, and then the day's own events, the time in 12px pewter figures before the title in graphite.
+A habit done fills its cell with `--hue-4` at 30%, the habits' green, with a 16px tick in it; skipped is a 10px steel box, missed a 10px steel dash, and the cell's tooltip says which, with the day's note.
+A habit's cells being painted fill (or empty) as the drag passes, before the sheet is drawn again.
+The cursor, the range and a cell being written are the Gantt's: a 2px `--spark-deep` ring (a 1px steel one while the sheet does not have focus), `--spark-tint`, the words 500 ink on the cell's line.
+
 **Nudges.** A glass card of rows with graphite icons, a secondary "Open" action and a steel dismiss control.
 
 ## Interaction grammar
@@ -360,6 +371,11 @@ The notes save as a whole 600ms after a change, when the tab is hidden, and when
 A task row keeps the task it made through edits around it (its start mapped through each change) and loses it with its box; an undo that brings a task's rows back brings its task back with them.
 A save names the version it was made from; refused (another window saved since), the page stops saving and asks; returning to the tab shows a newer version when nothing here is unsaved.
 Esc outside a task steps out of the text; Left and Right, outside it, go a day back or on.
+
+**Calendar's sheet** (`app/static/day-sheet.js`, vanilla, on the sheet itself so its keys come before the page's).
+A roving cell cursor as the Gantt's, kept through every redraw by day and column, starting unfocused on today's row so the page's keys work until a click.
+Every edit is one JSON POST of ops (`/ui/day-sheet`), applied as the days' notes and tasks would have them and answered with the sheet drawn again; requests go one at a time, and coming back to the tab draws it again from the days as they stand.
+A habit's drag is held under the pointer and posted once, on release, for the days it changed.
 
 **Gantt** (`app/static/gantt.js`, vanilla, on the sheet itself so its keys come before the page's).
 A roving cell cursor (the cursor's cell alone is in the tab order), kept through every redraw by row key and column, and scrolled clear of the frozen pane and header.

@@ -1,0 +1,71 @@
+{# Calendar's sheet (day_sheet_view.day_sheet_ctx), drawn again after every
+   edit: a row a day, its Day frozen at the left, then where Oscar stays (an
+   item a column), the day's plan (its tasks, then its own events) and a
+   column per habit. A cell names what it writes (data-kind) and its column
+   (data-col); day-sheet.js moves a cursor over them and writes in them. #}
+{% set sheet_cols = 1 + sheet.columns | length + 1 + sheet.habits | length %}
+<div class="day-sheet" id="day-sheet" data-start="{{ sheet.start.isoformat() }}" data-cols="{{ sheet_cols }}">
+  <table class="day-sheet-table" role="grid" aria-label="Days">
+    <colgroup>
+      <col class="ds-col-day">
+      {% for c in sheet.columns %}<col class="ds-col-stay">{% endfor %}
+      <col class="ds-col-plan">
+      {% for h in sheet.habits %}<col class="ds-col-habit">{% endfor %}
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="ds-day" scope="col">Day</th>
+        {% for c in sheet.columns %}<th class="ds-stay" scope="col" title="Where you stay: {{ c.name }}, ticked once sorted">{{ c.label }}</th>{% endfor %}
+        <th class="ds-plan" scope="col">Plan</th>
+        {% for h in sheet.habits %}
+        <th class="ds-habit" scope="col" title="{{ h.slug }}">{% for part in h.slug.split("-") %}{{ part }}{% if not loop.last %}-<wbr>{% endif %}{% endfor %}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in sheet.rows %}
+      <tr data-day="{{ row.iso }}" class="{% if row.is_today %}is-today{% endif %}{% if row.is_weekend %} is-weekend{% endif %}{% if row.week_start %} week-start{% endif %}">
+        <th class="ds-cell ds-day" scope="row" data-col="0" data-kind="day" tabindex="-1">
+          <a href="/day/{{ row.iso }}" tabindex="-1" title="The day's notes"><span class="ds-dow">{{ row.dow }}</span> {{ row.label }}</a>
+        </th>
+        {% for c in sheet.columns %}
+        {% set item = row.stay[loop.index0] %}
+        <td class="ds-cell ds-stay{% if item and item.done %} is-sorted{% endif %}" data-col="{{ loop.index }}" data-kind="stay"
+            data-name="{{ c.name }}" data-value="{{ item.value if item else '' }}" data-done="{{ 'true' if item and item.done else 'false' }}" tabindex="-1">
+          {%- if item %}<span class="ds-sorted" role="checkbox" aria-checked="{{ 'true' if item.done else 'false' }}" aria-label="{{ c.label }} sorted" title="Sorted (Space)"></span><span class="ds-value">{{ item.value }}</span>{% endif -%}
+        </td>
+        {% endfor %}
+        <td class="ds-cell ds-plan" data-col="{{ sheet.columns | length + 1 }}" data-kind="plan" tabindex="-1">
+          {%- if row.tasks or row.events %}
+          <ul class="ds-plan-list">
+            {% for t in row.tasks %}
+            <li class="ds-task{% if t.done %} is-done{% endif %}">
+              <span class="ds-check" role="checkbox" aria-checked="{{ 'true' if t.done else 'false' }}" data-task="{{ t.id }}" aria-label="{{ t.title }}"></span>
+              <span class="ds-title">{{ t.title }}</span>{% if t.due %}<span class="ds-due">due</span>{% endif %}
+            </li>
+            {% endfor %}
+            {% for e in row.events %}
+            <li class="ds-event"><span class="ds-time">{{ e.time or "all day" }}</span> {{ e.title }}</li>
+            {% endfor %}
+          </ul>
+          {%- endif -%}
+        </td>
+        {% set first_habit = sheet.columns | length + 2 %}
+        {% for h in row.habits %}
+        {% set slug = sheet.habits[loop.index0].slug %}
+        <td class="ds-cell ds-habit{% if h.state %} is-{{ h.state }}{% endif %}" data-col="{{ first_habit + loop.index0 }}" data-kind="habit"
+            data-slug="{{ slug }}" data-state="{{ h.state or '' }}" tabindex="-1"
+            aria-label="{{ slug }}{% if h.label %}: {{ h.label | lower }}{% endif %}"{% if h.label or h.note %} title="{{ h.label }}{% if h.note %}: {{ h.note }}{% endif %}"{% endif %}>
+          {%- if h.state == "done" %}<svg class="ds-tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg>
+          {%- elif h.state == "skipped" %}<span class="ds-skip" aria-hidden="true"></span>
+          {%- elif h.state == "missed" %}<span class="ds-miss" aria-hidden="true"></span>{% endif -%}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if not sheet.habits %}
+  <p class="ds-empty">A habit checked in a day's notes (<kbd>/habit</kbd> name) gets a column here.</p>
+  {% endif %}
+</div>

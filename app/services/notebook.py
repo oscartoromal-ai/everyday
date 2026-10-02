@@ -264,6 +264,75 @@ def last_stay_items(db: Session, day: date) -> list[str]:
     return list(STAY_ITEMS)
 
 
+# Calendar's sheet writes a day's habits and stay as its notes would.
+
+
+def _stored(db: Session, day: date) -> tuple[list[dict[str, Any]], int]:
+    """The day's page as kept (a copy to change), and its version."""
+    page = get_page(db, day)
+    return ([dict(b) for b in page.blocks] if page else []), (page.version if page else 0)
+
+
+def set_habit(db: Session, day: date, slug: str, done: bool) -> NotebookPage:
+    """Check a habit for the day, as "/habit name" in its notes would: its
+    row ticked if it was written unticked, else a row written after the
+    page's last habit (at its top when it has none). Not `done` takes its
+    rows off the page, so the day has nothing written for it."""
+    habit = habits_svc.get_or_create(db, slug)
+    blocks, version = _stored(db, day)
+    mine = [i for i, b in enumerate(blocks) if b["kind"] == "habit" and b["habit"] == habit.id]
+    if not done:
+        blocks = [b for i, b in enumerate(blocks) if i not in mine]
+    elif mine:
+        for i in mine:
+            blocks[i]["done"] = True
+    else:
+        written = [i for i, b in enumerate(blocks) if b["kind"] == "habit"]
+        at = written[-1] + 1 if written else 0
+        blocks.insert(at, {"kind": "habit", "habit": habit.id, "done": True, "text": ""})
+    return save_page(db, day, blocks, version=version)
+
+
+def _item_line(name: str, value: str, done: bool) -> str:
+    return f"- [{'x' if done else ' '}] {name}: {value}".rstrip(" ")
+
+
+def set_stay_item(
+    db: Session, day: date, name: str, *, value: str | None = None, done: bool | None = None
+) -> NotebookPage | None:
+    """Set an item of the day's stay, as its notes would: its value, or
+    whether it is sorted (None leaves either as it was). A day with no stay
+    gets one at the top of its page, with the items the last stay had; an
+    item the stay does not list joins it at its end."""
+    name = name.strip()
+    if not name or ":" in name or "\n" in name:
+        raise DomainError(f"Not a stay item: {name!r}")
+    if value is not None:
+        value = " ".join(value.split())
+    blocks, version = _stored(db, day)
+    at = next((i for i, b in enumerate(blocks) if b["kind"] == "stay"), None)
+    if at is None:
+        if not value and not done:
+            return get_page(db, day)  # nothing to write
+        lines = [""] + [_item_line(item, "", False) for item in last_stay_items(db, day)]
+        blocks.insert(0, {"kind": "stay", "text": "\n".join(lines)})
+        at = 0
+    lines = blocks[at]["text"].split("\n")
+    for row, line in enumerate(lines):
+        item = STAY_ITEM.match(line.strip())
+        if item and item[2].strip().lower() == name.lower():
+            lines[row] = _item_line(
+                item[2].strip(),
+                (item[3] or "").strip() if value is None else value,
+                item[1] in "xX" if done is None else done,
+            )
+            break
+    else:
+        lines.append(_item_line(name, value or "", bool(done)))
+    blocks[at] = {**blocks[at], "text": "\n".join(lines)}
+    return save_page(db, day, blocks, version=version)
+
+
 def task_ids_on(db: Session, day: date) -> list[int]:
     """Tasks the day's page holds, in the order it reads: its rows that made
     tasks, and those written there or referenced by it."""

@@ -22,6 +22,7 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 - "Delegated to Claude" list section with status chips: queued, running, needs review.
 - Projects with workstreams (lanes of their work, computed progress), each opening as a Gantt chart: a spreadsheet of its tasks as bars over weeks or days, a bar running from the task's start day to its due.
 - Calendar: a day, three days or a week of local events (written, dragged and changed on the grid) and read-only work events (a cancelled one struck through); tasks take no time on it (Oscar's call on 2026-10-02).
+  Or its sheet: four weeks of days as spreadsheet rows, where he stays, the day's plan and a column per habit, all written in place (Oscar's call on 2026-10-02, after his Excel).
 - Nutrition: a day of eating, read from its Markdown file against the plan's targets, beside the day's chat with Claude, who writes that file from what Oscar says.
 - Garmin: what Oscar's watch measured, a day at a time (steps, energy burned, sleep, heart rate, HRV, stress, body battery, readiness, activities) with the fortnight before it, synced from Garmin Connect once he connects it on the page.
 - Finances: a month's spending by category against its budgets beside a chat with Claude, who sorts and budgets with Oscar; accounts and net worth from his banks' CSV exports (Revolut, ING); bills and subscriptions, seen paid; and savings goals.
@@ -37,7 +38,7 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 
 ## Constraints
 
-- Server-rendered Jinja + HTMX; no build step; the only real client JS is a few small islands: the calendar's grid (Calendar's days and Today's timeline: drag, draw, an event's card and composer), the command menu (Ctrl+K), the task composer and description editor, Today's notepad, a project's Gantt sheet, and the chats with Claude on Nutrition and Spending (the answer streamed as Claude writes it).
+- Server-rendered Jinja + HTMX; no build step; the only real client JS is a few small islands: the calendar's grid (Calendar's days and Today's timeline: drag, draw, an event's card and composer), Calendar's sheet of days, the command menu (Ctrl+K), the task composer and description editor, Today's notepad, a project's Gantt sheet, and the chats with Claude on Nutrition and Spending (the answer streamed as Claude writes it).
   The notepad's editor is CodeMirror 6, one committed file (`app/static/vendor/codemirror.js`) built from `scripts/vendor/codemirror`, as htmx is one committed file; the app still builds nothing.
 - Works on desktop and phone widths; phone gets the full UI, not a cut-down version.
 - No login screens, no marketing surfaces; the app opens straight into Today.

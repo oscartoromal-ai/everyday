@@ -9,7 +9,15 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse
 
 from app.db import DbSession
-from app.ui.calendar_view import VIEWS, calendar_nav, grid_ctx, view_start
+from app.ui.calendar_view import (
+    VIEWS,
+    calendar_nav,
+    grid_ctx,
+    home_anchor,
+    range_label,
+    view_start,
+)
+from app.ui.day_sheet_view import day_sheet_ctx
 from app.ui.views import day_glance_ctx, day_page_ctx, me_ctx, projects_page_ctx, templates
 
 router = APIRouter(include_in_schema=False)
@@ -91,6 +99,9 @@ def _calendar_view(request: Request, view: str | None) -> str:
     """The view asked for, else the one last chosen on this device, else a
     week, or three days on a phone, where seven columns cannot be read."""
     chosen = view or request.cookies.get(CALENDAR_VIEW_COOKIE)
+    if chosen == "sheet" and not view and "new" in request.query_params:
+        # A new event is written on the time grid: the sheet stays the choice.
+        chosen = "week"
     if chosen in VIEWS:
         return chosen
     return "3days" if "Mobi" in request.headers.get("user-agent", "") else "week"
@@ -106,18 +117,16 @@ def calendar_page(
 ):
     now = datetime.now()
     view = _calendar_view(request, view)
-    first_day = view_start(view, start or week or now.date())
+    first_day = view_start(view, start or week or home_anchor(view, now.date()))
     days = VIEWS[view]
-    response = templates.TemplateResponse(
-        request,
-        "calendar.html",
-        {
-            **_base(request, "calendar"),
-            # Each day headed, a single one too: its head carries its load.
-            "grid": grid_ctx(db, first_day, now, days, head=True),
-            "nav": calendar_nav(view, first_day, now.date()),
-        },
-    )
+    ctx = {**_base(request, "calendar"), "nav": calendar_nav(view, first_day, now.date())}
+    if view == "sheet":
+        ctx["sheet"] = day_sheet_ctx(db, first_day, now.date(), days)
+    else:
+        # Each day headed, a single one too: its head carries its load.
+        ctx["grid"] = grid_ctx(db, first_day, now, days, head=True)
+    ctx["label"] = range_label(first_day, days)
+    response = templates.TemplateResponse(request, "calendar.html", ctx)
     if view in (request.query_params.get("view"), request.cookies.get(CALENDAR_VIEW_COOKIE)):
         # Remembered once chosen; a phone's own default stays a default.
         response.set_cookie(
@@ -142,6 +151,18 @@ def calendar_grid(
         request,
         "partials/calendar_grid.html",
         {"request": request, "grid": grid_ctx(db, start, now, day_count=days, head=head)},
+    )
+
+
+@router.get("/calendar/sheet")
+def calendar_sheet(request: Request, db: DbSession, start: date | None = None):
+    # The sheet drawn again: notes written elsewhere since (day_sheet.js).
+    today = date.today()
+    first_day = view_start("sheet", start or home_anchor("sheet", today))
+    return templates.TemplateResponse(
+        request,
+        "partials/day_sheet.html",
+        {"request": request, "sheet": day_sheet_ctx(db, first_day, today)},
     )
 
 

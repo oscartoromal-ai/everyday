@@ -1,6 +1,7 @@
 """Calendar's time grid: how a day's items share its column, cancelled
 meetings, the day / three days / week views, and an event's card."""
 
+import re
 from datetime import date, datetime, time, timedelta
 
 from app.models import Event, EventSource
@@ -101,7 +102,7 @@ def test_calendar_shows_a_day_three_days_or_a_week(client) -> None:
     three = client.get(f"/calendar?view=3days&start={friday.isoformat()}").text
     assert "2–4 October 2026" in three and three.count('class="day-col') == 3
     # Saturday and Sunday are tinted wherever they fall.
-    assert three.count('class="day-col weekend"') == 2
+    assert len(re.findall(r'class="day-col[^"]* weekend"', three)) == 2
     week = client.get(f"/calendar?view=week&start={friday.isoformat()}").text
     assert "28 Sep – 4 Oct 2026" in week and week.count('class="day-col') == 7
     # Each view's steps go by its own length.
