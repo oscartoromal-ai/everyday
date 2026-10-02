@@ -8,6 +8,7 @@ from datetime import date, datetime, time, timedelta
 import pytest
 
 from app.models import Block, Event, EventSource
+from app.services import blocks as blocks_svc
 from app.services import events as events_svc
 from app.services import tasks as tasks_svc
 
@@ -250,3 +251,23 @@ def test_book_puts_a_task_in_the_next_free_stretch_and_undo_takes_it_back(
     with app_db() as db:
         assert db.query(Block).filter(Block.task_id == task_id).count() == 0
         assert tasks_svc.get_task(db, task_id).planned_for is None
+
+
+def test_the_focus_card_ticks_sub_tasks_and_completes_the_block(page, live, app_db) -> None:
+    now = datetime.now()
+    with app_db() as db:
+        task = tasks_svc.create_task(db, title="Deep work", notes="- read\n- write")
+        blocks_svc.schedule_block(
+            db, task_id=task.id, start=now - timedelta(minutes=5), end=now + timedelta(minutes=55),
+        )
+        db.commit()
+        task_id = task.id
+    page.goto(f"{live}/today")
+    card = page.locator(".focus-card")
+    card.locator(".subtask-check").first.check()
+    card.locator(".progress", has_text="1/2").wait_for()
+    with app_db() as db:
+        assert tasks_svc.get_task(db, task_id).notes.startswith("- [x] read")
+    card.get_by_role("button", name="Completed").click()
+    page.locator(".focus-card").wait_for(state="detached")
+    page.locator('.cal-item.block[data-state="completed"]', has_text="Deep work").wait_for()

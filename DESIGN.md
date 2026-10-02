@@ -254,6 +254,8 @@ The grid runs the whole day, 48px an hour, in a card that scrolls within the win
 Day heads are 12px pewter over a 14px/600 number, with today in `--spark-deep`, glowing at night.
 Under the number, a day to come carries its load in 12px figures: "45m planned" in graphite over "3h free" in pewter, one to a line; when the planned is more than the free, both sit in the warn badge.
 Today's timeline, which has no heads, carries the same on one line ("45m planned · 3h free") above its hours.
+Above the timeline, today's focus is a glass card with a hairline: "Now · 23m left, until 19:55" in 12px/600 figures in `--signal-deep` (time is the signal's, as the now-line's label is), or "Next · 15:00–16:00, in 1h 30m" in pewter; the task's title in 16px/600; and while it runs, its sub-tasks as a block's menu lists them and a quiet Completed.
+The timeline's column holds the window's height, the card first and the hours in the rest; under the notes, on a narrow window, the hours scroll in 75% of it.
 Weekend columns carry `--ink-tint-faint`, whichever days are shown.
 Items are square tags with a 2px gap below, so back-to-back items never merge:
 

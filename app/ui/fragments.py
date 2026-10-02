@@ -20,6 +20,7 @@ from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
 from app.ui.calendar_view import event_card_ctx
 from app.ui.views import (
+    focus_card_ctx,
     last_missed_block,
     me_ctx,
     next_slot_in,
@@ -431,6 +432,13 @@ def add_event(
     response = HTMLResponse("")
     response.headers["HX-Trigger"] = "calendar:refresh"
     return response
+
+
+@router.get("/today/focus")
+def today_focus(request: Request, db: DbSession):
+    """Today's focus card: the block running now, or the next one."""
+    context = {"request": request, **focus_card_ctx(db, datetime.now())}
+    return templates.TemplateResponse(request, "partials/focus_card.html", context)
 
 
 @router.get("/search")

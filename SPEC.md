@@ -76,6 +76,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   Its items are his to name (place and accommodation to begin with; a new stay starts with the items the last one had), and under the date the day's stay reads item by item, the unsorted ones in amber.
   A stay is written day by day, not as a range; a view of all days' stays together is next.
   Every day has its notepad: Left and Right (outside the text) go a day back or on, and past days stay editable.
+  Above today's timeline, its focus (Oscar's call on 2026-10-02, after Sunsama's focus mode, without its timer): the block running now, the time left in it, its task's sub-tasks to tick and Completed; with none running, the next block today and how long until it; nothing once the day's blocks are done.
   N writes a new task from Today in the capture window, as on Calendar and Weeks; the day's tasks are worked from Tasks, and the nudge center now opens Tasks.
   It replaces [the notebook](#the-notebook-decided-2026-09-26), where lines became tasks and reflections, and the storyboard sheet that followed it; both are in git history.
 - **Weeks** is the planning-ahead surface: six weeks at a glance, as a month-style grid or as one ruled row per day, Oscar's choice and remembered.

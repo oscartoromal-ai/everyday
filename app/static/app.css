@@ -1412,7 +1412,21 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .today-timeline { position: sticky; top: var(--s-6); }
 .timeline-header { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); margin: 6px 0 var(--s-4); }
 .timeline-header h2 { font-size: var(--t-body); }
-.today-timeline .calendar-grid { max-height: calc(100vh - 110px); overflow-y: auto; overscroll-behavior: contain; }
+/* the column holds the window's height: the focus card, then the hours in what is left */
+.today-timeline { display: flex; flex-direction: column; max-height: calc(100dvh - 2 * var(--s-6)); }
+.today-timeline .calendar-grid { flex: 1 1 auto; min-height: 240px; overflow-y: auto; overscroll-behavior: contain; }
+
+/* the focus: the block running now (or the next), above the hours; its
+   time in the signal's ink, as the now-line's label is */
+#focus-card:not(:has(.focus-card)) { display: none; }
+#focus-card { flex: none; margin-bottom: var(--s-4); }
+.focus-card { padding: var(--s-3) var(--s-4); border: 1px solid var(--hairline-on-glass-strong); background: var(--glass-card); }
+.focus-when { font-size: var(--t-caption); font-weight: 600; color: var(--pewter); font-variant-numeric: tabular-nums; font-family: var(--font-num); }
+.focus-card.now .focus-when { color: var(--signal-deep); }
+.focus-title { margin-top: 2px; font-size: var(--t-body); font-weight: 600; overflow-wrap: anywhere; }
+.focus-checklist .block-checklist { margin-top: var(--s-2); }
+.focus-checklist .block-checklist .subtasks { max-height: 30vh; }
+.focus-actions { display: flex; gap: var(--s-2); margin-top: var(--s-3); }
 .task-row[draggable="true"] { cursor: grab; }
 .task-row[draggable="true"] :is(button, input) { cursor: pointer; }
 
@@ -1676,8 +1690,9 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   .today-page { grid-template-columns: minmax(0, 1fr); gap: var(--s-6); }
   .today-pad { min-height: 0; }
   .notepad-card { min-height: 55vh; }
-  .today-timeline { position: static; }
-  .today-timeline .calendar-grid { max-height: none; }
+  .today-timeline { position: static; max-height: none; }
+  /* under the notes, the whole day scrolls in a window of its own */
+  .today-timeline .calendar-grid { max-height: 75vh; }
 }
 @media (max-width: 720px) {
   .notepad-card { --pad-rows: 34px; --pad-gap: var(--s-2); --pad-tab: 70px; }

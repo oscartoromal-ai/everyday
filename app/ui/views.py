@@ -85,6 +85,35 @@ def todays_block(task: Task, today: date) -> Block | None:
     return min(todays, key=lambda b: b.start) if todays else None
 
 
+def focus_ctx(db: Session, now: datetime) -> dict[str, Any] | None:
+    """Today's focus: the planned block running now, and how long is left in
+    it; else the next one today, and how long until it; None for neither."""
+    day_end = datetime.combine(now.date(), time.max)
+    planned = db.scalars(
+        select(Block)
+        .where(Block.state == BlockState.planned, Block.end > now, Block.start <= day_end)
+        .order_by(Block.start)
+    ).all()
+    if not planned:
+        return None
+    block = planned[0]
+
+    def span(delta: timedelta) -> str:
+        return duration_label(max(1, round(delta.total_seconds() / 60)))
+
+    if block.start <= now:
+        return {"block": block, "now": True, "left": span(block.end - now)}
+    return {"block": block, "now": False, "until": span(block.start - now)}
+
+
+def focus_card_ctx(db: Session, now: datetime) -> dict[str, Any]:
+    """The focus card's context (partials/focus_card.html): the focus, and
+    while a block runs, its task's sub-tasks as a block's menu has them."""
+    focus = focus_ctx(db, now)
+    row = row_ctx(focus["block"].task, now) if focus and focus["now"] else None
+    return {"focus": focus, "row": row}
+
+
 def description_blocks(notes: str) -> list[dict[str, Any]]:
     """The description as the row renders it: runs of context lines become
     paragraphs, runs of sub-tasks become checklists, blank lines separate.
@@ -546,6 +575,8 @@ def day_page_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
         "next_day": day + timedelta(days=1),
         "notepad": notepad_ctx(db, day),
         "still_open": still_open_ctx(db, day) if is_today else {"from": "", "tasks": []},
+        # Drawn with the page, so the timeline is laid out at its height from the start.
+        "focus_card": focus_card_ctx(db, now) if is_today else None,
     }
 
 

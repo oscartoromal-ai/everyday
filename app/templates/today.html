@@ -115,6 +115,13 @@
     <header class="timeline-header">
       <h2>Timeline</h2>
     </header>
+    {% if is_today %}
+    {# The block running now, or the next one (partials/focus_card.html). #}
+    <div id="focus-card" hx-get="/ui/today/focus" hx-trigger="every 60s, calendar:refresh from:body"
+         hx-swap="innerHTML">
+      {%- with focus = focus_card.focus, row = focus_card.row %}{% include "partials/focus_card.html" %}{% endwith -%}
+    </div>
+    {% endif %}
     {% include "partials/calendar_grid.html" %}
   </section>
 </div>
