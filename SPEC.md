@@ -92,6 +92,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   It supersedes the earlier seven-day next-days list.
 - **Calendar** (Oscar's call on 2026-10-02, against Google Calendar, Notion Calendar and Fantastical) is the time grid of events and task blocks, as a day, three days or a week (D, X, W), the choice remembered on each device and a phone starting on three days.
   The grid runs the whole day, scrolled within the window to the usual day (06:00 to 22:00) with now in view; Left and Right step by the days shown, and a switch keeps today in view.
+  The title names the ISO weeks shown after the days ("W40", "W40–41"), as the Gantt counts weeks, and a calendar icon after the steps (or G) picks any date to go to.
   Each day to come says whether its plan fits it (Oscar's call on 2026-10-02, after Sunsama): under its head (and above Today's timeline), its planned tasks without a time, by their estimates, against the time still free in its usual hours (today's from now), a warn badge when they do not fit; what is booked is in the tooltip.
   Items starting within half an hour of each other sit side by side; one starting later is laid over those still running, stepped in, so each keeps its width and its title.
   A meeting called off (Outlook's "Canceled: " subject) stays in its place, struck through, and takes no time: free slots and Weeks' load pass over it.

@@ -8,7 +8,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.dates import duration_label, short_date, upper_first
+from app.dates import duration_label, short_date, upper_first, week_label
 from app.models import BlockState, Task, TaskOwner
 from app.services import blocks as blocks_svc
 from app.services import events as events_svc
@@ -335,9 +335,20 @@ def range_label(first_day: date, day_count: int) -> str:
     return f"{first_day.day} {first_day:%b} – {last_day.day} {last_day:%b %Y}"
 
 
+def weeks_label(first_day: date, day_count: int, today: date) -> str:
+    """The ISO weeks the days shown fall in: "W40", or "W40–41" across two."""
+    last_day = first_day + timedelta(days=day_count - 1)
+    first, last = week_label(first_day, today), week_label(last_day, today)
+    if first == last:
+        return first
+    if first_day.isocalendar()[0] == last_day.isocalendar()[0] and "'" not in first:
+        return f"{first}–{last_day.isocalendar()[1]}"
+    return f"{first} – {last}"
+
+
 def calendar_nav(view: str, first_day: date, today: date) -> dict[str, Any]:
-    """Calendar's header: the view switch's links, and the steps back and on
-    by the view's own length."""
+    """Calendar's header: the view switch's links, the steps back and on by
+    the view's own length, and the weeks shown."""
     day_count = VIEWS[view]
     shows_today = first_day <= today < first_day + timedelta(days=day_count)
     # A switch keeps today in view if it is, else the first day shown.
@@ -355,6 +366,8 @@ def calendar_nav(view: str, first_day: date, today: date) -> dict[str, Any]:
         ],
         "prev": (first_day - timedelta(days=day_count)).isoformat(),
         "next": (first_day + timedelta(days=day_count)).isoformat(),
+        "weeks": weeks_label(first_day, day_count, today),
+        "start": first_day.isoformat(),
     }
 
 

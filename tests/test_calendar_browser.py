@@ -271,3 +271,12 @@ def test_the_focus_card_ticks_sub_tasks_and_completes_the_block(page, live, app_
     card.get_by_role("button", name="Completed").click()
     page.locator(".focus-card").wait_for(state="detached")
     page.locator('.cal-item.block[data-state="completed"]', has_text="Deep work").wait_for()
+
+
+def test_a_date_picked_in_the_header_opens_its_days(page, live) -> None:
+    page.goto(f"{live}/calendar?view=week&start={MONDAY.isoformat()}")
+    target = MONDAY + timedelta(weeks=10, days=3)
+    page.locator("[data-jump-date]").fill(target.isoformat())
+    page.wait_for_url(f"**/calendar?start={target.isoformat()}")
+    monday = target - timedelta(days=target.weekday())
+    assert page.locator(".day-col").first.get_attribute("data-date") == monday.isoformat()

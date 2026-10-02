@@ -257,3 +257,16 @@ def test_each_day_shows_its_load_on_calendar_and_today(client, db) -> None:
     assert 'class="day-head' in client.get("/calendar?view=day").text  # its head carries it
     today = client.get("/today").text
     assert 'class="grid-load"' in today and "45m planned" in today
+
+
+def test_the_header_names_the_iso_weeks_shown(client) -> None:
+    from app.ui.calendar_view import weeks_label
+
+    assert weeks_label(DAY, 7, DAY) == "W40"
+    assert weeks_label(DAY + timedelta(days=5), 3, DAY) == "W40–41"
+    # Another year's weeks say their year.
+    assert weeks_label(date(2027, 1, 4), 1, DAY) == "W1 '27"
+    assert weeks_label(date(2026, 12, 31), 7, DAY) == "W53 – W1 '27"
+    page = client.get(f"/calendar?view=week&start={DAY.isoformat()}").text
+    assert '<span class="week-number" title="ISO week">W40</span>' in page
+    assert f'data-jump-date value="{DAY.isoformat()}"' in page

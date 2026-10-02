@@ -691,7 +691,17 @@
     window.history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}`);
   }
 
-  /* ---- 8. Calendar's keys: D, X and W the days shown, E a new event ---- */
+  /* ---- 8. any day, from the header's picker ---- */
+
+  const jump = document.querySelector("[data-jump-date]");
+  if (jump) {
+    jump.addEventListener("click", () => { try { jump.showPicker(); } catch { /* the input takes it */ } });
+    jump.addEventListener("change", () => {
+      if (jump.value) window.location.href = `/calendar?start=${jump.value}`;
+    });
+  }
+
+  /* ---- 9. Calendar's keys: D, X and W the days shown, E a new event, G a date ---- */
 
   document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
@@ -707,6 +717,9 @@
     if (key === "E") {
       e.preventDefault();
       newEvent(document.querySelector("[data-new-event]"));
+    } else if (key === "G" && jump) {
+      e.preventDefault();
+      try { jump.showPicker(); } catch { jump.focus(); }
     }
   });
 })();

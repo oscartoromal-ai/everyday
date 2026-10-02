@@ -254,6 +254,8 @@ Focus elsewhere in the app is unchanged: every other focus ring is `--spark-deep
 
 **Time grid** (Calendar's day, three days and week, and Today's one-day timeline, one partial).
 The page title names the days shown ("Friday 2 October 2026", "2–4 October 2026", "28 Sep – 4 Oct 2026"), and the header's Day, 3 days and Week is the segmented control, as Weeks' Grid and Rows is; on a phone its options take 10px sides so it fits beside the steps.
+After the title, its ISO weeks in 16px/500 pewter figures ("W40", "W40–41"); after the steps, a calendar icon in the arrows' box, the native date picker unseen over it.
+On a phone the view switch takes a row of its own, its three options sharing it, and the steps and the icon follow on the next.
 New event, a quiet "+" line as Add a workstream is, starts the tools row under the title, Sync work at its right.
 The grid runs the whole day, 48px an hour, in a card that scrolls within the window; the day heads and all-day events stay on paper at its top as the hours pass under them.
 Day heads are 12px pewter over a 14px/600 number, with today in `--spark-deep`, glowing at night.
