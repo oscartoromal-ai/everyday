@@ -248,6 +248,8 @@ The page title names the days shown ("Friday 2 October 2026", "2–4 October 202
 New event, a quiet "+" line as Add a workstream is, starts the tools row under the title, Sync work at its right.
 The grid runs the whole day, 48px an hour, in a card that scrolls within the window; the day heads and all-day events stay on paper at its top as the hours pass under them.
 Day heads are 12px pewter over a 14px/600 number, with today in `--spark-deep`, glowing at night.
+Under the number, a day to come carries its load in 12px figures: "45m planned" in graphite over "3h free" in pewter, one to a line; when the planned is more than the free, both sit in the warn badge.
+Today's timeline, which has no heads, carries the same on one line ("45m planned · 3h free") above its hours.
 Weekend columns carry `--ink-tint-faint`, whichever days are shown.
 Items are square tags with a 2px gap below, so back-to-back items never merge:
 

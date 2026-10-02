@@ -1143,6 +1143,23 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .day-head .dow { display: block; font-size: var(--t-caption); font-weight: 500; color: var(--pewter); }
 .day-head .dom { font-size: var(--t-body-sm); font-weight: 600; font-variant-numeric: tabular-nums; }
 .day-head.today .dow, .day-head.today .dom { color: var(--spark-deep); text-shadow: var(--spark-glow-text); }
+/* a day's load: its planned tasks' estimates against the time still free */
+.day-load {
+  display: block; margin-top: 2px;
+  font-size: var(--t-caption); font-weight: 400; line-height: 1.3; color: var(--pewter);
+  font-family: var(--font-num); font-variant-numeric: tabular-nums;
+}
+.day-load .planned { color: var(--graphite); }
+/* under a day's head, one figure a line: a column is too narrow for both */
+.day-head .day-load :is(.planned, .free) { display: block; }
+.day-head .day-load .sep { display: none; }
+/* the badge keeps its own line under the date, shrunk to its words */
+.day-head .day-load.over { display: table; margin: 2px auto 0; }
+/* more planned than fits: the warn badge, never a coloured text run */
+.day-load.over { display: inline-block; padding: 0 var(--s-1); color: var(--warn-fg); background: var(--badge-warn-glass); }
+.day-load.over .planned { color: inherit; }
+.grid-load { padding: 6px var(--s-2) 6px 56px; border-bottom: 1px solid var(--hairline-on-glass); }
+.grid-load .day-load { margin: 0; }
 .grid-allday { border-bottom: 1px solid var(--hairline-on-glass); }
 .gutter-allday { padding: 6px var(--s-2) 0 0; text-align: right; font-size: var(--t-caption); color: var(--pewter); }
 .day-allday { display: flex; flex-direction: column; gap: 2px; min-height: 26px; padding: 3px; }

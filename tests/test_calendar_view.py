@@ -214,3 +214,46 @@ def test_the_tray_refreshes_and_offers_its_tasks_to_the_composer(client, db) -> 
     picks = client.get(f"/calendar/tray?start={DAY.isoformat()}&days=3&pick=true").text
     assert 'class="composer-task"' in picks and "Write the report" in picks
     assert "calendar-tray" not in picks
+
+
+def test_a_days_load_weighs_its_planned_tasks_against_its_free_time(db) -> None:
+    from app.services import tasks as tasks_svc
+    from app.ui.calendar_view import day_load
+
+    tuesday = DAY + timedelta(days=1)
+    work(db, "Workshop", at(9, day=tuesday), at(13, day=tuesday))
+    work(db, "Overlapping catch-up", at(12, day=tuesday), at(14, day=tuesday))
+    work(db, "Canceled: Retro", at(15, day=tuesday), at(16, day=tuesday))
+    tasks_svc.create_task(db, title="Write", planned_for=tuesday, estimate_minutes=90)
+    booked = tasks_svc.create_task(db, title="Review", planned_for=tuesday, estimate_minutes=60)
+    blocks_svc.schedule_block(
+        db, task_id=booked.id, start=at(16, day=tuesday), end=at(17, day=tuesday),
+    )
+    tasks_svc.create_task(db, title="No estimate", planned_for=tuesday)
+    db.flush()
+    planned = tasks_svc.list_tasks(db)
+    load = day_load(db, tuesday, at(8), planned)
+    # 06:00-22:00 is 16h; 09:00-14:00 and the 16:00 block take 6h (the
+    # cancelled retro none); only the unbooked task's estimate is planned.
+    assert (load["planned"], load["free"], load["over"]) == ("1h 30m", "10h", False)
+    assert load["title"] == (
+        "6h booked, 1h 30m of tasks planned without a time, 10h free from 06:00 to 22:00"
+    )
+    # Today's free time runs from now; a day gone has no load.
+    today_load = day_load(db, tuesday, at(20, 10, day=tuesday), planned)
+    assert (today_load["free"], today_load["over"]) == ("1h 45m", False)
+    tasks_svc.create_task(db, title="Late push", planned_for=tuesday, estimate_minutes=60)
+    today_load = day_load(db, tuesday, at(20, 10, day=tuesday), tasks_svc.list_tasks(db))
+    assert today_load["over"]
+    assert day_load(db, DAY, at(8, day=tuesday), planned) is None
+
+
+def test_each_day_shows_its_load_on_calendar_and_today(client, db) -> None:
+    from app.services import tasks as tasks_svc
+
+    tasks_svc.create_task(db, title="Write", planned_for=TODAY, estimate_minutes=45)
+    week = client.get("/calendar?view=week").text
+    assert '<span class="planned">45m planned</span>' in week
+    assert 'class="day-head' in client.get("/calendar?view=day").text  # its head carries it
+    today = client.get("/today").text
+    assert 'class="grid-load"' in today and "45m planned" in today

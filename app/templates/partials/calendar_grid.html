@@ -8,8 +8,17 @@
      hx-trigger="calendar:refresh from:body"
      hx-swap="outerHTML">
   {% set has_all_day = grid.days | selectattr("all_day") | list | length > 0 %}
+  {# A day's load: what its planned tasks are estimated at against the time
+     still free in its usual hours, in the tooltip with what is booked. #}
+  {% macro load_line(load) %}
+  <span class="day-load{% if load.over %} over{% endif %}" title="{{ load.title }}">
+    {%- if load.planned %}<span class="planned">{{ load.planned }} planned</span><span class="sep"> · </span>{% endif -%}
+    <span class="free">{{ load.free }} free</span>
+  </span>
+  {% endmacro %}
+  {% set lone_load = grid.days[0].load if not grid.head and grid.day_count == 1 else None %}
   {# The heads and all-day events stay in view as the hours scroll under them. #}
-  {% if grid.head or has_all_day %}
+  {% if grid.head or has_all_day or lone_load %}
   <div class="grid-top">
   {% endif %}
   {% if grid.head %}
@@ -19,9 +28,12 @@
     <div class="day-head{% if day.is_today %} today{% endif %}{% if day.is_weekend %} weekend{% endif %}">
       <span class="dow">{{ day.date.strftime("%a") }}</span>
       <span class="dom">{{ day.date.day }}</span>
+      {% if day.load %}{{ load_line(day.load) }}{% endif %}
     </div>
     {% endfor %}
   </div>
+  {% elif lone_load %}
+  <div class="grid-load">{{ load_line(lone_load) }}</div>
   {% endif %}
   {% if has_all_day %}
   <div class="grid-allday">
@@ -36,7 +48,7 @@
     {% endfor %}
   </div>
   {% endif %}
-  {% if grid.head or has_all_day %}
+  {% if grid.head or has_all_day or lone_load %}
   </div>
   {% endif %}
   <div class="grid-body" style="height: {{ grid.grid_px }}px;">

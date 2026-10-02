@@ -37,24 +37,36 @@ def task_length(task: Task) -> timedelta:
     return DEFAULT_LENGTH
 
 
+def busy_spans(db: Session, start: datetime, end: datetime) -> list[tuple[datetime, datetime]]:
+    """The time taken between `start` and `end`, as sorted spans that never
+    overlap: timed events and planned or completed blocks, clipped to the
+    window. All-day events, cancelled meetings and missed blocks take none."""
+    events = db.scalars(
+        select(Event).where(Event.start < end, Event.end > start, Event.all_day.is_(False))
+    )
+    blocks = db.scalars(
+        select(Block).where(Block.start < end, Block.end > start, Block.state != BlockState.missed)
+    )
+    spans = sorted(
+        [(e.start, e.end) for e in events if not e.cancelled] + [(b.start, b.end) for b in blocks]
+    )
+    merged: list[tuple[datetime, datetime]] = []
+    for s, e in spans:
+        s, e = max(s, start), min(e, end)
+        if merged and s <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+        else:
+            merged.append((s, e))
+    return merged
+
+
 def next_free_slot(
     db: Session, *, duration: timedelta, after: datetime, until: datetime, step_minutes: int = 15
 ) -> datetime | None:
     """The earliest start at or after `after`, on a quarter-hour boundary, where
-    `duration` fits before `until` without overlapping a timed event or another
-    planned or completed block. All-day events, cancelled meetings and missed
-    blocks take no time."""
-    events = db.scalars(
-        select(Event).where(Event.start < until, Event.end > after, Event.all_day.is_(False))
-    )
-    blocks = db.scalars(
-        select(Block).where(
-            Block.start < until, Block.end > after, Block.state != BlockState.missed
-        )
-    )
-    busy = sorted(
-        [(e.start, e.end) for e in events if not e.cancelled] + [(b.start, b.end) for b in blocks]
-    )
+    `duration` fits before `until` without overlapping the time taken
+    (busy_spans)."""
+    busy = busy_spans(db, after, until)
     step = timedelta(minutes=step_minutes)
 
     def on_step(moment: datetime) -> datetime:

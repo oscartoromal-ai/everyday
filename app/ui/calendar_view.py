@@ -8,8 +8,9 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.dates import short_date
-from app.models import BlockState, TaskOwner
+from app.dates import duration_label, short_date
+from app.models import BlockState, Task, TaskOwner
+from app.services import blocks as blocks_svc
 from app.services import events as events_svc
 from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
@@ -170,6 +171,50 @@ def _event_entry(event, day: date) -> dict[str, Any]:  # noqa: ANN001
     }
 
 
+def _floor_quarter(minutes: float) -> int:
+    return int(minutes // 15 * 15)
+
+
+def day_load(db: Session, day: date, now: datetime, planned: list[Task]) -> dict[str, Any] | None:
+    """Whether a day's plan fits it: the time already taken in its usual
+    hours (meetings and blocks), what its planned tasks without a time are
+    estimated at, and the time still free (today's from now). None for a day
+    already past."""
+    if day < now.date():
+        return None
+    window_start = datetime.combine(day, time(DAY_START_HOUR))
+    window_end = datetime.combine(day, time(DAY_END_HOUR))
+    if day == now.date():
+        window_start = min(max(window_start, now), window_end)
+    booked = sum(
+        ((e - s) for s, e in blocks_svc.busy_spans(db, window_start, window_end)),
+        timedelta(),
+    )
+    free = _floor_quarter(((window_end - window_start) - booked).total_seconds() / 60)
+    booked_minutes = round(booked.total_seconds() / 60)
+    planned_minutes = sum(
+        t.estimate_minutes or 0
+        for t in planned
+        if t.planned_for == day
+        and not any(
+            b.state != BlockState.missed and b.start.date() == day for b in t.blocks
+        )
+    )
+    since = "from now" if day == now.date() else f"from {DAY_START_HOUR:02d}:00"
+    parts = [f"{duration_label(booked_minutes)} booked" if booked_minutes else "nothing booked"]
+    if planned_minutes:
+        parts.append(f"{duration_label(planned_minutes)} of tasks planned without a time")
+    parts.append(
+        f"{duration_label(free) if free else 'no time'} free {since} to {DAY_END_HOUR:02d}:00"
+    )
+    return {
+        "planned": duration_label(planned_minutes) if planned_minutes else "",
+        "free": duration_label(free) if free else "0m",
+        "over": planned_minutes > free,
+        "title": ", ".join(parts).capitalize(),
+    }
+
+
 def grid_ctx(
     db: Session,
     first_day: date,
@@ -187,6 +232,12 @@ def grid_ctx(
     range_end = range_start + timedelta(days=day_count)
     events, blocks = events_svc.calendar_range(db, range_start, range_end)
     today = now.date()
+    planned = [
+        t for t in tasks_svc.list_tasks(
+            db, planned_from=first_day, planned_to=week_days[-1]
+        )
+        if t.owner == TaskOwner.oscar and t.status in tasks_svc.OPEN_STATUSES
+    ]
 
     days: list[dict[str, Any]] = []
     for day in week_days:
@@ -237,6 +288,7 @@ def grid_ctx(
                 "is_weekend": day.weekday() >= 5,
                 "entries": day_items,  # "items" would shadow dict.items in Jinja
                 "all_day": all_day,
+                "load": day_load(db, day, now, planned),
             }
         )
 

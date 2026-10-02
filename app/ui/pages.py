@@ -169,7 +169,8 @@ def calendar_page(
         "calendar.html",
         {
             **_base(request, "calendar"),
-            "grid": grid_ctx(db, first_day, now, days),
+            # Each day headed, a single one too: its head carries its load.
+            "grid": grid_ctx(db, first_day, now, days, head=True),
             "nav": calendar_nav(view, first_day, now.date()),
             "tray": tray_tasks(db, first_day, now, days),
         },
