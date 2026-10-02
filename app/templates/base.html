@@ -48,6 +48,7 @@
   <script src="{{ asset('notes-editor.js') }}" defer></script>
   <script src="{{ asset('task-sheet.js') }}" defer></script>
   <script src="{{ asset('tasks.js') }}" defer></script>
+  <script src="{{ asset('command.js') }}" defer></script>
 </head>
 <body>
 <!--
@@ -98,6 +99,12 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       </div>
     </nav>
     <div class="rail-foot">
+      {# The command menu (Ctrl+K): search, go to a page or a day, or do (command.js). #}
+      <button type="button" class="rail-button command-open" data-command-open title="Search, go or do (Ctrl+K)">
+        <svg class="command-open__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>
+        <span class="rail-button__label">Search</span>
+        <kbd class="rail-button__key">Ctrl K</kbd>
+      </button>
       {# Compact rows (C): more of Tasks and Today's notes on screen, the text its size. #}
       <button type="button" class="rail-button density-toggle" aria-pressed="false" title="Compact rows (C)">
         <svg class="density-toggle__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
@@ -141,6 +148,14 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
   <ul id="capture-sink" hidden></ul>
 </dialog>
 {% endif %}
+{# Ctrl+K (or Cmd+K) opens it anywhere, and Search in the rail (command.js). #}
+<dialog id="command-dialog" class="command-dialog" aria-label="Search, go or do">
+  <input class="command-input" type="text" placeholder="Search tasks, events, notes; a page or a day; or a thing to do"
+         role="combobox" aria-expanded="true" aria-controls="command-results" aria-autocomplete="list"
+         autocomplete="off" spellcheck="false">
+  <ul class="command-results" id="command-results" role="listbox" aria-label="Results"></ul>
+  <p class="command-foot"><kbd>↑</kbd> <kbd>↓</kbd> move · <kbd>Enter</kbd> open · <kbd>Esc</kbd> close</p>
+</dialog>
 {# ? opens it anywhere (shell.js). #}
 <dialog id="keys-dialog" class="keys-dialog" aria-labelledby="keys-title" tabindex="-1">
   <form method="dialog">
@@ -155,6 +170,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
           <dt><kbd>1</kbd>–<kbd>9</kbd></dt><dd>Tasks, Today, Calendar, Weeks, Projects, Nutrition, Me, Garmin, Spending</dd>
           <dt><kbd>N</kbd> <span class="or">or</span> <kbd>Shift</kbd> <kbd>N</kbd></dt><dd>New task</dd>
           <dt><kbd>?</kbd></dt><dd>These keys</dd>
+          <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Search tasks, projects, events and notes; go to a page or a day ("friday", "12 oct"); or do (new task or event, theme)</dd>
           <dt><kbd>C</kbd></dt><dd>Compact rows, or roomy again (Tasks, Today's notes)</dd>
         </dl>
         <h3>Writing a task</h3>

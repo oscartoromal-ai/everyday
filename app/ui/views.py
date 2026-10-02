@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, object_session
 
 from app import checklist
-from app.dates import duration_label, human_date, short_date, week_label
+from app.dates import duration_label, human_date, short_date, upper_first, week_label
 from app.models import (
     Block,
     BlockState,
@@ -610,7 +610,7 @@ def history_ctx(changes: list[dict[str, Any]], today: date) -> list[dict[str, An
     steps = []
     for change in changes:
         at: datetime = change["at"]
-        when = f"{short_date(at.date(), today).capitalize()} {at:%H:%M}"
+        when = f"{upper_first(short_date(at.date(), today))} {at:%H:%M}"
         if change["change"] == "created":
             lines = ["Written"]
         elif change["change"] == "deleted":

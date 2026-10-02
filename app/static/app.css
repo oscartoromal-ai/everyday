@@ -149,6 +149,13 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 :root:not([data-theme="dark"]) .theme-toggle__icon--sun,
 :root[data-theme="dark"] .theme-toggle__icon--moon { opacity: 1; transform: rotate(0deg) scale(1); }
 .rail-button__label { font-size: var(--t-caption); font-weight: 500; }
+.command-open__icon { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+/* its key, at the button's right, as the keys dialog draws keys */
+.rail-button__key {
+  margin-left: auto; padding: 0 4px;
+  font: inherit; font-size: var(--t-caption); font-weight: 500; color: var(--pewter);
+  border: 1px solid var(--hairline); border-radius: var(--r-tag);
+}
 :root[data-theme="dark"] .theme-toggle__label--light,
 :root:not([data-theme="dark"]) .theme-toggle__label--dark { display: none; }
 
@@ -156,7 +163,8 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 :root[data-rail="collapsed"] .rail-head { flex-direction: column; align-items: center; }
 :root[data-rail="collapsed"] .wordmark,
 :root[data-rail="collapsed"] .nav-label,
-:root[data-rail="collapsed"] .rail-button__label { display: none; }
+:root[data-rail="collapsed"] .rail-button__label,
+:root[data-rail="collapsed"] .rail-button__key { display: none; }
 :root[data-rail="collapsed"] .nav-group-label { height: 0; margin: 0 var(--s-1) var(--s-3); padding: 0; border-top: 1px solid var(--chrome-flank-border); font-size: 0; }
 :root[data-rail="collapsed"] .nav a,
 :root[data-rail="collapsed"] .rail-button { justify-content: center; padding-inline: 0; }
@@ -188,7 +196,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
   .rail-foot { display: flex; align-self: center; margin: 0; padding: 0 0 0 var(--s-1); border-top: none; border-left: 1px solid var(--chrome-flank-border); }
   .rail-button { width: 44px; height: 44px; padding: 0; justify-content: center; }
   .rail-button:hover { background: none; }
-  .rail-button__label { display: none; }
+  .rail-button__label, .rail-button__key { display: none; }
   .theme-toggle__icon-stack, .theme-toggle__icon { width: 20px; height: 20px; }
   :root[data-rail="collapsed"] .nav-label { display: inline; }
   .nav, .nav-group { display: contents; }
@@ -752,6 +760,53 @@ dialog.capture-dialog {
 }
 dialog.capture-dialog[open] { animation: confirm-in 220ms var(--ease); }
 dialog.capture-dialog::backdrop { background: var(--scrim); }
+
+/* the command menu (Ctrl+K, command.js): the capture window's paper, a line
+   to write on, then what it finds, grouped, the one Enter opens in fog */
+dialog.command-dialog {
+  width: min(640px, calc(100vw - 32px)); margin: 12vh auto auto; padding: 0;
+  color: var(--ink); background: var(--paper);
+  border: 1px solid var(--hairline); border-radius: var(--r-ctl); box-shadow: var(--shadow-modal);
+}
+dialog.command-dialog[open] { display: flex; flex-direction: column; max-height: 70vh; animation: confirm-in 220ms var(--ease); }
+dialog.command-dialog::backdrop { background: var(--scrim); }
+.command-input {
+  flex: none; width: 100%; padding: var(--s-4) var(--s-4) 14px;
+  border: none; border-bottom: 1px solid var(--hairline); background: transparent;
+  font: inherit; font-size: var(--t-body); color: var(--ink); outline: none;
+}
+.command-input::placeholder { color: var(--pewter); }
+.command-results { flex: 1; min-height: 0; overflow-y: auto; list-style: none; margin: 0; padding: var(--s-1) 0; }
+.command-group { padding: var(--s-3) var(--s-4) var(--s-1); font-size: var(--t-caption); font-weight: 600; color: var(--pewter); }
+.command-item {
+  display: flex; align-items: baseline; gap: var(--s-3);
+  min-height: 36px; padding: 8px var(--s-4); cursor: pointer;
+  font-size: var(--t-body-sm);
+}
+.command-item[aria-selected="true"] { background: var(--fog); }
+.command-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.command-label.done { color: var(--pewter); text-decoration: line-through; }
+/* a project's name after its colour, as its flag carries it elsewhere */
+.command-item.in-project .command-label::before {
+  content: ""; display: inline-block; width: 8px; height: 8px; margin-right: var(--s-2);
+  background: var(--project); vertical-align: 1px;
+}
+.command-meta {
+  flex: none; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums;
+}
+/* a day's notes: the day, then the words found, which take the room */
+.command-item[data-kind="Notes"] .command-label { flex: none; }
+.command-item[data-kind="Notes"] .command-meta { flex: 1; max-width: none; }
+.command-meta.hint { padding: 0 4px; border: 1px solid var(--hairline); border-radius: var(--r-tag); font-weight: 500; }
+.command-meta:empty { display: none; }
+.command-empty { padding: var(--s-4); font-size: var(--t-body-sm); color: var(--pewter); }
+.command-foot { flex: none; margin: 0; padding: var(--s-2) var(--s-4); border-top: 1px solid var(--hairline); font-size: var(--t-caption); color: var(--pewter); }
+.command-foot kbd {
+  display: inline-block; min-width: 18px; padding: 0 4px;
+  font: inherit; font-weight: 500; color: var(--graphite); text-align: center;
+  border: 1px solid var(--hairline); border-radius: var(--r-tag);
+}
 
 /* every key, behind ? (shell.js): the confirm dialog's paper, two columns of pairs */
 dialog.keys-dialog {

@@ -75,7 +75,8 @@ The wordmark is Brasa's pattern: the name in 600 followed by a spark period, "Pe
 At night the name carries a faint halo (`--ink-glow-text`) and the period glows and strikes once on load, three stutters and then steady, like a tube coming on (`--spark-entrance`).
 Nav items are 14px/500 graphite; the active one is ink 600 with Brasa's 3px spark bar, glowing at night, inset 8px from the viewport edge.
 Nav is grouped in the Brasa manner: the planning pages (Tasks, Today, Calendar, Weeks) sit under a 12px pewter "Planner" group label, Tasks first since the app opens on it; Projects follows as a second group, Health (Nutrition, Me, Garmin) a third, and Finances (Spending, Accounts, Bills, Goals) a fourth, each under its own label.
-The foot carries Brasa's shipped light/dark toggle: the current mode's sun or moon, which rotates and fades into the other, beside the mode's name in 12px pewter.
+The foot starts with Search, its magnifier and name, and its key ("Ctrl K") in a hairline box at the right, as the keys dialog draws keys; it opens the command menu.
+Then Brasa's shipped light/dark toggle: the current mode's sun or moon, which rotates and fades into the other, beside the mode's name in 12px pewter.
 The names are the installed system's own, read from `design-language.json`: "Day" and "Night" for Neon Signage.
 A panel icon beside the wordmark collapses the sidebar to a 64px icon rail (`data-rail="collapsed"` on `<html>`, saved as `pc-rail`, applied before paint).
 The shell animates its column width on `--ease` over 220ms.
@@ -228,6 +229,9 @@ Which folds are open is remembered per tab (`sessionStorage` key `pc-open-folds`
 Each column is one grid, so all its descriptions start on one line; keys are 12px graphite in hairline boxes.
 The dialog takes focus itself, so no control opens ringed; Esc closes it.
 
+**Command menu** (`app/static/command.js`, Ctrl+K). The capture window's paper, 640px wide and 12vh from the top over the scrim: a 16px line to write on, ruled off from what it finds, then the results grouped under 12px/600 pewter names (Days, Pages, Do, Tasks, Projects, Events, Notes), at most 70% of the window tall, and a foot of keys.
+A result is a 36px row: its name in 14px/500 ink (a done task or cancelled meeting pewter and struck through, a project after an 8px square of its colour) and its detail at the right in 12px pewter figures (a do-date or due, a meeting's day and time, a page's or action's key in a hairline box); a day's notes give the words found the row's room.
+The row Enter opens is in fog, and follows the pointer.
 **Capture window.** N or Shift+N writes a new task from any page: on Tasks and Projects into the page's own list, and on Today, Calendar and Weeks, which have no list to write in, in a window holding the task sheet (600px, 15vh from the top, on the confirm dialog's paper).
 It stays open for the next task, and a toast says where each one went ("Added “Call the plumber” for Fri 2 Oct", or "to No date"), since no list on the page shows it; Weeks' Unplanned tray catches up.
 Esc closes it and keeps a half-written draft for the next time.

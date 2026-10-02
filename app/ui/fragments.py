@@ -433,6 +433,14 @@ def add_event(
     return response
 
 
+@router.get("/search")
+def search(db: DbSession, q: str = ""):
+    """The command menu's matches for what was typed (app.services.search)."""
+    from app.services import search as search_svc
+
+    return JSONResponse(search_svc.search(db, q, datetime.now()))
+
+
 @router.get("/events/{event_id}/card")
 def event_card(request: Request, db: DbSession, event_id: int):
     """An event's card, opened from the grid: what, when and where; one of

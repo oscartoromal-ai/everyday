@@ -671,7 +671,27 @@
     });
   });
 
-  /* ---- 7. Calendar's keys: D, X and W the days shown, E a new event ---- */
+  /* ---- 7. arriving from the command menu: an event's card (?event=), or a new event (?new=1) ---- */
+
+  const arrival = new URLSearchParams(window.location.search);
+  if (document.querySelector(".calendar-page") && (arrival.has("event") || arrival.has("new"))) {
+    const eventId = arrival.get("event");
+    const item = eventId && grid().querySelector(`[data-event-id="${CSS.escape(eventId)}"]`);
+    if (item) {
+      const g = grid();
+      if (item.classList.contains("cal-item")) g.scrollTop = item.offsetTop - 2 * hourPx();
+      openEventCard(item);
+    } else if (arrival.has("new")) {
+      newEvent(document.querySelector("[data-new-event]"));
+    }
+    // A reload, or Back to here, does not open it again.
+    arrival.delete("event");
+    arrival.delete("new");
+    const rest = arrival.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}`);
+  }
+
+  /* ---- 8. Calendar's keys: D, X and W the days shown, E a new event ---- */
 
   document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;

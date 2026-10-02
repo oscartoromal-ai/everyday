@@ -8,7 +8,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.dates import duration_label, short_date
+from app.dates import duration_label, short_date, upper_first
 from app.models import BlockState, Task, TaskOwner
 from app.services import blocks as blocks_svc
 from app.services import events as events_svc
@@ -211,7 +211,7 @@ def day_load(db: Session, day: date, now: datetime, planned: list[Task]) -> dict
         "planned": duration_label(planned_minutes) if planned_minutes else "",
         "free": duration_label(free) if free else "0m",
         "over": planned_minutes > free,
-        "title": ", ".join(parts).capitalize(),
+        "title": upper_first(", ".join(parts)),
     }
 
 
@@ -389,7 +389,7 @@ def event_card_ctx(event, today: date) -> dict[str, Any]:  # noqa: ANN001
 
 def _when_label(event, last_day: date, today: date) -> str:  # noqa: ANN001
     first_day = event.start.date()
-    day = short_date(first_day, today).capitalize()
+    day = upper_first(short_date(first_day, today))
     if event.all_day:
         if last_day > first_day:
             return f"{day} – {short_date(last_day, today)}, all day"

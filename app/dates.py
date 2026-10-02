@@ -22,6 +22,12 @@ def short_date(value: date, today: date | None = None) -> str:
     return f"{value.strftime('%a')} {value.day} {value.strftime('%b')}"
 
 
+def upper_first(text: str) -> str:
+    """The first letter in capitals and the rest as it was ("Mon 5 Oct"),
+    where str.capitalize would lower the month ("Mon 5 oct")."""
+    return text[:1].upper() + text[1:]
+
+
 def duration_label(minutes: int) -> str:
     """A length of time as it is written: '45m', '1h', '1h 30m'."""
     hours, rest = divmod(minutes, 60)
