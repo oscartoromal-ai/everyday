@@ -262,7 +262,7 @@ def test_ctrl_arrows_stop_at_the_edges_of_what_is_drawn(page, live, app_db) -> N
     assert at() == ("Check", day(3))
     page.keyboard.press("Control+ArrowDown")
     assert page.evaluate("document.activeElement.closest('.gantt-row').dataset.key") == (
-        "add-workstream"
+        "add"
     )
     page.keyboard.press("Control+ArrowUp")
     assert at() == ("Check", day(3))
@@ -326,10 +326,13 @@ def test_a_workstream_folds_to_its_row(page, live, project) -> None:
     # Remembered across a visit.
     page.reload()
     page.locator('.gantt-row[data-title="Spec"]').wait_for(state="hidden")
-    # The keys pass over what is folded: down from the lane is Other tasks.
+    # The keys pass over what is folded: down from the lane is the row to add
+    # a workstream.
     lane.locator(".gantt-title .gantt-text").click()
     page.keyboard.press("ArrowDown")
-    assert page.evaluate("document.activeElement.closest('.gantt-row').dataset.key") == "other"
+    assert page.evaluate("document.activeElement.closest('.gantt-row').dataset.key") == (
+        "add-workstream"
+    )
     # Alt+Right on its row opens it, Alt+Left folds it again.
     page.keyboard.press("ArrowUp")
     page.keyboard.press("Alt+ArrowRight")

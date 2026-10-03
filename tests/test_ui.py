@@ -555,7 +555,7 @@ def test_project_card_lists_open_tasks_under_workstreams(client, db) -> None:
     card = page.split(f'id="project-{p.id}"')[1].split("</article>")[0]
     group = card.split('class="workstream-group"')[1].split("</div>")[0]
     assert "call sparky" in group
-    loose = card.split('class="loose-head"')[1]
+    loose = card.split('class="expander"')[1]
     assert "pick tiles" in loose
     assert (TODAY + timedelta(days=2)).strftime("%a") in loose  # planned day shown
     assert "measure wall" not in card

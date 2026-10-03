@@ -983,11 +983,6 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 
 .project-card .task-meta .project { display: none; }
 .project-card .task-list .task-row:last-child { border-bottom: none; }
-.loose-head {
-  margin: 0; padding: var(--s-4) var(--s-4) var(--s-2);
-  border-top: 1px solid var(--hairline-on-glass);
-  font-size: var(--t-caption); font-weight: 500; color: var(--pewter);
-}
 .project-card .task-sheet[data-sheet="compose"] { border-top: 1px solid var(--hairline-on-glass); }
 .project-card > .expander { border-top: 1px solid var(--hairline-on-glass); padding: 2px var(--s-4); }
 
@@ -1132,7 +1127,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 
 /* every row: 36px or more, text from the numbers' edge, its own hairline */
 :is(.ruled-sheet .sheet-row, .ruled-sheet .sheet-filler li, .tasks-sheet :is(.capture, .list-section > h2, .project-card > header,
-  .project-card > .notes, .workstream, .loose-head, .task-row, .sheet-item, .empty, .done-fold > summary, .project-card > .compose-slot,
+  .project-card > .notes, .workstream, .task-row, .sheet-item, .empty, .done-fold > summary, .project-card > .compose-slot,
   .expander > summary)) {
   position: relative; min-height: var(--pad-line); margin: 0;
   padding: var(--row-above, var(--pad-above)) var(--s-4) var(--row-below, var(--pad-below)) var(--row-start);
@@ -1142,7 +1137,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 }
 /* its number, level with its first line, on the fog */
 :is(.ruled-sheet .sheet-row, .ruled-sheet .sheet-filler li, .tasks-sheet :is(.capture, .list-section > h2, .project-card > header,
-  .project-card > .notes, .workstream, .loose-head, .task-row, .sheet-item, .empty, .done-fold > summary, .project-card > .compose-slot,
+  .project-card > .notes, .workstream, .task-row, .sheet-item, .empty, .done-fold > summary, .project-card > .compose-slot,
   .expander > summary))::after {
   content: counter(sheet-row);
   position: absolute; left: 0; top: 0; width: var(--pad-rows); padding-right: var(--s-2);
@@ -1172,7 +1167,6 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .tasks-sheet .project-card > header h2 { font-size: var(--t-body-sm); line-height: var(--pad-text); letter-spacing: 0; }
 .tasks-sheet .card-edit-btn { width: 24px; height: 24px; margin: -1px -4px; }
 .tasks-sheet .project-card > .notes { color: var(--graphite); }
-.tasks-sheet .loose-head { font-size: var(--t-caption); }
 .tasks-sheet .empty { color: var(--pewter); }
 
 /* a task row: the notepad's box, 8px before the words; the meta line and
@@ -2188,7 +2182,7 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .gantt-text.placeholder { color: var(--pewter); font-weight: 400; }
 .gantt-row.indent .gantt-title { padding-left: calc(var(--s-3) + var(--s-6)); }
-.gantt-row:is(.kind-workstream, .kind-heading) .gantt-title { font-weight: 600; }
+.gantt-row.kind-workstream .gantt-title { font-weight: 600; }
 .gantt-cell.derived { color: var(--pewter); cursor: default; }
 .gantt-row.is-done .gantt-title { color: var(--pewter); }
 .gantt-row.kind-task.is-done .gantt-text { text-decoration: line-through; text-decoration-thickness: 1px; }

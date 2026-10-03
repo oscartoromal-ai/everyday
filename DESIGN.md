@@ -288,7 +288,7 @@ A new project takes the hue fewest open projects have; the project editor offers
 
 **Project cards.** The title, after the project's flag, opens the project's Gantt (underlined on hover, as a task's title is); it is followed by the open count, a secondary-style status select, and a ghost pencil that swaps in the inline editor.
 Workstream rows have steel circles that turn ink when done (the name then pewter at 500), and their done count.
-Each workstream's open tasks are indented beneath it; the other tasks follow under a pewter caption, then the project's task sheet for adding.
+Each workstream's open tasks are indented beneath it; then the quiet "+" Add a workstream line, the tasks in no workstream under it, then the project's task sheet for adding.
 A task files by drag: onto a workstream group, into that workstream; onto another card, into that project with no workstream; onto No project, out of any.
 The row in hand fades to 40%, and the target under it lights as a drop target, `--spark-tint` with an inset 1.5px spark ring.
 
@@ -300,7 +300,7 @@ Its header row (48px) and its frozen pane stay put while it scrolls, as a spread
 Its time is a 52px column a week, or drilled down, a 36px column a day (Start then 112px, for its date).
 Column names are 12px/500 graphite; a week's head is its ISO week in 12px/600 ink over its Monday's day in pewter (graphite, with the month, where the month turns); a day's is its initial in pewter and its date in ink (pewter at weekends), under its week's name and Monday ("W41 · 5 Oct") running across the week from its Monday; now's head is `--spark-deep`, glowing at night.
 Cells carry hairline rules both ways, as a spreadsheet's; the time's columns are ruled by the table's background, so the empty numbered rows under the last are too, now's column (this week, or today) is tinted `--ink-tint-faint`, and in days so are weekends, each week's Monday ruled in mist.
-A workstream's row is 600 with the task box (`--ok-fg` once done, as a task's), a 12px steel chevron before its name that folds it (turned right while folded, its tasks and add row gone, a pewter caption counting them after its name, its row numbers skipping them), and its Start, length and Due its tasks' in pewter (read-only); its tasks are one 24px step in; "Other tasks" heads the rest when there are workstreams; each group ends in a pewter "Add a task…" row after a steel plus, and the sheet in "Add a workstream…".
+A workstream's row is 600 with the task box (`--ok-fg` once done, as a task's), a 12px steel chevron before its name that folds it (turned right while folded, its tasks and add row gone, a pewter caption counting them after its name, its row numbers skipping them), and its Start, length and Due its tasks' in pewter (read-only); its tasks are one 24px step in; "Add a workstream…" heads the tasks in none; each group ends in a pewter "Add a task…" row after a steel plus.
 Groups are bracketed by 2px graphite rules, in ink round the cursor's group, as on every sheet.
 A task's bar is 20px of `--solid` (white tubes at night) from its start's day to its due's, in either scale (so a Monday-to-Friday week leaves its weekend), inset 2px and never under 4px, with 8px grips at its ends; done, it is the system's ok green (`--ok-fg` 30% into `--ok-bg`, on a 1.5px `--ok-fg` edge), its box `--ok-fg`, and its title pewter and struck through.
 A task due with no start is a 2px, 20px ink tick on its due; a workstream's lane is a 6px graphite summary with 11px end ticks spanning its tasks (`--ok-fg` once done).

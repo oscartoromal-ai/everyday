@@ -35,11 +35,11 @@
   {%- else %}
   <span class="gantt-num" aria-hidden="true">{{ row.number }}</span>
   <span class="gantt-cell gantt-box" role="gridcell" data-col="0" tabindex="-1">
-    {%- if row.kind != "heading" %}<svg class="gantt-plus" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 3.5v11M3.5 9h11"/></svg>{% endif -%}
+    <svg class="gantt-plus" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 3.5v11M3.5 9h11"/></svg>
   </span>
-  <span class="gantt-cell gantt-title" role="{{ 'rowheader' if row.kind == 'heading' else 'gridcell' }}" data-col="1"
-        {% if row.kind != "heading" %}data-edit="{{ row.kind }}" data-placeholder="{{ row.placeholder }}"{% endif %} tabindex="-1">
-    {%- if row.kind == "heading" %}<span class="gantt-text">{{ row.title }}</span>{% else %}<span class="gantt-text placeholder">{{ row.placeholder }}</span>{% endif -%}
+  <span class="gantt-cell gantt-title" role="gridcell" data-col="1"
+        data-edit="{{ row.kind }}" data-placeholder="{{ row.placeholder }}" tabindex="-1">
+    <span class="gantt-text placeholder">{{ row.placeholder }}</span>
   </span>
   <span class="gantt-cell gantt-start" role="gridcell" data-col="2" tabindex="-1"></span>
   <span class="gantt-cell gantt-length" role="gridcell" data-col="3" tabindex="-1"></span>
@@ -94,16 +94,9 @@
   </div>
   {% endfor %}
 
-  {% with row = {"kind": "add-workstream", "key": "add-workstream", "number": add_workstream_row, "placeholder": "Add a workstream…"} %}
-  <div class="gantt-row kind-add-workstream" role="row" data-key="add-workstream" data-kind="add-workstream">
-    {{ pane(row) }}
-    <div class="gantt-weeks" role="presentation">{{ time_cells() }}</div>
-  </div>
-  {% endwith %}
-
   {# Empty numbered rows fill the sheet under the last, as on every ruled sheet. #}
   <div class="gantt-filler" aria-hidden="true">
-    {% for i in range(40) %}<div class="gantt-row"><div class="gantt-pane"><span class="gantt-num">{{ add_workstream_row + 1 + i }}</span><span class="gantt-cell gantt-box"></span><span class="gantt-cell gantt-title"></span><span class="gantt-cell gantt-start"></span><span class="gantt-cell gantt-length"></span><span class="gantt-cell gantt-due"></span></div></div>{% endfor %}
+    {% for i in range(40) %}<div class="gantt-row"><div class="gantt-pane"><span class="gantt-num">{{ last_row + 1 + i }}</span><span class="gantt-cell gantt-box"></span><span class="gantt-cell gantt-title"></span><span class="gantt-cell gantt-start"></span><span class="gantt-cell gantt-length"></span><span class="gantt-cell gantt-due"></span></div></div>{% endfor %}
   </div>
 
   <span class="gantt-now" aria-hidden="true"></span>

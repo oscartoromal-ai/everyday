@@ -324,7 +324,9 @@ def test_the_gantt_page_draws_the_plan(client, db) -> None:
     page = client.get(f"/projects/{project.id}").text
     assert "Beta" in page and 'role="grid"' in page
     assert 'data-edit="title"' in page and "Spec" in page and "Loose end" in page
-    assert "Other tasks" in page and "Add a task to Launch…" in page
+    assert "Add a task to Launch…" in page
+    # The row to add a workstream heads the tasks in none.
+    assert page.index("Add a workstream…") < page.index("Loose end")
     # In weeks, a bar is drawn to the day: twelve days are 12/7 of a column.
     assert 'class="gantt-bar"' in page and "--n: 1.7143" in page
     # A workstream's lane: its tasks' summary, its Due their last due, no dates of its own.

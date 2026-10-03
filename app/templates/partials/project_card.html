@@ -32,14 +32,7 @@
     {% for group in card.groups %}{% include "partials/workstream_group.html" %}{% endfor %}
   </div>
 
-  {% if card.groups %}<h3 class="loose-head">Other tasks</h3>{% endif %}
-  <ul class="task-list" id="project-tasks-{{ p.id }}">
-    {% for row in card.loose_rows %}{% include "partials/task_row.html" %}{% endfor %}
-  </ul>
-  {% with mode = "compose", target = "project-tasks-" ~ p.id, planned_for = none, project_id = p.id, placeholder = "Add a task to " ~ p.name ~ "…" %}
-    {% include "partials/task_sheet.html" %}
-  {% endwith %}
-
+  {# Under the workstreams, the row to add one; the tasks in none follow it. #}
   <details class="expander">
     <summary class="add-inline">Add a workstream</summary>
     <form class="inline-form"
@@ -53,4 +46,11 @@
       <button type="submit" class="btn quiet">Add</button>
     </form>
   </details>
+
+  <ul class="task-list" id="project-tasks-{{ p.id }}">
+    {% for row in card.loose_rows %}{% include "partials/task_row.html" %}{% endfor %}
+  </ul>
+  {% with mode = "compose", target = "project-tasks-" ~ p.id, planned_for = none, project_id = p.id, placeholder = "Add a task to " ~ p.name ~ "…" %}
+    {% include "partials/task_sheet.html" %}
+  {% endwith %}
 </article>

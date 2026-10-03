@@ -27,7 +27,7 @@
 
   const table = () => sheet.querySelector(".gantt-table");
   const rows = () => [...sheet.querySelectorAll(
-    ".gantt-group:not(.is-folded) > .gantt-row, .gantt-group.is-folded > .gantt-row.kind-workstream, .gantt-table > .gantt-row.kind-add-workstream",
+    ".gantt-group:not(.is-folded) > .gantt-row, .gantt-group.is-folded > .gantt-row.kind-workstream",
   )].filter((row) => !(hidingDone && row.matches(".kind-task.is-done")));
   const rowOf = (key) => sheet.querySelector(`.gantt-row[data-key="${CSS.escape(key)}"]`);
   const colCount = () => FROZEN + Number(table().dataset.colCount);
@@ -554,12 +554,12 @@
     redos.length = 0;
   };
 
-  // A workstream deleted: its tasks stay in the project, under Other tasks.
+  // A workstream deleted: its tasks stay in the project, in no workstream.
   const removeWorkstream = async (lane) => {
     const yes = await window.confirmAction({
       title: "Delete workstream?",
       name: lane.dataset.title,
-      detail: "Its tasks stay, under Other tasks.",
+      detail: "Its tasks stay in the project, in no workstream.",
       action: "Delete",
     });
     if (!yes) {
@@ -903,14 +903,14 @@
     const endOf = (group) => ({
       group, before: null, line: group.querySelector(".gantt-row.kind-add"), edge: "top",
     });
-    if (!under || under.dataset.kind === "add-workstream") {
+    if (!under) {
       // Past the last group: its end.
       return y > sheet.querySelector(".gantt-head").getBoundingClientRect().bottom ? endOf(last) : null;
     }
     const group = under.closest(".gantt-group");
     if (under.dataset.kind === "add") return endOf(group);
     if (under.dataset.kind !== "task") {
-      // A workstream's row, or "Other tasks": its group's top.
+      // A workstream's row, or the row to add one: its group's top.
       const first = group.querySelector(".gantt-row.kind-task");
       return { group, before: first, line: under, edge: "bottom" };
     }

@@ -189,24 +189,24 @@ def _workstream_row(
 
 def gantt_ctx(db: Session, project: Project, today: date, scale: str = "weeks") -> dict:
     """The Gantt sheet in its scale: its columns, and its groups of rows:
-    each workstream's row, its tasks and a row to write one more; then the
-    other tasks (under a heading when there are workstreams), and a row to
-    write a workstream."""
+    each workstream's row, its tasks and a row to write one more; then a
+    row to write a workstream, the tasks in none under it, and a row to
+    write one more of those."""
     scale = scale if scale in SCALES else SCALES[0]
     groups = gantt_svc.groups(db, project, today)
     tasks = [t for g in groups for t in g.tasks]
     dates = [d for t in tasks for d in (t.starts_on, t.due) if d]
     first, weeks = _week_range(dates, today)
     place = _Place(first, scale)
-    has_workstreams = len(groups) > 1
     out = []
     for group in groups:
         m = group.workstream
         rows = []
         if m is not None:
             rows.append(_workstream_row(m, group.tasks, place, scale, today))
-        elif has_workstreams:
-            rows.append({"kind": "heading", "key": "other", "title": "Other tasks"})
+        else:
+            rows.append({"kind": "add-workstream", "key": "add-workstream",
+                         "placeholder": "Add a workstream…"})
         rows += [_task_row(t, place, scale, today, indent=m is not None) for t in group.tasks]
         rows.append({
             "kind": "add",
@@ -237,7 +237,7 @@ def gantt_ctx(db: Session, project: Project, today: date, scale: str = "weeks") 
         # The now-line: the middle of today.
         "now": place.middle(today),
         "groups": out,
-        "add_workstream_row": number + 1,
+        "last_row": number,
         "frozen": FROZEN,
         "length_head": ("Wks", "Weeks") if scale == "weeks" else ("Days", "Days"),
         "task_count": len(tasks),
