@@ -9,10 +9,10 @@ background jobs all flush through here. Who is acting is the session's
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import event, insert, inspect, select
+from sqlalchemy import event, insert, inspect, select, update
 from sqlalchemy.orm import Session
 
 from app.models import Project, Task, TaskRevision, Workstream
@@ -33,6 +33,11 @@ FIELDS = (
 
 ACTORS = ("oscar", "claude", "system")
 
+# A description written over a while (a task's page saves as it is written)
+# is one step: edits to it alone by the same hand, each within this long of
+# the last, fold into the step they continue.
+WRITING_SPELL = timedelta(minutes=10)
+
 
 def _plain(value: Any) -> Any:
     if isinstance(value, date):
@@ -46,9 +51,41 @@ def snapshot(task: Task) -> dict[str, Any]:
     return {name: _plain(getattr(task, name)) for name in FIELDS}
 
 
-def _changed(task: Task) -> bool:
+def _moved(task: Task) -> set[str]:
     state = inspect(task)
-    return any(state.attrs[name].history.has_changes() for name in FIELDS)
+    return {name for name in FIELDS if state.attrs[name].history.has_changes()}
+
+
+def _apart_from_notes(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    """The two snapshots differ in the description, if at all."""
+    return all(a.get(f) == b.get(f) for f in FIELDS if f != "notes")
+
+
+def _continues(session: Session, task: Task, actor: str, now: datetime) -> bool:
+    """A description edit folded into the step it continues: the task's last,
+    by the same hand within WRITING_SPELL, itself an edit to the description
+    alone. True when it was."""
+    last_two = session.connection().execute(
+        select(TaskRevision.id, TaskRevision.at, TaskRevision.change,
+               TaskRevision.actor, TaskRevision.snapshot)
+        .where(TaskRevision.task_id == task.id)
+        .order_by(TaskRevision.at.desc(), TaskRevision.id.desc())
+        .limit(2)
+    ).all()
+    if len(last_two) < 2:
+        return False
+    last, before = last_two
+    after = snapshot(task)
+    if not (
+        last.change == "updated" and last.actor == actor and now - last.at <= WRITING_SPELL
+        and _apart_from_notes(last.snapshot, after)
+        and _apart_from_notes(before.snapshot, last.snapshot)
+    ):
+        return False
+    session.connection().execute(
+        update(TaskRevision).where(TaskRevision.id == last.id).values(at=now, snapshot=after)
+    )
+    return True
 
 
 @event.listens_for(Session, "after_flush")
@@ -60,7 +97,12 @@ def _record(session: Session, _flush_context: Any) -> None:
         if isinstance(obj, Task):
             rows.append((obj, "created"))
     for obj in session.dirty:
-        if isinstance(obj, Task) and _changed(obj):
+        if not isinstance(obj, Task):
+            continue
+        moved = _moved(obj)
+        if moved == {"notes"} and _continues(session, obj, actor, now):
+            continue
+        if moved:
             rows.append((obj, "updated"))
     for obj in session.deleted:
         if isinstance(obj, Task):

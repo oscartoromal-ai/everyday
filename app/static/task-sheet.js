@@ -18,6 +18,9 @@
    Compose adds with Ctrl+Enter or Add task. Edit has no Save: the sheet
    saves when focus leaves it (a click elsewhere, Tab away, Esc or
    Ctrl+Enter), and goes back to its row untouched when nothing changed.
+   A task's own page (data-sheet="page", task.html) saves as it is
+   written: a moment after the writing pauses, as a field is chosen, and
+   as the page is left; Ctrl+S, Ctrl+Enter or Esc save at once.
    The description is notes-editor.js. Listeners sit on document, so they
    survive htmx swaps. */
 
@@ -29,6 +32,8 @@
   const notesEditorOf = (form) => form.querySelector("[data-notes-editor]");
   const isEdit = (form) => form.dataset.sheet === "edit";
   const isProps = (form) => form.dataset.sheet === "props";
+  const isPage = (form) => form.dataset.sheet === "page";
+  const isCompose = (form) => form.dataset.sheet === "compose";
   const field = (form, name) => form.elements[name];
   const valueOf = (form, name) => field(form, name)?.value ?? "";
   const titleText = (form) => titleOf(form).textContent.replace(/\s+/g, " ").trim();
@@ -332,7 +337,7 @@
     if (title.textContent === "" && title.firstChild) title.replaceChildren();
     title.classList.toggle("is-empty", title.textContent === "");
     field(form, "title").value = titleText(form);
-    if (!isEdit(form) && (titleText(form) || hasNotes(form))) form.classList.add("composing");
+    if (isCompose(form) && (titleText(form) || hasNotes(form))) form.classList.add("composing");
   };
 
   document.addEventListener("beforeinput", (e) => {
@@ -647,6 +652,14 @@
     }
     if (inTitle && e.key !== "Shift") converted = e.key === "Backspace" ? converted : null;
 
+    if (isPage(form) && (SUBMIT(e) || e.key === "Escape" || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s"))) {
+      // Saved now; Esc also steps out of the writing, so the page's keys work again.
+      e.preventDefault();
+      pageSave(form, { now: true });
+      if (e.key === "Escape") e.target.blur();
+      return;
+    }
+
     if (SUBMIT(e)) {
       e.preventDefault();
       if (isEdit(form)) save(form, { keyboard: true });
@@ -679,7 +692,7 @@
     if (inTitle && e.key === "Enter") {
       // Enter moves on to the description, like a heading's next line.
       e.preventDefault();
-      if (titleText(form) || isEdit(form)) {
+      if (titleText(form) || !isCompose(form)) {
         form.classList.add("composing");
         window.NotesEditor.focusEnd(notesEditorOf(form));
       }
@@ -694,6 +707,13 @@
     // yet would be submitted by the browser itself, leaving the page. The
     // submit waits, and goes to the sheet that is live by then (a composer's
     // draft moves to its re-rendered twin).
+    if (isPage(form)) {
+      // A page saves itself (pageSave), never by the browser's submit.
+      e.preventDefault();
+      e.stopPropagation();
+      pageSave(form, { now: true });
+      return;
+    }
     if (form.dataset.ready == null) {
       e.preventDefault();
       e.stopPropagation();
@@ -725,12 +745,12 @@
   // page under the pointer between mousedown and mouseup, losing that click.
   document.addEventListener("focusin", (e) => {
     const form = sheetOf(e.target);
-    if (form && !isEdit(form) && !isProps(form) && (titleText(form) || hasNotes(form))) form.classList.add("composing");
+    if (form && isCompose(form) && (titleText(form) || hasNotes(form))) form.classList.add("composing");
   });
 
   document.addEventListener("focusout", (e) => {
     const form = sheetOf(e.target);
-    if (!form || isEdit(form) || isProps(form) || form.contains(e.relatedTarget) || menu?.form === form) return;
+    if (!form || !isCompose(form) || form.contains(e.relatedTarget) || menu?.form === form) return;
     // A started task stays open; only an untouched composer folds away.
     if (!titleText(form) && !hasNotes(form)) form.classList.remove("composing");
   });
@@ -844,6 +864,100 @@
     setField(form, "status", e.target.checked ? "done" : "todo");
   });
 
+  /* ---- a task's page: saved as it is written ---- */
+
+  const PAGE_PAUSE_MS = 900;
+  const pageState = () => document.querySelector("[data-page-state]");
+  const sayState = (text) => {
+    const el = pageState();
+    if (el) el.textContent = text;
+  };
+
+  // A change waits for the writing to pause (`paused`). `now`: saved at
+  // once, the title's trailing words taken as fields, as the edit sheet's
+  // save takes them; `leaving`: the page is going, so the request must
+  // outlive it. Saves go one at a time, and a save asked for while one is
+  // in flight follows it with what is newest.
+  // The header says "Saved" once one is, nothing while there is writing
+  // still to save, and "Not saved" if one fails.
+  const pageSave = (form, { now = false, leaving = false, paused = false } = {}) => {
+    clearTimeout(form._pause);
+    if (form._deleted) return;
+    if (!now && !leaving && !paused) {
+      form._pause = setTimeout(() => pageSave(form, { paused: true }), PAGE_PAUSE_MS);
+      // "Saved" never stands over words that are not.
+      if (snapshot(form) !== form._saved) sayState("");
+      return;
+    }
+    if (now) {
+      // Its fields, set as the words are taken, are this same save.
+      if (form._taking) return;
+      form._taking = true;
+      try { convertTrailing(form); } finally { form._taking = false; }
+    }
+    if (!titleText(form)) {
+      if (!now) return; // a title being rewritten is not saved empty
+      setTitle(form, titleOf(form).dataset.original);
+    }
+    const body = snapshot(form);
+    if (body === form._saved) return;
+    if (form._sending && !leaving) {
+      form._again = true;
+      return;
+    }
+    form._sending = true;
+    fetch(`/ui/tasks/${form.dataset.taskId}/page`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRF": window.csrfToken() },
+      body,
+      keepalive: leaving,
+    }).then(async (res) => {
+      if (!res.ok) {
+        const answer = await res.json().catch(() => ({}));
+        throw new Error(typeof answer.detail === "string" ? answer.detail : "");
+      }
+      form._saved = body;
+      titleOf(form).dataset.original = titleText(form);
+      document.title = `${titleText(form)} · Personal Calendar`;
+      sayState("Saved");
+    }).catch((err) => {
+      sayState("Not saved");
+      window.toast(err.message || "Could not save the task. Try again?");
+    }).finally(() => {
+      form._sending = false;
+      if (form._again) {
+        form._again = false;
+        pageSave(form, { paused: true });
+      }
+    });
+  };
+
+  const initPage = (form) => {
+    form._saved = snapshot(form);
+    // Whatever writes in it: words, a sub-task's box; a field chosen, or
+    // the box ticked, is saved at once.
+    const changed = () => pageSave(form);
+    for (const type of ["input", "keyup", "click", "paste", "cut", "drop"]) {
+      form.addEventListener(type, changed);
+    }
+    form.addEventListener("sheet:field", () => pageSave(form, { now: true }));
+    // The title's trailing words become fields as it is left.
+    form.addEventListener("focusout", (e) => {
+      if (e.target === titleOf(form)) pageSave(form, { now: true });
+    });
+    // Deleted, it goes without saving what it held.
+    form.addEventListener("htmx:beforeRequest", (e) => {
+      if (e.detail.elt.matches(".task-delete")) form._deleted = true;
+    });
+    const leave = () => pageSave(form, { leaving: true });
+    window.addEventListener("pagehide", leave);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") leave();
+    });
+    // A new task, still to be written out, opens on its description.
+    if (!hasNotes(form)) window.NotesEditor.focusEnd(notesEditorOf(form));
+  };
+
   /* ---- ready: labels drawn, an opened editor takes the caret ---- */
 
   const init = (form) => {
@@ -857,6 +971,10 @@
     }
     syncTitle(form);
     draw(form);
+    if (isPage(form)) {
+      initPage(form);
+      return;
+    }
     if (!isEdit(form)) {
       // While its add is in flight, what it holds is being saved, not a draft.
       form.addEventListener("htmx:beforeRequest", () => { form.dataset.sending = ""; });

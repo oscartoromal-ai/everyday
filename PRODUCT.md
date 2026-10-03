@@ -18,6 +18,7 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 ## Core objects (v1)
 
 - Tasks planned on Projects, the one screen for tasks (Oscar's call on 2026-10-02: those in no project first, then each project's), worked from Today, with lifecycle todo / in_progress / blocked / needs_review / done / cancelled, and a history of every change.
+  Each task is an object with its own page, for one too long for its row: its title, its fields and its description written at length, saved as it is written, opened from Calendar's sheet for now (Oscar's call on 2026-10-03).
 - Today as a notepad: plain notes for each day, beside the day's timeline (for now; the notebook that turned lines into tasks is set aside), under a glance at the day (what is on now and next, and readiness, sleep and body battery from Garmin), with the day's due and planned tasks offered to write in.
 - "Delegated to Claude" list section with status chips: queued, running, needs review.
 - Projects with workstreams (lanes of their work, computed progress), each opening as a Gantt chart: a spreadsheet of its tasks as bars over weeks or days, a bar running from the task's start day to its due.

@@ -5,10 +5,11 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 
 from app.db import DbSession
+from app.models import Task
 from app.ui.calendar_view import (
     VIEWS,
     calendar_nav,
@@ -18,7 +19,14 @@ from app.ui.calendar_view import (
     view_start,
 )
 from app.ui.day_sheet_view import day_sheet_ctx
-from app.ui.views import day_glance_ctx, day_page_ctx, me_ctx, projects_page_ctx, templates
+from app.ui.views import (
+    day_glance_ctx,
+    day_page_ctx,
+    me_ctx,
+    projects_page_ctx,
+    task_page_ctx,
+    templates,
+)
 
 router = APIRouter(include_in_schema=False)
 
@@ -174,3 +182,15 @@ def projects_page(request: Request, db: DbSession):
         "projects.html",
         {**_base(request, "projects"), **projects_page_ctx(db, datetime.now())},
     )
+
+
+@router.get("/tasks/{task_id}")
+def task_page(request: Request, db: DbSession, task_id: int, back: str = ""):
+    """A task on its own page, for one too long for its row: its title, its
+    fields and its description written at length. It goes back to the page
+    it was opened from."""
+    task = db.get(Task, task_id)
+    if task is None:
+        raise HTTPException(404, "No such task: it may have been deleted")
+    ctx = task_page_ctx(db, task, date.today(), back or request.headers.get("referer", ""))
+    return templates.TemplateResponse(request, "task.html", {**_base(request, "task"), **ctx})

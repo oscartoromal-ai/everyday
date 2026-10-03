@@ -18,6 +18,7 @@ from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
 from app.ui.calendar_view import event_card_ctx
 from app.ui.views import (
+    back_link,
     me_ctx,
     project_card_ctx,
     row_ctx,
@@ -165,6 +166,39 @@ def task_row(request: Request, db: DbSession, task_id: int):
     return _row_response(request, db, task_id)
 
 
+def _save_task(
+    db,  # noqa: ANN001
+    task_id: int,
+    *,
+    title: str,
+    status: TaskStatus,
+    owner: TaskOwner,
+    notes: str,
+    project_id: str,
+    workstream_id: str,
+    planned_for: str,
+    due: str,
+    repeat: str,
+    estimate: str,
+) -> None:
+    """A task as its sheet (or its page) holds it."""
+    task = tasks_svc.update_task(
+        db,
+        task_id,
+        title=title,
+        notes=notes,
+        status=status,
+        owner=owner,
+        project_id=int(project_id) if project_id else None,
+        workstream_id=int(workstream_id) if workstream_id else None,
+        planned_for=date.fromisoformat(planned_for) if planned_for else None,
+        due=date.fromisoformat(due) if due else None,
+        estimate_minutes=_estimate(estimate),
+    )
+    _apply_task_repeat(db, task, repeat)
+    db.commit()
+
+
 @router.post("/tasks/{task_id}")
 def save_task(
     request: Request,
@@ -181,21 +215,11 @@ def save_task(
     repeat: Annotated[str, Form()] = "none",
     estimate: Annotated[str, Form()] = "",
 ):
-    task = tasks_svc.update_task(
-        db,
-        task_id,
-        title=title,
-        notes=notes,
-        status=status,
-        owner=owner,
-        project_id=int(project_id) if project_id else None,
-        workstream_id=int(workstream_id) if workstream_id else None,
-        planned_for=date.fromisoformat(planned_for) if planned_for else None,
-        due=date.fromisoformat(due) if due else None,
-        estimate_minutes=_estimate(estimate),
+    _save_task(
+        db, task_id, title=title, status=status, owner=owner, notes=notes,
+        project_id=project_id, workstream_id=workstream_id, planned_for=planned_for,
+        due=due, repeat=repeat, estimate=estimate,
     )
-    _apply_task_repeat(db, task, repeat)
-    db.commit()
     response = _row_response(request, db, task_id)
     # Its day or estimate may have changed: lists grouped or filtered by day,
     # and the days' loads on the time grid, re-render.
@@ -236,11 +260,39 @@ def _apply_task_repeat(db, task, repeat: str) -> None:  # noqa: ANN001
         recurrence_svc.materialize_template(db, template, today)
 
 
+@router.post("/tasks/{task_id}/page", status_code=204)
+def save_task_page(
+    db: DbSession,
+    task_id: int,
+    title: Annotated[str, Form()],
+    status: Annotated[TaskStatus, Form()],
+    owner: Annotated[TaskOwner, Form()],
+    notes: Annotated[str, Form()] = "",
+    project_id: Annotated[str, Form()] = "",
+    workstream_id: Annotated[str, Form()] = "",
+    planned_for: Annotated[str, Form()] = "",
+    due: Annotated[str, Form()] = "",
+    repeat: Annotated[str, Form()] = "none",
+    estimate: Annotated[str, Form()] = "",
+) -> None:
+    """A task's page, saved as it is written (task-sheet.js): nothing to draw
+    again, the page already shows what it holds."""
+    _save_task(
+        db, task_id, title=title, status=status, owner=owner, notes=notes,
+        project_id=project_id, workstream_id=workstream_id, planned_for=planned_for,
+        due=due, repeat=repeat, estimate=estimate,
+    )
+
+
 @router.post("/tasks/{task_id}/delete")
-def delete_task(db: DbSession, task_id: int):
+def delete_task(db: DbSession, task_id: int, back: Annotated[str, Form()] = ""):
     tasks_svc.delete_task(db, task_id)
     db.commit()
     response = HTMLResponse("")
+    if back:
+        # Deleted from its own page: back to where it was opened from.
+        response.headers["HX-Redirect"] = back_link(back)["href"]
+        return response
     # The days' loads on the time grid (and on Today, the list and its open
     # count) re-render from the server.
     response.headers["HX-Trigger"] = "calendar:refresh"
@@ -570,7 +622,8 @@ async def day_sheet_edit(request: Request, db: DbSession, start: date):
         {"op": "task", "day", "title"}            a task planned for the day
         {"op": "toggle", "task"}                  a task ticked, or not
     applied in order, as the day's notes and tasks would have them; answers
-    the sheet drawn again."""
+    the sheet drawn again, naming the last task written (X-Task-Created) for
+    the sheet to open its page."""
     from app.services import notebook as notebook_svc
     from app.ui.day_sheet_view import day_sheet_ctx
 
@@ -578,6 +631,7 @@ async def day_sheet_edit(request: Request, db: DbSession, start: date):
     ops = body.get("ops") if isinstance(body, dict) else None
     if not isinstance(ops, list):
         raise DomainError("Expected a list of ops")
+    created = None
     for op in ops:
         if not isinstance(op, dict):
             raise DomainError(f"Not an op: {op!r}")
@@ -603,15 +657,18 @@ async def day_sheet_edit(request: Request, db: DbSession, start: date):
         elif kind == "task":
             title = str(op.get("title", "")).strip()
             if title:
-                tasks_svc.create_task(db, title=title, planned_for=day)
+                created = tasks_svc.create_task(db, title=title, planned_for=day)
         else:
             raise DomainError(f"Unknown op: {kind!r}")
     db.commit()
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request,
         "partials/day_sheet.html",
         {"request": request, "sheet": day_sheet_ctx(db, start, date.today())},
     )
+    if created is not None:
+        response.headers["X-Task-Created"] = str(created.id)
+    return response
 
 
 @router.get("/tasks/{task_id}/history")

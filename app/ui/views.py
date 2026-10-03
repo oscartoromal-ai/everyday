@@ -570,3 +570,37 @@ def me_ctx(db: Session, today: date) -> dict[str, Any]:
         "goal_words": GOAL_WORDS,
         "today": today,
     }
+
+
+def back_link(url: str, today: date | None = None) -> dict[str, str]:
+    """Where a task's page goes back to: the page it was opened from (its
+    path, never another site), named; Projects, the screen for tasks, when
+    that is not one of the app's pages."""
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(url or "")
+    path = parts.path
+    href = path + (f"?{parts.query}" if parts.query else "")
+    segments = path.strip("/").split("/")
+    label = None
+    if path in ("/", "/today"):
+        label = "Today"
+    elif path == "/calendar":
+        label = "Calendar"
+    elif path == "/projects":
+        label = "Projects"
+    elif segments[0] == "projects" and len(segments) == 2 and segments[1].isdigit():
+        label = "Gantt"
+    elif segments[0] == "day" and len(segments) == 2:
+        try:
+            label = upper_first(short_date(date.fromisoformat(segments[1]), today or date.today()))
+        except ValueError:
+            label = None
+    if label is None:
+        return {"href": "/projects", "label": "Projects"}
+    return {"href": href, "label": label}
+
+
+def task_page_ctx(db: Session, task: Task, today: date, back: str) -> dict[str, Any]:
+    """A task's own page: its sheet in full, for a task too long for a row."""
+    return {"sheet": sheet_ctx(db, task, today), "back": back_link(back, today)}

@@ -312,10 +312,17 @@ The columns: a stay item's 176px (accommodation's, a checkbox, 120px), Plan the 
 Rows are 36px (28px compact) and grow with their plan; cells carry hairline rules both ways, each week's Monday is ruled in mist, and weekends are tinted `--ink-tint-faint`.
 A stay's cell is its value in ink; accommodation's is a centred 14px box, steel on a day with no stay, edged amber while its stay has it unsorted (as under Today's date), and ink with a paper tick once sorted.
 A day that folds has a 12px steel chevron before its date (ink on hover, turned right while folded; the Day header's folds them all); folded, its plan is its first line, cut short with an ellipsis, then "+N" in 12px/500 pewter.
-Plan lists the day's tasks, each a 14px box in steel (`--ok-fg` once done, its title pewter and struck through) and its title in ink, a warn "due" badge after a deadline still open, and then the day's own events, the time in 12px pewter figures before the title in graphite.
+Plan lists the day's tasks, each a 14px box in steel (`--ok-fg` once done, its title pewter and struck through) and its title in ink, a link to its page underlined on hover, a warn "due" badge after a deadline still open, and then the day's own events, the time in 12px pewter figures before the title in graphite.
 A habit done fills its cell with `--hue-4` at 30%, the habits' green, with a 16px tick in it; skipped is a 10px steel box, missed a 10px steel dash, and the cell's tooltip says which, with the day's note.
 A habit's cells being painted fill (or empty) as the drag passes, before the sheet is drawn again.
 The cursor, the range and a cell being written are the Gantt's: a 2px `--spark-deep` ring (a 1px steel one while the sheet does not have focus), `--spark-tint`, the words 500 ink on the cell's line.
+
+**A task's page** (`task.html`, the task sheet in its page mode).
+At the page's 800px: a header of a pewter "‹ Calendar" (where it was opened from) and, at its right, a 12px pewter "Saved" once a save lands ("Not saved" and a toast if one fails), nothing while the writing is unsaved, so the page stays still as it is written.
+Then the sheet with no row around it: the 18px box beside the title, the title as the page's heading (24px/600 display, 32px lines, wrapping), and under it, aligned with the title's words, every field on one line as the sheet's end line draws them (the four field icons, project, owner, status once it applies, History, and the bin at the line's right), above a hairline.
+History opens under that line, above another hairline.
+The description follows 16px below at reading size, 16px on 1.6 lines in graphite, at least 40% of the window tall and as long as it runs: the page scrolls, never the editor.
+A new task opens with the caret in its empty description, whose placeholder asks for the context, the plan and what done looks like.
 
 **Nudges.** A glass card of rows with graphite icons, a secondary "Open" action and a steel dismiss control.
 

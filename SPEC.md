@@ -39,6 +39,10 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   The app opens on Today (`/` goes there); dates are planned on Today and each project's Gantt.
 - **Done folds away**: finished tasks leave their lists for a collapsed Done fold, at the foot of Projects (the last 14 days), where unticking one sends it back.
 - **Sub-tasks** live in their task's description and tick off on its row; workstreams hold tasks, never sub-tasks.
+- **A task is an object with its own page** (Oscar's call on 2026-10-03: "I'm writing very long tasks"): `/tasks/<id>` opens a task on a screen of its own, for one too complex for its row.
+  The page is the task sheet as a document: the title as its heading with its box, every field on one line under it (do date, due, repeat, estimate, project, owner, status, History and the bin), then the description at length.
+  It saves as it is written (a moment after the writing pauses, as a field is chosen, and as the page is left; Ctrl+S, Ctrl+Enter or Esc at once), and goes back to the page it was opened from, named ("‹ Calendar"), or Projects; deleted, it goes back there too.
+  It opens from Calendar's sheet first (a Plan cell's task title, or Ctrl+Enter); the other places tasks are listed follow.
 - **The command menu** (Oscar's call on 2026-10-02, after Akiflow and Notion Calendar): Ctrl+K (or Cmd+K) anywhere, or Search in the rail (the phone's tab bar), is one line to find and go.
   It finds tasks (open first, by their words or their description), projects, events (a series once, at its meeting nearest now) and the days' notes; a task found opens Projects with the cursor on it, a project its Gantt, an event its day on Calendar with its card open, and notes their day.
   A day's words ("friday", "tomorrow", "12 oct", "2026-10-12") go to that day on Calendar or to its notes; every page is there by name, and the things to do from anywhere (a new task, a new event, the theme, compact rows, the keys).
@@ -98,6 +102,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   A stay's cell is its item's value; writing in it writes the day's stay as "/stay" in its notes would (a day with none gets one at its page's top, with the items the last stay had).
   Accommodation is a checkbox (Oscar's call on 2026-10-03, as his Excel's AC column): its box alone, ticked once sorted (edged amber while a stay has it unsorted), ticked as a habit is, its words kept in the notes and its tooltip.
   Plan is the day's tasks, Oscar's planned for it (done ones struck through) and then those still open due on it ("due"), each ticked from its box, and then his own events, all day first (work meetings stay on the grid); writing in it adds a task planned for the day.
+  A task's title opens its page, as Ctrl+Enter on a Plan cell opens its first task's; writing a task, Ctrl+Enter writes it and opens it, to be written out there (Oscar's call on 2026-10-03).
   A habit's cell is filled green with a tick on a day it was done, an empty box when skipped and a dash when missed; a click or Space ticks it (written in the day's notes after its habits, as "/habit name" would be) or unticks it (its rows leave the notes), and a drag down its column (or accommodation's) paints every day it crosses as the first was turned.
   A day whose plan runs over a line folds to its first (Oscar's call on 2026-10-03), the line saying how many more ("+5"): its chevron before the date, or Alt+Left and Right on it (or a range of days); Alt with a chevron, or the Day header's, folds or opens them all, and folded days stay so in that browser.
   It is worked as the Gantt is: a cell cursor, a range with Shift or a drag, typing writes over a cell, Enter writes in it and keeps it going down, Esc lets it go; Ctrl+D fills the range from its first row (one cell, from the row above), and Delete clears the range's stays and unticks its habits.
@@ -157,6 +162,7 @@ starts_on always comes with a due, never after it: its span is its start day to 
 **TaskRevision**: one step in a task's history: when, who (oscar, claude or system), the kind of change (created, updated, deleted), and the task's fields as they stood after it.
 Recorded by the ORM on every flush that touches a task, whatever path made the change, and kept after the task is deleted; the history started on 2026-09-26 with a baseline of every task as it stood.
 It is shown under the task's sheet and read by Claude through `get_task_history`.
+A description written over a while is one step: an edit to the description alone, by the same hand within ten minutes of that task's last step, itself such an edit, folds into it, so a page saving as it is written leaves one "Description edited".
 
 **NotebookPage**: one per day; its blocks in the order they were written and a version (text, tasks by reference, reflections, habits, and stays, whose items are read from their "- [ ] name: value" lines). Today's notepad writes it as one text block; a page written in the notebook's time (with task references and reflections) reads back as text.
 A save names the version it was made from, and a save from an older copy is refused, so two windows never silently overwrite each other; the page asks which to keep.

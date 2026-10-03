@@ -5,7 +5,7 @@
    (data-col); day-sheet.js moves a cursor over them and writes in them. A
    stay item that is a checkbox (accommodation) is its box alone, ticked once
    sorted. A day whose plan runs over a line folds to its first (its
-   chevron), and stays so in that browser. #}
+   chevron), and stays so in that browser. A task's title opens its page. #}
 {% macro chevron() %}<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>{% endmacro %}
 {% set sheet_cols = 1 + sheet.columns | length + 1 + sheet.habits | length %}
 <div class="day-sheet" id="day-sheet" data-start="{{ sheet.start.isoformat() }}" data-cols="{{ sheet_cols }}">
@@ -61,7 +61,7 @@
             {% for t in row.tasks %}
             <li class="ds-task{% if t.done %} is-done{% endif %}">
               <span class="ds-check" role="checkbox" aria-checked="{{ 'true' if t.done else 'false' }}" data-task="{{ t.id }}" aria-label="{{ t.title }}"></span>
-              <span class="ds-title">{{ t.title }}</span>{% if t.due %}<span class="ds-due">due</span>{% endif %}{% if loop.first %}{{ more }}{% endif %}
+              <a class="ds-title" href="/tasks/{{ t.id }}" tabindex="-1" title="Open the task">{{ t.title }}</a>{% if t.due %}<span class="ds-due">due</span>{% endif %}{% if loop.first %}{{ more }}{% endif %}
             </li>
             {% endfor %}
             {% for e in row.events %}
