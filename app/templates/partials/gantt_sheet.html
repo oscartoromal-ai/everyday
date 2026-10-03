@@ -4,14 +4,16 @@
    then a cell per column of time, with its bar laid over them. Cells are
    the grid's, in columns counted from the box (data-col); a cell that can
    be written names what it writes (data-edit). A task's number is the
-   handle that drags its row to another place or workstream. #}
+   handle that drags its row to another place or workstream; its Task cell
+   ends in its bin. #}
+{% macro bin() %}<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>{% endmacro %}
 {% macro pane(row) -%}
 <div class="gantt-pane" role="presentation">
   {%- if row.kind == "task" %}
   <span class="gantt-num" data-row-grip aria-hidden="true" title="Drag to move the row">{{ row.number }}</span>
   <span class="gantt-cell gantt-box" role="gridcell" data-col="0" data-toggle tabindex="-1"
         aria-label="{{ 'Done' if row.done else 'Not done' }}"><span class="gantt-check" aria-hidden="true"></span></span>
-  <span class="gantt-cell gantt-title" role="rowheader" data-col="1" data-edit="title" tabindex="-1"><span class="gantt-text">{{ row.title }}</span></span>
+  <span class="gantt-cell gantt-title" role="rowheader" data-col="1" data-edit="title" tabindex="-1"><span class="gantt-text">{{ row.title }}</span><button type="button" class="gantt-delete" data-delete-task tabindex="-1" title="Delete task" aria-label="Delete “{{ row.title }}”">{{ bin() }}</button></span>
   <span class="gantt-cell gantt-start" role="gridcell" data-col="2" data-edit="start" tabindex="-1"{% if row.start_title %} title="Starts {{ row.start_title }}"{% endif %}>{{ row.start_label }}</span>
   <span class="gantt-cell gantt-length" role="gridcell" data-col="3" data-edit="length" tabindex="-1">{{ row.length }}</span>
   <span class="gantt-cell gantt-due" role="gridcell" data-col="4" data-edit="due" tabindex="-1">

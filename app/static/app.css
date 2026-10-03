@@ -2181,6 +2181,20 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-wk:focus, .gantt-wk:focus-visible { box-shadow: none; }
 .gantt-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .gantt-text.placeholder { color: var(--pewter); font-weight: 400; }
+/* a task's bin at its Task cell's end: quiet until the row is hovered (always on touch), err-tinted on hover */
+.gantt-delete {
+  flex: none; display: grid; place-content: center;
+  width: 20px; height: 20px; margin: 0 -4px 0 auto; padding: 0; border: none; background: none;
+  border-radius: var(--r-tag); color: var(--steel); cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.gantt-delete svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.gantt-row:hover .gantt-delete { opacity: 1; }
+.gantt-delete:hover { color: var(--err-fg); background: var(--err-bg); }
+.gantt-delete:focus-visible { box-shadow: none; }
+.gantt-sheet.is-moving-row .gantt-delete, .gantt-cell.is-editing .gantt-delete { display: none; }
+@media (hover: none) { .gantt-delete { opacity: 1; } }
 .gantt-row.indent .gantt-title { padding-left: calc(var(--s-3) + var(--s-6)); }
 .gantt-row.kind-workstream .gantt-title { font-weight: 600; }
 .gantt-cell.derived { color: var(--pewter); cursor: default; }
@@ -2344,6 +2358,19 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-title .gantt-input { padding-left: var(--s-3); }
 .gantt-row.indent .gantt-title .gantt-input { padding-left: calc(var(--s-3) + var(--s-6)); }
 .gantt-input::placeholder { color: var(--pewter); font-weight: 400; }
+/* words (a title, a name): wrapping, the row growing as they run on, so
+   all of them stay in sight; one line is the row's own height */
+.gantt-row:has(.gantt-input.is-words) { height: auto; min-height: var(--pad-line); }
+.gantt-row:has(.gantt-input.is-words) .gantt-cell { height: auto; }
+.gantt-row:has(.gantt-input.is-words) .gantt-num { display: flex; align-items: center; justify-content: flex-end; }
+.gantt-cell:has(> .gantt-input.is-words) > :is(.gantt-text, .gantt-count) { display: none; }
+.gantt-input.is-words {
+  position: relative; inset: auto; flex: 1; align-self: stretch; height: auto; min-height: calc(var(--pad-line) - 1px);
+  margin: 0; padding: calc((var(--pad-line) - 1px - var(--pad-text)) / 2) 0;
+  line-height: var(--pad-text); resize: none; overflow: hidden; field-sizing: content;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.gantt-title .gantt-input.is-words, .gantt-row.indent .gantt-title .gantt-input.is-words { padding-left: 0; }
 
 /* clipped, not hidden: a scroll container of its own would hold its panes still */
 .gantt-filler { flex: 1 1 0; min-height: 0; overflow: clip; }

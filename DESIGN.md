@@ -308,7 +308,8 @@ Due soon (three days) is a warn badge in Due.
 The now-line is the signal, 2px, down through the weeks at today, glowing at night.
 The cursor is a 2px `--spark-deep` ring on its cell (glowing at night), over any bar, with the row's number in ink 600 and its week's head on the fog; while the sheet does not have focus it is a 1px steel ring.
 A range is `--spark-tint`; a bar being drawn is that tint edged top and bottom in the spark, as a calendar drag's preview.
-A cell being written takes its words on its own line (500 ink, on the paper), the ring kept.
+A cell being written takes its words on its own line (500 ink, on the paper), the ring kept; a title or a name wraps, its row growing with the words (its number, box and dates centred in it), scrolled into sight as it grows.
+A task's Task cell ends in a 14px steel trash bin, hidden until its row is hovered (always shown on touch) and err-tinted on hover, as Calendar's sheet's; it opens the same "Delete task?" dialog.
 A task's row number is its grip (a steel six-dot mark beside it on hover): dragged, the row fades to 40%, a 2px spark line (glowing at night) marks where it would land, and the group it would land in takes `--spark-deep` rules.
 On phones the Task column narrows to 150px and Start, Wks and Due fold away; the bars are still drawn and dragged.
 
@@ -401,6 +402,7 @@ Ctrl+arrows go as a spreadsheet's do: from a filled cell along its run to the ru
 Typing writes over a cell and the arrows then leave it (Excel's Enter mode); Enter, F2 or a double-click write in it with the arrows moving in the words; Enter keeps it and goes down, Tab across, Esc drops it, and a click elsewhere keeps it.
 A value the server refuses is said in the toast and the cell opens again on the words.
 Every printable key is the sheet's while it has focus (the page's number and letter keys do not fire), except ? for the keys.
+Delete on Task, or a task's bin, deletes the tasks held after asking; elsewhere Delete clears the bars or dues held.
 Undo keeps the rows' fields as they were before each edit (taken when its turn in the queue comes) and redoes to how they were after; a new task undoes by deleting it, and a deleted task cannot come back, so deleting clears the history.
 The pointer: a click moves the cursor (Shift holds a range), a drag over a task's time draws its bar there, a bar's middle drags it and its grips stretch it, a tick drags its due, all by whole columns (weeks, or days), previewed as they move; a row dragged by its number drops before the row it is over (above its middle) or after it, at a workstream's top over its row, and at a group's end over its add row, and undoes back where it was.
 Weeks / Days (or V outside the sheet's cells) fetches the sheet in the other scale and keeps the same days in view and the cursor on its day's column; it is remembered (a `gantt_scale` cookie), and edits answer in the scale they were made in.

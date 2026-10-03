@@ -1,12 +1,14 @@
 """A project's Gantt in a real browser, worked as a spreadsheet: writing a
 task and its weeks from the keyboard, a refused week, drawing and dragging
-bars, Alt moves, rows moved into a workstream, and undo. The `live`, `page`
-and `app_db` fixtures are conftest.py's."""
+bars, Alt moves, rows moved into a workstream, undo, deleting a task, and
+a title growing its row as it is written. The `live`, `page` and `app_db`
+fixtures are conftest.py's."""
 
 from datetime import date, timedelta
 
 import pytest
 
+from app.models import Task
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
@@ -372,3 +374,49 @@ def test_done_tasks_are_hidden_and_shown(page, live, app_db, project) -> None:
     assert hide.get_attribute("aria-pressed") == "false"
     _row(page, "Shipped").wait_for()
     _row(page, "Still open").wait_for()
+
+
+def test_a_task_is_deleted_from_its_bin_or_with_delete(page, live, app_db, project) -> None:
+    with app_db() as db:
+        tasks_svc.create_task(db, title="Spare", project_id=project)
+        db.commit()
+    page.goto(f"{live}/projects/{project}")
+    loose = _row(page, "Loose end")
+    dialog = page.locator("#confirm-dialog")
+    # Its bin asks first; Cancel keeps it.
+    loose.hover()
+    loose.locator(".gantt-delete").click()
+    assert dialog.locator(".confirm-name").inner_text() == "Loose end"
+    dialog.get_by_role("button", name="Cancel").click()
+    with app_db() as db:
+        assert db.query(Task).filter_by(project_id=project).count() == 2
+    loose.hover()
+    loose.locator(".gantt-delete").click()
+    dialog.get_by_role("button", name="Delete").click()
+    loose.wait_for(state="detached")
+    # Delete on Task deletes the task there, after asking; on its time it clears.
+    _row(page, "Spare").locator(".gantt-title .gantt-text").click()
+    page.keyboard.press("Delete")
+    assert dialog.locator(".confirm-name").inner_text() == "Spare"
+    dialog.get_by_role("button", name="Delete").click()
+    _row(page, "Spare").wait_for(state="detached")
+    with app_db() as db:
+        assert db.query(Task).filter_by(project_id=project).count() == 0
+
+
+def test_a_title_being_written_grows_its_row_to_show_every_word(page, live, project) -> None:
+    page.goto(f"{live}/projects/{project}")
+    row = _row(page, "Loose end")
+    line = row.bounding_box()["height"]
+    row.locator(".gantt-title").dblclick()
+    tail = ", and the many other loose ends that turned up while tying it"
+    page.keyboard.type(tail)
+    field = page.locator(".gantt-input")
+    # Wrapped, not scrolled: the box is as tall as its words, the row with it.
+    assert field.evaluate("el => el.scrollHeight <= el.clientHeight")
+    assert row.bounding_box()["height"] > line
+    page.keyboard.press("Enter")
+    written = _row(page, f"Loose end{tail}")
+    written.wait_for()
+    assert page.locator(".gantt-input").count() == 0
+    assert written.bounding_box()["height"] == line

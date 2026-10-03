@@ -4,7 +4,7 @@
    stretched by dragging or with Alt, rows moved with Alt+Up/Down or
    dragged by their number to another place or workstream, workstreams
    folded to their row, done tasks hidden, the time seen in weeks or drilled down to days,
-   and undo.
+   tasks deleted (their bin, or Delete on Task), and undo.
 
    Every edit is one POST of ops (app.services.gantt.apply), answered with
    the sheet drawn again; the cursor, the range, the scroll and any cell
@@ -354,14 +354,18 @@
 
   // typed: the words replace what was there, and the arrows leave the cell
   // (Excel's Enter mode); otherwise they move in the words (Edit mode).
+  // Words (a title, a name) are a box that wraps, its row growing with
+  // them, so every one of them stays in sight; a week or a length a line.
   function edit(cell, { value = null, typed = false } = {}) {
     if (!cell?.dataset.edit) return;
     const row = cell.closest(".gantt-row");
     const original = cellText(cell);
-    const input = document.createElement("input");
-    input.className = "gantt-input";
-    input.type = "text";
-    input.spellcheck = WORDS.has(cell.dataset.edit);
+    const words = WORDS.has(cell.dataset.edit);
+    const input = document.createElement(words ? "textarea" : "input");
+    input.className = words ? "gantt-input is-words" : "gantt-input";
+    if (words) input.rows = 1;
+    else input.type = "text";
+    input.spellcheck = words;
     input.autocomplete = "off";
     input.value = value ?? original;
     input.placeholder = cell.dataset.placeholder || "";
@@ -375,6 +379,11 @@
     input.addEventListener("blur", () => {
       if (editing?.input === input) commit();
     });
+    // The row grown by the words stays in sight, its foot clear of the sheet's.
+    if (words) {
+      reveal(cell);
+      input.addEventListener("input", () => reveal(cell));
+    }
   }
 
   const stopEditing = () => {
@@ -391,7 +400,7 @@
   function commit(then = null) {
     const was = stopEditing();
     if (!was) return;
-    const value = was.input.value.trim();
+    const value = was.input.value.replace(/\s+/g, " ").trim(); // one line, pasted breaks and all
     const row = was.cell.closest(".gantt-row");
     const what = was.cell.dataset.edit;
     const refocus = () => { place()?.focus({ preventScroll: true }); };
@@ -709,6 +718,8 @@
       else if (cell.dataset.edit) edit(cell, { value: " ", typed: true });
       return;
     }
+    // Delete on Task deletes the tasks held (after asking), as Calendar's Plan does.
+    if (key === "Delete" && rangeRows().cols.includes(TITLE)) { handled(); remove(); return; }
     if (key === "Delete" || key === "Backspace") { handled(); clear(); return; }
     if (key === "?") return; // the keys dialog (shell.js)
     if (key.length === 1) {
@@ -761,6 +772,15 @@
     if (e.target.closest("[data-gantt-resize]")) { startResize(e); return; }
     const grip = e.target.closest("[data-row-grip]");
     if (grip) { startRowDrag(e, grip.closest(".gantt-row")); return; }
+    // A task's bin: the cursor on its Task, and the task deleted after asking.
+    const bin = e.target.closest("[data-delete-task]");
+    if (bin) {
+      e.preventDefault();
+      if (editing) commit();
+      moveTo(bin.closest(".gantt-row").dataset.key, TITLE);
+      remove();
+      return;
+    }
     const chevron = e.target.closest("[data-fold]");
     if (chevron) {
       // Alt folds or opens every workstream at once.
