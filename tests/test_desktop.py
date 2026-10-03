@@ -1,10 +1,12 @@
+import json
 import time
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from app.desktop import control_router, tray, win32
+from app.desktop import control_router, spell_in, tray, win32
 
 
 class FakeShell:
@@ -78,3 +80,19 @@ def test_the_tray_icon_takes_a_dot_and_keeps_its_drawing() -> None:
 def test_title_bar_colours_are_windows_colorrefs() -> None:
     assert win32._colorref("#14111e") == 0x1E1114
     assert win32._colorref("#fff") == 0xFFFFFF
+
+
+def test_the_window_spells_in_english_and_spanish_and_keeps_its_other_preferences(
+    tmp_path: Path,
+) -> None:
+    prefs = tmp_path / "EBWebView" / "Default" / "Preferences"
+    spell_in(tmp_path, ["en-US", "es-ES"])  # a first start: no profile yet
+    spelling = json.loads(prefs.read_text())["spellcheck"]
+    assert spelling["forced_dictionaries"] == ["en-US", "es-ES"]
+
+    prefs.write_text(json.dumps({"spellcheck": {"dictionaries": ["en-US"]}, "zoom": 1}))
+    spell_in(tmp_path, ["en-US", "es-ES"])
+    assert json.loads(prefs.read_text()) == {
+        "spellcheck": {"dictionaries": ["en-US"], "forced_dictionaries": ["en-US", "es-ES"]},
+        "zoom": 1,
+    }

@@ -43,6 +43,10 @@ MUTEX = "Local\\Oscar.PersonalCalendar"
 ICON = REPO_ROOT / "app" / "static" / "icons" / "app.ico"
 # How often the nudges waiting are counted again, besides as they change.
 BADGE_SECONDS = 60
+# The languages Oscar writes in: a word is spelt right in any of them. WebView2
+# checks with Windows' own spellers, so each needs Windows' basic typing
+# feature for its language (Language.Basic~~~es-ES~0.0.1.0, as admin).
+SPELLING = ["en-US", "es-ES"]
 
 
 class Shell:
@@ -268,6 +272,24 @@ def update_router(updater: Updater) -> APIRouter:
     return router
 
 
+def spell_in(storage: Path, languages: list[str]) -> None:
+    """The window's spellchecker set to `languages`, in its browser profile's
+    preferences, while no browser has it open. WebView2 has no call for it,
+    and it prunes the plain dictionaries to its one UI language as it starts;
+    forced ones (what Edge's SpellcheckLanguage policy sets) it keeps."""
+    prefs_path = storage / "EBWebView" / "Default" / "Preferences"
+    try:
+        prefs = json.loads(prefs_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        prefs = {}
+    spellcheck = prefs.setdefault("spellcheck", {})
+    if spellcheck.get("forced_dictionaries") == languages:
+        return
+    spellcheck["forced_dictionaries"] = languages
+    prefs_path.parent.mkdir(parents=True, exist_ok=True)
+    prefs_path.write_text(json.dumps(prefs), encoding="utf-8")
+
+
 def _forward(url: str, path: str | None) -> bool:
     """Whether the running instance took the request to come forward (at
     `path`); False while it is not answering, starting or quitting."""
@@ -334,12 +356,14 @@ def main() -> None:
         )
         return
 
+    storage = settings.db_path.parent / "webview"
+    spell_in(storage, SPELLING)
     shell.create_window()
     webview.start(
         shell.started,
         args.background,
         private_mode=False,
-        storage_path=str(settings.db_path.parent / "webview"),
+        storage_path=str(storage),
         icon=str(ICON),
     )
     servers.stop(f"quit: {shell.quit_reason}")
