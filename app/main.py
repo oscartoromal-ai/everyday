@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -22,6 +22,7 @@ from app.ui import garmin as ui_garmin
 from app.ui import money as ui_money
 from app.ui import nutrition as ui_nutrition
 from app.ui import pages as ui_pages
+from app.ui.views import keep_db
 
 APP_DIR = Path(__file__).resolve().parent
 
@@ -53,12 +54,14 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     app.include_router(tasks_api.router)
     app.include_router(projects_api.router)
     app.include_router(calendar_api.router)
-    app.include_router(ui_pages.router)
-    app.include_router(ui_fragments.router)
-    app.include_router(ui_nutrition.router)
-    app.include_router(ui_garmin.router)
-    app.include_router(ui_money.router)
-    app.include_router(ui_gantt.router)
+    # Every page's sidebar lists the projects, from the request's session.
+    ui = [Depends(keep_db)]
+    app.include_router(ui_pages.router, dependencies=ui)
+    app.include_router(ui_fragments.router, dependencies=ui)
+    app.include_router(ui_nutrition.router, dependencies=ui)
+    app.include_router(ui_garmin.router, dependencies=ui)
+    app.include_router(ui_money.router, dependencies=ui)
+    app.include_router(ui_gantt.router, dependencies=ui)
 
     @app.exception_handler(DomainError)
     def domain_error(request: Request, exc: DomainError) -> JSONResponse:

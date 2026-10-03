@@ -40,7 +40,7 @@ def gantt_page(request: Request, db: DbSession, project_id: int, scale: str | No
     response = templates.TemplateResponse(
         request,
         "gantt.html",
-        {"request": request, "active": "projects", "today": date.today(),
+        {"request": request, "active": "project", "today": date.today(),
          **gantt_ctx(db, project, date.today(), scale)},
     )
     return _remember(response, scale)

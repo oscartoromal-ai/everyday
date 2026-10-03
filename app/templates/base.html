@@ -20,14 +20,15 @@
   <meta name="theme-color" content="#ffffff">
   <script>
     // Before first paint: the saved theme (else the system's), the
-    // sidebar's collapsed state, compact rows and Today's folded timeline,
-    // so none flashes. shell.js keeps them.
+    // sidebar's collapsed state and its folded projects, compact rows and
+    // Today's folded timeline, so none flashes. shell.js keeps them.
     (() => {
       const root = document.documentElement;
-      let theme = null, rail = null, density = null, timeline = null;
+      let theme = null, rail = null, density = null, timeline = null, railProjects = null;
       try {
         theme = localStorage.getItem("pc-theme"); rail = localStorage.getItem("pc-rail");
         density = localStorage.getItem("pc-density"); timeline = localStorage.getItem("pc-timeline");
+        railProjects = localStorage.getItem("pc-rail-projects");
       } catch {}
       if (theme !== "light" && theme !== "dark") {
         theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -36,6 +37,7 @@
       if (rail === "collapsed") root.dataset.rail = "collapsed";
       if (density === "compact") root.dataset.density = "compact";
       if (timeline === "folded") root.dataset.timeline = "folded";
+      if (railProjects === "folded") root.dataset.railProjects = "folded";
     })();
     // Double-submit CSRF: echo the cookie on every htmx request.
     window.csrfToken = () =>
@@ -65,8 +67,9 @@ SYSTEM: {{ ds.name }} {{ ds.version }}, from the design-language repo (C:/Users/
 Switch with: node ../design-language/bin/design-language.mjs use <system> app/static/design
 -->
 <div class="shell">
+  {# The page's link is current; on a project's Gantt, Projects is "true", the project's own link under it the page. #}
   {% macro nav_link(href, key, label, shortcut) %}
-  <a href="{{ href }}" title="{{ label }}"{% if shortcut %} aria-keyshortcuts="{{ shortcut }}"{% endif %} {% if active == key %}aria-current="page"{% endif %}>
+  <a href="{{ href }}" title="{{ label }}"{% if shortcut %} aria-keyshortcuts="{{ shortcut }}"{% endif %} {% if active == key %}aria-current="page"{% elif key == "projects" and active == "project" %}aria-current="true"{% endif %}>
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ caller() }}</svg>
     <span class="nav-label">{{ label }}</span>
   </a>
@@ -89,7 +92,15 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         {% call nav_link("/calendar", "calendar", "Calendar", "2") %}<rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/>{% endcall %}
       </div>
       <div class="nav-group">
-        {% call nav_link("/projects", "projects", "Projects", "3") %}<path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/>{% endcall %}
+        {# Projects, with its active projects under it, folded away by its chevron (remembered). #}
+        <div class="nav-parent">
+          {% call nav_link("/projects", "projects", "Projects", "3") %}<path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/>{% endcall %}
+          <button type="button" class="nav-fold" aria-expanded="true" aria-controls="rail-projects"
+                  aria-label="Hide the projects" title="Hide the projects">
+            <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+          </button>
+        </div>
+        {% with current = project.id if active == "project" else None %}{% include "partials/rail_projects.html" %}{% endwith %}
       </div>
       <div class="nav-group" role="group" aria-labelledby="nav-health">
         <div class="nav-group-label" id="nav-health">Health</div>

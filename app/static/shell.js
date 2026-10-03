@@ -1,5 +1,5 @@
 /* Shell chrome shared by every page: the light/dark toggle, the collapsible
-   sidebar, the keys that work everywhere, the confirm dialog behind
+   sidebar and its folding projects, the keys that work everywhere, the confirm dialog behind
    hx-confirm, and the desktop app's title bar and taskbar count. The saved theme and sidebar state are first applied by the
    inline script in base.html's <head>, before paint; this file keeps them
    in step with the controls. */
@@ -63,6 +63,27 @@
     applyRail(collapsed);
   });
   applyRail(root.dataset.rail === "collapsed");
+
+  /* ---- the sidebar's projects, under Projects: folded away by its chevron, remembered ---- */
+
+  const applyRailProjects = (folded) => {
+    if (folded) root.dataset.railProjects = "folded";
+    else delete root.dataset.railProjects;
+    const button = document.querySelector(".nav-fold");
+    if (!button) return;
+    button.setAttribute("aria-expanded", String(!folded));
+    const label = folded ? "Show the projects" : "Hide the projects";
+    button.setAttribute("aria-label", label);
+    button.title = label;
+  };
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".nav-fold")) return;
+    const folded = root.dataset.railProjects !== "folded";
+    store("pc-rail-projects", folded ? "folded" : "shown");
+    applyRailProjects(folded);
+  });
+  applyRailProjects(root.dataset.railProjects === "folded");
 
   /* ---- compact rows: a two-way toggle (and C), remembered ---- */
 
@@ -306,18 +327,22 @@
   document.addEventListener("reset", (e) => setTimeout(() => markDates(e.target)));
 
   /* ---- the phone's tab bar scrolls sideways once it holds more tabs than
-     fit: it opens on the current page's tab, and marks the edges that have
-     more past them (data-more), which fade ---- */
+     fit, and the desktop's rail down once it holds more pages and projects
+     than fit: it opens on the current page's tab, and marks the edges that
+     have more past them (data-more), which fade ---- */
   const nav = document.querySelector(".nav");
   if (nav) {
     const markMore = () => {
       const more = [];
       if (nav.scrollLeft > 1) more.push("start");
       if (nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 1) more.push("end");
+      if (nav.scrollTop > 1) more.push("top");
+      if (nav.scrollTop + nav.clientHeight < nav.scrollHeight - 1) more.push("bottom");
       if (more.length) nav.dataset.more = more.join(" ");
       else delete nav.dataset.more;
     };
-    const current = nav.querySelector('a[aria-current="page"]');
+    // On a project's Gantt, Projects' tab (its projects are not in the bar).
+    const current = nav.querySelector('a[aria-current="page"], a[aria-current="true"]');
     if (current && nav.scrollWidth > nav.clientWidth) {
       const middle = current.offsetLeft - nav.offsetLeft + current.offsetWidth / 2;
       nav.scrollLeft = middle - nav.clientWidth / 2;
@@ -325,6 +350,9 @@
     markMore();
     nav.addEventListener("scroll", markMore, { passive: true });
     window.addEventListener("resize", markMore);
+    // Folding the projects away, or the list drawn again, changes its height.
+    const projects = nav.querySelector(".nav-sub")?.parentElement;
+    if (projects) new ResizeObserver(markMore).observe(projects);
   }
 
   /* ---- the desktop app (app/desktop): its title bar in the page's paper

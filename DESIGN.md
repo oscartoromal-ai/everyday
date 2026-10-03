@@ -74,6 +74,11 @@ The wordmark is Brasa's pattern: the name in 600 followed by a spark period, "Pe
 At night the name carries a faint halo (`--ink-glow-text`) and the period glows and strikes once on load, three stutters and then steady, like a tube coming on (`--spark-entrance`).
 Nav items are 14px/500 graphite; the active one is ink 600 with Brasa's 3px spark bar, glowing at night, inset 8px from the viewport edge.
 Nav is grouped in the Brasa manner: the planning pages (Today, Calendar) sit under a 12px pewter "Planner" group label, Today first since the app opens on it; Projects follows as a second group, Health (Nutrition, Me, Garmin) a third, and Finances (Spending, Accounts, Bills, Goals) a fourth, each under its own label.
+Under Projects sit the active projects, in Projects' order: 400-weight rows 32px tall, each a 12px flag in its colour, with the name in line with "Projects" and cut short with an ellipsis, opening that project's Gantt.
+On a Gantt the project's own row holds the spark, and Projects is `aria-current="true"`.
+A chevron at the right of Projects folds the list away and back (`data-rail-projects="folded"`, saved as `pc-rail-projects`, applied before paint); while the list is out of sight (folded, the icon rail, the phone's tab bar), Projects holds the spark on a Gantt.
+The list is drawn again when a project is added, renamed, recoloured or shelved (`projects:changed`).
+On a desktop rail too short for every page, the nav scrolls between the head and the foot with no scrollbar, and an edge with pages past it fades (`data-more`).
 The foot starts with Search, its magnifier and name, and its key ("Ctrl K") in a hairline box at the right, as the keys dialog draws keys; it opens the command menu.
 Then Brasa's shipped light/dark toggle: the current mode's sun or moon, which rotates and fades into the other, beside the mode's name in 12px pewter.
 The names are the installed system's own, read from `design-language.json`: "Day" and "Night" for Neon Signage.

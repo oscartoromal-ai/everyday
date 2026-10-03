@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from app.models import TaskOwner, TaskStatus
+from app.models import ProjectStatus, TaskOwner, TaskStatus
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 from app.ui.views import design_system
@@ -132,7 +132,6 @@ def test_projects_holds_every_open_task_under_its_project(client, db) -> None:
 
 
 def test_projects_open_on_the_projects_at_a_glance(client, db) -> None:
-    from app.models import ProjectStatus
 
     late = projects_svc.create_project(db, name="Late one")
     tasks_svc.create_task(
@@ -597,7 +596,7 @@ def test_project_quick_add_edit_and_status(client, db) -> None:
 
     # Status re-renders the list, which moves the card onto its shelf.
     shelved = client.post(f"/ui/projects/{p.id}/status", data={"status": "paused"})
-    assert shelved.headers["HX-Trigger"] == "tasks:changed"
+    assert shelved.headers["HX-Trigger"] == "tasks:changed, projects:changed"
     page = client.get("/projects").text
     assert "Kitchen reno" in page.split('id="shelf-paused"')[1]
     client.post(f"/ui/projects/{p.id}/status", data={"status": "active"})
@@ -606,7 +605,7 @@ def test_project_quick_add_edit_and_status(client, db) -> None:
 
 def test_projects_page_and_workstream_toggle(client, db) -> None:
     created = client.post("/ui/projects", data={"name": "New thing"})
-    assert created.headers["HX-Trigger"] == "tasks:changed"
+    assert created.headers["HX-Trigger"] == "tasks:changed, projects:changed"
     assert "New thing" in client.get("/projects").text
 
     p = projects_svc.list_projects(db)[0]
@@ -695,6 +694,37 @@ def test_a_task_shows_its_project_as_its_flag_in_its_colour(client, db) -> None:
     card = client.post(f"/ui/projects/{p.id}", data={"name": "Reno", "color": "6"}).text
     assert 'style="--project: var(--hue-6)"' in card
     assert projects_svc.get_project(db, p.id).color == 6
+
+
+def test_sidebar_lists_the_active_projects_under_projects(client, db) -> None:
+    reno = projects_svc.create_project(db, name="Reno", color=3)
+    trip = projects_svc.create_project(db, name="Trip")
+    shelved = projects_svc.create_project(db, name="Shelved")
+    projects_svc.update_project(db, shelved.id, status=ProjectStatus.paused)
+
+    # Every page: each active project under Projects, in its colour, opening its Gantt.
+    nav = client.get("/today").text.split('id="main-nav"')[1].split("</nav>")[0]
+    sub = nav.split('id="rail-projects"')[1].split("</ul>")[0]
+    assert nav.index('href="/projects"') < nav.index('id="rail-projects"')
+    assert sub.index(f'href="/projects/{reno.id}"') < sub.index(f'href="/projects/{trip.id}"')
+    assert 'style="--project: var(--hue-3)"' in sub and ">Reno<" in sub
+    assert "Shelved" not in sub and 'aria-current' not in sub
+
+    # A project's Gantt: its own row is the page, Projects the set it is in.
+    nav = client.get(f"/projects/{reno.id}").text.split('id="main-nav"')[1].split("</nav>")[0]
+    projects = nav.split('href="/projects"')[1].split(">")[0]
+    assert 'aria-current="true"' in projects
+    row = nav.split(f'href="/projects/{reno.id}"')[1].split(">")[0]
+    assert 'aria-current="page"' in row
+
+    # Added, renamed or shelved, the list is drawn again, the open one still current.
+    assert 'hx-trigger="projects:changed from:body"' in nav
+    again = client.get(f"/ui/rail/projects?current={reno.id}").text
+    assert f'hx-get="/ui/rail/projects?current={reno.id}"' in again
+    assert 'aria-current="page"' in again.split(f'href="/projects/{reno.id}"')[1].split(">")[0]
+    renamed = client.post(f"/ui/projects/{trip.id}", data={"name": "Road trip"})
+    assert renamed.headers["HX-Trigger"] == "tasks:changed, projects:changed"
+    assert ">Road trip<" in client.get("/ui/rail/projects").text
 
 
 def test_health_is_its_own_nav_group_with_nutrition(client) -> None:
