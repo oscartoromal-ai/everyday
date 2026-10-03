@@ -6,7 +6,8 @@
    a checkbox, sorted or not; a Plan cell writes a task for its day; a
    habit's cell, or accommodation's, is ticked by a click or Space, and a
    drag down its column paints the days it crosses. Ctrl+D fills the range
-   from its first row (one cell, from the row above), Delete clears it. A
+   from its first row (one cell, from the row above), Delete clears it (a
+   plan's tasks deleted after asking, as a task's bin does). A
    day whose plan runs over a line folds to its first (its chevron, or
    Alt+Left and Right), and stays folded in this browser. A task's title
    opens its page; so does Ctrl+Enter, on a Plan cell its first task's, and
@@ -185,14 +186,33 @@
     send(targets.flatMap((row) => range.cols.map((c) => fillOp(cellAt(sources, c), cellAt(row, c))).filter(Boolean)));
   };
 
-  // Delete: the range's stay cleared, its habits and checkboxes unticked.
+  // Tasks deleted, after asking (their bins, as Projects' rows'); the
+  // cursor back on its cell after.
+  const deleteTasks = async (bins) => {
+    const tasks = new Map(bins.map((b) => [b.dataset.deleteTask, b.dataset.title]));
+    if (!tasks.size) return;
+    const one = tasks.size === 1;
+    const yes = await window.confirmAction({
+      title: one ? "Delete task?" : `Delete ${tasks.size} tasks?`,
+      name: [...tasks.values()].join(", "),
+      detail: "will be deleted. This can't be undone.",
+      action: "Delete",
+    });
+    if (yes) send([...tasks.keys()].map((id) => ({ op: "delete", task: Number(id) })));
+    place()?.focus({ preventScroll: true });
+  };
+
+  // Delete: the range's stay cleared, its habits and checkboxes unticked,
+  // and its plans' tasks deleted, after asking.
   const clear = () => {
-    send(rangeCells().cells.flatMap((cell) => {
+    const cells = rangeCells().cells;
+    send(cells.flatMap((cell) => {
       if (cell.dataset.kind === "stay" && cell.dataset.value) return [{ op: "stay", day: dayOf(cell), name: cell.dataset.name, value: "" }];
       if (cell.dataset.kind === "habit" && cell.dataset.state) return [tickOp(cell, false)];
       if (cell.dataset.kind === "check" && isTicked(cell)) return [tickOp(cell, false)];
       return [];
     }));
+    deleteTasks(cells.flatMap((cell) => [...cell.querySelectorAll("[data-delete-task]")]));
   };
 
   // Space: the range's habits and checkboxes ticked (unticked when the
@@ -384,6 +404,13 @@
     if (e.button !== 0 || editing?.input === e.target) return;
     const cell = e.target.closest(".ds-cell");
     if (!cell) return;
+    const bin = e.target.closest("[data-delete-task]");
+    if (bin) {
+      e.preventDefault();
+      moveTo(dayOf(cell), Number(cell.dataset.col));
+      deleteTasks([bin]);
+      return;
+    }
     const task = e.target.closest("[data-task]");
     if (task) {
       e.preventDefault();
@@ -445,7 +472,7 @@
 
   sheet.addEventListener("dblclick", (e) => {
     const cell = e.target.closest(".ds-cell");
-    if (writable(cell) && !e.target.closest("[data-task], input")) edit(cell);
+    if (writable(cell) && !e.target.closest("[data-task], [data-delete-task], input")) edit(cell);
   });
 
   // The Day header's chevron folds every day, or opens them all again.

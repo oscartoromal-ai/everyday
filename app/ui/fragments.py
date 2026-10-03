@@ -624,6 +624,7 @@ async def day_sheet_edit(request: Request, db: DbSession, start: date):
         {"op": "stay", "day", "name", "value"?, "done"?}   an item of its stay
         {"op": "task", "day", "title"}            a task planned for the day
         {"op": "toggle", "task"}                  a task ticked, or not
+        {"op": "delete", "task"}                  a task deleted
     applied in order, as the day's notes and tasks would have them; answers
     the sheet drawn again, naming the last task written (X-Task-Created) for
     the sheet to open its page."""
@@ -643,6 +644,9 @@ async def day_sheet_edit(request: Request, db: DbSession, start: date):
             task = tasks_svc.get_task(db, int(op["task"]))
             done = task.status == TaskStatus.done
             tasks_svc.set_status(db, task.id, TaskStatus.todo if done else TaskStatus.done)
+            continue
+        if kind == "delete":
+            tasks_svc.delete_task(db, int(op["task"]))
             continue
         try:
             day = date.fromisoformat(str(op.get("day")))

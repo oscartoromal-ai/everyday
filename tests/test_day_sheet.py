@@ -165,3 +165,16 @@ def test_writing_in_the_sheet(client, db) -> None:
     )
     assert bad.status_code == 422
     assert habits_svc.list_habits(db)[0].slug == "morning-run"
+
+
+def test_a_task_is_deleted_from_the_sheet(client, db) -> None:
+    task = tasks_svc.create_task(db, title="Cancel gym", planned_for=MONDAY)
+    kept = tasks_svc.create_task(db, title="Pay rent", planned_for=MONDAY)
+    answer = client.post(
+        f"/ui/day-sheet?start={MONDAY.isoformat()}",
+        json={"ops": [{"op": "delete", "task": task.id}]},
+    )
+    assert answer.status_code == 200
+    assert "Cancel gym" not in answer.text
+    assert f'data-delete-task="{kept.id}"' in answer.text
+    assert [t.title for t in db.query(Task).all()] == ["Pay rent"]

@@ -152,3 +152,33 @@ def test_a_habits_days_are_painted_with_a_drag(page, live, app_db) -> None:
     cell(page, START, '[data-slug="morning-run"][data-state=""]').wait_for()
     with app_db() as db:
         assert [b["kind"] for b in notebook.blocks_of(db, START)] == []
+
+
+def test_a_task_is_deleted_from_its_bin_or_with_delete(page, live, app_db) -> None:
+    with app_db() as db:
+        tasks_svc.create_task(db, title="Cancel gym", planned_for=TODAY)
+        tasks_svc.create_task(db, title="Pay rent", planned_for=TODAY)
+        db.commit()
+    open_sheet(page, live)
+    gym = cell(page, TODAY, ".ds-task").filter(has_text="Cancel gym")
+    # Its bin asks first; Cancel keeps it.
+    gym.hover()
+    gym.locator(".ds-delete").click()
+    dialog = page.locator("#confirm-dialog")
+    dialog.get_by_role("button", name="Cancel").click()
+    with app_db() as db:
+        assert db.query(Task).count() == 2
+    gym.hover()
+    gym.locator(".ds-delete").click()
+    dialog.get_by_role("button", name="Delete").click()
+    gym.wait_for(state="detached")
+    with app_db() as db:
+        assert [t.title for t in db.query(Task).all()] == ["Pay rent"]
+    # Delete on the plan's cell asks for what it holds, the cursor kept.
+    page.keyboard.press("Delete")
+    assert "Pay rent" in dialog.locator(".confirm-name").inner_text()
+    dialog.get_by_role("button", name="Delete").click()
+    cell(page, TODAY, ".ds-task").wait_for(state="detached")
+    with app_db() as db:
+        assert db.query(Task).count() == 0
+    assert page.locator(".ds-cell.is-cursor").get_attribute("data-kind") == "plan"

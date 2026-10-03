@@ -320,6 +320,7 @@ Rows are 36px (28px compact) and grow with their plan; cells carry hairline rule
 A stay's cell is its value in ink; accommodation's is a centred 14px box, steel on a day with no stay, edged amber while its stay has it unsorted (as under Today's date), and ink with a paper tick once sorted.
 A day that folds has a 12px steel chevron before its date (ink on hover, turned right while folded; the Day header's folds them all); folded, its plan is its first line, cut short with an ellipsis, then "+N" in 12px/500 pewter.
 Plan lists the day's tasks, each a 14px box in steel (`--ok-fg` once done, its title pewter and struck through) and its title in ink, a link to its page underlined on hover, a warn "due" badge after a deadline still open, and then the day's own events, the time in 12px pewter figures before the title in graphite.
+A task's line ends in a 14px steel trash bin at the cell's right, hidden until the line is hovered (always shown on touch) and err-tinted on hover, as Projects' rows'; it opens the same "Delete task?" dialog.
 A habit done fills its cell with `--hue-4` at 30%, the habits' green, with a 16px tick in it; skipped is a 10px steel box, missed a 10px steel dash, and the cell's tooltip says which, with the day's note.
 A habit's cells being painted fill (or empty) as the drag passes, before the sheet is drawn again.
 The cursor, the range and a cell being written are the Gantt's: a 2px `--spark-deep` ring (a 1px steel one while the sheet does not have focus), `--spark-tint`, the words 500 ink on the cell's line.
