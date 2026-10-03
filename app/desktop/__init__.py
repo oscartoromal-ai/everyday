@@ -27,11 +27,13 @@ from pathlib import Path
 import httpx
 import webview
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from app.config import REPO_ROOT, get_settings
 from app.desktop import win32
 from app.desktop.tray import Tray
+from app.desktop.update import Updater
 
 log = logging.getLogger(__name__)
 
@@ -244,6 +246,28 @@ def control_router(shell: Shell) -> APIRouter:
     return router
 
 
+def update_router(updater: Updater) -> APIRouter:
+    """The Update button's: what it shows, and starting the update."""
+    from app.ui.views import templates
+
+    router = APIRouter(prefix="/ui/desktop", include_in_schema=False)
+
+    def button(request: Request, state) -> HTMLResponse:  # noqa: ANN001
+        return templates.TemplateResponse(
+            request, "partials/update_button.html", {"update": state}
+        )
+
+    @router.get("/update", response_class=HTMLResponse)
+    def show(request: Request) -> HTMLResponse:
+        return button(request, updater.state())
+
+    @router.post("/update", response_class=HTMLResponse)
+    def start(request: Request) -> HTMLResponse:
+        return button(request, updater.start())
+
+    return router
+
+
 def _forward(url: str, path: str | None) -> bool:
     """Whether the running instance took the request to come forward (at
     `path`); False while it is not answering, starting or quitting."""
@@ -292,6 +316,13 @@ def main() -> None:
 
     shell = Shell(url, settings.db_path.parent / "desktop.json")
     app.include_router(control_router(shell))
+    updater = Updater.for_installed_app(settings.db_path.parent / "update.json")
+    if updater:
+        from app.ui.views import templates
+
+        updater.settle()
+        templates.env.globals["app_update"] = updater.state
+        app.include_router(update_router(updater))
     servers = serve.Servers(app)
     servers.start()
     if not servers.wait_started():

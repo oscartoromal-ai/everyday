@@ -70,6 +70,9 @@ def design_system() -> dict[str, Any]:
 
 
 templates.env.globals["design"] = design_system
+# The installed app's Update button (app/desktop/update.py), which sets its
+# own; a run from the repo has nothing to update.
+templates.env.globals["app_update"] = lambda: None
 
 
 def description_blocks(notes: str) -> list[dict[str, Any]]:

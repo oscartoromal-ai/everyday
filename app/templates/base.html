@@ -106,6 +106,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       </div>
     </nav>
     <div class="rail-foot">
+      {% with update = app_update() %}{% include "partials/update_button.html" %}{% endwith %}
       {# The command menu (Ctrl+K): search, go to a page or a day, or do (command.js). #}
       <button type="button" class="rail-button command-open" data-command-open title="Search, go or do (Ctrl+K)">
         <svg class="command-open__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>

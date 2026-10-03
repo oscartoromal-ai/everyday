@@ -18,6 +18,9 @@ dwmapi = ctypes.windll.dwmapi
 ole32 = ctypes.windll.ole32
 shell32 = ctypes.windll.shell32
 
+kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+kernel32.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+
 ERROR_ALREADY_EXISTS = 183
 ASFW_ANY = -1
 SW_HIDE, SW_SHOWNORMAL, SW_SHOWMAXIMIZED, SW_RESTORE = 0, 1, 3, 9
@@ -52,6 +55,24 @@ def set_app_id(app_id: str) -> None:
     """The taskbar groups the windows by this id, the one its Start menu
     shortcut carries, so a pinned icon is the running app's."""
     shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+
+
+PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+STILL_ACTIVE = 259
+
+
+def process_alive(pid: int) -> bool:
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        return False
+    try:
+        code = wintypes.DWORD()
+        return bool(kernel32.GetExitCodeProcess(handle, ctypes.byref(code))) and (
+            code.value == STILL_ACTIVE
+        )
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 def session_ending() -> bool:

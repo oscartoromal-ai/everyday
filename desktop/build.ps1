@@ -48,6 +48,12 @@ VSVersionInfo(
 )
 "@ | Out-File -Encoding utf8 build\version.txt
 
+# What the app was built from, for its Update button (app/desktop/update.py):
+# the commit, and the repo itself even when this is a worktree of it.
+$repo = Split-Path -Parent (git rev-parse --path-format=absolute --git-common-dir).Trim()
+@{ sha = (git rev-parse HEAD).Trim(); commit = $commit; repo = $repo } |
+    ConvertTo-Json | Out-File -Encoding utf8 build\build-info.json
+
 uv run pyinstaller desktop\personal-calendar.spec --noconfirm --clean --distpath build\dist --workpath build\work
 if ($LASTEXITCODE) { throw "PyInstaller failed" }
 

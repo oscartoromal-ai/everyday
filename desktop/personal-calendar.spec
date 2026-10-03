@@ -15,6 +15,8 @@ datas = [
     (str(ROOT / "app" / "static"), "app/static"),
     (str(ROOT / "migrations"), "migrations"),
     (str(ROOT / "config.toml"), "."),
+    # Written by build.ps1: the commit and repo it was built from.
+    (str(ROOT / "build" / "build-info.json"), "."),
 ]
 datas += collect_data_files("tzdata")
 datas += collect_data_files("webview")

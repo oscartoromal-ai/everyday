@@ -1,0 +1,25 @@
+{# The installed app's Update button, at the rail's foot, there only while an
+   update is to be had (app/desktop/update.py): ready, under way (looked at
+   again every few seconds until the new app takes over), or failed. #}
+{% if update %}
+{% set icon %}<svg class="update-button__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v3.8h-3.8"/></svg>{% endset %}
+{% if update.state == "updating" %}
+<div class="rail-button update-button" data-update="updating" role="status"
+     hx-get="/ui/desktop/update" hx-trigger="every 4s" hx-swap="outerHTML"
+     title="Building {{ update.latest }}; the app restarts on it once it is installed, in a few minutes">
+  {{ icon }}<span class="rail-button__label">Updating…</span>
+</div>
+{% elif update.state == "failed" %}
+<button type="button" class="rail-button update-button" data-update="failed"
+        hx-post="/ui/desktop/update" hx-swap="outerHTML"
+        title="The update to {{ update.latest }} failed{% if update.log %}; why is in {{ update.log }}{% endif %}. Try again">
+  {{ icon }}<span class="rail-button__label">Update failed</span><span class="rail-button__key update-button__retry">Retry</span>
+</button>
+{% else %}
+<button type="button" class="rail-button update-button" data-update="ready"
+        hx-post="/ui/desktop/update" hx-swap="outerHTML"
+        title="Install your latest commit, {{ update.latest }} (this is {{ update.installed }}); the app restarts on it in a few minutes">
+  {{ icon }}<span class="rail-button__label">Update</span><span class="update-button__dot" aria-hidden="true"></span>
+</button>
+{% endif %}
+{% endif %}
