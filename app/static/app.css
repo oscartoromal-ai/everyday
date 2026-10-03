@@ -102,6 +102,21 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 .rail-collapse svg { stroke: currentColor; }
 
 .nav { display: flex; flex-direction: column; gap: var(--s-6); }
+/* a desktop rail too short for every page and project: the nav scrolls between
+   the head and the foot, wide enough on its left for the current page's spark */
+@media (min-width: 721px) {
+  .nav {
+    min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+    margin-left: -8px; padding-left: 8px;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  /* pages past an edge fade into it (shell.js marks which edges have more) */
+  .nav[data-more~="bottom"] { mask-image: linear-gradient(to top, transparent, #000 32px); }
+  .nav[data-more~="top"] { mask-image: linear-gradient(to bottom, transparent, #000 32px); }
+  .nav[data-more~="top"][data-more~="bottom"] {
+    mask-image: linear-gradient(to bottom, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+  }
+}
 .nav-group { display: flex; flex-direction: column; gap: 2px; }
 .nav-group-label {
   height: 18px; margin-bottom: 6px; padding: 0 var(--s-3);
@@ -124,6 +139,42 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 .nav a[aria-current="page"]::before {
   content: ""; position: absolute; left: -8px; top: 8px; bottom: 8px;
   width: 3px; border-radius: 0; background: var(--spark); box-shadow: var(--spark-glow);
+}
+
+/* Projects, its chevron at its right folding away the active projects under it */
+.nav-parent { position: relative; }
+.nav-parent > a { padding-right: 36px; }
+.nav-fold {
+  position: absolute; top: 50%; right: 4px; translate: 0 -50%;
+  display: grid; place-content: center; width: 24px; height: 24px;
+  border-radius: var(--r-tag); color: var(--steel);
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.nav-fold:hover { color: var(--ink); background: var(--glass-hover); }
+.nav-fold svg {
+  width: 12px; height: 12px; fill: none; stroke: currentColor;
+  stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+  transition: transform var(--dur) var(--ease);
+}
+:root[data-rail-projects="folded"] .nav-fold svg { transform: rotate(-90deg); }
+.nav-parent:has(+ .nav-sub:not(:has(li))) .nav-fold { display: none; }
+/* each project a quieter row under it, its flag in its colour, its name in line with Projects' */
+.nav-sub { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+:root[data-rail-projects="folded"] .nav-sub { display: none; }
+.nav-sub a { padding-block: 6px; padding-left: calc(var(--s-3) + 28px); font-weight: 400; }
+.nav-sub a svg {
+  width: 12px; height: 12px; margin-left: -20px; margin-right: -2px;
+  fill: var(--project); stroke: var(--project);
+}
+.nav-sub .nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* a project open with its row out of sight (folded, the icon rail, the phone's
+   tab bar): Projects holds the spark */
+@media (min-width: 721px) {
+  :root:is([data-rail-projects="folded"], [data-rail="collapsed"]) .nav a[aria-current="true"] { color: var(--ink); font-weight: 600; }
+  :root:is([data-rail-projects="folded"], [data-rail="collapsed"]) .nav a[aria-current="true"]::before {
+    content: ""; position: absolute; left: -8px; top: 8px; bottom: 8px;
+    width: 3px; background: var(--spark); box-shadow: var(--spark-glow);
+  }
 }
 
 /* foot: compact rows and Brasa's shipped light/dark toggle, bottom left, drawn alike */
@@ -178,6 +229,10 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 :root[data-rail="collapsed"] .nav-label,
 :root[data-rail="collapsed"] .rail-button__label,
 :root[data-rail="collapsed"] .rail-button__key { display: none; }
+/* the icon rail and the phone's tab bar: Projects alone, its projects a page away */
+:root[data-rail="collapsed"] .nav-fold,
+:root[data-rail="collapsed"] .nav-sub { display: none; }
+:root[data-rail="collapsed"] .nav-parent > a { padding-right: 0; }
 :root[data-rail="collapsed"] .nav-group-label { height: 0; margin: 0 var(--s-1) var(--s-3); padding: 0; border-top: 1px solid var(--chrome-flank-border); font-size: 0; }
 :root[data-rail="collapsed"] .nav a,
 :root[data-rail="collapsed"] .rail-button { justify-content: center; padding-inline: 0; }
@@ -205,7 +260,8 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
     background: var(--glass-tab-bar);
     border-right: none; border-top: 1px solid var(--chrome-flank-border);
   }
-  .rail-head, .nav-group-label { display: none; }
+  .rail-head, .nav-group-label, .nav-fold, .nav-sub { display: none; }
+  .nav-parent { display: contents; }
   .rail-foot { display: flex; align-self: center; margin: 0; padding: 0 0 0 var(--s-1); border-top: none; border-left: 1px solid var(--chrome-flank-border); }
   .rail-button { width: 44px; height: 44px; padding: 0; justify-content: center; }
   .update-button__dot { position: absolute; top: calc(50% - 9px); left: calc(50% + 4px); margin: 0; }
@@ -216,7 +272,11 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
   .nav, .nav-group { display: contents; }
   .nav a { flex-direction: column; gap: 2px; padding: 6px var(--s-2); font-size: var(--t-caption); }
   .nav a:hover { background: none; }
-  .nav a[aria-current="page"]::before { left: 30%; right: 30%; top: -4px; bottom: auto; width: auto; height: 3px; }
+  .nav a[aria-current="true"] { color: var(--ink); font-weight: 600; }
+  .nav a:is([aria-current="page"], [aria-current="true"])::before {
+    content: ""; position: absolute; left: 30%; right: 30%; top: -4px; bottom: auto; width: auto; height: 3px;
+    background: var(--spark); box-shadow: var(--spark-glow);
+  }
   :root[data-rail="collapsed"] .nav a { padding-inline: var(--s-2); }
   .main { padding: var(--s-6) var(--s-4) 96px; }
 }
@@ -228,7 +288,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
   }
   .nav a svg { width: 20px; height: 20px; }
-  .nav a[aria-current="page"]::before { left: 25%; right: 25%; }
+  .nav a:is([aria-current="page"], [aria-current="true"])::before { left: 25%; right: 25%; }
 }
 
 /* ---------- page headers ---------- */
@@ -2069,7 +2129,7 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
     mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
   }
   .nav a { flex: 1 0 44px; }
-  .nav a[aria-current="page"]::before { top: 0; }
+  .nav a:is([aria-current="page"], [aria-current="true"])::before { top: 0; }
 }
 
 /* ---------- a project's Gantt: a spreadsheet of its plan, in weeks or days ---------- */

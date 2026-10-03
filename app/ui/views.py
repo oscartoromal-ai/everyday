@@ -8,12 +8,14 @@ from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 
+from fastapi import Request
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import checklist
 from app.dates import duration_label, human_date, monday, short_date, upper_first, week_label
+from app.db import DbSession
 from app.models import (
     GarminDay,
     Project,
@@ -73,6 +75,22 @@ templates.env.globals["design"] = design_system
 # The installed app's Update button (app/desktop/update.py), which sets its
 # own; a run from the repo has nothing to update.
 templates.env.globals["app_update"] = lambda: None
+
+
+def keep_db(request: Request, db: DbSession) -> None:
+    """The UI's routes keep their request's session where every page's
+    sidebar finds it (rail_projects); the route shares the same session."""
+    request.state.db = db
+
+
+def rail_projects(request: Request) -> list[Project]:
+    """The active projects, in Projects' order, listed under Projects in
+    the sidebar. None for a page rendered outside a UI route."""
+    db = getattr(request.state, "db", None)
+    return [] if db is None else projects_svc.list_projects(db, status=ProjectStatus.active)
+
+
+templates.env.globals["rail_projects"] = rail_projects
 
 
 def description_blocks(notes: str) -> list[dict[str, Any]]:

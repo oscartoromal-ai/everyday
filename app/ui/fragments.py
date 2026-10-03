@@ -440,7 +440,7 @@ def work_sync(db: DbSession):
 def _projects_changed() -> HTMLResponse:
     """Projects' list re-renders from the server (projects.html)."""
     response = HTMLResponse("")
-    response.headers["HX-Trigger"] = "tasks:changed"
+    response.headers["HX-Trigger"] = "tasks:changed, projects:changed"
     return response
 
 
@@ -455,6 +455,14 @@ def create_project(db: DbSession, name: str = Form(...)):
     projects_svc.create_project(db, name=name)
     db.commit()
     return _projects_changed()
+
+
+@router.get("/rail/projects")
+def rail_projects(request: Request, current: int | None = None):
+    """The sidebar's projects, drawn again as one changes (rail_projects.html)."""
+    return templates.TemplateResponse(
+        request, "partials/rail_projects.html", {"request": request, "current": current}
+    )
 
 
 @router.post("/projects/{project_id}/status")
@@ -495,8 +503,8 @@ def save_project(
     projects_svc.update_project(db, project_id, name=name, notes=notes.strip(), color=color)
     db.commit()
     response = _project_partial(request, db, project_id, "partials/project_card.html")
-    # Its name and colour are on the page's overview too.
-    response.headers["HX-Trigger"] = "tasks:changed"
+    # Its name and colour are on the page's overview, and in the sidebar, too.
+    response.headers["HX-Trigger"] = "tasks:changed, projects:changed"
     return response
 
 
