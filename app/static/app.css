@@ -2376,6 +2376,7 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .day-sheet {
   --ds-line: 36px;
   --ds-bg: var(--paper);
+  --ds-row: color-mix(in srgb, var(--spark-deep) 6%, transparent);
   max-height: calc(100dvh - 176px); min-height: 360px;
   overflow: auto; overscroll-behavior: contain;
   border-top: 1px solid var(--mist);
@@ -2401,17 +2402,18 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
   font-size: var(--t-caption); font-weight: 500; line-height: 16px; color: var(--graphite);
 }
 .day-sheet-table thead .ds-habit { overflow-wrap: normal; }
-.day-sheet-table .ds-day { position: sticky; left: 0; z-index: 2; background: var(--ds-bg); box-shadow: inset -1px 0 0 var(--mist); }
+.day-sheet-table .ds-day { position: sticky; left: 0; z-index: 2; background-color: var(--ds-bg); box-shadow: inset -1px 0 0 var(--mist); }
 .day-sheet-table thead .ds-day { z-index: 4; }
 
 /* a week starts under a firmer rule; a weekend is tinted; today is the spark's */
 .day-sheet-table tr.week-start > * { border-top: 1px solid var(--mist); }
-.day-sheet-table tr.is-weekend > td { background: var(--ink-tint-faint); }
+.day-sheet-table tr.is-weekend > td { background-color: var(--ink-tint-faint); }
 .ds-day a { display: block; color: var(--ink); font-weight: 500; text-decoration: none; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ds-day a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .ds-dow { display: inline-block; width: 30px; color: var(--pewter); font-weight: 400; }
 .is-today .ds-day a, .is-today .ds-day .ds-dow { color: var(--spark-deep); font-weight: 600; }
-.day-sheet-table tr.has-cursor .ds-day { background: color-mix(in srgb, var(--fog) 70%, var(--paper)); }
+/* the cursor's row shaded across, over a weekend's tint, a habit's fill and a range */
+.day-sheet-table tr.has-cursor > * { background-image: linear-gradient(var(--ds-row), var(--ds-row)); }
 
 .ds-cell { position: relative; cursor: cell; color: var(--graphite); }
 .ds-cell:focus, .ds-cell:focus-visible { outline: none; }
@@ -2512,25 +2514,27 @@ tr.is-folded .ds-plan-list li:first-child .ds-title { min-width: 0; overflow: hi
    box; missed (one of its days, nothing written), a dash */
 .day-sheet-table .ds-habit { text-align: center; }
 td.ds-habit { cursor: pointer; }
-.day-sheet-table :is(td.ds-habit.is-done, td.ds-habit.is-painted) { background: color-mix(in srgb, var(--hue-4) 30%, transparent); }
-.day-sheet-table td.ds-habit.is-unpainted { background: transparent; }
+.day-sheet-table :is(td.ds-habit.is-done, td.ds-habit.is-painted) { background-color: color-mix(in srgb, var(--hue-4) 30%, transparent); }
+.day-sheet-table td.ds-habit.is-unpainted { background-color: transparent; }
 td.ds-habit.is-unpainted > * { visibility: hidden; }
 .ds-tick { width: 16px; height: 16px; vertical-align: middle; fill: none; stroke: color-mix(in srgb, var(--hue-4) 70%, var(--ink)); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .ds-skip { display: inline-block; width: 10px; height: 10px; vertical-align: middle; border: 1.5px solid var(--steel); }
 .ds-miss { display: inline-block; width: 10px; height: 2px; vertical-align: middle; background: var(--steel); }
 
-/* writing in a cell: the words on its own line, the ring kept */
+/* writing in a cell: the words on their own line, wrapping and the row
+   growing as they run on, so all of them stay in sight; the ring kept */
 .ds-cell.is-editing { overflow: visible; }
 .ds-input {
-  display: block; width: 100%; height: 20px; padding: 0; border: none; border-radius: 0; outline: none;
+  display: block; width: 100%; min-height: 20px; padding: 0; border: none; border-radius: 0; outline: none;
   background: transparent; color: var(--ink); font: inherit; font-weight: 500;
+  resize: none; overflow: hidden; field-sizing: content; overflow-wrap: anywhere;
 }
 .ds-input:focus, .ds-input:focus-visible { outline: none; box-shadow: none; }
 .ds-input::placeholder { color: var(--pewter); font-weight: 400; }
 .ds-plan .ds-input { margin-left: 22px; width: calc(100% - 22px); }
 
 /* a range: the spark's tint, over a weekend's and a habit's fill */
-.day-sheet-table tr > .ds-cell.in-range { background: var(--spark-tint); }
+.day-sheet-table tr > .ds-cell.in-range { background-color: var(--spark-tint); }
 
 .ds-empty { margin: var(--s-3) var(--s-2); font-size: var(--t-caption); color: var(--pewter); }
 .sheet-hint { margin: 0 auto 0 0; }

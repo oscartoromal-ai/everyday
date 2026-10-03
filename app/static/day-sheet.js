@@ -344,9 +344,10 @@
   const edit = (cell, { value = null } = {}) => {
     if (!writable(cell)) return;
     const plan = cell.dataset.kind === "plan";
-    const input = document.createElement("input");
+    // A box that wraps and grows with its words, so all of them stay in sight.
+    const input = document.createElement("textarea");
     input.className = "ds-input";
-    input.type = "text";
+    input.rows = 1;
     input.autocomplete = "off";
     input.spellcheck = false;
     input.value = value ?? (plan ? "" : cell.dataset.value);
@@ -366,7 +367,7 @@
     if (!editing) return;
     const { cell, input, day } = editing;
     editing = null;
-    const words = input.value.trim();
+    const words = input.value.replace(/\s+/g, " ").trim(); // one line, pasted breaks and all
     if (cell.dataset.kind === "plan") {
       if (words) send([{ op: "task", day, title: words }], { open });
       else { input.remove(); cell.classList.remove("is-editing"); }

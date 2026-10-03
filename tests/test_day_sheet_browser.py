@@ -117,12 +117,21 @@ def test_a_task_is_written_for_its_day_and_ticked(page, live, app_db) -> None:
     open_sheet(page, live)
     plan = cell(page, TODAY, '[data-kind="plan"]')
     plan.dblclick()
-    page.keyboard.type("Do taxes")
+    # The cursor's whole row is shaded, not its cell alone.
+    shades = page.locator("tr.has-cursor > *").evaluate_all(
+        "cells => cells.map(c => getComputedStyle(c).backgroundImage)"
+    )
+    assert all(s.startswith("linear-gradient") for s in shades)
+    # Words that run past the cell wrap, the box growing so all stay in sight.
+    words = "Do taxes, " + "and gather every receipt from the year " * 4
+    page.keyboard.type(words)
+    box = page.locator(".ds-input")
+    assert box.evaluate("b => b.scrollHeight <= b.clientHeight && b.clientHeight > 40")
     page.keyboard.press("Enter")
     cell(page, TODAY, ".ds-task").filter(has_text="Do taxes").wait_for()
     with app_db() as db:
         [made] = db.query(Task).all()
-        assert (made.title, made.planned_for) == ("Do taxes", TODAY)
+        assert (made.title, made.planned_for) == (words.strip(), TODAY)
     # A click starts it, a second makes it done.
     cell(page, TODAY, ".ds-check").click()
     cell(page, TODAY, ".ds-task.is-in-progress").wait_for()
