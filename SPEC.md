@@ -36,6 +36,10 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Projects is the one screen for tasks** (Oscar's call on 2026-10-02, replacing the Tasks page and its By date / By project views): every open task of Oscar's on one sheet, its first row the composer, then the tasks in no project, then each active project's card (workstreams, then other tasks, each card with its quick add, Add a workstream and its status), the paused and done projects on shelves, and the Done fold.
   Each row names its do-date and has one-click Today and Tomorrow buttons and a date picker; rows go soonest first (do-date, then deadline, then oldest), and a repeating series shows only its next occurrence.
   A new project is named at the header's right; a status moves its card between the active projects and the shelves.
+- **Projects at a glance** (2026-10-03, after the portfolio views of Linear, Asana and Things): above the tasks, a row for each active project, then each paused one, as a portfolio list.
+  Each row gives the project's health, its progress (tasks done of all, cancelled ones aside), its next deadline, and its span (its tasks' first start to their last due) on twelve weeks shared by every row, from last week's Monday, with now marked.
+  Health is read from the deadlines, not set by hand, since one person has no one to report to: "N overdue", "Due soon" (within three days), "On track", "No deadline" or "Nothing open"; a paused project is "Paused".
+  The name opens the project's Gantt.
   The app opens on Today (`/` goes there); dates are planned on Today and each project's Gantt.
 - **Done folds away**: finished tasks leave their lists for a collapsed Done fold, at the foot of Projects (the last 14 days), where unticking one sends it back.
 - **Sub-tasks** live in their task's description and tick off on its row; workstreams hold tasks, never sub-tasks.

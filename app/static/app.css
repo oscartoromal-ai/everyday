@@ -487,6 +487,61 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   .new-project { flex: 1 1 100%; }
   .new-project .field-line { flex: 1; width: auto; }
 }
+/* Projects is wider than a list page: its overview lays the projects over weeks */
+.main:has(.projects-page) { max-width: 1040px; }
+
+/* the projects at a glance: a ruled sheet of a row a project, its columns
+   a grid, the weeks they share at the right; as tall as its rows */
+.projects-overview.ruled-sheet { flex: none; min-height: 0; margin-bottom: var(--s-4); }
+.overview-row {
+  display: grid; align-items: center; column-gap: var(--s-3);
+  grid-template-columns: minmax(0, 1fr) 112px 112px 88px 264px;
+}
+.overview-row.overview-head { font-size: var(--t-caption); font-weight: 500; color: var(--graphite); }
+.overview-row.overview-head .ov-name { color: var(--ink); font-size: var(--t-body-sm); font-weight: 600; }
+.overview-row:not(.overview-head) { transition: background-color var(--dur) var(--ease); }
+.overview-row:not(.overview-head):hover { background: var(--glass-row-hover); }
+.ov-name { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
+.ov-name a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-weight: 500; text-decoration: none; }
+.ov-name a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.overview-row.is-paused .ov-name a { color: var(--graphite); }
+.ov-health { display: flex; }
+.chip.neutral { color: var(--neutral-fg); background: var(--badge-neutral-glass); }
+/* progress: a 4px meter, what is done in ink, then the count */
+.ov-progress { display: flex; align-items: center; gap: var(--s-2); }
+.ov-meter { flex: 1; height: 4px; background: var(--hairline); overflow: hidden; }
+.ov-meter > span { display: block; height: 100%; background: var(--ink); }
+.ov-count, .ov-due { color: var(--graphite); font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.ov-count { flex: none; min-width: 34px; text-align: right; }
+.ov-due { color: var(--ink); white-space: nowrap; }
+.overview-head :is(.ov-due, .ov-count) { color: var(--graphite); font-family: inherit; }
+.ov-none { color: var(--pewter); }
+/* the weeks: ruled a week a column, each project's span a bar of the plan's
+   solid ink as on its Gantt, now the signal through every row */
+.ov-time { position: relative; align-self: stretch; margin-block: calc(-1 * var(--pad-above)) calc(-1 * var(--pad-below)); }
+.overview-row:not(.overview-head) .ov-time {
+  background: repeating-linear-gradient(to right, var(--hairline) 0 1px, transparent 1px calc(100% / 12));
+}
+.ov-month { position: absolute; bottom: var(--pad-below); padding-left: 4px; line-height: var(--pad-text); }
+.ov-bar {
+  position: absolute; top: 50%; height: 10px; margin-top: -5px; min-width: 4px;
+  background: var(--solid); box-shadow: inset 0 0 0 1.5px var(--solid-edge), var(--solid-glow);
+}
+.overview-row.is-paused .ov-bar { background: var(--steel); box-shadow: none; }
+.ov-now { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--signal); box-shadow: var(--signal-glow); }
+/* the columns go as the sheet narrows (the sidebar takes its share): the
+   weeks first, then the meter and the next deadline */
+.projects-overview { container-type: inline-size; }
+@container (max-width: 860px) {
+  .overview-row { grid-template-columns: minmax(0, 1fr) 112px 112px 88px; }
+  .ov-time { display: none; }
+}
+@container (max-width: 520px) {
+  .overview-row { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .ov-meter, .ov-due { display: none; }
+}
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
 /* the triage keys, named where they are used; no keyboard, no hint */
 .keys-hint { margin: var(--s-2) 0 0; font-size: var(--t-caption); color: var(--pewter); }
 .keys-hint kbd { margin-right: 2px; }

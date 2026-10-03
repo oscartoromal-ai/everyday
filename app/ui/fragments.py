@@ -494,7 +494,10 @@ def save_project(
 ):
     projects_svc.update_project(db, project_id, name=name, notes=notes.strip(), color=color)
     db.commit()
-    return _project_partial(request, db, project_id, "partials/project_card.html")
+    response = _project_partial(request, db, project_id, "partials/project_card.html")
+    # Its name and colour are on the page's overview too.
+    response.headers["HX-Trigger"] = "tasks:changed"
+    return response
 
 
 @router.post("/projects/{project_id}/workstreams")

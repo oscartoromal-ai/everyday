@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Projects · Personal Calendar{% endblock %}
 {% block content %}
-{# Every open task, filed under its project, for giving them days: on one
-   sheet ruled as Today's notepad is, the composer first, then the tasks in
+{# The projects at a glance, then every open task, filed under its project,
+   for giving them days: on one sheet ruled as Today's notepad is, the
+   composer first, then the tasks in
    no project, each active project, the paused and done ones shelved, and
    the last two weeks' finished work. #}
 <div class="projects-page">
@@ -25,6 +26,8 @@
     </form>
   </header>
 
+  {% include "partials/projects_overview.html" %}
+
   <div class="tasks-sheet ruled-sheet">
   <section class="capture" aria-label="Add a task">
     {% with mode = "compose", target = "loose-list", planned_for = None, placeholder = "Add a task…" %}
@@ -35,7 +38,7 @@
   {# Re-renders whenever a task or a project changes; task-sheet.js carries
      any half-written composer across the swap. #}
   <div id="task-groups" class="tasks-groups" data-cursor
-       hx-get="/projects" hx-select="#task-groups" hx-select-oob="#projects-rest" hx-swap="outerHTML"
+       hx-get="/projects" hx-select="#task-groups" hx-select-oob="#projects-rest,#projects-overview" hx-swap="outerHTML"
        hx-trigger="task:added from:body, tasks:changed from:body, calendar:refresh from:body"
        hx-disinherit="hx-get hx-select hx-select-oob hx-swap hx-trigger">
     {# Styled as a project card, so it reads as a sibling of the ones below. #}

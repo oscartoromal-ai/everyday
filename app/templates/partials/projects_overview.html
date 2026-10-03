@@ -1,0 +1,44 @@
+{% from "partials/project_flag.html" import project_flag %}
+{# The projects at a glance, as a portfolio: a row a project, active then
+   paused, with its health, progress, next deadline and span on the weeks
+   all of them share. Redrawn with the task groups under it. #}
+<div id="projects-overview">
+{% if overview %}
+<section class="projects-overview ruled-sheet" aria-labelledby="overview-title">
+  <div class="sheet-group" role="table" aria-labelledby="overview-title">
+    <div class="sheet-row overview-row overview-head" role="row">
+      <span class="ov-name" role="columnheader" id="overview-title">Projects at a glance</span>
+      <span class="ov-health" role="columnheader">Health</span>
+      <span class="ov-progress" role="columnheader">Progress</span>
+      <span class="ov-due" role="columnheader">Next due</span>
+      <span class="ov-time" role="columnheader">
+        <span class="visually-hidden">The next {{ overview.weeks - 1 }} weeks</span>
+        {% for m in overview.months %}<span class="ov-month" style="left: {{ m.left }}%" aria-hidden="true">{{ m.label }}</span>{% endfor %}
+      </span>
+    </div>
+    {% for row in overview.rows %}
+    {% set p = row.project %}
+    <div class="sheet-row overview-row{% if p.status.value == 'paused' %} is-paused{% endif %}" role="row" style="--project: var(--hue-{{ p.color }})">
+      <span class="ov-name" role="cell">
+        {{ project_flag(p) }}
+        <a href="/projects/{{ p.id }}" title="Open {{ p.name }} as a Gantt chart">{{ p.name }}</a>
+      </span>
+      <span class="ov-health" role="cell"><span class="chip {{ row.health_class }}">{{ row.health }}</span></span>
+      <span class="ov-progress" role="cell" title="{{ row.done }} of {{ row.total }} tasks done">
+        <span class="ov-meter" aria-hidden="true"><span style="width: {{ row.percent }}%"></span></span>
+        <span class="ov-count">{{ row.done }}/{{ row.total }}</span>
+      </span>
+      <span class="ov-due" role="cell"{% if row.next %} title="{{ row.next.title }}, due {{ row.next_label }}"{% endif %}>
+        {%- if row.next %}{{ row.next_label }}{% else %}<span class="ov-none">None</span>{% endif -%}
+      </span>
+      <span class="ov-time" role="cell" title="{{ row.span_label }}">
+        <span class="visually-hidden">{{ row.span_label }}</span>
+        {% if row.bar %}<span class="ov-bar" style="left: {{ row.bar.left }}%; width: {{ row.bar.width }}%" aria-hidden="true"></span>{% endif %}
+        <span class="ov-now" style="left: {{ overview.now }}%" aria-hidden="true"></span>
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+</div>

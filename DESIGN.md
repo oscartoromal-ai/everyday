@@ -82,7 +82,7 @@ The shell animates its column width on `--ease` over 220ms.
 When collapsed, the wordmark and labels hide, each link keeps its name as a tooltip, group labels become hairlines, and the spark bar stays.
 Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the spark bar moves above the active tab's icon, and the mode toggle ends the bar as a 44px sun or moon icon past a hairline, with no label; the collapse control stays desktop-only.
 Under 600px each tab is its icon, 44px wide; the tabs scroll sideways past the bar's width, it opens with the current page's tab in its middle, and an edge with tabs past it fades (`data-more`, `shell.js`).
-Content is 800px wide for list pages (Projects), where more width only lengthens a row, and up to 1600px for Today and Calendar, so a wide window or a zoomed-out page widens them rather than their margins.
+Content is 800px wide for list pages, where more width only lengthens a row; 1040px for Projects, whose overview lays its projects over weeks; and up to 1600px for Today and Calendar, so a wide window or a zoomed-out page widens them rather than their margins.
 Compact rows (the rail's toggle above the mode's, or C) set Projects' sheet and Today's notes 28px a row rather than 36px, the text its size: 3px above a 20px line, 4px below; the toggle's three lines close up while it is on, its label the state (Roomy, Compact).
 On Today a panel icon at the day header's right (or Ctrl+\) folds the timeline away, the notes taking its column, and back.
 
@@ -172,7 +172,7 @@ What is offered while writing (after "/" at a row's start, and after "/habit ") 
 No border, no focus ring and no resize handle; the pewter placeholder "Anything on your mind today."
 When the notes were saved in another window, a line under the card says so, with Show that version and Keep mine as secondary buttons.
 
-**Projects.** A page header ("Projects", the open and undated counts, and at its right a new project's name on its line, 200px, with a quiet Add), then the tasks on one sheet ruled as Today's notepad is, its first row the composer ("Add a task…" after the plus), above the first group's rule.
+**Projects.** A page header ("Projects", the open and undated counts, and at its right a new project's name on its line, 200px, with a quiet Add), then the projects at a glance, then the tasks on one sheet ruled as Today's notepad is, its first row the composer ("Add a task…" after the plus), above the first group's rule.
 The page runs to the window's foot and the sheet takes what is left of it (at least 420px).
 It is the notepad card's paper at 35%, with the same metrics: every row at least 36px tall with its text in the middle (7px above a 22px line, 6px below), on its own `--hairline` rule, and the 44px column of row numbers (12px pewter, tabular) on a fog wash behind a hairline (34px on phones).
 Every row is numbered, headers and composers included, and empty numbered rows fill the sheet under the last group, the last of them cut at its edge; a Done fold's hidden rows are not counted.
@@ -190,6 +190,13 @@ A 12px pewter line under its header (and Today's) names the page's first keys an
 The bar shows for keyboard focus only (`:focus-visible`), never after a click.
 It is the one cursor the app draws: a fold's header (Done, or a shelf's) and the item under the keyboard in a task sheet's menu take the same bar (on `--fog` in the menu, which is opaque paper).
 The shelves remember being open like the Done fold, so a key acting inside one never folds it away.
+
+**Projects at a glance.** A ruled sheet of its own, as tall as its rows, 16px above the tasks' sheet: a portfolio list, its columns a grid on every row.
+The head row is "Projects at a glance" in 14px/600 ink, then the columns' names in 12px/500 graphite (Health, Progress, Next due) and over the weeks the months' names where each starts (the first weeks' month too, when none starts in them).
+Each project is a row, active ones first and then paused ones (their names graphite): its flag, its name in ink 500 (opening its Gantt, underlined on hover, cut with an ellipsis), its health a badge (err "1 overdue", warn "Due soon", ok "On track", neutral "No deadline", "Nothing open" or "Paused"), its progress a 4px meter (done in ink on a hairline track) before "2/24" in graphite tabular figures, and its next deadline ("Yesterday", "Fri 9 Oct") in ink, the task named on hover, or a pewter "None".
+At the right, 264px, twelve weeks from last week's Monday, ruled a week a column in hairlines: the project's span a 10px bar of the plan's `--solid` (as a Gantt's bars: white tubes at night; steel for a paused project), and now the signal, 2px, down every row, glowing at night.
+The columns go as the sheet narrows (container queries, so the sidebar counts): under 860px the weeks, under 520px the meter and the next deadline.
+It is drawn again with the task groups under it.
 
 **Me** (Health).
 A page header, then one sheet ruled as Projects' is, each part a group: At a glance (Weight, Age, BMI and Daily energy, read-only in ink at 500, "Not yet" in pewter, then a graphite row saying how the energy is estimated), Weight, Body, Activity and goal, Diet, and Health notes.
