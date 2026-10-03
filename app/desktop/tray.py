@@ -56,7 +56,7 @@ class Tray:
             pystray.MenuItem("Projects", lambda: shell.open("/projects")),
             pystray.MenuItem("New task", lambda: shell.new_task()),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem(f"Quit {NAME}", lambda: shell.quit()),
+            pystray.MenuItem(f"Quit {NAME}", lambda: shell.quit("from the tray")),
         )
         self.icon = _Icon("personal-calendar", self.base, NAME, menu)
 

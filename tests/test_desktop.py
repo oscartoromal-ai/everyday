@@ -10,13 +10,13 @@ from app.desktop import control_router, tray, win32
 class FakeShell:
     def __init__(self) -> None:
         self.opened: list[str | None] = []
-        self.quit_called = False
+        self.quit_reason: str | None = None
 
     def open(self, path: str | None = None) -> None:
         self.opened.append(path)
 
-    def quit(self) -> None:
-        self.quit_called = True
+    def quit(self, reason: str) -> None:
+        self.quit_reason = reason
 
 
 def client(shell: FakeShell, host: str = "127.0.0.1") -> TestClient:
@@ -44,7 +44,7 @@ def test_the_window_answers_this_machine_only() -> None:
     phone = client(shell, host="100.64.0.2")
     assert phone.post("/desktop/open", json={"path": "/today"}).status_code == 403
     assert phone.post("/desktop/quit").status_code == 403
-    assert shell.opened == [] and not shell.quit_called
+    assert shell.opened == [] and shell.quit_reason is None
 
 
 def test_the_installer_can_ask_it_to_quit() -> None:
@@ -52,10 +52,10 @@ def test_the_installer_can_ask_it_to_quit() -> None:
     assert client(shell).post("/desktop/quit").status_code == 200
     # On a thread of its own, so the answer goes out before the server stops.
     for _ in range(100):
-        if shell.quit_called:
+        if shell.quit_reason:
             break
         time.sleep(0.01)
-    assert shell.quit_called
+    assert shell.quit_reason == "asked to (an installer)"
 
 
 def test_the_taskbar_badge_counts_to_nine_then_nine_plus() -> None:

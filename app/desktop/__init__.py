@@ -51,6 +51,7 @@ class Shell:
         self.state_path = state_path
         self.state = self._load_state()
         self.quitting = False
+        self.quit_reason = "the window closed"
         self.badge_due = threading.Event()
         self.window: webview.Window | None = None
         self.tray = Tray(self)
@@ -129,6 +130,7 @@ class Shell:
         # wait on a window that only hid.
         if win32.session_ending():
             self.quitting = True
+            self.quit_reason = "Windows signing out"
             self.tray.stop()
         if self.quitting:
             return True
@@ -158,8 +160,9 @@ class Shell:
             self.window.load_url(f"{self.url}/today?capture=1")
         self.open()
 
-    def quit(self) -> None:
+    def quit(self, reason: str) -> None:
         self.quitting = True
+        self.quit_reason = reason
         if self.window.native.Visible:
             self.state["placement"] = win32.get_placement(self.hwnd)
         self._save_state()
@@ -233,7 +236,9 @@ def control_router(shell: Shell) -> APIRouter:
     @router.post("/quit")
     def quit_app(request: Request) -> dict:
         local_only(request)
-        threading.Thread(target=shell.quit, name="quit", daemon=True).start()
+        threading.Thread(
+            target=shell.quit, args=("asked to (an installer)",), name="quit", daemon=True
+        ).start()
         return {"ok": True}
 
     return router
@@ -306,6 +311,6 @@ def main() -> None:
         storage_path=str(settings.db_path.parent / "webview"),
         icon=str(ICON),
     )
-    servers.stop("quit from the tray")
+    servers.stop(f"quit: {shell.quit_reason}")
     servers.join()
     log.info("Stopped")
