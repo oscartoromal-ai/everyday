@@ -615,6 +615,32 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 /* the native picker anchors to its input, which sits unseen under the item */
 .sheet-menu .pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
 
+/* ---------- a task's page: its sheet as a document (task.html) ---------- */
+
+/* The sheet at a page's width: the title is the page's heading, its box
+   beside its first line; every icon on one line under it, above a hairline;
+   then the description at reading size, as long as it runs (the page
+   scrolls, not the editor). The header says where it goes back to, and
+   at its right whether it is saved. */
+.task-page-header {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-4);
+  margin-bottom: var(--s-4);
+}
+.task-page-header .page-back { margin-bottom: 0; }
+.task-page-state { font-size: var(--t-caption); color: var(--pewter); }
+.task-page .task-sheet { padding: 0; gap: var(--s-3); line-height: inherit; }
+.task-page .task-check { margin-top: 7px; }
+.task-page .sheet-line { font-family: var(--font-display); font-size: var(--t-h-sm); line-height: 32px; letter-spacing: -0.015em; }
+.task-page .sheet-title { font-weight: 600; }
+.task-page .page-props {
+  margin-top: var(--s-2); padding-bottom: var(--s-3); border-bottom: 1px solid var(--hairline);
+  line-height: 22px;
+}
+.task-page .page-props .sheet-props { display: contents; }
+.task-page .sheet-history { margin-top: 0; padding-block: var(--s-3); border-top: none; border-bottom: 1px solid var(--hairline); }
+.task-page .sheet-more { margin-top: var(--s-4); }
+.task-page .notes-editor { max-height: none; min-height: 40vh; padding: 0; font-size: var(--t-body); line-height: 1.6; }
+
 /* ---------- the description editor: one line per block (notes-editor.js) ---------- */
 
 .notes-editor {
@@ -1997,12 +2023,12 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-header h1 { display: flex; align-items: center; gap: var(--s-2); }
 .gantt-header h1 .project-flag { width: 20px; height: 20px; }
 .gantt-header h1 .project-flag svg { width: 18px; height: 18px; }
-.gantt-back {
+.gantt-back, .page-back {
   display: inline-block; margin-bottom: var(--s-1);
   font-size: var(--t-caption); font-weight: 500; color: var(--graphite); text-decoration: none;
 }
-.gantt-back::before { content: "‹ "; }
-.gantt-back:hover { color: var(--ink); }
+.gantt-back::before, .page-back::before { content: "‹ "; }
+.gantt-back:hover, .page-back:hover { color: var(--ink); }
 .gantt-controls { flex: none; display: flex; align-items: center; gap: var(--s-3); margin-top: var(--s-1); }
 .gantt-controls .segmented { margin: 0; }
 .gantt-this-week { flex: none; min-width: 96px; }
@@ -2362,7 +2388,8 @@ tr.is-folded .ds-plan-list li:first-child .ds-title { min-width: 0; overflow: hi
 .ds-plan { padding-top: 7px; padding-bottom: 6px; }
 .ds-plan-list { margin: 0; padding: 0; list-style: none; }
 .ds-plan-list li { display: flex; align-items: baseline; gap: var(--s-2); min-width: 0; }
-.ds-task .ds-title { color: var(--ink); }
+.ds-task .ds-title { color: var(--ink); text-decoration: none; }
+.ds-task .ds-title:hover { text-decoration: underline; text-underline-offset: 3px; }
 .ds-task.is-done .ds-title { color: var(--pewter); text-decoration: line-through; text-decoration-thickness: 1px; }
 .ds-check {
   flex: none; align-self: center; display: grid; place-content: center; width: 14px; height: 14px;

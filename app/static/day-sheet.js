@@ -8,7 +8,9 @@
    drag down its column paints the days it crosses. Ctrl+D fills the range
    from its first row (one cell, from the row above), Delete clears it. A
    day whose plan runs over a line folds to its first (its chevron, or
-   Alt+Left and Right), and stays folded in this browser.
+   Alt+Left and Right), and stays folded in this browser. A task's title
+   opens its page; so does Ctrl+Enter, on a Plan cell its first task's, and
+   writing one, the task just written, to write it out at length.
 
    Every edit is one POST of ops (/ui/day-sheet), written into the days'
    notes and tasks as they would be there, answered with the sheet drawn
@@ -122,7 +124,8 @@
     if (focused && cell && !editing) cell.focus({ preventScroll: true });
   };
 
-  const send = (ops) => {
+  // `open`: the task the ops write opens on its page once written.
+  const send = (ops, { open = false } = {}) => {
     if (!ops.length) return;
     pending++;
     queue = queue.then(async () => {
@@ -136,6 +139,11 @@
           const answer = await res.json().catch(() => ({}));
           window.toast(typeof answer.detail === "string" ? answer.detail : "Could not save that. Try again?");
           return refresh(true);
+        }
+        const created = res.headers.get("X-Task-Created");
+        if (open && created) {
+          window.location.href = `/tasks/${created}`;
+          return;
         }
         swap(await res.text());
       } catch {
@@ -242,14 +250,15 @@
     input.setSelectionRange(input.value.length, input.value.length);
   };
 
-  // The words written go; the sheet comes back drawn with them.
-  const commit = () => {
+  // The words written go; the sheet comes back drawn with them. `open`: a
+  // task written opens on its page.
+  const commit = ({ open = false } = {}) => {
     if (!editing) return;
     const { cell, input, day } = editing;
     editing = null;
     const words = input.value.trim();
     if (cell.dataset.kind === "plan") {
-      if (words) send([{ op: "task", day, title: words }]);
+      if (words) send([{ op: "task", day, title: words }], { open });
       else { input.remove(); cell.classList.remove("is-editing"); }
     } else if (words !== cell.dataset.value) {
       send([{ op: "stay", day, name: cell.dataset.name, value: words }]);
@@ -278,6 +287,14 @@
       cursor = from;
       step(dRow, dCol);
     };
+    if (key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      // The task written, opened on its page to be written out.
+      e.preventDefault();
+      e.stopPropagation();
+      if (editing.cell.dataset.kind === "plan" && editing.input.value.trim()) commit({ open: true });
+      else done(0, 0);
+      return;
+    }
     if (key === "Enter") { done(e.shiftKey ? -1 : 1, 0); return; }
     if (key === "Tab") { done(0, e.shiftKey ? -1 : 1); return; }
     if (key === "Escape") { e.preventDefault(); e.stopPropagation(); cancel(); return; }
@@ -298,6 +315,12 @@
 
     if ((e.ctrlKey || e.metaKey) && !e.altKey) {
       if (key.toLowerCase() === "d") { handled(); fillDown(); return; }
+      if (key === "Enter") {
+        // A Plan cell's first task, on its page.
+        const link = cell.dataset.kind === "plan" && cell.querySelector(".ds-task a.ds-title");
+        if (link) { handled(); window.location.href = link.href; }
+        return;
+      }
       if (key === "Home") { handled(); moveTo(rows()[0].dataset.day, 0, { extend: e.shiftKey }); return; }
       if (key === "End") { const all = rows(); handled(); moveTo(all[all.length - 1].dataset.day, colCount() - 1, { extend: e.shiftKey }); return; }
       return; // other Ctrl keys stay the browser's

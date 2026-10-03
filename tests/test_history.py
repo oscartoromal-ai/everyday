@@ -44,3 +44,43 @@ def test_history_outlives_the_task(db) -> None:
     steps = history.changes(db, task_id)
     assert [s["change"] for s in steps] == ["deleted", "created"]
     assert history.last_known(db, [task_id])[task_id]["title"] == "Mow"
+
+
+def test_a_description_written_over_a_while_is_one_step(db) -> None:
+    task = tasks_svc.create_task(db, title="Plan the trip")
+    # A task's page saves as it is written: each pause a save.
+    for notes in ("Flights", "Flights first", "Flights first, then the rail pass"):
+        tasks_svc.update_task(db, task.id, notes=notes)
+    steps = history.changes(db, task.id)
+    assert [s["change"] for s in steps] == ["updated", "created"]
+    assert steps[0]["fields"] == [
+        {"field": "notes", "from": "", "to": "Flights first, then the rail pass"}
+    ]
+
+
+def test_writing_folds_only_into_writing_by_the_same_hand_lately(db) -> None:
+    task = tasks_svc.create_task(db, title="Plan the trip")
+    tasks_svc.update_task(db, task.id, notes="Flights")
+    # Another field is a step of its own, and so is the writing after it.
+    tasks_svc.update_task(db, task.id, due=TODAY)
+    tasks_svc.update_task(db, task.id, notes="Flights first")
+    # Claude's writing is not folded into Oscar's, nor Oscar's into Claude's.
+    db.info["actor"] = "claude"
+    tasks_svc.update_task(db, task.id, notes="Flights first, booked")
+    db.info["actor"] = "oscar"
+    tasks_svc.update_task(db, task.id, notes="Flights first, booked, and the pass")
+    # Nor is writing after a long pause.
+    for rev in history.revisions(db, task.id):
+        rev.at -= history.WRITING_SPELL + timedelta(minutes=1)
+    db.flush()
+    tasks_svc.update_task(db, task.id, notes="Flights first, booked, and the pass. Done.")
+    steps = history.changes(db, task.id)
+    assert [(s["change"], s["actor"]) for s in steps] == [
+        ("updated", "oscar"),
+        ("updated", "oscar"),
+        ("updated", "claude"),
+        ("updated", "oscar"),
+        ("updated", "oscar"),
+        ("updated", "oscar"),
+        ("created", "oscar"),
+    ]
