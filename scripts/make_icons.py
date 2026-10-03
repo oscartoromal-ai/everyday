@@ -1,54 +1,53 @@
-"""Draw the installed app's icons (app/static/icons) from favicon.svg.
+"""Draw the app's icons (app/static/icons) from favicon.svg.
 
-The manifest's icons: the favicon itself at 192 and 512 pixels, and a
-maskable one for launchers that cut their own shape (the mark smaller, on a
-full-bleed tile, inside the 80% safe zone). Run after changing the favicon:
+- app.ico: the desktop app's icon (its window, taskbar button, tray, Start
+  menu and installer), the favicon drawn at each size Windows asks for, so
+  none is a shrunken copy of another.
+- icon-192.png: the icon a phone keeps for the app on its home screen.
+
+Run after changing the favicon:
 
     uv run python scripts/make_icons.py
 """
 
 from __future__ import annotations
 
-import re
+import io
 from pathlib import Path
 
+from PIL import Image
 from playwright.sync_api import sync_playwright
 
 STATIC = Path(__file__).resolve().parent.parent / "app" / "static"
 OUT = STATIC / "icons"
-
-
-def maskable(favicon: str) -> str:
-    """The favicon's mark on a square tile, scaled into the safe zone."""
-    tile = re.search(r'<rect width="32" height="32"[^>]*fill="([^"]+)"', favicon).group(1)
-    mark = re.sub(r'<rect width="32" height="32"[^>]*/>\s*', "", favicon.split(">", 1)[1])
-    mark = mark.rsplit("</svg>", 1)[0]
-    return (
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
-        f'<rect width="32" height="32" fill="{tile}"/>'
-        f'<g transform="translate(16 16) scale(0.72) translate(-16 -16)">{mark}</g></svg>'
-    )
+ICO_SIZES = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256]
 
 
 def main() -> None:
     favicon = (STATIC / "favicon.svg").read_text(encoding="utf-8")
     OUT.mkdir(exist_ok=True)
-    shots = [
-        ("icon-192.png", favicon, 192),
-        ("icon-512.png", favicon, 512),
-        ("icon-maskable-512.png", maskable(favicon), 512),
-    ]
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page()
-        for name, svg, size in shots:
+
+        def draw(size: int) -> Image.Image:
             page.set_viewport_size({"width": size, "height": size})
             page.set_content(
                 "<style>html,body{margin:0;background:transparent}"
-                f"svg{{display:block;width:{size}px;height:{size}px}}</style>{svg}"
+                f"svg{{display:block;width:{size}px;height:{size}px}}</style>{favicon}"
             )
-            page.screenshot(path=OUT / name, omit_background=True)
-            print(f"wrote {OUT / name}")
+            return Image.open(io.BytesIO(page.screenshot(omit_background=True))).convert("RGBA")
+
+        draw(192).save(OUT / "icon-192.png")
+        print(f"wrote {OUT / 'icon-192.png'}")
+        images = [draw(size) for size in ICO_SIZES]
+        images[-1].save(
+            OUT / "app.ico",
+            format="ICO",
+            sizes=[(s, s) for s in ICO_SIZES],
+            append_images=images[:-1],
+        )
+        print(f"wrote {OUT / 'app.ico'}")
         browser.close()
 
 

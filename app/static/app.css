@@ -1425,7 +1425,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .timeline-header { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); margin: 6px 0 var(--s-4); }
 .timeline-header h2 { font-size: var(--t-body); }
 /* the column holds the window's height: the hours in what is left under the header */
-.today-timeline { display: flex; flex-direction: column; max-height: calc(100dvh - 2 * var(--s-6)); }
+.today-timeline { display: flex; flex-direction: column; max-height: calc(100dvh - 2 * var(--s-8)); }
 .today-timeline .calendar-grid { flex: 1 1 auto; min-height: 240px; overflow-y: auto; overscroll-behavior: contain; }
 
 .task-row[draggable="true"] { cursor: grab; }
@@ -1459,7 +1459,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 
 /* The notepad: the whole left column, one glass card as tall as the
    window allows, for plain text at reading size. */
-.today-pad { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-6)); }
+.today-pad { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-8)); }
 .today-pad .day-header { margin-bottom: var(--s-4); }
 /* under the date, the day's stay item by item: a small box (ink once
    sorted, amber-ruled not yet), its name in pewter, its value in ink; a

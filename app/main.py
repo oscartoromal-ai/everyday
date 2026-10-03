@@ -22,7 +22,6 @@ from app.ui import garmin as ui_garmin
 from app.ui import money as ui_money
 from app.ui import nutrition as ui_nutrition
 from app.ui import pages as ui_pages
-from app.ui import pwa as ui_pwa
 
 APP_DIR = Path(__file__).resolve().parent
 
@@ -60,7 +59,6 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     app.include_router(ui_garmin.router)
     app.include_router(ui_money.router)
     app.include_router(ui_gantt.router)
-    app.include_router(ui_pwa.router)
 
     @app.exception_handler(DomainError)
     def domain_error(request: Request, exc: DomainError) -> JSONResponse:
@@ -74,5 +72,6 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
 
 
 # The dev server's app (`uvicorn app.main:app`). It runs no jobs, since it may share
-# the always-on app's database; `personal-calendar` (serve.py) builds the one that does.
+# the desktop app's database; the desktop app (app/desktop) and `personal-calendar`
+# (serve.py) build the one that does.
 app = create_app()

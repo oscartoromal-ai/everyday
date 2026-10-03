@@ -1,6 +1,6 @@
 /* Shell chrome shared by every page: the light/dark toggle, the collapsible
    sidebar, the keys that work everywhere, the confirm dialog behind
-   hx-confirm, and the installed app's service worker and taskbar badge. The saved theme and sidebar state are first applied by the
+   hx-confirm, and the desktop app's title bar and taskbar count. The saved theme and sidebar state are first applied by the
    inline script in base.html's <head>, before paint; this file keeps them
    in step with the controls. */
 
@@ -16,12 +16,14 @@
   /* ---- theme: a two-way toggle; with no saved choice, follow the system ---- */
 
   const isDark = () => root.dataset.theme === "dark";
+  let paintTitleBar = () => {}; // the desktop app's, set below
   const applyTheme = (dark) => {
     if (dark) root.dataset.theme = "dark";
     else delete root.dataset.theme;
-    // The installed app's title bar, in the theme's paper.
+    // The browser's bar, and the desktop app's title bar, in the theme's paper.
     const bar = document.querySelector('meta[name="theme-color"]');
     if (bar) bar.content = getComputedStyle(root).getPropertyValue("--paper").trim() || bar.content;
+    paintTitleBar();
     const button = document.querySelector(".theme-toggle");
     if (!button) return;
     button.setAttribute("aria-pressed", String(dark));
@@ -325,16 +327,13 @@
     window.addEventListener("resize", markMore);
   }
 
-  /* ---- the installed app (pwa.py): its service worker, its icon menu's
-     New task, and the nudges waiting as a number on its taskbar icon ---- */
+  /* ---- the desktop app (app/desktop): its title bar in the page's paper
+     and ink, titled as the page is, and the nudges counted again on its
+     taskbar button as one is dismissed. Its tray's New task opens the
+     capture window over the page (openCapture), else here as
+     /today?capture=1. ---- */
 
-  // The worker only stands in when the server is not answering (sw.js). A
-  // secure context only: localhost, not the tailnet's plain http.
-  if ("serviceWorker" in navigator && window.isSecureContext) {
-    navigator.serviceWorker.register("/sw.js").catch(() => { /* a tab works without it */ });
-  }
-
-  // New task, from the icon's menu, opens here as /today?capture=1.
+  window.openCapture = openCapture;
   const arrival = new URL(location.href);
   if (arrival.searchParams.has("capture")) {
     arrival.searchParams.delete("capture");
@@ -342,23 +341,17 @@
     document.addEventListener("DOMContentLoaded", openCapture);
   }
 
-  // The count follows the nudges: on load, on coming back to the window, as
-  // one is dismissed, and every few minutes (they are raised on a schedule).
-  // In a tab, the browser has no icon of its own to badge.
-  if ("setAppBadge" in navigator && matchMedia("(display-mode: standalone)").matches) {
-    const badge = async () => {
-      try {
-        const res = await fetch("/ui/nudges/count", { cache: "no-store" });
-        if (!res.ok) return;
-        const { count } = await res.json();
-        await (count ? navigator.setAppBadge(count) : navigator.clearAppBadge());
-      } catch { /* the server is away; the count stays as it was */ }
-    };
-    badge();
-    setInterval(badge, 5 * 60 * 1000);
-    document.addEventListener("visibilitychange", () => { if (!document.hidden) badge(); });
-    document.addEventListener("htmx:afterRequest", (e) => {
-      if (/\/ui\/nudges\/\d+\/dismiss$/.test(e.detail.pathInfo?.requestPath ?? "")) badge();
-    });
-  }
+  const desktop = () => window.pywebview?.api;
+  paintTitleBar = () => {
+    const style = getComputedStyle(root);
+    desktop()?.title_bar(
+      style.getPropertyValue("--paper").trim(), style.getPropertyValue("--ink").trim(), isDark(), document.title,
+    );
+  };
+  // pywebview's bridge usually comes in after this script has run.
+  if (desktop()?.title_bar) paintTitleBar();
+  else window.addEventListener("pywebviewready", paintTitleBar);
+  document.addEventListener("htmx:afterRequest", (e) => {
+    if (/\/ui\/nudges\/\d+\/dismiss$/.test(e.detail.pathInfo?.requestPath ?? "")) desktop()?.nudges_changed();
+  });
 })();

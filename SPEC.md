@@ -6,7 +6,7 @@ Every section gists a decision made on that map and links the ticket that holds 
 
 ## 1. Product shape
 
-- Single user (Oscar), single machine (Windows 11), browser UI, no cloud backend.
+- Single user (Oscar), single machine (Windows 11), a desktop app (the web UI in a window of its own; the phone gets it in its browser), no cloud backend.
 - The app is the canonical store for personal plan state: projects, tasks, events.
 - Claude is a first-class client: it reads and writes the plan through MCP from day one.
 - The work calendar is visible read-only inside the app; the app never writes to it.
@@ -354,14 +354,15 @@ APScheduler inside the FastAPI process; jobs share app code and database session
 
 ### Deployment and backups
 
-- Auto-starting background service on Windows (NSSM or Task Scheduler at-logon, hidden window); the app is effectively always up, which the hook-spool design assumes.
-- **The desktop app** (Oscar's call on 2026-10-03): the web UI installed from Edge or Chrome as an app (a PWA), in a window of its own with taskbar and Start menu entries, never a second server.
-  The always-on service stays the one process, since Claude's MCP, the scheduler and the phone all need it whether a window is open or not.
-  The manifest's shortcuts (Today, Calendar, Projects, New task) are the icon's menu; its badge counts the nudges waiting; its title bar takes the theme's paper.
-  Its service worker caches nothing and steps in only when the server is not answering, with a page that says so and opens the app once it answers.
-  A native shell (Tauri) is the next step only if a global capture hotkey or a tray icon is wanted.
+- **A desktop app, wholly local** (Oscar's call on 2026-10-03, replacing that morning's PWA and the scheduled task behind it): a Windows program of its own, built from the repo and installed per user, with no repo, Python, browser or Task Scheduler needed to run it.
+  One process holds everything: its window (Edge WebView2 over the app's own pages), the server on `127.0.0.1:8377` (and the Tailscale interface) and the scheduler, since Claude's MCP, the jobs and the phone all need it whether a window is open or not.
+  Closing the window hides it to a tray icon, where it keeps running; it starts there at sign-in, which the hook-spool design assumes, and Quit is on the tray icon's menu.
+  The tray icon's menu opens Today, Calendar, Projects or New task; a number on the taskbar button and a dot on the tray icon count the nudges waiting; the title bar takes the page's paper and ink.
+  Its data lives in its own folder (`%LOCALAPPDATA%\Personal Calendar`): the database, created and migrated by the app as it starts, its logs, backups, the machine's secrets and its settings over the shipped defaults.
+  A change reaches it by building and installing again (the installer asks the running app to quit, replaces it and opens the new one); the installed app never runs the repo's code.
+  Windows only, built with PyInstaller and Inno Setup; a Tauri shell stays the alternative if WebView2 through pywebview falls short.
 - The in-app daily backup job uses SQLite's backup API to write dated snapshots into a cloud-synced folder; retain about 30.
-- Restore is copying a snapshot back over the database file.
+- Restore is quitting the app and copying a snapshot back over the database file.
 
 ### Security and remote access
 

@@ -15,8 +15,7 @@
      Its fonts are preloaded at exactly the URL design.css asks for, so each is fetched once. #}
   {% for font in ds.fonts %}<link rel="preload" href="/static/design/{{ font }}" as="font" type="font/woff2" crossorigin>
   {% endfor %}<link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
-  {# Installable as a desktop app (pwa.py); its title bar takes theme-color, set below to the page's paper. #}
-  <link rel="manifest" href="/manifest.webmanifest">
+  {# The phone's home-screen icon, and its browser's bar in the page's paper (set below; the desktop app's title bar follows it, shell.js). #}
   <link rel="apple-touch-icon" href="{{ asset('icons/icon-192.png') }}">
   <meta name="theme-color" content="#ffffff">
   <script>
@@ -48,8 +47,8 @@
   <link rel="stylesheet" href="{{ asset('design/design.css') }}">
   <link rel="stylesheet" href="{{ asset('app.css') }}">
   <script>
-    // The installed app's title bar in the theme's paper before first paint
-    // (this waits for the stylesheets above); shell.js keeps it in step.
+    // The browser's bar in the theme's paper before first paint (this waits
+    // for the stylesheets above); shell.js keeps it in step.
     document.querySelector('meta[name="theme-color"]').content =
       getComputedStyle(document.documentElement).getPropertyValue("--paper").trim() || "#ffffff";
   </script>

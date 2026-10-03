@@ -16,7 +16,7 @@ def test_the_hidden_app_logs_to_a_file(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(sys, "excepthook", sys.excepthook)
     path = tmp_path / "logs" / "personal-calendar.log"
     try:
-        serve._configure_logging(path)
+        serve.configure_logging(path)
         # uvicorn runs with log_config=None, so its loggers reach the file too.
         logging.getLogger("uvicorn.error").info("Uvicorn running")
         logging.getLogger("app.serve").info("Shutting down: console closed (SIGBREAK)")

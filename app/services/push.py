@@ -16,13 +16,7 @@ log = logging.getLogger(__name__)
 
 
 def _read_local(path_str: str) -> str | None:
-    from pathlib import Path
-
-    from app.config import REPO_ROOT
-
-    path = Path(path_str)
-    if not path.is_absolute():
-        path = REPO_ROOT / path
+    path = get_settings().resolve(path_str)
     if not path.exists():
         return None
     value = path.read_text(encoding="utf-8").strip()

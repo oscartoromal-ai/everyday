@@ -31,8 +31,8 @@ def test_mcp_endpoint_mounted(app_db) -> None:
 
 
 def test_dev_server_app_runs_no_scheduler(app_db, monkeypatch) -> None:
-    """`uvicorn app.main:app` is the dev server, which may share the always-on
-    app's database; only `personal-calendar` (serve.py) may run the jobs."""
+    """`uvicorn app.main:app` is the dev server, which may share the desktop
+    app's database; only the app itself (app/desktop, serve.py) may run the jobs."""
     import app.jobs.scheduler as scheduler
     from app.main import app
 
