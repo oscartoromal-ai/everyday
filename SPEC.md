@@ -355,6 +355,11 @@ APScheduler inside the FastAPI process; jobs share app code and database session
 ### Deployment and backups
 
 - Auto-starting background service on Windows (NSSM or Task Scheduler at-logon, hidden window); the app is effectively always up, which the hook-spool design assumes.
+- **The desktop app** (Oscar's call on 2026-10-03): the web UI installed from Edge or Chrome as an app (a PWA), in a window of its own with taskbar and Start menu entries, never a second server.
+  The always-on service stays the one process, since Claude's MCP, the scheduler and the phone all need it whether a window is open or not.
+  The manifest's shortcuts (Today, Calendar, Projects, New task) are the icon's menu; its badge counts the nudges waiting; its title bar takes the theme's paper.
+  Its service worker caches nothing and steps in only when the server is not answering, with a page that says so and opens the app once it answers.
+  A native shell (Tauri) is the next step only if a global capture hotkey or a tray icon is wanted.
 - The in-app daily backup job uses SQLite's backup API to write dated snapshots into a cloud-synced folder; retain about 30.
 - Restore is copying a snapshot back over the database file.
 

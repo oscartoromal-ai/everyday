@@ -1,6 +1,6 @@
 /* Shell chrome shared by every page: the light/dark toggle, the collapsible
-   sidebar, the keys that work everywhere, and the confirm dialog behind
-   hx-confirm. The saved theme and sidebar state are first applied by the
+   sidebar, the keys that work everywhere, the confirm dialog behind
+   hx-confirm, and the installed app's service worker and taskbar badge. The saved theme and sidebar state are first applied by the
    inline script in base.html's <head>, before paint; this file keeps them
    in step with the controls. */
 
@@ -19,6 +19,9 @@
   const applyTheme = (dark) => {
     if (dark) root.dataset.theme = "dark";
     else delete root.dataset.theme;
+    // The installed app's title bar, in the theme's paper.
+    const bar = document.querySelector('meta[name="theme-color"]');
+    if (bar) bar.content = getComputedStyle(root).getPropertyValue("--paper").trim() || bar.content;
     const button = document.querySelector(".theme-toggle");
     if (!button) return;
     button.setAttribute("aria-pressed", String(dark));
@@ -159,15 +162,18 @@
      #capture-dialog). Never while typing, or over a dialog. ---- */
 
   const TYPING = "input, textarea, select, [contenteditable]";
+  const openCapture = () => {
+    const capture = document.getElementById("capture-dialog");
+    if (!capture) return false;
+    capture.showModal();
+    window.TaskSheet.compose(capture.querySelector(".task-sheet"));
+    return true;
+  };
   document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
     if (e.target.closest?.(TYPING) || document.querySelector("dialog[open]")) return;
     if ((e.key === "n" || e.key === "N") && !document.querySelector("[data-cursor]")) {
-      const capture = document.getElementById("capture-dialog");
-      if (!capture) return;
-      e.preventDefault();
-      capture.showModal();
-      window.TaskSheet.compose(capture.querySelector(".task-sheet"));
+      if (openCapture()) e.preventDefault();
       return;
     }
     if (e.key === "c" || e.key === "C") {
@@ -317,5 +323,42 @@
     markMore();
     nav.addEventListener("scroll", markMore, { passive: true });
     window.addEventListener("resize", markMore);
+  }
+
+  /* ---- the installed app (pwa.py): its service worker, its icon menu's
+     New task, and the nudges waiting as a number on its taskbar icon ---- */
+
+  // The worker only stands in when the server is not answering (sw.js). A
+  // secure context only: localhost, not the tailnet's plain http.
+  if ("serviceWorker" in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register("/sw.js").catch(() => { /* a tab works without it */ });
+  }
+
+  // New task, from the icon's menu, opens here as /today?capture=1.
+  const arrival = new URL(location.href);
+  if (arrival.searchParams.has("capture")) {
+    arrival.searchParams.delete("capture");
+    history.replaceState(history.state, "", arrival);
+    document.addEventListener("DOMContentLoaded", openCapture);
+  }
+
+  // The count follows the nudges: on load, on coming back to the window, as
+  // one is dismissed, and every few minutes (they are raised on a schedule).
+  // In a tab, the browser has no icon of its own to badge.
+  if ("setAppBadge" in navigator && matchMedia("(display-mode: standalone)").matches) {
+    const badge = async () => {
+      try {
+        const res = await fetch("/ui/nudges/count", { cache: "no-store" });
+        if (!res.ok) return;
+        const { count } = await res.json();
+        await (count ? navigator.setAppBadge(count) : navigator.clearAppBadge());
+      } catch { /* the server is away; the count stays as it was */ }
+    };
+    badge();
+    setInterval(badge, 5 * 60 * 1000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) badge(); });
+    document.addEventListener("htmx:afterRequest", (e) => {
+      if (/\/ui\/nudges\/\d+\/dismiss$/.test(e.detail.pathInfo?.requestPath ?? "")) badge();
+    });
   }
 })();

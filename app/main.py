@@ -22,6 +22,7 @@ from app.ui import garmin as ui_garmin
 from app.ui import money as ui_money
 from app.ui import nutrition as ui_nutrition
 from app.ui import pages as ui_pages
+from app.ui import pwa as ui_pwa
 
 APP_DIR = Path(__file__).resolve().parent
 
@@ -59,6 +60,7 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     app.include_router(ui_garmin.router)
     app.include_router(ui_money.router)
     app.include_router(ui_gantt.router)
+    app.include_router(ui_pwa.router)
 
     @app.exception_handler(DomainError)
     def domain_error(request: Request, exc: DomainError) -> JSONResponse:

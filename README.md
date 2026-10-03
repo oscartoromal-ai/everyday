@@ -26,6 +26,14 @@ To run it the way it runs in production, with the scheduler and every configured
 uv run personal-calendar
 ```
 
+## Installing it as a desktop app
+
+With the always-on app running, open `http://127.0.0.1:8377` in Edge or Chrome and choose Install (the icon at the end of the address bar, or the menu's Apps > Install this site as an app).
+It opens in its own window, pinnable to the taskbar, and Edge's install dialog can start it when you sign in.
+Right-click its taskbar icon for Today, Calendar, Projects and New task; the number on the icon is the nudges waiting.
+The window is the same app as the tab, served by the same process, so changes show in it as they do in a tab.
+After changing `app/static/favicon.svg`, redraw its icons with `uv run python scripts/make_icons.py`.
+
 ## Tests and lint
 
 ```
