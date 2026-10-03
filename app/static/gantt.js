@@ -3,7 +3,8 @@
    drag, cells written by typing, bars drawn over the time, moved and
    stretched by dragging or with Alt, rows moved with Alt+Up/Down or
    dragged by their number to another place or workstream, workstreams
-   folded to their row, done tasks hidden, the time seen in weeks or drilled down to days,
+   folded to their row, a task's status stepped on by its box or chosen
+   from its menu, tasks shown by status, the time seen in weeks or drilled down to days,
    tasks deleted (their bin, or Delete on Task), and undo.
 
    Every edit is one POST of ops (app.services.gantt.apply), answered with
@@ -28,7 +29,7 @@
   const table = () => sheet.querySelector(".gantt-table");
   const rows = () => [...sheet.querySelectorAll(
     ".gantt-group:not(.is-folded) > .gantt-row, .gantt-group.is-folded > .gantt-row.kind-workstream",
-  )].filter((row) => !(hidingDone && row.matches(".kind-task.is-done")));
+  )].filter((row) => !(row.dataset.kind === "task" && hiding.has(shownAs(row.dataset.status))));
   const rowOf = (key) => sheet.querySelector(`.gantt-row[data-key="${CSS.escape(key)}"]`);
   const colCount = () => FROZEN + Number(table().dataset.colCount);
   const cellAt = (row, col) => row?.querySelector(`.gantt-cell[data-col="${col}"]`);
@@ -482,9 +483,12 @@
     send(ops);
   };
 
+  // A task's box steps it on: to do, in progress, review, done, and round
+  // to to do again; a blocked task starts.
+  const NEXT = { todo: "in_progress", blocked: "in_progress", in_progress: "needs_review", needs_review: "done", done: "todo" };
   const toggle = (row) => {
     const d = row.dataset;
-    if (d.kind === "task") send([{ op: "task", id: Number(d.id), done: d.status !== "done" }]);
+    if (d.kind === "task") send([{ op: "task", id: Number(d.id), status: NEXT[d.status] || "todo" }]);
     if (d.kind === "workstream") send([{ op: "workstream", id: Number(d.id), done: d.status !== "done" }]);
   };
 
@@ -781,6 +785,15 @@
       remove();
       return;
     }
+    const opener = e.target.closest("[data-status-menu]");
+    if (opener) {
+      e.preventDefault();
+      const open = menu?.button === opener;
+      closeMenu(false);
+      moveTo(opener.closest(".gantt-row").dataset.key, 0);
+      if (!open) openStatusMenu(opener);
+      return;
+    }
     const chevron = e.target.closest("[data-fold]");
     if (chevron) {
       // Alt folds or opens every workstream at once.
@@ -1035,11 +1048,113 @@
     place()?.focus({ preventScroll: true });
   }
 
-  /* ---- done tasks hidden, or shown, remembered (pc-gantt-hide-done) ---- */
+  /* ---- the menus: a task's status, and the statuses shown ---- */
 
-  const HIDE_DONE = "pc-gantt-hide-done";
-  let hidingDone = saved(HIDE_DONE) === "1";
-  const hideButton = document.querySelector("[data-gantt-hide-done]");
+  // In the body, not the sheet, which clips what overflows it; one open at
+  // a time. Its items are [label, value, checked].
+  const TICK = '<svg class="tick" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.5 3.5 7.5-8"/></svg>';
+  let menu = null; // {button, el, choose}
+
+  function openMenu(button, { label, role, items, choose }) {
+    const el = document.createElement("div");
+    el.className = "sheet-menu";
+    el.setAttribute("role", "menu");
+    el.setAttribute("aria-label", label);
+    for (const [text, value, checked] of items) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.tabIndex = -1;
+      item.setAttribute("role", role);
+      item.setAttribute("aria-checked", String(checked));
+      item.dataset.value = value;
+      item.innerHTML = `<span class="label"></span>${checked ? TICK : ""}`;
+      item.querySelector(".label").textContent = text;
+      el.append(item);
+    }
+    document.body.append(el);
+    const at = button.getBoundingClientRect();
+    const below = window.innerHeight - at.bottom >= el.offsetHeight + 8;
+    el.style.top = `${Math.max(8, below ? at.bottom + 4 : at.top - el.offsetHeight - 4)}px`;
+    el.style.left = `${Math.max(8, Math.min(at.left, window.innerWidth - el.offsetWidth - 8))}px`;
+    button.setAttribute("aria-expanded", "true");
+    menu = { button, el, choose };
+    (el.querySelector('[aria-checked="true"]') || el.firstElementChild).focus();
+  }
+
+  // Closed, the cursor's cell takes the focus back (unless the click went elsewhere).
+  function closeMenu(restore = true) {
+    if (!menu) return;
+    const { button, el } = menu;
+    menu = null;
+    el.remove();
+    button.setAttribute("aria-expanded", "false");
+    if (restore) place()?.focus({ preventScroll: true });
+  }
+
+  document.addEventListener("click", (e) => {
+    if (!menu || e.target.closest?.("[data-status-menu], [data-gantt-show]")) return;
+    const item = e.target.closest?.(".sheet-menu [data-value]");
+    if (item && menu.el.contains(item)) menu.choose(item);
+    else if (!menu.el.contains(e.target)) closeMenu(false);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (!menu || !menu.el.contains(e.target)) return;
+    const items = [...menu.el.querySelectorAll("[data-value]")];
+    const at = items.indexOf(e.target.closest("[data-value]"));
+    const handled = () => { e.preventDefault(); e.stopPropagation(); };
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      handled();
+      items[(at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus();
+    } else if (e.key === "Home" || e.key === "End") {
+      handled();
+      items[e.key === "Home" ? 0 : items.length - 1].focus();
+    } else if (e.key === "Enter" || e.key === " ") {
+      handled();
+      menu.choose(items[at]);
+    } else if (e.key === "Escape" || e.key === "Tab") {
+      handled();
+      closeMenu();
+    } else {
+      e.stopPropagation(); // the sheet's own keys stay out of the menu
+    }
+  }, true);
+
+  window.addEventListener("resize", () => closeMenu(false));
+  document.addEventListener("scroll", (e) => {
+    if (menu && !menu.el.contains(e.target)) closeMenu(false);
+  }, true);
+
+  // A task's status, chosen from the menu under its box's chevron.
+  const STATUSES = [["To do", "todo"], ["In progress", "in_progress"], ["Review", "needs_review"], ["Done", "done"]];
+
+  function openStatusMenu(button) {
+    const row = button.closest(".gantt-row");
+    const current = shownAs(row.dataset.status);
+    openMenu(button, {
+      label: button.getAttribute("aria-label"),
+      role: "menuitemradio",
+      items: STATUSES.map(([text, value]) => [text, value, value === current]),
+      choose: (item) => {
+        closeMenu();
+        if (item.dataset.value !== row.dataset.status) send([{ op: "task", id: Number(row.dataset.id), status: item.dataset.value }]);
+      },
+    });
+  }
+
+  /* ---- the tasks shown, by status, remembered (pc-gantt-hidden) ---- */
+
+  // A blocked task is shown with the ones to do.
+  function shownAs(status) { return status === "blocked" ? "todo" : status; }
+  const HIDDEN = "pc-gantt-hidden";
+  const hiding = new Set((() => {
+    try {
+      const was = JSON.parse(saved(HIDDEN));
+      if (Array.isArray(was)) return was;
+    } catch { /* not set yet */ }
+    return saved("pc-gantt-hide-done") === "1" ? ["done"] : []; // the old Hide done
+  })());
+  const showButton = document.querySelector("[data-gantt-show]");
 
   // The cursor on a row now hidden goes to the next row shown, or the last.
   function keepInView() {
@@ -1053,17 +1168,44 @@
     anchor = null;
   }
 
+  // The button names what is shown: all tasks, or the statuses ticked.
   const showHidden = () => {
-    sheet.classList.toggle("hide-done", hidingDone);
-    hideButton?.setAttribute("aria-pressed", String(hidingDone));
+    for (const [, value] of STATUSES) sheet.classList.toggle(`hide-${value}`, hiding.has(value));
+    if (!showButton) return;
+    const shown = STATUSES.filter(([, value]) => !hiding.has(value)).map(([text]) => text);
+    showButton.querySelector("[data-gantt-show-label]").textContent = hiding.size ? shown.join(", ") : "All tasks";
+    showButton.classList.toggle("is-filtered", hiding.size > 0);
   };
 
-  hideButton?.addEventListener("click", () => {
-    hidingDone = !hidingDone;
-    store(HIDE_DONE, hidingDone ? "1" : "0");
+  // A status ticked or unticked, the menu stays open for the next; the
+  // last one shown stays.
+  const chooseShown = (item) => {
+    const value = item.dataset.value;
+    if (hiding.has(value)) hiding.delete(value);
+    else if (hiding.size < STATUSES.length - 1) hiding.add(value);
+    else return;
+    store(HIDDEN, JSON.stringify([...hiding]));
     showHidden();
     keepInView();
     place();
+    for (const el of menu.el.querySelectorAll("[data-value]")) {
+      const on = !hiding.has(el.dataset.value);
+      el.setAttribute("aria-checked", String(on));
+      el.querySelector(".tick")?.remove();
+      if (on) el.insertAdjacentHTML("beforeend", TICK);
+    }
+    item.focus();
+  };
+
+  showButton?.addEventListener("click", () => {
+    if (menu?.button === showButton) { closeMenu(false); return; }
+    closeMenu(false);
+    openMenu(showButton, {
+      label: "Show tasks",
+      role: "menuitemcheckbox",
+      items: STATUSES.map(([text, value]) => [text, value, !hiding.has(value)]),
+      choose: chooseShown,
+    });
   });
 
   // Focus reaching the sheet by Tab lands on the cursor's cell.

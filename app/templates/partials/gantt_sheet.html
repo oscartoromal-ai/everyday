@@ -11,8 +11,12 @@
 <div class="gantt-pane" role="presentation">
   {%- if row.kind == "task" %}
   <span class="gantt-num" data-row-grip aria-hidden="true" title="Drag to move the row">{{ row.number }}</span>
+  {# A task's box steps its status on (to do, in progress, review, done);
+     its chevron opens the menu of them all. #}
   <span class="gantt-cell gantt-box" role="gridcell" data-col="0" data-toggle tabindex="-1"
-        aria-label="{{ 'Done' if row.done else 'Not done' }}"><span class="gantt-check" aria-hidden="true"></span></span>
+        aria-label="{{ row.status_label }}" title="{{ row.status_label }}: a click moves it on"><span class="gantt-check" aria-hidden="true"></span>
+    <button type="button" class="gantt-status" data-status-menu tabindex="-1" aria-haspopup="menu" aria-expanded="false"
+            aria-label="Status of “{{ row.title }}”" title="Status"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button></span>
   <span class="gantt-cell gantt-title" role="rowheader" data-col="1" data-edit="title" tabindex="-1"><span class="gantt-text">{{ row.title }}</span><button type="button" class="gantt-delete" data-delete-task tabindex="-1" title="Delete task" aria-label="Delete “{{ row.title }}”">{{ bin() }}</button></span>
   <span class="gantt-cell gantt-start" role="gridcell" data-col="2" data-edit="start" tabindex="-1"{% if row.start_title %} title="Starts {{ row.start_title }}"{% endif %}>{{ row.start_label }}</span>
   <span class="gantt-cell gantt-length" role="gridcell" data-col="3" data-edit="length" tabindex="-1">{{ row.length }}</span>
@@ -77,7 +81,7 @@
   {% for group in groups %}
   <div class="gantt-group" role="rowgroup" data-group="{{ group.key }}" data-workstream="{{ group.workstream_id }}">
     {% for row in group.rows %}
-    <div class="gantt-row kind-{{ row.kind }}{% if row.done %} is-done{% endif %}{% if row.indent %} indent{% endif %}"
+    <div class="gantt-row kind-{{ row.kind }}{% if row.done %} is-done{% endif %}{% if row.kind == "task" %} status-{{ row.status }}{% endif %}{% if row.indent %} indent{% endif %}"
          role="row" data-key="{{ row.key }}" data-kind="{{ row.kind }}"
          {% if row.id %}data-id="{{ row.id }}"{% endif %}
          {% if row.kind == "task" %}data-title="{{ row.title }}" data-status="{{ row.status }}" data-starts-on="{{ row.starts_on }}" data-due="{{ row.due }}"{% endif %}

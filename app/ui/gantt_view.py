@@ -28,6 +28,15 @@ WEEKS_PAST_PLAN = 4
 FROZEN = 5
 # Columns before today's left in view as the sheet opens, in each scale.
 LEAD = {"weeks": 1, "days": 3}
+# A task's status as its box names it.
+STATUS_LABEL = {
+    TaskStatus.todo: "To do",
+    TaskStatus.in_progress: "In progress",
+    TaskStatus.blocked: "Blocked",
+    TaskStatus.needs_review: "Review",
+    TaskStatus.done: "Done",
+    TaskStatus.cancelled: "Cancelled",
+}
 
 
 def _day_label(value: date, today: date) -> str:
@@ -123,6 +132,7 @@ def _task_row(task: Task, place: _Place, scale: str, today: date, indent: bool) 
         "done": done,
         "indent": indent,
         "status": task.status.value,
+        "status_label": STATUS_LABEL[task.status],
         "starts_on": task.starts_on.isoformat() if task.starts_on else "",
         "due": task.due.isoformat() if task.due else "",
         "start_label": start_label,
@@ -137,7 +147,8 @@ def _task_row(task: Task, place: _Place, scale: str, today: date, indent: bool) 
         "tick": place.middle(task.due) if task.due and not has_bar else None,
         "describe": ", ".join(
             p for p in (task.title, span, f"due {due_label}" if due_label else "",
-                        "done" if done else "") if p
+                        STATUS_LABEL[task.status].lower()
+                        if task.status != TaskStatus.todo else "") if p
         ),
     }
 
