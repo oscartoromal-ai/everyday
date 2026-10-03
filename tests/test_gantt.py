@@ -274,10 +274,14 @@ def test_rows_are_written_moved_and_undone(db) -> None:
     # Set: every field as it was, which is how the sheet undoes.
     gantt_svc.apply(
         db, project,
-        [{"op": "task", "id": spec.id, "done": True, "title": "Spec it", "clear": "due"}],
+        [{"op": "task", "id": spec.id, "status": "done", "title": "Spec it", "clear": "due"}],
         TODAY,
     )
     assert (spec.status, spec.title, spec.due) == (TaskStatus.done, "Spec it", None)
+    gantt_svc.apply(db, project, [{"op": "task", "id": spec.id, "status": "needs_review"}], TODAY)
+    assert spec.status == TaskStatus.needs_review
+    with pytest.raises(DomainError):
+        gantt_svc.apply(db, project, [{"op": "task", "id": spec.id, "status": "later"}], TODAY)
     was = {"title": "Spec", "status": "todo", "starts_on": "2026-09-28", "due": "2026-10-09"}
     gantt_svc.apply(db, project, [{"op": "task", "id": spec.id, "set": was}], TODAY)
     assert (spec.status, spec.title, spec.starts_on, spec.due) == (

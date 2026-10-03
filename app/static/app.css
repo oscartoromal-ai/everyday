@@ -2097,14 +2097,19 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-controls { flex: none; display: flex; align-items: center; gap: var(--s-3); margin-top: var(--s-1); }
 .gantt-controls .segmented { margin: 0; }
 .gantt-this-week { flex: none; min-width: 96px; }
-.gantt-hide-done { flex: none; }
-.gantt-hide-done[aria-pressed="true"], .gantt-hide-done[aria-pressed="true"]:hover { background: var(--carbon); border-color: var(--carbon); color: var(--on-carbon); }
-.gantt-sheet.hide-done .gantt-row.kind-task.is-done { display: none; }
+/* the tasks shown, by status: its menu's chevron after what it shows, carbon while some are hidden */
+.gantt-show { flex: none; gap: 6px; padding-right: 12px; }
+.gantt-show svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.gantt-show.is-filtered, .gantt-show.is-filtered:hover { background: var(--carbon); border-color: var(--carbon); color: var(--on-carbon); }
+.gantt-sheet.hide-todo .gantt-row.kind-task:is(.status-todo, .status-blocked),
+.gantt-sheet.hide-in_progress .gantt-row.kind-task.status-in_progress,
+.gantt-sheet.hide-needs_review .gantt-row.kind-task.status-needs_review,
+.gantt-sheet.hide-done .gantt-row.kind-task.status-done { display: none; }
 
 .gantt-sheet {
   --gantt-col: 52px;
   --gantt-num: var(--pad-rows);
-  --gantt-box: 32px;
+  --gantt-box: 44px;
   --gantt-title: 280px;
   --gantt-start: 64px;
   --gantt-length: 48px;
@@ -2171,8 +2176,8 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
   cursor: cell;
 }
 .gantt-cell:focus, .gantt-cell:focus-visible { outline: none; box-shadow: inset -1px 0 0 var(--hairline); border-radius: 0; }
-.gantt-box { width: var(--gantt-box); justify-content: center; padding: 0; }
-.gantt-title { width: var(--gantt-title); padding-left: var(--s-3); color: var(--ink); font-weight: 500; }
+/* the box sits at the same place on every row; a task's status chevron hugs it */
+.gantt-box { width: var(--gantt-box); justify-content: flex-start; padding: 0 0 0 8px; }.gantt-title { width: var(--gantt-title); padding-left: var(--s-3); color: var(--ink); font-weight: 500; }
 .gantt-start { width: var(--gantt-start); }
 .gantt-length { width: var(--gantt-length); justify-content: flex-end; }
 .gantt-due { width: var(--gantt-due); box-shadow: none; }
@@ -2211,6 +2216,21 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
   border: 1.5px solid var(--graphite); border-radius: var(--r-tag); cursor: pointer;
 }
 .gantt-row.is-done .gantt-check { background: var(--ok-fg); border-color: var(--ok-fg); }
+/* in progress, as on Calendar's sheet: edged in blue and filled inside, a
+   paper gap between; in review the same in amber; blocked, edged in red */
+.gantt-row.status-in_progress .gantt-check { border-color: var(--hue-6); }
+.gantt-row.status-needs_review .gantt-check { border-color: var(--warn-fg); }
+.gantt-row.status-blocked .gantt-check { border-color: var(--err-fg); }
+.gantt-row:is(.status-in_progress, .status-needs_review) .gantt-check::before { content: ""; width: 6px; height: 6px; background: var(--hue-6); }
+.gantt-row.status-needs_review .gantt-check::before { background: var(--warn-fg); }
+.gantt-status {
+  flex: none; display: grid; place-content: center; width: 14px; height: 20px; margin-left: 2px; padding: 0;
+  border: none; border-radius: var(--r-tag); background: none; color: var(--steel); cursor: pointer;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.gantt-status svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.gantt-status:hover, .gantt-status[aria-expanded="true"] { color: var(--ink); background: var(--glass-hover); }
+.gantt-status:focus-visible { box-shadow: none; }
 .gantt-row.is-done .gantt-check::before {
   content: ""; width: 8px; height: 8px; background: var(--paper);
   clip-path: polygon(14% 52%, 5% 65%, 38% 95%, 97% 18%, 85% 8%, 37% 71%);
@@ -2382,7 +2402,7 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
   .gantt-page { height: calc(100dvh - var(--s-6) - 96px); min-height: 480px; }
   .gantt-header { flex-wrap: wrap; }
   .gantt-sheet, .gantt-sheet:has(> .gantt-table[data-scale="days"]) {
-    --gantt-num: 34px; --gantt-box: 28px;
+    --gantt-num: 34px; --gantt-box: 40px;
     --gantt-pane: calc(var(--gantt-num) + var(--gantt-box) + min(var(--gantt-title), 150px));
   }
   .gantt-sheet .gantt-title { width: min(var(--gantt-title), 150px); }

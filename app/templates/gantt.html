@@ -24,8 +24,10 @@
         <a href="?scale=weeks" data-gantt-scale="weeks" {% if scale == "weeks" %}aria-current="true"{% endif %}>Weeks</a>
         <a href="?scale=days" data-gantt-scale="days" {% if scale == "days" %}aria-current="true"{% endif %}>Days</a>
       </div>
-      {# Done tasks hidden from the sheet, or shown; gantt.js remembers it. #}
-      <button type="button" class="btn quiet gantt-hide-done" data-gantt-hide-done aria-pressed="false" title="Hide or show the done tasks">Hide done</button>
+      {# The tasks shown, by status, chosen from its menu; gantt.js
+         remembers it and names the choice. #}
+      <button type="button" class="btn quiet gantt-show" data-gantt-show aria-haspopup="menu" aria-expanded="false"
+              title="Show tasks by status"><span data-gantt-show-label>All tasks</span><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
       <button type="button" class="btn quiet gantt-this-week" data-gantt-this-week>{{ "This week" if scale == "weeks" else "Today" }}</button>
     </div>
   </header>

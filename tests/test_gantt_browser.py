@@ -8,7 +8,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.models import Task
+from app.models import Task, TaskStatus
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
@@ -125,13 +125,41 @@ def test_bars_are_drawn_dragged_moved_and_undone(page, live, project) -> None:
     assert "indent" in _row(page, "Loose end").get_attribute("class")
 
 
-def test_a_click_ticks_and_a_double_click_writes(page, live, project) -> None:
-    page.goto(f"{live}/projects/{project}")
-    _row(page, "Loose end").locator(".gantt-box").click()
+def _status_is(page, title: str, status: str) -> None:
     page.wait_for_function(
-        "document.querySelector('.gantt-row[data-title=\"Loose end\"]').dataset.status === 'done'"
+        f"document.querySelector('.gantt-row[data-title=\"{title}\"]')"
+        f".dataset.status === '{status}'"
     )
+
+
+def test_a_click_steps_the_status_and_a_double_click_writes(page, live, project) -> None:
+    page.goto(f"{live}/projects/{project}")
+    # The box steps it on: in progress, review, done, and round to to do.
+    box = _row(page, "Loose end").locator(".gantt-check")
+    for status in ("in_progress", "needs_review", "done", "todo", "in_progress"):
+        box.click()
+        _status_is(page, "Loose end", status)
+    assert "status-in_progress" in _row(page, "Loose end").get_attribute("class")
+
+    # Its chevron opens every status, the one it has ticked; one chosen is given.
+    _row(page, "Loose end").locator("[data-status-menu]").click()
+    menu = page.locator(".sheet-menu")
+    assert menu.locator('[aria-checked="true"]').inner_text() == "In progress"
+    assert menu.locator("[data-value]").all_inner_texts() == [
+        "To do", "In progress", "Review", "Done"]
+    menu.get_by_text("Done").click()
+    _status_is(page, "Loose end", "done")
+    menu.wait_for(state="detached")
     assert "is-done" in _row(page, "Loose end").get_attribute("class")
+    # From the keyboard too, the cursor back on the box after.
+    _row(page, "Loose end").locator("[data-status-menu]").click()
+    page.keyboard.press("ArrowUp")
+    page.keyboard.press("Enter")
+    _status_is(page, "Loose end", "needs_review")
+    assert page.evaluate("document.activeElement.dataset.col") == "0"
+    # Undone, it is done again.
+    page.keyboard.press("Control+z")
+    _status_is(page, "Loose end", "done")
 
     _row(page, "Loose end").locator(".gantt-title").dblclick()
     field = page.locator(".gantt-input")
@@ -343,37 +371,60 @@ def test_a_workstream_folds_to_its_row(page, live, project) -> None:
     page.locator('.gantt-row[data-title="Spec"]').wait_for(state="hidden")
 
 
-def test_done_tasks_are_hidden_and_shown(page, live, app_db, project) -> None:
+def test_tasks_are_shown_by_status(page, live, app_db, project) -> None:
     with app_db() as db:
-        tasks_svc.create_task(db, title="Shipped", project_id=project)
+        shipped = tasks_svc.create_task(db, title="Shipped", project_id=project)
+        tasks_svc.set_status(db, shipped.id, TaskStatus.done)
+        started = tasks_svc.create_task(db, title="Started", project_id=project)
+        tasks_svc.set_status(db, started.id, TaskStatus.in_progress)
         tasks_svc.create_task(db, title="Still open", project_id=project)
         db.commit()
     page.goto(f"{live}/projects/{project}")
-    _row(page, "Shipped").locator(".gantt-box").click()
-    page.locator('.gantt-row.is-done[data-title="Shipped"]').wait_for()
-    hide = page.locator("[data-gantt-hide-done]")
+    show = page.locator("[data-gantt-show]")
+    assert show.inner_text() == "All tasks"
 
-    # The button hides the done task, and the cursor on it moves to the next row shown.
-    hide.click()
-    assert hide.get_attribute("aria-pressed") == "true"
+    # Done unticked in its menu hides the done task, the menu still open; the
+    # cursor on it moves to the next row shown.
+    _row(page, "Shipped").locator(".gantt-title .gantt-text").click()
+    show.click()
+    menu = page.locator(".sheet-menu")
+    menu.get_by_text("Done").click()
     _row(page, "Shipped").wait_for(state="hidden")
-    assert _row(page, "Loose end").is_visible()
+    assert menu.locator('[data-value="done"]').get_attribute("aria-checked") == "false"
+    assert show.inner_text() == "To do, In progress, Review"
+    assert "is-filtered" in show.get_attribute("class")
     cursor = page.evaluate("document.querySelector('.gantt-row.has-cursor').dataset.title")
-    assert cursor == "Still open"
-    # The keys pass over it, and it stays hidden across a visit.
+    assert cursor == "Started"
+    # To do unticked too: only what is under way is left.
+    menu.get_by_text("To do").click()
+    _row(page, "Still open").wait_for(state="hidden")
+    _row(page, "Loose end").wait_for(state="hidden")
+    assert _row(page, "Started").is_visible()
+    page.keyboard.press("Escape")
+    menu.wait_for(state="detached")
+
+    # The keys pass over the hidden, and they stay hidden across a visit.
     page.reload()
     _row(page, "Shipped").wait_for(state="hidden")
-    _row(page, "Loose end").locator(".gantt-title .gantt-text").click()
-    page.keyboard.press("ArrowDown")
-    focused = page.evaluate("document.activeElement.closest('.gantt-row').dataset.title")
-    assert focused == "Still open"
-    # Ticking a task done hides it too; pressed again, they are all back.
-    _row(page, "Still open").locator(".gantt-box").click()
-    _row(page, "Still open").wait_for(state="hidden")
-    hide.click()
-    assert hide.get_attribute("aria-pressed") == "false"
-    _row(page, "Shipped").wait_for()
-    _row(page, "Still open").wait_for()
+    assert show.inner_text() == "In progress, Review"
+    _row(page, "Started").locator(".gantt-title .gantt-text").click()
+    page.keyboard.press("ArrowUp")
+    focused = page.evaluate("document.activeElement.closest('.gantt-row').dataset.key")
+    assert focused == "add-workstream"  # over the hidden, to the row above them
+    # A task stepped on to done hides; the last status shown cannot go.
+    for _ in range(2):
+        _row(page, "Started").locator(".gantt-check").click()
+    _row(page, "Started").wait_for(state="hidden")
+    show.click()
+    menu.get_by_text("In progress").click()
+    menu.get_by_text("Review").click()
+    assert menu.locator('[aria-checked="true"]').all_inner_texts() == ["Review"]
+    # Every status ticked again, every task is back.
+    for status in ("To do", "In progress", "Done"):
+        menu.get_by_text(status).click()
+    for title in ("Loose end", "Shipped", "Started", "Still open"):
+        _row(page, title).wait_for()
+    assert show.inner_text() == "All tasks"
 
 
 def test_a_task_is_deleted_from_its_bin_or_with_delete(page, live, app_db, project) -> None:

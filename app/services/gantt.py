@@ -289,7 +289,8 @@ def edit_task(db: Session, task: Task, op: dict[str, Any], today: date) -> None:
     title; start, length or due as typed; span, the columns a bar was drawn
     over ([first, last]: Mondays, or days); shift, the bar moved; grow, its
     end moved; move_start, its start moved; clear, its span or its due;
-    done; and set, every field as it was (undo)."""
+    status, as its box or its menu gives it; and set, every field as it
+    was (undo)."""
     unit = op.get("unit", "week")
     step = _step(op)
     if "title" in op:
@@ -325,8 +326,12 @@ def edit_task(db: Session, task: Task, op: dict[str, Any], today: date) -> None:
         _set_span(db, task, None, task.due)
     elif op.get("clear") == "due":
         _set_span(db, task, None, None)
-    if "done" in op:
-        tasks_svc.set_status(db, task.id, TaskStatus.done if op["done"] else TaskStatus.todo)
+    if "status" in op:
+        try:
+            status = TaskStatus(str(op["status"]))
+        except ValueError as exc:
+            raise DomainError(f"Not a status: {op['status']!r}") from exc
+        tasks_svc.set_status(db, task.id, status)
     if "set" in op:
         was = op["set"]
         tasks_svc.update_task(
