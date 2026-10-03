@@ -2103,6 +2103,9 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-controls { flex: none; display: flex; align-items: center; gap: var(--s-3); margin-top: var(--s-1); }
 .gantt-controls .segmented { margin: 0; }
 .gantt-this-week { flex: none; min-width: 96px; }
+.gantt-hide-done { flex: none; }
+.gantt-hide-done[aria-pressed="true"], .gantt-hide-done[aria-pressed="true"]:hover { background: var(--carbon); border-color: var(--carbon); color: var(--on-carbon); }
+.gantt-sheet.hide-done .gantt-row.kind-task.is-done { display: none; }
 
 .gantt-sheet {
   --gantt-col: 52px;

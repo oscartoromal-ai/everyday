@@ -3,7 +3,7 @@
    drag, cells written by typing, bars drawn over the time, moved and
    stretched by dragging or with Alt, rows moved with Alt+Up/Down or
    dragged by their number to another place or workstream, workstreams
-   folded to their row, the time seen in weeks or drilled down to days,
+   folded to their row, done tasks hidden, the time seen in weeks or drilled down to days,
    and undo.
 
    Every edit is one POST of ops (app.services.gantt.apply), answered with
@@ -28,7 +28,7 @@
   const table = () => sheet.querySelector(".gantt-table");
   const rows = () => [...sheet.querySelectorAll(
     ".gantt-group:not(.is-folded) > .gantt-row, .gantt-group.is-folded > .gantt-row.kind-workstream, .gantt-table > .gantt-row.kind-add-workstream",
-  )];
+  )].filter((row) => !(hidingDone && row.matches(".kind-task.is-done")));
   const rowOf = (key) => sheet.querySelector(`.gantt-row[data-key="${CSS.escape(key)}"]`);
   const colCount = () => FROZEN + Number(table().dataset.colCount);
   const cellAt = (row, col) => row?.querySelector(`.gantt-cell[data-col="${col}"]`);
@@ -254,6 +254,7 @@
     if (rest) document.getElementById("gantt-rest").textContent = rest.textContent.trim();
     if (cursor && !rowOf(cursor.key)) cursor = null;
     if (anchor && !rowOf(anchor.key)) anchor = null;
+    keepInView();
     const cell = place();
     if (cell && hadFocus) cell.focus({ preventScroll: true });
     if (writing && rowOf(writing.key)) {
@@ -1003,6 +1004,37 @@
     place()?.focus({ preventScroll: true });
   }
 
+  /* ---- done tasks hidden, or shown, remembered (pc-gantt-hide-done) ---- */
+
+  const HIDE_DONE = "pc-gantt-hide-done";
+  let hidingDone = saved(HIDE_DONE) === "1";
+  const hideButton = document.querySelector("[data-gantt-hide-done]");
+
+  // The cursor on a row now hidden goes to the next row shown, or the last.
+  function keepInView() {
+    if (!cursor || !rowOf(cursor.key)) return;
+    const shown = rows();
+    if (shown.includes(rowOf(cursor.key))) return;
+    const all = [...sheet.querySelectorAll(".gantt-row[data-key]")];
+    const at = all.indexOf(rowOf(cursor.key));
+    const to = all.slice(at + 1).find((r) => shown.includes(r)) || shown.at(-1);
+    if (to) cursor = { key: to.dataset.key, col: cursor.col };
+    anchor = null;
+  }
+
+  const showHidden = () => {
+    sheet.classList.toggle("hide-done", hidingDone);
+    hideButton?.setAttribute("aria-pressed", String(hidingDone));
+  };
+
+  hideButton?.addEventListener("click", () => {
+    hidingDone = !hidingDone;
+    store(HIDE_DONE, hidingDone ? "1" : "0");
+    showHidden();
+    keepInView();
+    place();
+  });
+
   // Focus reaching the sheet by Tab lands on the cursor's cell.
   sheet.addEventListener("focusin", (e) => {
     if (e.target.matches(".gantt-cell") && cursor) return;
@@ -1088,6 +1120,7 @@
   });
 
   showFolds();
+  showHidden();
   toNow();
   place();
 })();

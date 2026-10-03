@@ -322,3 +322,36 @@ def test_a_workstream_folds_to_its_row(page, live, project) -> None:
     page.locator('.gantt-row[data-title="Spec"]').wait_for()
     page.keyboard.press("Alt+ArrowLeft")
     page.locator('.gantt-row[data-title="Spec"]').wait_for(state="hidden")
+
+
+def test_done_tasks_are_hidden_and_shown(page, live, app_db, project) -> None:
+    with app_db() as db:
+        tasks_svc.create_task(db, title="Shipped", project_id=project)
+        tasks_svc.create_task(db, title="Still open", project_id=project)
+        db.commit()
+    page.goto(f"{live}/projects/{project}")
+    _row(page, "Shipped").locator(".gantt-box").click()
+    page.locator('.gantt-row.is-done[data-title="Shipped"]').wait_for()
+    hide = page.locator("[data-gantt-hide-done]")
+
+    # The button hides the done task, and the cursor on it moves to the next row shown.
+    hide.click()
+    assert hide.get_attribute("aria-pressed") == "true"
+    _row(page, "Shipped").wait_for(state="hidden")
+    assert _row(page, "Loose end").is_visible()
+    cursor = page.evaluate("document.querySelector('.gantt-row.has-cursor').dataset.title")
+    assert cursor == "Still open"
+    # The keys pass over it, and it stays hidden across a visit.
+    page.reload()
+    _row(page, "Shipped").wait_for(state="hidden")
+    _row(page, "Loose end").locator(".gantt-title .gantt-text").click()
+    page.keyboard.press("ArrowDown")
+    focused = page.evaluate("document.activeElement.closest('.gantt-row').dataset.title")
+    assert focused == "Still open"
+    # Ticking a task done hides it too; pressed again, they are all back.
+    _row(page, "Still open").locator(".gantt-box").click()
+    _row(page, "Still open").wait_for(state="hidden")
+    hide.click()
+    assert hide.get_attribute("aria-pressed") == "false"
+    _row(page, "Shipped").wait_for()
+    _row(page, "Still open").wait_for()
