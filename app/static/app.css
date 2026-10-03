@@ -2471,6 +2471,19 @@ tr.is-folded .ds-plan-list li:first-child .ds-title { min-width: 0; overflow: hi
 }
 .ds-check:hover { border-color: var(--ink); }
 .ds-task.is-done .ds-check { background: var(--ok-fg); border-color: var(--ok-fg); }
+/* in progress: the box edged in blue and filled inside, a paper gap between */
+.ds-task.is-in-progress .ds-check { border-color: var(--hue-6); }
+.ds-task.is-in-progress .ds-check::before { content: ""; width: 6px; height: 6px; background: var(--hue-6); }
+/* the status menu's chevron, hugging the box */
+.ds-status {
+  flex: none; align-self: center; display: grid; place-content: center;
+  width: 14px; height: 20px; margin: -3px 0 -3px calc(-1 * var(--s-2) + 1px); padding: 0;
+  border: none; border-radius: var(--r-tag); background: none; color: var(--steel); cursor: pointer;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.ds-status svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ds-status:hover, .ds-status[aria-expanded="true"] { color: var(--ink); background: var(--glass-hover); }
+.ds-status:focus-visible { box-shadow: none; }
 .ds-task.is-done .ds-check::before {
   content: ""; width: 8px; height: 8px; background: var(--paper);
   clip-path: polygon(14% 52%, 5% 65%, 38% 95%, 97% 18%, 85% 8%, 37% 71%);

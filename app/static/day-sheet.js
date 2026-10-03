@@ -3,7 +3,9 @@
    pointer, a range held with Shift or a drag, cells written by typing.
 
    Where he stays is written in its cells (an item a column), accommodation
-   a checkbox, sorted or not; a Plan cell writes a task for its day; a
+   a checkbox, sorted or not; a Plan cell writes a task for its day, whose
+   box a click starts (in progress) and a second click makes done, its
+   chevron a menu of the statuses it can be given; a
    habit's cell, or accommodation's, is ticked by a click or Space, and a
    drag down its column paints the days it crosses. Ctrl+D fills the range
    from its first row (one cell, from the row above), Delete clears it (a
@@ -224,6 +226,94 @@
     send(rangeCells().cells.filter(tickable).map((c) => tickOp(c, done)));
   };
 
+  /* ---- a task's status, from the menu under its chevron ---- */
+
+  // The statuses a day's task can be given here; the one it has, chosen
+  // again, takes it back to to do.
+  const STATUSES = [["in_progress", "In progress"], ["done", "Done"]];
+  const TICK = '<svg class="tick" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.5 3.5 7.5-8"/></svg>';
+  let statusMenu = null; // {button, el, task}
+
+  const openStatusMenu = (button) => {
+    const task = Number(button.dataset.statusMenu);
+    const current = button.dataset.status;
+    const el = document.createElement("div");
+    el.className = "sheet-menu";
+    el.setAttribute("role", "menu");
+    el.setAttribute("aria-label", button.getAttribute("aria-label"));
+    for (const [status, label] of STATUSES) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.tabIndex = -1;
+      item.setAttribute("role", "menuitemradio");
+      item.setAttribute("aria-checked", String(status === current));
+      item.dataset.status = status;
+      item.innerHTML = `<span class="label"></span>${status === current ? TICK : ""}`;
+      item.querySelector(".label").textContent = label;
+      el.append(item);
+    }
+    // In the body, not the sheet, which clips what overflows it.
+    document.body.append(el);
+    const at = button.getBoundingClientRect();
+    const below = window.innerHeight - at.bottom >= el.offsetHeight + 8;
+    el.style.top = `${Math.max(8, below ? at.bottom + 4 : at.top - el.offsetHeight - 4)}px`;
+    el.style.left = `${Math.max(8, Math.min(at.left, window.innerWidth - el.offsetWidth - 8))}px`;
+    button.setAttribute("aria-expanded", "true");
+    statusMenu = { button, el, task };
+    (el.querySelector('[aria-checked="true"]') || el.firstElementChild).focus();
+  };
+
+  // Closed, the cursor's cell takes the focus back (unless the click went elsewhere).
+  function closeStatusMenu(restore = true) {
+    if (!statusMenu) return;
+    const { button, el } = statusMenu;
+    statusMenu = null;
+    el.remove();
+    button.setAttribute("aria-expanded", "false");
+    if (restore) place()?.focus({ preventScroll: true });
+  }
+
+  const chooseStatus = (item) => {
+    const { task, button } = statusMenu;
+    const status = item.dataset.status === button.dataset.status ? "todo" : item.dataset.status;
+    closeStatusMenu();
+    send([{ op: "status", task, status }]);
+  };
+
+  document.addEventListener("click", (e) => {
+    if (!statusMenu || e.target.closest?.("[data-status-menu]")) return;
+    const item = e.target.closest?.(".sheet-menu [data-status]");
+    if (item && statusMenu.el.contains(item)) chooseStatus(item);
+    else if (!statusMenu.el.contains(e.target)) closeStatusMenu(false);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (!statusMenu || !statusMenu.el.contains(e.target)) return;
+    const items = [...statusMenu.el.querySelectorAll("[data-status]")];
+    const at = items.indexOf(e.target.closest("[data-status]"));
+    const handled = () => { e.preventDefault(); e.stopPropagation(); };
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      handled();
+      items[(at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus();
+    } else if (e.key === "Home" || e.key === "End") {
+      handled();
+      items[e.key === "Home" ? 0 : items.length - 1].focus();
+    } else if (e.key === "Enter" || e.key === " ") {
+      handled();
+      chooseStatus(items[at]);
+    } else if (e.key === "Escape" || e.key === "Tab") {
+      handled();
+      closeStatusMenu();
+    } else {
+      e.stopPropagation(); // the page's own keys stay out of the menu
+    }
+  }, true);
+
+  window.addEventListener("resize", () => closeStatusMenu(false));
+  document.addEventListener("scroll", (e) => {
+    if (statusMenu && !statusMenu.el.contains(e.target)) closeStatusMenu(false);
+  }, true);
+
   /* ---- folding a day to its plan's first line, remembered in this browser ---- */
 
   const FOLDED = "pc-sheet-folded";
@@ -411,6 +501,15 @@
       deleteTasks([bin]);
       return;
     }
+    const chooser = e.target.closest("[data-status-menu]");
+    if (chooser) {
+      e.preventDefault();
+      const open = statusMenu?.button === chooser;
+      closeStatusMenu(false);
+      moveTo(dayOf(cell), Number(cell.dataset.col));
+      if (!open) openStatusMenu(chooser);
+      return;
+    }
     const task = e.target.closest("[data-task]");
     if (task) {
       e.preventDefault();
@@ -472,7 +571,7 @@
 
   sheet.addEventListener("dblclick", (e) => {
     const cell = e.target.closest(".ds-cell");
-    if (writable(cell) && !e.target.closest("[data-task], [data-delete-task], input")) edit(cell);
+    if (writable(cell) && !e.target.closest("[data-task], [data-status-menu], [data-delete-task], input")) edit(cell);
   });
 
   // The Day header's chevron folds every day, or opens them all again.

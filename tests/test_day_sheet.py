@@ -158,13 +158,35 @@ def test_writing_in_the_sheet(client, db) -> None:
     assert [b.get("slug") for b in notebook.blocks_of(db, MONDAY)] == ["morning-run", None]
     assert db.query(Task).filter_by(title="Book driving test").one().planned_for == MONDAY
     assert db.query(Task).count() == 2
-    assert tasks_svc.get_task(db, task.id).status == TaskStatus.done
+    assert tasks_svc.get_task(db, task.id).status == TaskStatus.in_progress
 
     bad = client.post(
         f"/ui/day-sheet?start={MONDAY.isoformat()}", json={"ops": [{"op": "nope", "day": "x"}]}
     )
     assert bad.status_code == 422
     assert habits_svc.list_habits(db)[0].slug == "morning-run"
+
+
+def test_a_tasks_box_goes_in_progress_then_done_and_its_menu_sets_either(client, db) -> None:
+    task = tasks_svc.create_task(db, title="Send documents", planned_for=MONDAY)
+    url = f"/ui/day-sheet?start={MONDAY.isoformat()}"
+
+    def status_after(*ops: dict) -> TaskStatus:
+        assert client.post(url, json={"ops": list(ops)}).status_code == 200
+        db.expire_all()
+        return tasks_svc.get_task(db, task.id).status
+
+    toggle = {"op": "toggle", "task": task.id}
+    assert status_after(toggle) == TaskStatus.in_progress
+    answer = client.post(url, json={"ops": []}).text
+    assert 'class="ds-task is-in-progress"' in answer
+    assert f'data-status-menu="{task.id}" data-status="in_progress"' in answer
+    assert status_after(toggle) == TaskStatus.done
+    assert status_after(toggle) == TaskStatus.todo
+    assert status_after({"op": "status", "task": task.id, "status": "done"}) == TaskStatus.done
+    assert status_after({"op": "status", "task": task.id, "status": "todo"}) == TaskStatus.todo
+    bad = client.post(url, json={"ops": [{"op": "status", "task": task.id, "status": "nope"}]})
+    assert bad.status_code == 422
 
 
 def test_a_task_is_deleted_from_the_sheet(client, db) -> None:

@@ -1,5 +1,6 @@
 """Calendar's sheet in a real browser, worked as a spreadsheet: where Oscar
-stays written and filled down, a task written for a day and ticked, and a
+stays written and filled down, a task written for a day, started and done,
+its status chosen from its menu, and a
 habit's days painted with a drag. The `live`, `page` and `app_db` fixtures
 are conftest.py's."""
 
@@ -122,10 +123,48 @@ def test_a_task_is_written_for_its_day_and_ticked(page, live, app_db) -> None:
     with app_db() as db:
         [made] = db.query(Task).all()
         assert (made.title, made.planned_for) == ("Do taxes", TODAY)
+    # A click starts it, a second makes it done.
+    cell(page, TODAY, ".ds-check").click()
+    cell(page, TODAY, ".ds-task.is-in-progress").wait_for()
+    with app_db() as db:
+        assert db.query(Task).one().status == TaskStatus.in_progress
     cell(page, TODAY, ".ds-check").click()
     cell(page, TODAY, ".ds-task.is-done").wait_for()
     with app_db() as db:
         assert db.query(Task).one().status == TaskStatus.done
+
+
+def test_a_tasks_status_is_chosen_from_its_menu(page, live, app_db) -> None:
+    with app_db() as db:
+        tasks_svc.create_task(db, title="Pay rent", planned_for=TODAY)
+        db.commit()
+    open_sheet(page, live)
+    menu = page.locator(".sheet-menu")
+    # Its chevron opens the statuses, none chosen while it is to do.
+    cell(page, TODAY, ".ds-status").click()
+    assert menu.get_by_role("menuitemradio").all_inner_texts() == ["In progress", "Done"]
+    assert menu.locator('[aria-checked="true"]').count() == 0
+    menu.get_by_role("menuitemradio", name="Done").click()
+    cell(page, TODAY, ".ds-task.is-done").wait_for()
+    assert menu.count() == 0
+    with app_db() as db:
+        assert db.query(Task).one().status == TaskStatus.done
+    # From the keys: In progress; Esc closes it, the cursor back on its cell.
+    cell(page, TODAY, ".ds-status").click()
+    page.keyboard.press("ArrowUp")
+    page.keyboard.press("Enter")
+    cell(page, TODAY, ".ds-task.is-in-progress").wait_for()
+    cell(page, TODAY, ".ds-status").click()
+    assert menu.locator('[aria-checked="true"]').inner_text() == "In progress"
+    page.keyboard.press("Escape")
+    assert menu.count() == 0
+    assert page.evaluate("document.activeElement.dataset.kind") == "plan"
+    # The status it has, chosen again, takes it back to to do.
+    cell(page, TODAY, ".ds-status").click()
+    menu.get_by_role("menuitemradio", name="In progress").click()
+    cell(page, TODAY, ".ds-task.is-in-progress").wait_for(state="detached")
+    with app_db() as db:
+        assert db.query(Task).one().status == TaskStatus.todo
 
 
 def test_a_habits_days_are_painted_with_a_drag(page, live, app_db) -> None:

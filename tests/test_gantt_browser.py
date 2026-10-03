@@ -229,15 +229,17 @@ def test_right_from_due_lands_where_the_row_works(page, live, app_db) -> None:
 
 def test_ctrl_arrows_stop_at_the_edges_of_what_is_drawn(page, live, app_db) -> None:
     """Ctrl+arrow as in a spreadsheet: along a run of drawn days to its
-    last, else on to the next drawn one, else to the sheet's edge."""
-    day = lambda n: (THIS + timedelta(days=n)).isoformat()  # noqa: E731
+    last, else on to the next drawn one, else to the sheet's edge; along a
+    row with no days drawn on the way, today stops it."""
+    day = lambda n: (THIS + timedelta(days=n - 14)).isoformat()  # noqa: E731
+    today = date.today().isoformat()
     with app_db() as db:
         project = projects_svc.create_project(db, name="Delta")
         made = {"project_id": project.id}
-        draft = {"starts_on": THIS + timedelta(days=2), "due": THIS + timedelta(days=4)}
+        draft = {"starts_on": THIS - timedelta(days=12), "due": THIS - timedelta(days=10)}
         tasks_svc.create_task(db, title="Draft", **draft, **made)
         tasks_svc.create_task(db, title="Think", **made)
-        tasks_svc.create_task(db, title="Check", due=THIS + timedelta(days=3), **made)
+        tasks_svc.create_task(db, title="Check", due=THIS - timedelta(days=11), **made)
         db.commit()
         project_id = project.id
 
@@ -267,10 +269,13 @@ def test_ctrl_arrows_stop_at_the_edges_of_what_is_drawn(page, live, app_db) -> N
     page.keyboard.press("Control+ArrowUp")
     assert at() == ("Draft", day(3))
 
-    # Along Draft: to its bar's last day, the sheet's end, back to the bar's
-    # last and first days, then on to its Due, the words before the time.
+    # Along Draft: to its bar's last day, over the empty days to today, the
+    # sheet's end, back to the bar's last and first days, then on to its
+    # Due, the words before the time.
     page.keyboard.press("Control+ArrowRight")
     assert at() == ("Draft", day(4))
+    page.keyboard.press("Control+ArrowRight")
+    assert at() == ("Draft", today)
     page.keyboard.press("Control+ArrowRight")
     last = _row(page, "Draft").locator(".gantt-wk").last.get_attribute("data-day")
     assert at() == ("Draft", last)
@@ -280,6 +285,15 @@ def test_ctrl_arrows_stop_at_the_edges_of_what_is_drawn(page, live, app_db) -> N
     assert at() == ("Draft", day(2))
     page.keyboard.press("Control+ArrowLeft")
     assert page.evaluate("document.activeElement.dataset.col") == "4"
+
+    # Think has no days: today stops it on the way in, and on the way back.
+    _row(page, "Think").locator(".gantt-due").click()
+    page.keyboard.press("Control+ArrowRight")
+    assert at() == ("Think", today)
+    page.keyboard.press("Control+ArrowRight")
+    assert at() == ("Think", last)
+    page.keyboard.press("Control+ArrowLeft")
+    assert at() == ("Think", today)
 
 
 def test_a_row_is_dragged_into_a_workstream(page, live, project) -> None:

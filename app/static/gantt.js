@@ -144,8 +144,16 @@
       || [...row.querySelectorAll(".gantt-tick")].some((el) => Math.floor(v(el, "--x")) === c);
   };
 
+  // Today's column, or null off the sheet.
+  const todayCol = () => {
+    const days = Math.round((new Date(`${table().dataset.today}T12:00:00`) - new Date(`${firstDay()}T12:00:00`)) / DAY_MS);
+    const col = FROZEN + Math.floor(days / colDays());
+    return col >= FROZEN && col < colCount() ? col : null;
+  };
+
   // As a spreadsheet's: along a run of filled cells to its last, else on
-  // to the next filled one, else to the sheet's edge.
+  // to the next filled one, else to the sheet's edge; along a row, with no
+  // days drawn on the way, today stops it (before the edge, or the pane).
   const jump = (dRow, dCol, options) => {
     const all = rows();
     const here = all.findIndex((r) => r.dataset.key === cursor.key);
@@ -158,8 +166,11 @@
     if (full(i) && full(i + by)) {
       while (i !== edge && full(i + by)) i += by;
     } else {
+      const from = i;
       i += by;
       while (i !== edge && !full(i)) i += by;
+      const now = dRow ? null : todayCol();
+      if ((!full(i) || !isTime(i)) && now !== null && (now - from) * by > 0 && (i - now) * by > 0) i = now;
     }
     const [row, col] = cellOf(i);
     moveTo(row.dataset.key, col, options);
