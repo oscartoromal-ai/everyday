@@ -81,7 +81,16 @@
     { kind: "Do", label: "Switch to the other theme", words: "dark light day night mode", run: press(".theme-toggle") },
     { kind: "Do", label: "Compact or roomy rows", words: "density", hint: "C", run: press(".density-toggle") },
     ...(document.querySelector("button.update-button")
-      ? [{ kind: "Do", label: "Update the app to your latest commit", words: "upgrade install build release", run: press("button.update-button") }]
+      ? [{
+          kind: "Do",
+          label: {
+            ready: "Update the app to your latest commit",
+            staged: "Restart the app on its update",
+            failed: "Retry the app's update",
+          }[document.querySelector("button.update-button").dataset.update],
+          words: "upgrade install build release restart",
+          run: press("button.update-button"),
+        }]
       : []),
     { kind: "Do", label: "Every key", words: "keyboard shortcuts help", hint: "?",
       run: () => { const keys = document.getElementById("keys-dialog"); keys.showModal(); keys.focus(); } },

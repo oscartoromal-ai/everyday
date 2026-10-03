@@ -1,6 +1,7 @@
 """The Windows calls the desktop app makes, through ctypes: one instance at a
-time, its taskbar identity, its title bar's colours, the number on its taskbar
-button, and no console windows for the programs it runs."""
+time, handing over to an updated one, its taskbar identity, its title bar's
+colours, the number on its taskbar button, and no console windows for the
+programs it runs."""
 
 from __future__ import annotations
 
@@ -45,10 +46,24 @@ def claim_single_instance(name: str) -> bool:
     return True
 
 
+def release_single_instance() -> None:
+    """The claim given up while this process carries on, for the updated app
+    taking its place to make."""
+    global _mutex
+    if _mutex:
+        kernel32.CloseHandle(_mutex)
+        _mutex = None
+
+
 def allow_any_foreground() -> None:
     """Let the running instance take the foreground this one has, as the user
     launched it."""
     user32.AllowSetForegroundWindow(ASFW_ANY)
+
+
+def allow_foreground(pid: int) -> None:
+    """Let the process `pid` take the foreground this one has."""
+    user32.AllowSetForegroundWindow(pid)
 
 
 def set_app_id(app_id: str) -> None:
@@ -73,6 +88,53 @@ def process_alive(pid: int) -> bool:
         )
     finally:
         kernel32.CloseHandle(handle)
+
+
+SYNCHRONIZE = 0x00100000
+WAIT_TIMEOUT = 0x102
+kernel32.CreateEventW.restype = wintypes.HANDLE
+kernel32.CreateEventW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR]
+kernel32.SetEvent.argtypes = [wintypes.HANDLE]
+kernel32.ResetEvent.argtypes = [wintypes.HANDLE]
+kernel32.WaitForMultipleObjects.argtypes = [
+    wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE), wintypes.BOOL, wintypes.DWORD
+]
+kernel32.WaitForMultipleObjects.restype = wintypes.DWORD
+
+
+class Signal:
+    """A named event between two processes: one sets it, the other waits on
+    it. It stays set once set, until reset."""
+
+    def __init__(self, name: str) -> None:
+        self.handle = kernel32.CreateEventW(None, True, False, name)
+        if not self.handle:
+            raise ctypes.WinError()
+
+    def set(self) -> None:
+        kernel32.SetEvent(self.handle)
+
+    def reset(self) -> None:
+        kernel32.ResetEvent(self.handle)
+
+    def wait_unless_exited(self, pid: int, timeout: float) -> bool:
+        """Whether it was set before the process `pid` exited and within
+        `timeout` seconds."""
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        process = kernel32.OpenProcess(SYNCHRONIZE, False, pid)
+        handles = (wintypes.HANDLE * 2)(self.handle, process)
+        try:
+            # The event first: set as the process exits still counts as set.
+            index = kernel32.WaitForMultipleObjects(
+                2 if process else 1, handles, False, round(timeout * 1000)
+            )
+        finally:
+            if process:
+                kernel32.CloseHandle(process)
+        return index == 0
+
+    def close(self) -> None:
+        kernel32.CloseHandle(self.handle)
 
 
 def session_ending() -> bool:
@@ -158,6 +220,12 @@ def set_placement(hwnd: int, saved: dict) -> None:
     placement.rcNormalPosition = wintypes.RECT(left, top, right, bottom)
     placement.showCmd = SW_HIDE
     user32.SetWindowPlacement(wintypes.HWND(hwnd), ctypes.byref(placement))
+
+
+def is_visible(hwnd: int) -> bool:
+    """Whether the window is on screen (minimized counts), as Windows has it:
+    shown by show(), WinForms' own Visible never hears of it."""
+    return bool(user32.IsWindowVisible(wintypes.HWND(hwnd)))
 
 
 def show(hwnd: int, maximized: bool = False) -> None:

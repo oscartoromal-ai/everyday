@@ -40,9 +40,12 @@ Launching it again while it runs brings its window forward.
 
 Develop in the repo (the dev server, the tests), and commit.
 Once the repo has a commit newer than the installed app's, the app shows **Update** at the foot of its sidebar (and in the command menu, Ctrl+K).
-Pressing it builds that commit and installs it in the background, a few minutes, while the app carries on; the app then closes and opens again on the new version, its database migrated as it starts.
+Pressing it builds that commit in the background, a few minutes, while the app carries on, and stages it beside the running version.
+The button then says **Restart to update**, and waits for you.
+Pressing it restarts the app on the new version in a second or two: the new window comes up where the old one was, at the same page, over it, and the old one goes; its database migrates as it starts.
 Only commits go into an update, never uncommitted work, which is built in a worktree of its own (`desktop/update.ps1`).
-If the build or the install fails, the button says so and offers Retry; why is in `data/logs/update.log` in the app's home.
+If the build or the restart fails, the button says so and offers Retry; why is in `data/logs/update.log` (the build) or `data/logs/personal-calendar.log` (the restart) in the app's home.
+A restart that fails comes back up on the version it was running.
 Windows' Installed apps lists the version with the commit it was built from.
 
 ### Building and installing by hand
@@ -55,8 +58,10 @@ Requires [Inno Setup 6](https://jrsoftware.org/isinfo.php) besides the dev setup
 ```
 
 This is how the app is first installed, and how to try uncommitted changes in it (the version then carries a `+` after its commit).
-PyInstaller freezes the app with its own Python (`desktop/personal-calendar.spec`), and Inno Setup wraps it into a per-user installer (`desktop/installer.iss`) that needs no admin rights.
+PyInstaller freezes the app with its own Python (`desktop/personal-calendar.spec`), the C# compiler that comes with Windows builds its launcher (`desktop/launcher.cs`), and Inno Setup wraps both into a per-user installer (`desktop/installer.iss`) that needs no admin rights.
 The installer puts the app in `%LOCALAPPDATA%\Programs\Personal Calendar`, adds it to the Start menu, and, unless unticked, starts it in the tray when Oscar signs in (the `Personal Calendar` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).
+That folder holds the launcher, `Personal Calendar.exe`, which the shortcuts start, and each version in a folder of its own, `app-<commit>`; the launcher starts the one `current.txt` names.
+An update stages the next version in a folder beside the running one, and the new version rewrites `current.txt` once its window is up; the version before it goes at the next update.
 The installed app runs the code it was built from, never the repo's.
 Installing over a running app asks it to quit first (`POST /desktop/quit`), replaces it, and opens the new one.
 Uninstalling it (Installed apps) removes the program and its sign-in entry and keeps its data.

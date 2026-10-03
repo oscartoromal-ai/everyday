@@ -1,13 +1,26 @@
 {# The installed app's Update button, at the rail's foot, there only while an
-   update is to be had (app/desktop/update.py): ready, under way (looked at
-   again every few seconds until the new app takes over), or failed. #}
+   update is to be had (app/desktop/update.py): ready, building (looked at
+   again every few seconds until it is staged), staged for Restart,
+   restarting (until the new app's window takes this one's place), or
+   failed. #}
 {% if update %}
 {% set icon %}<svg class="update-button__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v3.8h-3.8"/></svg>{% endset %}
 {% if update.state == "updating" %}
 <div class="rail-button update-button" data-update="updating" role="status"
      hx-get="/ui/desktop/update" hx-trigger="every 4s" hx-swap="outerHTML"
-     title="Building {{ update.latest }}; the app restarts on it once it is installed, in a few minutes">
+     title="Building {{ update.latest }} in the background; Restart shows here once it is ready, in a few minutes">
   {{ icon }}<span class="rail-button__label">Updating…</span>
+</div>
+{% elif update.state == "staged" %}
+<button type="button" class="rail-button update-button" data-update="staged"
+        hx-post="/ui/desktop/restart" hx-swap="outerHTML"
+        title="{{ update.latest }} is ready (this is {{ update.installed }}); the app restarts on it in a moment, back on this page">
+  {{ icon }}<span class="rail-button__label">Restart to update</span><span class="update-button__dot" aria-hidden="true"></span>
+</button>
+{% elif update.state == "restarting" %}
+<div class="rail-button update-button" data-update="restarting" role="status"
+     title="Restarting on {{ update.latest }}">
+  {{ icon }}<span class="rail-button__label">Restarting…</span>
 </div>
 {% elif update.state == "failed" %}
 <button type="button" class="rail-button update-button" data-update="failed"
@@ -18,7 +31,7 @@
 {% else %}
 <button type="button" class="rail-button update-button" data-update="ready"
         hx-post="/ui/desktop/update" hx-swap="outerHTML"
-        title="Install your latest commit, {{ update.latest }} (this is {{ update.installed }}); the app restarts on it in a few minutes">
+        title="Build your latest commit, {{ update.latest }} (this is {{ update.installed }}), in the background; the app restarts on it when you say">
   {{ icon }}<span class="rail-button__label">Update</span><span class="update-button__dot" aria-hidden="true"></span>
 </button>
 {% endif %}
