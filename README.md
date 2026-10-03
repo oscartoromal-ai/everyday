@@ -36,21 +36,36 @@ Closing the window hides it to the tray, and the app keeps running; Quit, on the
 The tray icon's menu also opens Today, Calendar, Projects or New task, and a dot on it, like the number on the taskbar button, counts the nudges waiting.
 Launching it again while it runs brings its window forward.
 
-### Building and installing it
+### Updating it
+
+Develop in the repo (the dev server, the tests), and commit.
+Once the repo has a commit newer than the installed app's, the app shows **Update** at the foot of its sidebar (and in the command menu, Ctrl+K).
+Pressing it builds that commit and installs it in the background, a few minutes, while the app carries on; the app then closes and opens again on the new version, its database migrated as it starts.
+Only commits go into an update, never uncommitted work, which is built in a worktree of its own (`desktop/update.ps1`).
+If the build or the install fails, the button says so and offers Retry; why is in `data/logs/update.log` in the app's home.
+Windows' Installed apps lists the version with the commit it was built from.
+
+### Building and installing by hand
 
 Requires [Inno Setup 6](https://jrsoftware.org/isinfo.php) besides the dev setup (`winget install JRSoftware.InnoSetup --scope user`).
 
 ```
-.\desktop\build.ps1            # build build\Personal-Calendar-Setup.exe
+.\desktop\build.ps1            # build build\Personal-Calendar-Setup.exe from the working tree
 .\desktop\build.ps1 -Install   # build it and install it over the running app
 ```
 
+This is how the app is first installed, and how to try uncommitted changes in it (the version then carries a `+` after its commit).
 PyInstaller freezes the app with its own Python (`desktop/personal-calendar.spec`), and Inno Setup wraps it into a per-user installer (`desktop/installer.iss`) that needs no admin rights.
 The installer puts the app in `%LOCALAPPDATA%\Programs\Personal Calendar`, adds it to the Start menu, and, unless unticked, starts it in the tray when Oscar signs in (the `Personal Calendar` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).
-The installed app runs the code it was built from, never the repo's: a change reaches it by building and installing again.
-Installing over a running app asks it to quit first (`POST /desktop/quit`), replaces it, and opens the new one, which migrates the database as it starts.
-Windows' Installed apps lists the version with the commit it was built from (a `+` after it when the working tree had changes).
+The installed app runs the code it was built from, never the repo's.
+Installing over a running app asks it to quit first (`POST /desktop/quit`), replaces it, and opens the new one.
 Uninstalling it (Installed apps) removes the program and its sign-in entry and keeps its data.
+
+### Another machine
+
+`build\Personal-Calendar-Setup.exe`, left in the repo by every build and every update, is the whole app: copy it to another Windows 10 or 11 machine and run it, with nothing else to install (WebView2 comes with Windows).
+Windows warns about it first, since it is not signed (More info, then Run anyway).
+That machine starts with an empty database of its own, and has no Update button unless the repo is checked out at the same path.
 
 After changing `app/static/favicon.svg`, redraw the icons with `uv run python scripts/make_icons.py`.
 

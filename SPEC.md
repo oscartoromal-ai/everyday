@@ -359,7 +359,8 @@ APScheduler inside the FastAPI process; jobs share app code and database session
   Closing the window hides it to a tray icon, where it keeps running; it starts there at sign-in, which the hook-spool design assumes, and Quit is on the tray icon's menu.
   The tray icon's menu opens Today, Calendar, Projects or New task; a number on the taskbar button and a dot on the tray icon count the nudges waiting; the title bar takes the page's paper and ink.
   Its data lives in its own folder (`%LOCALAPPDATA%\Personal Calendar`): the database, created and migrated by the app as it starts, its logs, backups, the machine's secrets and its settings over the shipped defaults.
-  A change reaches it by building and installing again (the installer asks the running app to quit, replaces it and opens the new one); the installed app never runs the repo's code.
+  A change reaches it through its Update button, there while the repo has a newer commit: it builds that commit (never uncommitted work) and installs it in the background, the installer quitting the app and opening the new one; the installed app never runs the repo's code.
+  The installer left in the repo by each build is the whole app for another machine.
   Windows only, built with PyInstaller and Inno Setup; a Tauri shell stays the alternative if WebView2 through pywebview falls short.
 - The in-app daily backup job uses SQLite's backup API to write dated snapshots into a cloud-synced folder; retain about 30.
 - Restore is quitting the app and copying a snapshot back over the database file.
