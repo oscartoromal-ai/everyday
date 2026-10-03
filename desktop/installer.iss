@@ -61,7 +61,10 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExe}"" --background"; Flags: uninsdeletevalue; Tasks: autostart
 
 [Run]
-Filename: "{app}\{#AppExe}"; Description: "Open {#AppName}"; Flags: nowait postinstall
+; Through Explorer, as the Start menu would: a program Setup starts itself
+; inherits its RedirectionGuard mitigation, under which the app's Update
+; (uv, behind its Python's junction) cannot build.
+Filename: "{win}\explorer.exe"; Parameters: """{app}\{#AppExe}"""; Description: "Open {#AppName}"; Flags: nowait postinstall
 
 [Code]
 // The running app quits when asked over its own server (POST /desktop/quit,

@@ -26,13 +26,19 @@ function Write-Log([string]$line) {
     "$(Get-Date -Format s) $line" | Out-File -Append -Encoding utf8 $log
 }
 
+# Everything a command writes, into the log as UTF-8 (Windows PowerShell's
+# own redirection writes UTF-16).
+function Invoke-Logged([scriptblock]$command) {
+    & $command *>&1 | ForEach-Object { "$_" } | Out-File -Append -Encoding utf8 $log
+}
+
 function Remove-Worktree {
     Set-Location $repo
     if (Test-Path $work) {
-        git -C $repo worktree remove --force $work *>> $log
+        Invoke-Logged { git -C $repo worktree remove --force $work }
         Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
     }
-    git -C $repo worktree prune *>> $log
+    Invoke-Logged { git -C $repo worktree prune }
 }
 
 function Fail([string]$why) {
@@ -46,11 +52,11 @@ New-Item -ItemType Directory -Force (Split-Path -Parent $log) | Out-Null
 "$(Get-Date -Format s) Updating to $Sha from $repo" | Out-File -Encoding utf8 $log
 
 Remove-Worktree
-git -C $repo worktree add --detach $work $Sha *>> $log
+Invoke-Logged { git -C $repo worktree add --detach $work $Sha }
 if ($LASTEXITCODE) { Fail "Could not check out $Sha" }
 
 try {
-    & (Join-Path $work "desktop\build.ps1") -Install *>> $log
+    Invoke-Logged { & (Join-Path $work "desktop\build.ps1") -Install }
 } catch {
     Fail "The update failed: $_"
 }
