@@ -1,5 +1,6 @@
 """Calendar's sheet in a real browser, worked as a spreadsheet: where Oscar
-stays written and filled down, a task written for a day and ticked, and a
+stays written and filled down, a task written for a day, started and done,
+its status chosen from its menu, and a
 habit's days painted with a drag. The `live`, `page` and `app_db` fixtures
 are conftest.py's."""
 
@@ -116,16 +117,63 @@ def test_a_task_is_written_for_its_day_and_ticked(page, live, app_db) -> None:
     open_sheet(page, live)
     plan = cell(page, TODAY, '[data-kind="plan"]')
     plan.dblclick()
-    page.keyboard.type("Do taxes")
+    # The cursor's whole row is shaded, not its cell alone.
+    shades = page.locator("tr.has-cursor > *").evaluate_all(
+        "cells => cells.map(c => getComputedStyle(c).backgroundImage)"
+    )
+    assert all(s.startswith("linear-gradient") for s in shades)
+    # Words that run past the cell wrap, the box growing so all stay in sight.
+    words = "Do taxes, " + "and gather every receipt from the year " * 4
+    page.keyboard.type(words)
+    box = page.locator(".ds-input")
+    assert box.evaluate("b => b.scrollHeight <= b.clientHeight && b.clientHeight > 40")
     page.keyboard.press("Enter")
     cell(page, TODAY, ".ds-task").filter(has_text="Do taxes").wait_for()
     with app_db() as db:
         [made] = db.query(Task).all()
-        assert (made.title, made.planned_for) == ("Do taxes", TODAY)
+        assert (made.title, made.planned_for) == (words.strip(), TODAY)
+    # A click starts it, a second makes it done.
+    cell(page, TODAY, ".ds-check").click()
+    cell(page, TODAY, ".ds-task.is-in-progress").wait_for()
+    with app_db() as db:
+        assert db.query(Task).one().status == TaskStatus.in_progress
     cell(page, TODAY, ".ds-check").click()
     cell(page, TODAY, ".ds-task.is-done").wait_for()
     with app_db() as db:
         assert db.query(Task).one().status == TaskStatus.done
+
+
+def test_a_tasks_status_is_chosen_from_its_menu(page, live, app_db) -> None:
+    with app_db() as db:
+        tasks_svc.create_task(db, title="Pay rent", planned_for=TODAY)
+        db.commit()
+    open_sheet(page, live)
+    menu = page.locator(".sheet-menu")
+    # Its chevron opens the statuses, none chosen while it is to do.
+    cell(page, TODAY, ".ds-status").click()
+    assert menu.get_by_role("menuitemradio").all_inner_texts() == ["In progress", "Done"]
+    assert menu.locator('[aria-checked="true"]').count() == 0
+    menu.get_by_role("menuitemradio", name="Done").click()
+    cell(page, TODAY, ".ds-task.is-done").wait_for()
+    assert menu.count() == 0
+    with app_db() as db:
+        assert db.query(Task).one().status == TaskStatus.done
+    # From the keys: In progress; Esc closes it, the cursor back on its cell.
+    cell(page, TODAY, ".ds-status").click()
+    page.keyboard.press("ArrowUp")
+    page.keyboard.press("Enter")
+    cell(page, TODAY, ".ds-task.is-in-progress").wait_for()
+    cell(page, TODAY, ".ds-status").click()
+    assert menu.locator('[aria-checked="true"]').inner_text() == "In progress"
+    page.keyboard.press("Escape")
+    assert menu.count() == 0
+    assert page.evaluate("document.activeElement.dataset.kind") == "plan"
+    # The status it has, chosen again, takes it back to to do.
+    cell(page, TODAY, ".ds-status").click()
+    menu.get_by_role("menuitemradio", name="In progress").click()
+    cell(page, TODAY, ".ds-task.is-in-progress").wait_for(state="detached")
+    with app_db() as db:
+        assert db.query(Task).one().status == TaskStatus.todo
 
 
 def test_a_habits_days_are_painted_with_a_drag(page, live, app_db) -> None:
@@ -152,3 +200,33 @@ def test_a_habits_days_are_painted_with_a_drag(page, live, app_db) -> None:
     cell(page, START, '[data-slug="morning-run"][data-state=""]').wait_for()
     with app_db() as db:
         assert [b["kind"] for b in notebook.blocks_of(db, START)] == []
+
+
+def test_a_task_is_deleted_from_its_bin_or_with_delete(page, live, app_db) -> None:
+    with app_db() as db:
+        tasks_svc.create_task(db, title="Cancel gym", planned_for=TODAY)
+        tasks_svc.create_task(db, title="Pay rent", planned_for=TODAY)
+        db.commit()
+    open_sheet(page, live)
+    gym = cell(page, TODAY, ".ds-task").filter(has_text="Cancel gym")
+    # Its bin asks first; Cancel keeps it.
+    gym.hover()
+    gym.locator(".ds-delete").click()
+    dialog = page.locator("#confirm-dialog")
+    dialog.get_by_role("button", name="Cancel").click()
+    with app_db() as db:
+        assert db.query(Task).count() == 2
+    gym.hover()
+    gym.locator(".ds-delete").click()
+    dialog.get_by_role("button", name="Delete").click()
+    gym.wait_for(state="detached")
+    with app_db() as db:
+        assert [t.title for t in db.query(Task).all()] == ["Pay rent"]
+    # Delete on the plan's cell asks for what it holds, the cursor kept.
+    page.keyboard.press("Delete")
+    assert "Pay rent" in dialog.locator(".confirm-name").inner_text()
+    dialog.get_by_role("button", name="Delete").click()
+    cell(page, TODAY, ".ds-task").wait_for(state="detached")
+    with app_db() as db:
+        assert db.query(Task).count() == 0
+    assert page.locator(".ds-cell.is-cursor").get_attribute("data-kind") == "plan"

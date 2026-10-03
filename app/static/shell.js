@@ -1,6 +1,6 @@
 /* Shell chrome shared by every page: the light/dark toggle, the collapsible
-   sidebar, the keys that work everywhere, and the confirm dialog behind
-   hx-confirm. The saved theme and sidebar state are first applied by the
+   sidebar, the keys that work everywhere, the confirm dialog behind
+   hx-confirm, and the desktop app's title bar and taskbar count. The saved theme and sidebar state are first applied by the
    inline script in base.html's <head>, before paint; this file keeps them
    in step with the controls. */
 
@@ -16,9 +16,14 @@
   /* ---- theme: a two-way toggle; with no saved choice, follow the system ---- */
 
   const isDark = () => root.dataset.theme === "dark";
+  let paintTitleBar = () => {}; // the desktop app's, set below
   const applyTheme = (dark) => {
     if (dark) root.dataset.theme = "dark";
     else delete root.dataset.theme;
+    // The browser's bar, and the desktop app's title bar, in the theme's paper.
+    const bar = document.querySelector('meta[name="theme-color"]');
+    if (bar) bar.content = getComputedStyle(root).getPropertyValue("--paper").trim() || bar.content;
+    paintTitleBar();
     const button = document.querySelector(".theme-toggle");
     if (!button) return;
     button.setAttribute("aria-pressed", String(dark));
@@ -159,15 +164,18 @@
      #capture-dialog). Never while typing, or over a dialog. ---- */
 
   const TYPING = "input, textarea, select, [contenteditable]";
+  const openCapture = () => {
+    const capture = document.getElementById("capture-dialog");
+    if (!capture) return false;
+    capture.showModal();
+    window.TaskSheet.compose(capture.querySelector(".task-sheet"));
+    return true;
+  };
   document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
     if (e.target.closest?.(TYPING) || document.querySelector("dialog[open]")) return;
     if ((e.key === "n" || e.key === "N") && !document.querySelector("[data-cursor]")) {
-      const capture = document.getElementById("capture-dialog");
-      if (!capture) return;
-      e.preventDefault();
-      capture.showModal();
-      window.TaskSheet.compose(capture.querySelector(".task-sheet"));
+      if (openCapture()) e.preventDefault();
       return;
     }
     if (e.key === "c" || e.key === "C") {
@@ -318,4 +326,32 @@
     nav.addEventListener("scroll", markMore, { passive: true });
     window.addEventListener("resize", markMore);
   }
+
+  /* ---- the desktop app (app/desktop): its title bar in the page's paper
+     and ink, titled as the page is, and the nudges counted again on its
+     taskbar button as one is dismissed. Its tray's New task opens the
+     capture window over the page (openCapture), else here as
+     /today?capture=1. ---- */
+
+  window.openCapture = openCapture;
+  const arrival = new URL(location.href);
+  if (arrival.searchParams.has("capture")) {
+    arrival.searchParams.delete("capture");
+    history.replaceState(history.state, "", arrival);
+    document.addEventListener("DOMContentLoaded", openCapture);
+  }
+
+  const desktop = () => window.pywebview?.api;
+  paintTitleBar = () => {
+    const style = getComputedStyle(root);
+    desktop()?.title_bar(
+      style.getPropertyValue("--paper").trim(), style.getPropertyValue("--ink").trim(), isDark(), document.title,
+    );
+  };
+  // pywebview's bridge usually comes in after this script has run.
+  if (desktop()?.title_bar) paintTitleBar();
+  else window.addEventListener("pywebviewready", paintTitleBar);
+  document.addEventListener("htmx:afterRequest", (e) => {
+    if (/\/ui\/nudges\/\d+\/dismiss$/.test(e.detail.pathInfo?.requestPath ?? "")) desktop()?.nudges_changed();
+  });
 })();

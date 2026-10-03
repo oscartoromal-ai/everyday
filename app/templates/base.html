@@ -15,6 +15,9 @@
      Its fonts are preloaded at exactly the URL design.css asks for, so each is fetched once. #}
   {% for font in ds.fonts %}<link rel="preload" href="/static/design/{{ font }}" as="font" type="font/woff2" crossorigin>
   {% endfor %}<link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+  {# The phone's home-screen icon, and its browser's bar in the page's paper (set below; the desktop app's title bar follows it, shell.js). #}
+  <link rel="apple-touch-icon" href="{{ asset('icons/icon-192.png') }}">
+  <meta name="theme-color" content="#ffffff">
   <script>
     // Before first paint: the saved theme (else the system's), the
     // sidebar's collapsed state, compact rows and Today's folded timeline,
@@ -43,6 +46,12 @@
   </script>
   <link rel="stylesheet" href="{{ asset('design/design.css') }}">
   <link rel="stylesheet" href="{{ asset('app.css') }}">
+  <script>
+    // The browser's bar in the theme's paper before first paint (this waits
+    // for the stylesheets above); shell.js keeps it in step.
+    document.querySelector('meta[name="theme-color"]').content =
+      getComputedStyle(document.documentElement).getPropertyValue("--paper").trim() || "#ffffff";
+  </script>
   <script src="{{ asset('htmx.min.js') }}" defer></script>
   <script src="{{ asset('shell.js') }}" defer></script>
   <script src="{{ asset('notes-editor.js') }}" defer></script>
@@ -97,6 +106,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       </div>
     </nav>
     <div class="rail-foot">
+      {% with update = app_update() %}{% include "partials/update_button.html" %}{% endwith %}
       {# The command menu (Ctrl+K): search, go to a page or a day, or do (command.js). #}
       <button type="button" class="rail-button command-open" data-command-open title="Search, go or do (Ctrl+K)">
         <svg class="command-open__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>

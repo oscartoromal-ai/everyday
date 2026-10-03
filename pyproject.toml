@@ -18,15 +18,20 @@ dependencies = [
     "pyyaml>=6.0.3",
     "markdown-it-py>=4.2.0",
     "garminconnect>=0.3.17",
+    "pywebview>=6.2.1",
+    "pystray>=0.19.5",
+    "pillow>=12.3.0",
 ]
 
 [project.scripts]
 personal-calendar = "app.serve:main"
+personal-calendar-desktop = "app.desktop:main"
 
 [dependency-groups]
 dev = [
     "httpx2>=2.12.0",
     "playwright>=1.62.0",
+    "pyinstaller>=6.22.3",
     "pytest>=8.0",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.8",

@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import checklist
-from app.dates import duration_label, human_date, short_date, upper_first, week_label
+from app.dates import duration_label, human_date, monday, short_date, upper_first, week_label
 from app.models import (
     GarminDay,
     Project,
@@ -70,6 +70,9 @@ def design_system() -> dict[str, Any]:
 
 
 templates.env.globals["design"] = design_system
+# The installed app's Update button (app/desktop/update.py), which sets its
+# own; a run from the repo has nothing to update.
+templates.env.globals["app_update"] = lambda: None
 
 
 def description_blocks(notes: str) -> list[dict[str, Any]]:
@@ -204,6 +207,7 @@ def projects_page_ctx(db: Session, now: datetime) -> dict[str, Any]:
         cards[project.status.value].append(project_card_ctx(db, project, now))
     loose = sorted((t for t in planning if t.project_id is None), key=_plan_order)
     return {
+        "overview": projects_overview(db, now),
         "open_count": len(planning),
         "undated_count": sum(1 for t in planning if t.planned_for is None),
         "loose_rows": [row_ctx(t, now) for t in loose],
@@ -218,6 +222,102 @@ def projects_page_ctx(db: Session, now: datetime) -> dict[str, Any]:
         ],
         "done_days": DONE_DAYS,
     }
+
+
+OVERVIEW_WEEKS = 12
+
+
+def projects_overview(db: Session, now: datetime) -> dict[str, Any] | None:
+    """The projects at a glance, as a portfolio: each active project, then
+    each paused one, with its health (what its deadlines say), its progress,
+    its next deadline, and its span (its tasks' first start to their last
+    due) on a run of weeks shared by all, from last week's Monday on. None
+    when there is no project to show."""
+    today = now.date()
+    start = monday(today) - timedelta(weeks=1)
+    end = start + timedelta(weeks=OVERVIEW_WEEKS)
+    length = (end - start).days
+
+    def at(day: date) -> float:
+        """A day's place in the weeks, in percent of their width, kept in them."""
+        return round(100 * min(max((day - start).days, 0), length) / length, 3)
+
+    projects = projects_svc.list_projects(db)
+    shown = [p for p in projects if p.status == ProjectStatus.active] + [
+        p for p in projects if p.status == ProjectStatus.paused
+    ]
+    if not shown:
+        return None
+    rows = []
+    for project in shown:
+        tasks = [
+            t for t in tasks_svc.list_tasks(db, project_id=project.id)
+            if t.status != TaskStatus.cancelled
+        ]
+        open_tasks = tasks_svc.one_per_series(
+            [t for t in tasks if t.status in tasks_svc.OPEN_STATUSES], today
+        )
+        done = sum(1 for t in tasks if t.status == TaskStatus.done)
+        total = done + len(open_tasks)
+        deadlines = sorted((t for t in open_tasks if t.due), key=lambda t: t.due)
+        overdue = sum(1 for t in deadlines if t.due < today)
+        upcoming = deadlines[0] if deadlines else None
+        if project.status == ProjectStatus.paused:
+            health = ("Paused", "neutral")
+        elif overdue:
+            health = (f"{overdue} overdue", "err")
+        elif upcoming and upcoming.due <= today + timedelta(days=DUE_SOON_DAYS):
+            health = ("Due soon", "warn")
+        elif not open_tasks:
+            health = ("Nothing open", "neutral")
+        elif not upcoming:
+            health = ("No deadline", "neutral")
+        else:
+            health = ("On track", "ok")
+        days = [d for t in tasks for d in (t.starts_on, t.due) if d]
+        first, last = (min(days), max(days)) if days else (None, None)
+        bar = None
+        if first and last and last >= start and first < end:
+            left = at(first)
+            bar = {"left": left, "width": round(at(last + timedelta(days=1)) - left, 3)}
+        rows.append({
+            "project": project,
+            "health": health[0],
+            "health_class": health[1],
+            "done": done,
+            "total": total,
+            "percent": round(100 * done / total) if total else 0,
+            "next": upcoming,
+            "next_label": upper_first(short_date(upcoming.due, today)) if upcoming else None,
+            "span_label": human_span(first, last, today) if first and last else "No dates yet",
+            "bar": bar,
+        })
+    months = []
+    day = start.replace(day=1)
+    while day < end:
+        if day >= start:
+            months.append({"left": at(day), "label": day.strftime("%b")})
+        day = (day + timedelta(days=32)).replace(day=1)
+    # The first weeks name their month too, when no month starts in them.
+    if not months or months[0]["left"] > 100 * 2 / OVERVIEW_WEEKS:
+        months.insert(0, {"left": 0, "label": start.strftime("%b")})
+    return {
+        "rows": rows,
+        "months": months,
+        "now": round(100 * ((today - start).days + 0.5) / length, 3),
+        "weeks": OVERVIEW_WEEKS,
+    }
+
+
+def human_span(first: date, last: date, today: date) -> str:
+    """A span as its two days ('28 Sep to 22 Nov'), the year written when
+    it is not this one."""
+
+    def day(value: date) -> str:
+        text = f"{value.day} {value.strftime('%b')}"
+        return text if value.year == today.year else f"{text} {value.year}"
+
+    return day(first) if first == last else f"{day(first)} to {day(last)}"
 
 
 def workstream_ctx(db: Session, workstream: Workstream) -> dict[str, Any]:

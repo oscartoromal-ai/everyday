@@ -74,7 +74,7 @@ def _tasks(db: Session, first: date, last: date) -> dict[date, list[dict[str, An
     out: dict[date, list[dict[str, Any]]] = {}
     for task in found:
         done = task.status == TaskStatus.done
-        entry = {"id": task.id, "title": task.title, "done": done}
+        entry = {"id": task.id, "title": task.title, "done": done, "status": task.status.value}
         if task.planned_for and first <= task.planned_for <= last:
             out.setdefault(task.planned_for, []).append(
                 {**entry, "due": task.due == task.planned_for and not done, "only_due": False}

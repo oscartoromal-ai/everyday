@@ -1,12 +1,21 @@
-"""App configuration.
+r"""App configuration.
 
-Non-secret defaults live in config.toml at the repo root; machine-specific
-secrets (ICS feed URL, ntfy credentials) are read from the git-ignored local/
-directory via paths named in config.toml.
+Non-secret defaults live in config.toml beside the code (the repo root, or
+inside the installed app); machine-specific secrets (ICS feed URL, ntfy
+credentials) are read from the git-ignored local/ directory via paths named
+in config.toml.
+
+Everything the app keeps (the database, its logs and backups, local/, the
+nutrition files) lives under its home: the installed desktop app's is
+%LOCALAPPDATA%\Personal Calendar, a run from the repo's is the repo itself,
+and PC_HOME names another. Relative paths in the config resolve against it,
+and a config.toml there overrides the defaults key by key.
 """
 
 from __future__ import annotations
 
+import os
+import sys
 from functools import lru_cache
 from pathlib import Path
 
@@ -18,7 +27,21 @@ from pydantic_settings import (
     TomlConfigSettingsSource,
 )
 
+# The code's root: the repo, or the installed app's bundle (frozen).
 REPO_ROOT = Path(__file__).resolve().parent.parent
+FROZEN = getattr(sys, "frozen", False)
+
+
+def app_home() -> Path:
+    """Where the app keeps its data and its machine's config (see above)."""
+    if os.environ.get("PC_HOME"):
+        return Path(os.environ["PC_HOME"])
+    if FROZEN:
+        return Path(os.environ["LOCALAPPDATA"]) / "Personal Calendar"
+    return REPO_ROOT
+
+
+HOME = app_home()
 
 
 class ServerConfig(BaseModel):
@@ -84,9 +107,11 @@ class GarminConfig(BaseModel):
 
 
 class Settings(BaseSettings):
-    # Env vars override config.toml, e.g. PC_STORAGE__DB_PATH=...
+    # Env vars override config.toml, e.g. PC_STORAGE__DB_PATH=...; the home's
+    # config.toml overrides the defaults beside the code (the same file when
+    # run from the repo).
     model_config = SettingsConfigDict(
-        toml_file=REPO_ROOT / "config.toml",
+        toml_file=list(dict.fromkeys([REPO_ROOT / "config.toml", HOME / "config.toml"])),
         env_prefix="PC_",
         env_nested_delimiter="__",
     )
@@ -110,33 +135,33 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        return (init_settings, env_settings, TomlConfigSettingsSource(settings_cls))
+        toml = TomlConfigSettingsSource(settings_cls, deep_merge=True)
+        return (init_settings, env_settings, toml)
+
+    @staticmethod
+    def resolve(path: str) -> Path:
+        """A configured path, relative ones under the app's home."""
+        return Path(path) if Path(path).is_absolute() else HOME / path
 
     @property
     def db_path(self) -> Path:
-        path = Path(self.storage.db_path)
-        return path if path.is_absolute() else REPO_ROOT / path
+        return self.resolve(self.storage.db_path)
 
     @property
     def backup_dir(self) -> Path:
-        path = Path(self.backup.dir)
-        return path if path.is_absolute() else REPO_ROOT / path
+        return self.resolve(self.backup.dir)
 
     @property
     def nutrition_dir(self) -> Path:
-        path = Path(self.nutrition.dir)
-        return path if path.is_absolute() else REPO_ROOT / path
+        return self.resolve(self.nutrition.dir)
 
     @property
     def garmin_token_dir(self) -> Path:
-        path = Path(self.garmin.token_dir)
-        return path if path.is_absolute() else REPO_ROOT / path
+        return self.resolve(self.garmin.token_dir)
 
     @property
     def ics_url(self) -> str | None:
-        path = Path(self.work_calendar.ics_url_file)
-        if not path.is_absolute():
-            path = REPO_ROOT / path
+        path = self.resolve(self.work_calendar.ics_url_file)
         if not path.exists():
             return None
         url = path.read_text(encoding="utf-8").strip()

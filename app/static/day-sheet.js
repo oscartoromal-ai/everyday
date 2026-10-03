@@ -3,10 +3,13 @@
    pointer, a range held with Shift or a drag, cells written by typing.
 
    Where he stays is written in its cells (an item a column), accommodation
-   a checkbox, sorted or not; a Plan cell writes a task for its day; a
+   a checkbox, sorted or not; a Plan cell writes a task for its day, whose
+   box a click starts (in progress) and a second click makes done, its
+   chevron a menu of the statuses it can be given; a
    habit's cell, or accommodation's, is ticked by a click or Space, and a
    drag down its column paints the days it crosses. Ctrl+D fills the range
-   from its first row (one cell, from the row above), Delete clears it. A
+   from its first row (one cell, from the row above), Delete clears it (a
+   plan's tasks deleted after asking, as a task's bin does). A
    day whose plan runs over a line folds to its first (its chevron, or
    Alt+Left and Right), and stays folded in this browser. A task's title
    opens its page; so does Ctrl+Enter, on a Plan cell its first task's, and
@@ -185,14 +188,33 @@
     send(targets.flatMap((row) => range.cols.map((c) => fillOp(cellAt(sources, c), cellAt(row, c))).filter(Boolean)));
   };
 
-  // Delete: the range's stay cleared, its habits and checkboxes unticked.
+  // Tasks deleted, after asking (their bins, as Projects' rows'); the
+  // cursor back on its cell after.
+  const deleteTasks = async (bins) => {
+    const tasks = new Map(bins.map((b) => [b.dataset.deleteTask, b.dataset.title]));
+    if (!tasks.size) return;
+    const one = tasks.size === 1;
+    const yes = await window.confirmAction({
+      title: one ? "Delete task?" : `Delete ${tasks.size} tasks?`,
+      name: [...tasks.values()].join(", "),
+      detail: "will be deleted. This can't be undone.",
+      action: "Delete",
+    });
+    if (yes) send([...tasks.keys()].map((id) => ({ op: "delete", task: Number(id) })));
+    place()?.focus({ preventScroll: true });
+  };
+
+  // Delete: the range's stay cleared, its habits and checkboxes unticked,
+  // and its plans' tasks deleted, after asking.
   const clear = () => {
-    send(rangeCells().cells.flatMap((cell) => {
+    const cells = rangeCells().cells;
+    send(cells.flatMap((cell) => {
       if (cell.dataset.kind === "stay" && cell.dataset.value) return [{ op: "stay", day: dayOf(cell), name: cell.dataset.name, value: "" }];
       if (cell.dataset.kind === "habit" && cell.dataset.state) return [tickOp(cell, false)];
       if (cell.dataset.kind === "check" && isTicked(cell)) return [tickOp(cell, false)];
       return [];
     }));
+    deleteTasks(cells.flatMap((cell) => [...cell.querySelectorAll("[data-delete-task]")]));
   };
 
   // Space: the range's habits and checkboxes ticked (unticked when the
@@ -203,6 +225,94 @@
     const done = !isTicked(cell);
     send(rangeCells().cells.filter(tickable).map((c) => tickOp(c, done)));
   };
+
+  /* ---- a task's status, from the menu under its chevron ---- */
+
+  // The statuses a day's task can be given here; the one it has, chosen
+  // again, takes it back to to do.
+  const STATUSES = [["in_progress", "In progress"], ["done", "Done"]];
+  const TICK = '<svg class="tick" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.5 3.5 7.5-8"/></svg>';
+  let statusMenu = null; // {button, el, task}
+
+  const openStatusMenu = (button) => {
+    const task = Number(button.dataset.statusMenu);
+    const current = button.dataset.status;
+    const el = document.createElement("div");
+    el.className = "sheet-menu";
+    el.setAttribute("role", "menu");
+    el.setAttribute("aria-label", button.getAttribute("aria-label"));
+    for (const [status, label] of STATUSES) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.tabIndex = -1;
+      item.setAttribute("role", "menuitemradio");
+      item.setAttribute("aria-checked", String(status === current));
+      item.dataset.status = status;
+      item.innerHTML = `<span class="label"></span>${status === current ? TICK : ""}`;
+      item.querySelector(".label").textContent = label;
+      el.append(item);
+    }
+    // In the body, not the sheet, which clips what overflows it.
+    document.body.append(el);
+    const at = button.getBoundingClientRect();
+    const below = window.innerHeight - at.bottom >= el.offsetHeight + 8;
+    el.style.top = `${Math.max(8, below ? at.bottom + 4 : at.top - el.offsetHeight - 4)}px`;
+    el.style.left = `${Math.max(8, Math.min(at.left, window.innerWidth - el.offsetWidth - 8))}px`;
+    button.setAttribute("aria-expanded", "true");
+    statusMenu = { button, el, task };
+    (el.querySelector('[aria-checked="true"]') || el.firstElementChild).focus();
+  };
+
+  // Closed, the cursor's cell takes the focus back (unless the click went elsewhere).
+  function closeStatusMenu(restore = true) {
+    if (!statusMenu) return;
+    const { button, el } = statusMenu;
+    statusMenu = null;
+    el.remove();
+    button.setAttribute("aria-expanded", "false");
+    if (restore) place()?.focus({ preventScroll: true });
+  }
+
+  const chooseStatus = (item) => {
+    const { task, button } = statusMenu;
+    const status = item.dataset.status === button.dataset.status ? "todo" : item.dataset.status;
+    closeStatusMenu();
+    send([{ op: "status", task, status }]);
+  };
+
+  document.addEventListener("click", (e) => {
+    if (!statusMenu || e.target.closest?.("[data-status-menu]")) return;
+    const item = e.target.closest?.(".sheet-menu [data-status]");
+    if (item && statusMenu.el.contains(item)) chooseStatus(item);
+    else if (!statusMenu.el.contains(e.target)) closeStatusMenu(false);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (!statusMenu || !statusMenu.el.contains(e.target)) return;
+    const items = [...statusMenu.el.querySelectorAll("[data-status]")];
+    const at = items.indexOf(e.target.closest("[data-status]"));
+    const handled = () => { e.preventDefault(); e.stopPropagation(); };
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      handled();
+      items[(at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus();
+    } else if (e.key === "Home" || e.key === "End") {
+      handled();
+      items[e.key === "Home" ? 0 : items.length - 1].focus();
+    } else if (e.key === "Enter" || e.key === " ") {
+      handled();
+      chooseStatus(items[at]);
+    } else if (e.key === "Escape" || e.key === "Tab") {
+      handled();
+      closeStatusMenu();
+    } else {
+      e.stopPropagation(); // the page's own keys stay out of the menu
+    }
+  }, true);
+
+  window.addEventListener("resize", () => closeStatusMenu(false));
+  document.addEventListener("scroll", (e) => {
+    if (statusMenu && !statusMenu.el.contains(e.target)) closeStatusMenu(false);
+  }, true);
 
   /* ---- folding a day to its plan's first line, remembered in this browser ---- */
 
@@ -234,9 +344,10 @@
   const edit = (cell, { value = null } = {}) => {
     if (!writable(cell)) return;
     const plan = cell.dataset.kind === "plan";
-    const input = document.createElement("input");
+    // A box that wraps and grows with its words, so all of them stay in sight.
+    const input = document.createElement("textarea");
     input.className = "ds-input";
-    input.type = "text";
+    input.rows = 1;
     input.autocomplete = "off";
     input.spellcheck = false;
     input.value = value ?? (plan ? "" : cell.dataset.value);
@@ -256,7 +367,7 @@
     if (!editing) return;
     const { cell, input, day } = editing;
     editing = null;
-    const words = input.value.trim();
+    const words = input.value.replace(/\s+/g, " ").trim(); // one line, pasted breaks and all
     if (cell.dataset.kind === "plan") {
       if (words) send([{ op: "task", day, title: words }], { open });
       else { input.remove(); cell.classList.remove("is-editing"); }
@@ -384,6 +495,22 @@
     if (e.button !== 0 || editing?.input === e.target) return;
     const cell = e.target.closest(".ds-cell");
     if (!cell) return;
+    const bin = e.target.closest("[data-delete-task]");
+    if (bin) {
+      e.preventDefault();
+      moveTo(dayOf(cell), Number(cell.dataset.col));
+      deleteTasks([bin]);
+      return;
+    }
+    const chooser = e.target.closest("[data-status-menu]");
+    if (chooser) {
+      e.preventDefault();
+      const open = statusMenu?.button === chooser;
+      closeStatusMenu(false);
+      moveTo(dayOf(cell), Number(cell.dataset.col));
+      if (!open) openStatusMenu(chooser);
+      return;
+    }
     const task = e.target.closest("[data-task]");
     if (task) {
       e.preventDefault();
@@ -445,7 +572,7 @@
 
   sheet.addEventListener("dblclick", (e) => {
     const cell = e.target.closest(".ds-cell");
-    if (writable(cell) && !e.target.closest("[data-task], input")) edit(cell);
+    if (writable(cell) && !e.target.closest("[data-task], [data-status-menu], [data-delete-task], input")) edit(cell);
   });
 
   // The Day header's chevron folds every day, or opens them all again.

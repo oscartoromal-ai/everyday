@@ -3,7 +3,7 @@
    drag, cells written by typing, bars drawn over the time, moved and
    stretched by dragging or with Alt, rows moved with Alt+Up/Down or
    dragged by their number to another place or workstream, workstreams
-   folded to their row, the time seen in weeks or drilled down to days,
+   folded to their row, done tasks hidden, the time seen in weeks or drilled down to days,
    and undo.
 
    Every edit is one POST of ops (app.services.gantt.apply), answered with
@@ -27,8 +27,8 @@
 
   const table = () => sheet.querySelector(".gantt-table");
   const rows = () => [...sheet.querySelectorAll(
-    ".gantt-group:not(.is-folded) > .gantt-row, .gantt-group.is-folded > .gantt-row.kind-workstream, .gantt-table > .gantt-row.kind-add-workstream",
-  )];
+    ".gantt-group:not(.is-folded) > .gantt-row, .gantt-group.is-folded > .gantt-row.kind-workstream",
+  )].filter((row) => !(hidingDone && row.matches(".kind-task.is-done")));
   const rowOf = (key) => sheet.querySelector(`.gantt-row[data-key="${CSS.escape(key)}"]`);
   const colCount = () => FROZEN + Number(table().dataset.colCount);
   const cellAt = (row, col) => row?.querySelector(`.gantt-cell[data-col="${col}"]`);
@@ -144,8 +144,16 @@
       || [...row.querySelectorAll(".gantt-tick")].some((el) => Math.floor(v(el, "--x")) === c);
   };
 
+  // Today's column, or null off the sheet.
+  const todayCol = () => {
+    const days = Math.round((new Date(`${table().dataset.today}T12:00:00`) - new Date(`${firstDay()}T12:00:00`)) / DAY_MS);
+    const col = FROZEN + Math.floor(days / colDays());
+    return col >= FROZEN && col < colCount() ? col : null;
+  };
+
   // As a spreadsheet's: along a run of filled cells to its last, else on
-  // to the next filled one, else to the sheet's edge.
+  // to the next filled one, else to the sheet's edge; along a row, with no
+  // days drawn on the way, today stops it (before the edge, or the pane).
   const jump = (dRow, dCol, options) => {
     const all = rows();
     const here = all.findIndex((r) => r.dataset.key === cursor.key);
@@ -158,8 +166,11 @@
     if (full(i) && full(i + by)) {
       while (i !== edge && full(i + by)) i += by;
     } else {
+      const from = i;
       i += by;
       while (i !== edge && !full(i)) i += by;
+      const now = dRow ? null : todayCol();
+      if ((!full(i) || !isTime(i)) && now !== null && (now - from) * by > 0 && (i - now) * by > 0) i = now;
     }
     const [row, col] = cellOf(i);
     moveTo(row.dataset.key, col, options);
@@ -254,6 +265,7 @@
     if (rest) document.getElementById("gantt-rest").textContent = rest.textContent.trim();
     if (cursor && !rowOf(cursor.key)) cursor = null;
     if (anchor && !rowOf(anchor.key)) anchor = null;
+    keepInView();
     const cell = place();
     if (cell && hadFocus) cell.focus({ preventScroll: true });
     if (writing && rowOf(writing.key)) {
@@ -542,12 +554,12 @@
     redos.length = 0;
   };
 
-  // A workstream deleted: its tasks stay in the project, under Other tasks.
+  // A workstream deleted: its tasks stay in the project, in no workstream.
   const removeWorkstream = async (lane) => {
     const yes = await window.confirmAction({
       title: "Delete workstream?",
       name: lane.dataset.title,
-      detail: "Its tasks stay, under Other tasks.",
+      detail: "Its tasks stay in the project, in no workstream.",
       action: "Delete",
     });
     if (!yes) {
@@ -891,14 +903,14 @@
     const endOf = (group) => ({
       group, before: null, line: group.querySelector(".gantt-row.kind-add"), edge: "top",
     });
-    if (!under || under.dataset.kind === "add-workstream") {
+    if (!under) {
       // Past the last group: its end.
       return y > sheet.querySelector(".gantt-head").getBoundingClientRect().bottom ? endOf(last) : null;
     }
     const group = under.closest(".gantt-group");
     if (under.dataset.kind === "add") return endOf(group);
     if (under.dataset.kind !== "task") {
-      // A workstream's row, or "Other tasks": its group's top.
+      // A workstream's row, or the row to add one: its group's top.
       const first = group.querySelector(".gantt-row.kind-task");
       return { group, before: first, line: under, edge: "bottom" };
     }
@@ -1003,6 +1015,37 @@
     place()?.focus({ preventScroll: true });
   }
 
+  /* ---- done tasks hidden, or shown, remembered (pc-gantt-hide-done) ---- */
+
+  const HIDE_DONE = "pc-gantt-hide-done";
+  let hidingDone = saved(HIDE_DONE) === "1";
+  const hideButton = document.querySelector("[data-gantt-hide-done]");
+
+  // The cursor on a row now hidden goes to the next row shown, or the last.
+  function keepInView() {
+    if (!cursor || !rowOf(cursor.key)) return;
+    const shown = rows();
+    if (shown.includes(rowOf(cursor.key))) return;
+    const all = [...sheet.querySelectorAll(".gantt-row[data-key]")];
+    const at = all.indexOf(rowOf(cursor.key));
+    const to = all.slice(at + 1).find((r) => shown.includes(r)) || shown.at(-1);
+    if (to) cursor = { key: to.dataset.key, col: cursor.col };
+    anchor = null;
+  }
+
+  const showHidden = () => {
+    sheet.classList.toggle("hide-done", hidingDone);
+    hideButton?.setAttribute("aria-pressed", String(hidingDone));
+  };
+
+  hideButton?.addEventListener("click", () => {
+    hidingDone = !hidingDone;
+    store(HIDE_DONE, hidingDone ? "1" : "0");
+    showHidden();
+    keepInView();
+    place();
+  });
+
   // Focus reaching the sheet by Tab lands on the cursor's cell.
   sheet.addEventListener("focusin", (e) => {
     if (e.target.matches(".gantt-cell") && cursor) return;
@@ -1088,6 +1131,7 @@
   });
 
   showFolds();
+  showHidden();
   toNow();
   place();
 })();

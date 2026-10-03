@@ -6,7 +6,7 @@ Every section gists a decision made on that map and links the ticket that holds 
 
 ## 1. Product shape
 
-- Single user (Oscar), single machine (Windows 11), browser UI, no cloud backend.
+- Single user (Oscar), single machine (Windows 11), a desktop app (the web UI in a window of its own; the phone gets it in its browser), no cloud backend.
 - The app is the canonical store for personal plan state: projects, tasks, events.
 - Claude is a first-class client: it reads and writes the plan through MCP from day one.
 - The work calendar is visible read-only inside the app; the app never writes to it.
@@ -33,9 +33,13 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Tasks take no time on the calendar** (Oscar's call on 2026-10-02, after the blocks went unused): to-dos live in lists and on their days; the calendar shows events alone.
   Task blocks went with it: the To schedule tray, giving a drawn time to a task, Book, a task's time in the sheet, Today's focus card, and the missed marker with its replan, nudge and ghost outline (all in git history).
 - **Delegated to Claude** is a list section with status chips (queued, running, needs review), not a calendar lane.
-- **Projects is the one screen for tasks** (Oscar's call on 2026-10-02, replacing the Tasks page and its By date / By project views): every open task of Oscar's on one sheet, its first row the composer, then the tasks in no project, then each active project's card (workstreams, then other tasks, each card with its quick add, Add a workstream and its status), the paused and done projects on shelves, and the Done fold.
+- **Projects is the one screen for tasks** (Oscar's call on 2026-10-02, replacing the Tasks page and its By date / By project views): every open task of Oscar's on one sheet, its first row the composer, then the tasks in no project, then each active project's card (workstreams, then Add a workstream with the tasks in none under it, each card with its quick add and its status), the paused and done projects on shelves, and the Done fold.
   Each row names its do-date and has one-click Today and Tomorrow buttons and a date picker; rows go soonest first (do-date, then deadline, then oldest), and a repeating series shows only its next occurrence.
   A new project is named at the header's right; a status moves its card between the active projects and the shelves.
+- **Projects at a glance** (2026-10-03, after the portfolio views of Linear, Asana and Things): above the tasks, a row for each active project, then each paused one, as a portfolio list.
+  Each row gives the project's health, its progress (tasks done of all, cancelled ones aside), its next deadline, and its span (its tasks' first start to their last due) on twelve weeks shared by every row, from last week's Monday, with now marked.
+  Health is read from the deadlines, not set by hand, since one person has no one to report to: "N overdue", "Due soon" (within three days), "On track", "No deadline" or "Nothing open"; a paused project is "Paused".
+  The name opens the project's Gantt.
   The app opens on Today (`/` goes there); dates are planned on Today and each project's Gantt.
 - **Done folds away**: finished tasks leave their lists for a collapsed Done fold, at the foot of Projects (the last 14 days), where unticking one sends it back.
 - **Sub-tasks** live in their task's description and tick off on its row; workstreams hold tasks, never sub-tasks.
@@ -101,14 +105,16 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   A row a day: the day (a link to its notes), where Oscar stays (a column per item of the stays shown, place and accommodation to begin with), Plan, and a column per habit.
   A stay's cell is its item's value; writing in it writes the day's stay as "/stay" in its notes would (a day with none gets one at its page's top, with the items the last stay had).
   Accommodation is a checkbox (Oscar's call on 2026-10-03, as his Excel's AC column): its box alone, ticked once sorted (edged amber while a stay has it unsorted), ticked as a habit is, its words kept in the notes and its tooltip.
-  Plan is the day's tasks, Oscar's planned for it (done ones struck through) and then those still open due on it ("due"), each ticked from its box, and then his own events, all day first (work meetings stay on the grid); writing in it adds a task planned for the day.
+  Plan is the day's tasks, Oscar's planned for it (done ones struck through) and then those still open due on it ("due"), and then his own events, all day first (work meetings stay on the grid); writing in it adds a task planned for the day.
+  A task's box is clicked through its work (Oscar's call on 2026-10-03): a click starts it (in progress, the box filled inside), the next makes it done, one more takes it back to to do; a chevron beside the box opens the statuses it can be given here, In progress and Done, the one it has chosen again taking it back to to do.
   A task's title opens its page, as Ctrl+Enter on a Plan cell opens its first task's; writing a task, Ctrl+Enter writes it and opens it, to be written out there (Oscar's call on 2026-10-03).
+  A task is deleted from its bin at its line's end, or with Delete on its day's Plan (every task of the range's plans), asking first as Projects does.
   A habit's cell is filled green with a tick on a day it was done, an empty box when skipped and a dash when missed; a click or Space ticks it (written in the day's notes after its habits, as "/habit name" would be) or unticks it (its rows leave the notes), and a drag down its column (or accommodation's) paints every day it crosses as the first was turned.
   A day whose plan runs over a line folds to its first (Oscar's call on 2026-10-03), the line saying how many more ("+5"): its chevron before the date, or Alt+Left and Right on it (or a range of days); Alt with a chevron, or the Day header's, folds or opens them all, and folded days stay so in that browser.
-  It is worked as the Gantt is: a cell cursor, a range with Shift or a drag, typing writes over a cell, Enter writes in it and keeps it going down, Esc lets it go; Ctrl+D fills the range from its first row (one cell, from the row above), and Delete clears the range's stays and unticks its habits.
+  It is worked as the Gantt is: a cell cursor, a range with Shift or a drag, typing writes over a cell, Enter writes in it and keeps it going down, Esc lets it go; Ctrl+D fills the range from its first row (one cell, from the row above), and Delete clears the range's stays, unticks its habits and deletes its plans' tasks (after asking).
   A new event from the command menu opens the week instead, its composer being the grid's; the sheet stays the choice.
 - **A project as a Gantt chart** (Oscar's call on 2026-09-30: "I work in weeks", "a kind of Excel interface"): each project opens (`/projects/<id>`, from its card's bars icon) as a spreadsheet of its plan by week.
-  A row per workstream, its tasks under it and a row to write one more; then the other tasks, and a row to write a workstream; a column per week (the ISO week, over its Monday), frozen beside Task, Start, Wks and Due.
+  A row per workstream, its tasks under it and a row to write one more; then a row to write a workstream, the tasks in none under it and a row to write one more; a column per week (the ISO week, over its Monday), frozen beside Task, Start, Wks and Due.
   It drills down to days (Oscar's call on 2026-10-01): a Weeks / Days switch (or V) for the whole sheet, remembered, the same days kept in view; in Days a column per day, weekends tinted, the length in days, and every move by days.
   A task's bar is its span: from its start day to its due, so the end of a bar is its deadline, and Projects and the nudges see the plan through the due they already read (Oscar's call: a task has to be done by a day).
   The do-date stays apart: when Oscar works on it, not when the plan says it runs.
@@ -350,9 +356,16 @@ APScheduler inside the FastAPI process; jobs share app code and database session
 
 ### Deployment and backups
 
-- Auto-starting background service on Windows (NSSM or Task Scheduler at-logon, hidden window); the app is effectively always up, which the hook-spool design assumes.
+- **A desktop app, wholly local** (Oscar's call on 2026-10-03, replacing that morning's PWA and the scheduled task behind it): a Windows program of its own, built from the repo and installed per user, with no repo, Python, browser or Task Scheduler needed to run it.
+  One process holds everything: its window (Edge WebView2 over the app's own pages), the server on `127.0.0.1:8377` (and the Tailscale interface) and the scheduler, since Claude's MCP, the jobs and the phone all need it whether a window is open or not.
+  Closing the window hides it to a tray icon, where it keeps running; it starts there at sign-in, which the hook-spool design assumes, and Quit is on the tray icon's menu.
+  The tray icon's menu opens Today, Calendar, Projects or New task; a number on the taskbar button and a dot on the tray icon count the nudges waiting; the title bar takes the page's paper and ink.
+  Its data lives in its own folder (`%LOCALAPPDATA%\Personal Calendar`): the database, created and migrated by the app as it starts, its logs, backups, the machine's secrets and its settings over the shipped defaults.
+  A change reaches it through its Update button, there while the repo has a newer commit: it builds that commit (never uncommitted work) and installs it in the background, the installer quitting the app and opening the new one; the installed app never runs the repo's code.
+  The installer left in the repo by each build is the whole app for another machine.
+  Windows only, built with PyInstaller and Inno Setup; a Tauri shell stays the alternative if WebView2 through pywebview falls short.
 - The in-app daily backup job uses SQLite's backup API to write dated snapshots into a cloud-synced folder; retain about 30.
-- Restore is copying a snapshot back over the database file.
+- Restore is quitting the app and copying a snapshot back over the database file.
 
 ### Security and remote access
 

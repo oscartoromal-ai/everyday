@@ -494,7 +494,10 @@ def save_project(
 ):
     projects_svc.update_project(db, project_id, name=name, notes=notes.strip(), color=color)
     db.commit()
-    return _project_partial(request, db, project_id, "partials/project_card.html")
+    response = _project_partial(request, db, project_id, "partials/project_card.html")
+    # Its name and colour are on the page's overview too.
+    response.headers["HX-Trigger"] = "tasks:changed"
+    return response
 
 
 @router.post("/projects/{project_id}/workstreams")
@@ -620,7 +623,10 @@ async def day_sheet_edit(request: Request, db: DbSession, start: date):
         {"op": "habit", "day", "slug", "done"}    a habit done that day, or not
         {"op": "stay", "day", "name", "value"?, "done"?}   an item of its stay
         {"op": "task", "day", "title"}            a task planned for the day
-        {"op": "toggle", "task"}                  a task ticked, or not
+        {"op": "toggle", "task"}                  a task's box clicked: to do, in
+                                                  progress, done, then to do again
+        {"op": "status", "task", "status"}        a task's status, from its menu
+        {"op": "delete", "task"}                  a task deleted
     applied in order, as the day's notes and tasks would have them; answers
     the sheet drawn again, naming the last task written (X-Task-Created) for
     the sheet to open its page."""
@@ -638,8 +644,18 @@ async def day_sheet_edit(request: Request, db: DbSession, start: date):
         kind = op.get("op")
         if kind == "toggle":
             task = tasks_svc.get_task(db, int(op["task"]))
-            done = task.status == TaskStatus.done
-            tasks_svc.set_status(db, task.id, TaskStatus.todo if done else TaskStatus.done)
+            following = {TaskStatus.in_progress: TaskStatus.done, TaskStatus.done: TaskStatus.todo}
+            tasks_svc.set_status(db, task.id, following.get(task.status, TaskStatus.in_progress))
+            continue
+        if kind == "status":
+            try:
+                status = TaskStatus(str(op.get("status")))
+            except ValueError as exc:
+                raise DomainError(f"Not a status: {op.get('status')!r}") from exc
+            tasks_svc.set_status(db, int(op["task"]), status)
+            continue
+        if kind == "delete":
+            tasks_svc.delete_task(db, int(op["task"]))
             continue
         try:
             day = date.fromisoformat(str(op.get("day")))

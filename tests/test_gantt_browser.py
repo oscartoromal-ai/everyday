@@ -229,15 +229,17 @@ def test_right_from_due_lands_where_the_row_works(page, live, app_db) -> None:
 
 def test_ctrl_arrows_stop_at_the_edges_of_what_is_drawn(page, live, app_db) -> None:
     """Ctrl+arrow as in a spreadsheet: along a run of drawn days to its
-    last, else on to the next drawn one, else to the sheet's edge."""
-    day = lambda n: (THIS + timedelta(days=n)).isoformat()  # noqa: E731
+    last, else on to the next drawn one, else to the sheet's edge; along a
+    row with no days drawn on the way, today stops it."""
+    day = lambda n: (THIS + timedelta(days=n - 14)).isoformat()  # noqa: E731
+    today = date.today().isoformat()
     with app_db() as db:
         project = projects_svc.create_project(db, name="Delta")
         made = {"project_id": project.id}
-        draft = {"starts_on": THIS + timedelta(days=2), "due": THIS + timedelta(days=4)}
+        draft = {"starts_on": THIS - timedelta(days=12), "due": THIS - timedelta(days=10)}
         tasks_svc.create_task(db, title="Draft", **draft, **made)
         tasks_svc.create_task(db, title="Think", **made)
-        tasks_svc.create_task(db, title="Check", due=THIS + timedelta(days=3), **made)
+        tasks_svc.create_task(db, title="Check", due=THIS - timedelta(days=11), **made)
         db.commit()
         project_id = project.id
 
@@ -260,17 +262,20 @@ def test_ctrl_arrows_stop_at_the_edges_of_what_is_drawn(page, live, app_db) -> N
     assert at() == ("Check", day(3))
     page.keyboard.press("Control+ArrowDown")
     assert page.evaluate("document.activeElement.closest('.gantt-row').dataset.key") == (
-        "add-workstream"
+        "add"
     )
     page.keyboard.press("Control+ArrowUp")
     assert at() == ("Check", day(3))
     page.keyboard.press("Control+ArrowUp")
     assert at() == ("Draft", day(3))
 
-    # Along Draft: to its bar's last day, the sheet's end, back to the bar's
-    # last and first days, then on to its Due, the words before the time.
+    # Along Draft: to its bar's last day, over the empty days to today, the
+    # sheet's end, back to the bar's last and first days, then on to its
+    # Due, the words before the time.
     page.keyboard.press("Control+ArrowRight")
     assert at() == ("Draft", day(4))
+    page.keyboard.press("Control+ArrowRight")
+    assert at() == ("Draft", today)
     page.keyboard.press("Control+ArrowRight")
     last = _row(page, "Draft").locator(".gantt-wk").last.get_attribute("data-day")
     assert at() == ("Draft", last)
@@ -280,6 +285,15 @@ def test_ctrl_arrows_stop_at_the_edges_of_what_is_drawn(page, live, app_db) -> N
     assert at() == ("Draft", day(2))
     page.keyboard.press("Control+ArrowLeft")
     assert page.evaluate("document.activeElement.dataset.col") == "4"
+
+    # Think has no days: today stops it on the way in, and on the way back.
+    _row(page, "Think").locator(".gantt-due").click()
+    page.keyboard.press("Control+ArrowRight")
+    assert at() == ("Think", today)
+    page.keyboard.press("Control+ArrowRight")
+    assert at() == ("Think", last)
+    page.keyboard.press("Control+ArrowLeft")
+    assert at() == ("Think", today)
 
 
 def test_a_row_is_dragged_into_a_workstream(page, live, project) -> None:
@@ -312,13 +326,49 @@ def test_a_workstream_folds_to_its_row(page, live, project) -> None:
     # Remembered across a visit.
     page.reload()
     page.locator('.gantt-row[data-title="Spec"]').wait_for(state="hidden")
-    # The keys pass over what is folded: down from the lane is Other tasks.
+    # The keys pass over what is folded: down from the lane is the row to add
+    # a workstream.
     lane.locator(".gantt-title .gantt-text").click()
     page.keyboard.press("ArrowDown")
-    assert page.evaluate("document.activeElement.closest('.gantt-row').dataset.key") == "other"
+    assert page.evaluate("document.activeElement.closest('.gantt-row').dataset.key") == (
+        "add-workstream"
+    )
     # Alt+Right on its row opens it, Alt+Left folds it again.
     page.keyboard.press("ArrowUp")
     page.keyboard.press("Alt+ArrowRight")
     page.locator('.gantt-row[data-title="Spec"]').wait_for()
     page.keyboard.press("Alt+ArrowLeft")
     page.locator('.gantt-row[data-title="Spec"]').wait_for(state="hidden")
+
+
+def test_done_tasks_are_hidden_and_shown(page, live, app_db, project) -> None:
+    with app_db() as db:
+        tasks_svc.create_task(db, title="Shipped", project_id=project)
+        tasks_svc.create_task(db, title="Still open", project_id=project)
+        db.commit()
+    page.goto(f"{live}/projects/{project}")
+    _row(page, "Shipped").locator(".gantt-box").click()
+    page.locator('.gantt-row.is-done[data-title="Shipped"]').wait_for()
+    hide = page.locator("[data-gantt-hide-done]")
+
+    # The button hides the done task, and the cursor on it moves to the next row shown.
+    hide.click()
+    assert hide.get_attribute("aria-pressed") == "true"
+    _row(page, "Shipped").wait_for(state="hidden")
+    assert _row(page, "Loose end").is_visible()
+    cursor = page.evaluate("document.querySelector('.gantt-row.has-cursor').dataset.title")
+    assert cursor == "Still open"
+    # The keys pass over it, and it stays hidden across a visit.
+    page.reload()
+    _row(page, "Shipped").wait_for(state="hidden")
+    _row(page, "Loose end").locator(".gantt-title .gantt-text").click()
+    page.keyboard.press("ArrowDown")
+    focused = page.evaluate("document.activeElement.closest('.gantt-row').dataset.title")
+    assert focused == "Still open"
+    # Ticking a task done hides it too; pressed again, they are all back.
+    _row(page, "Still open").locator(".gantt-box").click()
+    _row(page, "Still open").wait_for(state="hidden")
+    hide.click()
+    assert hide.get_attribute("aria-pressed") == "false"
+    _row(page, "Shipped").wait_for()
+    _row(page, "Still open").wait_for()

@@ -82,7 +82,7 @@ The shell animates its column width on `--ease` over 220ms.
 When collapsed, the wordmark and labels hide, each link keeps its name as a tooltip, group labels become hairlines, and the spark bar stays.
 Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the spark bar moves above the active tab's icon, and the mode toggle ends the bar as a 44px sun or moon icon past a hairline, with no label; the collapse control stays desktop-only.
 Under 600px each tab is its icon, 44px wide; the tabs scroll sideways past the bar's width, it opens with the current page's tab in its middle, and an edge with tabs past it fades (`data-more`, `shell.js`).
-Content is 800px wide for list pages (Projects), where more width only lengthens a row, and up to 1600px for Today and Calendar, so a wide window or a zoomed-out page widens them rather than their margins.
+Content is 800px wide for list pages, where more width only lengthens a row; 1040px for Projects, whose overview lays its projects over weeks; and up to 1600px for Today and Calendar, so a wide window or a zoomed-out page widens them rather than their margins.
 Compact rows (the rail's toggle above the mode's, or C) set Projects' sheet and Today's notes 28px a row rather than 36px, the text its size: 3px above a 20px line, 4px below; the toggle's three lines close up while it is on, its label the state (Roomy, Compact).
 On Today a panel icon at the day header's right (or Ctrl+\) folds the timeline away, the notes taking its column, and back.
 
@@ -172,7 +172,7 @@ What is offered while writing (after "/" at a row's start, and after "/habit ") 
 No border, no focus ring and no resize handle; the pewter placeholder "Anything on your mind today."
 When the notes were saved in another window, a line under the card says so, with Show that version and Keep mine as secondary buttons.
 
-**Projects.** A page header ("Projects", the open and undated counts, and at its right a new project's name on its line, 200px, with a quiet Add), then the tasks on one sheet ruled as Today's notepad is, its first row the composer ("Add a task…" after the plus), above the first group's rule.
+**Projects.** A page header ("Projects", the open and undated counts, and at its right a new project's name on its line, 200px, with a quiet Add), then the projects at a glance, then the tasks on one sheet ruled as Today's notepad is, its first row the composer ("Add a task…" after the plus), above the first group's rule.
 The page runs to the window's foot and the sheet takes what is left of it (at least 420px).
 It is the notepad card's paper at 35%, with the same metrics: every row at least 36px tall with its text in the middle (7px above a 22px line, 6px below), on its own `--hairline` rule, and the 44px column of row numbers (12px pewter, tabular) on a fog wash behind a hairline (34px on phones).
 Every row is numbered, headers and composers included, and empty numbered rows fill the sheet under the last group, the last of them cut at its edge; a Done fold's hidden rows are not counted.
@@ -190,6 +190,13 @@ A 12px pewter line under its header (and Today's) names the page's first keys an
 The bar shows for keyboard focus only (`:focus-visible`), never after a click.
 It is the one cursor the app draws: a fold's header (Done, or a shelf's) and the item under the keyboard in a task sheet's menu take the same bar (on `--fog` in the menu, which is opaque paper).
 The shelves remember being open like the Done fold, so a key acting inside one never folds it away.
+
+**Projects at a glance.** A ruled sheet of its own, as tall as its rows, 16px above the tasks' sheet: a portfolio list, its columns a grid on every row.
+The head row is "Projects at a glance" in 14px/600 ink, then the columns' names in 12px/500 graphite (Health, Progress, Next due) and over the weeks the months' names where each starts (the first weeks' month too, when none starts in them).
+Each project is a row, active ones first and then paused ones (their names graphite): its flag, its name in ink 500 (opening its Gantt, underlined on hover, cut with an ellipsis), its health a badge (err "1 overdue", warn "Due soon", ok "On track", neutral "No deadline", "Nothing open" or "Paused"), its progress a 4px meter (done in ink on a hairline track) before "2/24" in graphite tabular figures, and its next deadline ("Yesterday", "Fri 9 Oct") in ink, the task named on hover, or a pewter "None".
+At the right, 264px, twelve weeks from last week's Monday, ruled a week a column in hairlines: the project's span a 10px bar of the plan's `--solid` (as a Gantt's bars: white tubes at night; steel for a paused project), and now the signal, 2px, down every row, glowing at night.
+The columns go as the sheet narrows (container queries, so the sidebar counts): under 860px the weeks, under 520px the meter and the next deadline.
+It is drawn again with the task groups under it.
 
 **Me** (Health).
 A page header, then one sheet ruled as Projects' is, each part a group: At a glance (Weight, Age, BMI and Daily energy, read-only in ink at 500, "Not yet" in pewter, then a graphite row saying how the energy is estimated), Weight, Body, Activity and goal, Diet, and Health notes.
@@ -281,7 +288,7 @@ A new project takes the hue fewest open projects have; the project editor offers
 
 **Project cards.** The title, after the project's flag, opens the project's Gantt (underlined on hover, as a task's title is); it is followed by the open count, a secondary-style status select, and a ghost pencil that swaps in the inline editor.
 Workstream rows have steel circles that turn ink when done (the name then pewter at 500), and their done count.
-Each workstream's open tasks are indented beneath it; the other tasks follow under a pewter caption, then the project's task sheet for adding.
+Each workstream's open tasks are indented beneath it; then the quiet "+" Add a workstream line, the tasks in no workstream under it, then the project's task sheet for adding.
 A task files by drag: onto a workstream group, into that workstream; onto another card, into that project with no workstream; onto No project, out of any.
 The row in hand fades to 40%, and the target under it lights as a drop target, `--spark-tint` with an inset 1.5px spark ring.
 
@@ -293,7 +300,7 @@ Its header row (48px) and its frozen pane stay put while it scrolls, as a spread
 Its time is a 52px column a week, or drilled down, a 36px column a day (Start then 112px, for its date).
 Column names are 12px/500 graphite; a week's head is its ISO week in 12px/600 ink over its Monday's day in pewter (graphite, with the month, where the month turns); a day's is its initial in pewter and its date in ink (pewter at weekends), under its week's name and Monday ("W41 · 5 Oct") running across the week from its Monday; now's head is `--spark-deep`, glowing at night.
 Cells carry hairline rules both ways, as a spreadsheet's; the time's columns are ruled by the table's background, so the empty numbered rows under the last are too, now's column (this week, or today) is tinted `--ink-tint-faint`, and in days so are weekends, each week's Monday ruled in mist.
-A workstream's row is 600 with the task box (`--ok-fg` once done, as a task's), a 12px steel chevron before its name that folds it (turned right while folded, its tasks and add row gone, a pewter caption counting them after its name, its row numbers skipping them), and its Start, length and Due its tasks' in pewter (read-only); its tasks are one 24px step in; "Other tasks" heads the rest when there are workstreams; each group ends in a pewter "Add a task…" row after a steel plus, and the sheet in "Add a workstream…".
+A workstream's row is 600 with the task box (`--ok-fg` once done, as a task's), a 12px steel chevron before its name that folds it (turned right while folded, its tasks and add row gone, a pewter caption counting them after its name, its row numbers skipping them), and its Start, length and Due its tasks' in pewter (read-only); its tasks are one 24px step in; "Add a workstream…" heads the tasks in none; each group ends in a pewter "Add a task…" row after a steel plus.
 Groups are bracketed by 2px graphite rules, in ink round the cursor's group, as on every sheet.
 A task's bar is 20px of `--solid` (white tubes at night) from its start's day to its due's, in either scale (so a Monday-to-Friday week leaves its weekend), inset 2px and never under 4px, with 8px grips at its ends; done, it is the system's ok green (`--ok-fg` 30% into `--ok-bg`, on a 1.5px `--ok-fg` edge), its box `--ok-fg`, and its title pewter and struck through.
 A task due with no start is a 2px, 20px ink tick on its due; a workstream's lane is a 6px graphite summary with 11px end ticks spanning its tasks (`--ok-fg` once done).
@@ -312,7 +319,8 @@ The columns: a stay item's 176px (accommodation's, a checkbox, 120px), Plan the 
 Rows are 36px (28px compact) and grow with their plan; cells carry hairline rules both ways, each week's Monday is ruled in mist, and weekends are tinted `--ink-tint-faint`.
 A stay's cell is its value in ink; accommodation's is a centred 14px box, steel on a day with no stay, edged amber while its stay has it unsorted (as under Today's date), and ink with a paper tick once sorted.
 A day that folds has a 12px steel chevron before its date (ink on hover, turned right while folded; the Day header's folds them all); folded, its plan is its first line, cut short with an ellipsis, then "+N" in 12px/500 pewter.
-Plan lists the day's tasks, each a 14px box in steel (`--ok-fg` once done, its title pewter and struck through) and its title in ink, a link to its page underlined on hover, a warn "due" badge after a deadline still open, and then the day's own events, the time in 12px pewter figures before the title in graphite.
+Plan lists the day's tasks, each a 14px box in steel (edged in `--hue-6` with a 6px `--hue-6` square inside while in progress; `--ok-fg` once done, its title pewter and struck through), a 10px steel chevron hugging it (ink on fog when hovered or open) whose menu is the sheet menu's, and its title in ink, a link to its page underlined on hover, a warn "due" badge after a deadline still open, and then the day's own events, the time in 12px pewter figures before the title in graphite.
+A task's line ends in a 14px steel trash bin at the cell's right, hidden until the line is hovered (always shown on touch) and err-tinted on hover, as Projects' rows'; it opens the same "Delete task?" dialog.
 A habit done fills its cell with `--hue-4` at 30%, the habits' green, with a 16px tick in it; skipped is a 10px steel box, missed a 10px steel dash, and the cell's tooltip says which, with the day's note.
 A habit's cells being painted fill (or empty) as the drag passes, before the sheet is drawn again.
 The cursor, the range and a cell being written are the Gantt's: a 2px `--spark-deep` ring (a 1px steel one while the sheet does not have focus), `--spark-tint`, the words 500 ink on the cell's line.
@@ -389,7 +397,7 @@ A habit's drag is held under the pointer and posted once, on release, for the da
 A roving cell cursor (the cursor's cell alone is in the tab order), kept through every redraw by row key and column, and scrolled clear of the frozen pane and header.
 Every edit is one JSON POST of ops (`/ui/projects/<id>/gantt`, `app.services.gantt.apply`), answered with the sheet drawn again; requests go one at a time, and a sheet that now starts earlier keeps the same weeks in view.
 Right (or Tab) from Due enters the time where the row's work is, not at the sheet's first column: a task's start (or its due), a workstream's first day, and for a task with no days, or a group's add row, the next workday after the dated task above it in its group, never before today (today with none); a day out of sight scrolls in a lead from the pane.
-Ctrl+arrows go as a spreadsheet's do: from a filled cell along its run to the run's last, from an empty one to the next filled, else to the sheet's edge; a column of time is filled under a bar, tick or lane, a pane cell by its box or words.
+Ctrl+arrows go as a spreadsheet's do: from a filled cell along its run to the run's last, from an empty one to the next filled, else to the sheet's edge, though along a row with no days drawn on the way today stops it (before the edge, or before the pane going left); a column of time is filled under a bar, tick or lane, a pane cell by its box or words.
 Typing writes over a cell and the arrows then leave it (Excel's Enter mode); Enter, F2 or a double-click write in it with the arrows moving in the words; Enter keeps it and goes down, Tab across, Esc drops it, and a click elsewhere keeps it.
 A value the server refuses is said in the toast and the cell opens again on the words.
 Every printable key is the sheet's while it has focus (the page's number and letter keys do not fire), except ? for the keys.

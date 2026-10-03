@@ -131,6 +131,52 @@ def test_projects_holds_every_open_task_under_its_project(client, db) -> None:
     assert page.index('id="group-loose"') < page.index(f'id="project-{p.id}"')
 
 
+def test_projects_open_on_the_projects_at_a_glance(client, db) -> None:
+    from app.models import ProjectStatus
+
+    late = projects_svc.create_project(db, name="Late one")
+    tasks_svc.create_task(
+        db, title="missed it", project_id=late.id,
+        starts_on=TODAY - timedelta(days=3), due=TODAY - timedelta(days=1),
+    )
+    done = tasks_svc.create_task(
+        db, title="did it", project_id=late.id, due=TODAY + timedelta(days=20)
+    )
+    tasks_svc.set_status(db, done.id, TaskStatus.done)
+    calm = projects_svc.create_project(db, name="Calm one")
+    tasks_svc.create_task(db, title="later on", project_id=calm.id, due=TODAY + timedelta(days=10))
+    soon = projects_svc.create_project(db, name="Soon one")
+    tasks_svc.create_task(db, title="almost", project_id=soon.id, due=TODAY + timedelta(days=1))
+    projects_svc.create_project(db, name="Bare one")
+    parked = projects_svc.create_project(db, name="Parked one")
+    projects_svc.update_project(db, parked.id, status=ProjectStatus.paused)
+    finished = projects_svc.create_project(db, name="Finished one")
+    projects_svc.update_project(db, finished.id, status=ProjectStatus.done)
+
+    page = client.get("/projects").text
+    overview = page.split('id="projects-overview"')[1].split("</section>")[0]
+    # Above the tasks: a row a project, active then paused, done ones shelved.
+    assert page.index('id="projects-overview"') < page.index('aria-label="Add a task"')
+    rows = overview.split('class="sheet-row overview-row')[2:]
+    assert [r.split('title="Open ')[1].split(" as")[0] for r in rows] == [
+        "Late one", "Calm one", "Soon one", "Bare one", "Parked one",
+    ]
+    late_row, calm_row, soon_row, bare_row, parked_row = rows
+    # Its health is what its deadlines say, in words.
+    assert '"chip err">1 overdue<' in late_row
+    assert '"chip ok">On track<' in calm_row
+    assert '"chip warn">Due soon<' in soon_row
+    assert '"chip neutral">Nothing open<' in bare_row
+    assert '"chip neutral">Paused<' in parked_row and "is-paused" in parked_row
+    # Its progress, its next deadline (the overdue one), and its span on the weeks.
+    assert ">1/2<" in late_row and "width: 50%" in late_row
+    assert ">Yesterday<" in late_row and 'title="missed it, due Yesterday"' in late_row
+    assert 'class="ov-bar"' in late_row and 'class="ov-bar"' not in bare_row
+    assert "No dates yet" in bare_row and ">None<" in bare_row
+    # It is drawn again with the task groups.
+    assert "#projects-overview" in page.split('id="task-groups"')[1].split(">")[0]
+
+
 def test_parked_projects_sit_on_shelves_under_the_active_ones(client, db) -> None:
     from app.models import ProjectStatus
 
@@ -509,7 +555,7 @@ def test_project_card_lists_open_tasks_under_workstreams(client, db) -> None:
     card = page.split(f'id="project-{p.id}"')[1].split("</article>")[0]
     group = card.split('class="workstream-group"')[1].split("</div>")[0]
     assert "call sparky" in group
-    loose = card.split('class="loose-head"')[1]
+    loose = card.split('class="expander"')[1]
     assert "pick tiles" in loose
     assert (TODAY + timedelta(days=2)).strftime("%a") in loose  # planned day shown
     assert "measure wall" not in card
