@@ -211,11 +211,13 @@ def _accounts(request: Request, db: Session, **extra: Any) -> Response:
 
 
 @router.post("/ui/money/import")
-async def import_export(
+def import_export(
     request: Request, db: DbSession,
     export: Annotated[UploadFile, File()], account_id: Annotated[str, Form()] = "",
 ):
-    data = await export.read(MAX_EXPORT_BYTES + 1)
+    # A plain def, run on a worker thread: its writes may wait on SQLite's
+    # lock, and the server's loop must not wait with them.
+    data = export.file.read(MAX_EXPORT_BYTES + 1)
     filename = export.filename or ""
     if len(data) > MAX_EXPORT_BYTES:
         return _accounts(request, db, import_error=f"{filename} is too big for a bank's export.")

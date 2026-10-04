@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Body, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
@@ -587,7 +587,9 @@ def toggle_workstream(request: Request, db: DbSession, workstream_id: int):
 
 
 @router.post("/notebook/{day}")
-async def save_notebook(request: Request, db: DbSession, day: date):
+# A plain def, run on a worker thread: its writes may wait on SQLite's lock,
+# and the server's loop must not wait with them (tests/test_server_waits.py).
+def save_notebook(db: DbSession, day: date, body: Annotated[Any, Body()]):
     """Save a day's page (notepad.js): {"version": the copy's version,
     "blocks": [...]}. A text block's `new`, {row: task as written}, names
     task rows not yet added (the page was being left): each is added here
@@ -597,7 +599,6 @@ async def save_notebook(request: Request, db: DbSession, day: date):
     adds nothing)."""
     from app.services import notebook as notebook_svc
 
-    body = await request.json()
     if not isinstance(body, dict):
         raise DomainError("Expected a page")
     version = int(body.get("version", -1))
@@ -674,7 +675,11 @@ def set_habit_days(db: DbSession, slug: str, days: Annotated[str, Form()] = ""):
 
 
 @router.post("/day-sheet")
-async def day_sheet_edit(request: Request, db: DbSession, start: date):
+# A plain def, run on a worker thread: its writes may wait on SQLite's lock,
+# and the server's loop must not wait with them (tests/test_server_waits.py).
+def day_sheet_edit(
+    request: Request, db: DbSession, start: date, body: Annotated[Any, Body()]
+):
     """Calendar's sheet, written in (day_sheet.js): {"ops": [...]}, each
     one of
         {"op": "habit", "day", "slug", "done"}    a habit done that day, or not
@@ -690,7 +695,6 @@ async def day_sheet_edit(request: Request, db: DbSession, start: date):
     from app.services import notebook as notebook_svc
     from app.ui.day_sheet_view import day_sheet_ctx
 
-    body = await request.json()
     ops = body.get("ops") if isinstance(body, dict) else None
     if not isinstance(ops, list):
         raise DomainError("Expected a list of ops")
