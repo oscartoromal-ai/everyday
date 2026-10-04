@@ -381,6 +381,11 @@ SCOPES: tuple[Scope, ...] = (
                click=".project-tabs a[href$='/tasks']", menu=True, words="list todo workstreams"),
         Action("project.gantt", "Its Gantt", ("Shift+G",),
                click=".project-tabs a[href$='/gantt']", menu=True, words="timeline chart plan"),
+        Fixed("[↑] [↓] [←] [→]", "In its documents: row to row; Right opens a folder, Left folds "
+              "it"),
+        Action("doc.rename", "In its documents: rename the document or folder", ("F2",)),
+        Action("doc.delete", "In its documents: delete the document or folder, after asking",
+               ("Delete",)),
     ), column=2, where="On a project's overview, its tasks and its Gantt"),
     Scope("gantt", "A project's Gantt", (
         Fixed("[↑] [↓] [←] [→] or [Tab]", "Move between cells; with Shift, hold a range. Right "

@@ -7,7 +7,8 @@
    New and rename are written in place, in a row of their own: Enter keeps
    it, Esc lets it go. From the keyboard, Up and Down step through the rows
    shown, Right opens a folder (then steps into it), Left folds it (or steps
-   out to its folder), F2 renames and Delete deletes, after asking. */
+   out to its folder), F2 renames and Delete deletes, after asking (their
+   keys keys.py's). */
 
 (() => {
   const card = () => document.getElementById("project-context");
@@ -166,8 +167,19 @@
 
   document.addEventListener("keydown", (e) => {
     const open = e.target.closest?.(".project-context .ctx-open");
-    if (!open || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!open || e.isComposing) return;
     const node = nodeOf(open);
+    if (window.Keys.is(e, "doc.rename")) {
+      e.preventDefault();
+      if (node.querySelector("[data-ctx-rename]")) startRename(node);
+      return;
+    }
+    if (window.Keys.is(e, "doc.delete")) {
+      e.preventDefault();
+      node.querySelector(":scope > .ctx-row [data-ctx-delete]")?.click();
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const folder = node.classList.contains("ctx-folder") ? node : null;
     const rows = shown();
     const at = rows.indexOf(open);
@@ -187,14 +199,6 @@
         e.preventDefault();
         if (folder && isOpen(folder)) fold(folder, false);
         else if (folderOf(node)) toggleOf(folderOf(node)).focus();
-        return;
-      case "F2":
-        e.preventDefault();
-        if (node.querySelector("[data-ctx-rename]")) startRename(node);
-        return;
-      case "Delete":
-        e.preventDefault();
-        node.querySelector(":scope > .ctx-row [data-ctx-delete]")?.click();
         return;
     }
   });
