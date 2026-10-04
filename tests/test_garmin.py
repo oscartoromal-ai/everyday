@@ -138,6 +138,37 @@ def test_a_failed_sync_says_why_and_keeps_what_it_got(db) -> None:
     assert (link.synced_at, link.sync_error) == (NOW, "")
 
 
+def test_the_app_writes_on_while_garmin_is_asked(app_db, tmp_path) -> None:
+    # A sync waits on Garmin day after day (a first one, 30 days), and the
+    # app's other writers (a save, Claude's tools, a job) must not wait on it.
+    import sqlite3
+
+    with app_db() as db:
+        fake = connected(db)
+        db.commit()
+    writes: list[bool] = []
+
+    class Slow(FakeGarmin):
+        def fetch_day(self, day: date):  # noqa: ANN201
+            other = sqlite3.connect(tmp_path / "app.db", timeout=0.2)
+            try:
+                other.execute("INSERT INTO settings (key, value) VALUES (?, '1')", (str(day),))
+                other.commit()
+                writes.append(True)
+            except sqlite3.OperationalError:  # database is locked
+                writes.append(False)
+            finally:
+                other.close()
+            return super().fetch_day(day)
+
+    slow = Slow()
+    slow.token, slow.days = True, fake.days
+    garmin_svc.run_sync(app_db, slow, TODAY, backfill_days=3)
+    assert writes == [True, True, True]
+    with app_db() as db:
+        assert garmin_svc.link(db).synced_at is not None
+
+
 def test_one_sync_at_a_time(db) -> None:
     import threading
 
