@@ -111,8 +111,6 @@ def rail_layout(request: Request) -> list[rail_svc.PlacedSection]:
 templates.env.globals["rail_layout"] = rail_layout
 # The modules this machine has, for what a page shows of the optional ones.
 templates.env.globals["installed"] = lambda module: get_settings().installed(module)
-templates.env.globals["rail_keys"] = rail_svc.keyed
-templates.env.globals["rail_key_runs"] = rail_svc.key_runs
 templates.env.globals["not_installed"] = rail_svc.not_installed
 
 

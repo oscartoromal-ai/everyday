@@ -107,11 +107,27 @@
 
     const groups = () => [...railNav.querySelectorAll(":scope > .nav-group[data-section]")];
     const modulesOf = (group) => [...group.querySelectorAll(":scope > .nav-item")];
-    const saveLayout = () => send("/ui/rail", {
-      sections: groups().map((g) => g.dataset.section),
-      modules: Object.fromEntries(groups().map((g) => [g.dataset.section, modulesOf(g).map((i) => i.dataset.module)])),
-      hidden: [...railNav.querySelectorAll(".nav-item[hidden]")].map((i) => i.dataset.module),
-    });
+    // Alt+1 to Alt+9 are the modules showing, top to bottom: numbered again
+    // as one is hidden, shown or moved (as app/services/rail.py numbers them).
+    const renumber = () => {
+      const shown = [...railNav.querySelectorAll(".nav-item")].filter((i) => !i.hidden);
+      for (const item of railNav.querySelectorAll(".nav-item")) {
+        const link = item.querySelector("a");
+        const n = item.hidden ? 0 : shown.indexOf(item) + 1;
+        const key = n && n <= 9 ? String(n) : "";
+        item.querySelector(".nav-key").textContent = key;
+        if (key) link.setAttribute("aria-keyshortcuts", `Alt+${key}`);
+        else link.removeAttribute("aria-keyshortcuts");
+      }
+    };
+    const saveLayout = () => {
+      renumber();
+      return send("/ui/rail", {
+        sections: groups().map((g) => g.dataset.section),
+        modules: Object.fromEntries(groups().map((g) => [g.dataset.section, modulesOf(g).map((i) => i.dataset.module)])),
+        hidden: [...railNav.querySelectorAll(".nav-item[hidden]")].map((i) => i.dataset.module),
+      });
+    };
     // The projects' order is Projects' too: its lists, and this one, are drawn
     // again in it (the link that had focus keeps it).
     const saveProjects = (focusHref = null) => {
@@ -431,10 +447,12 @@
     toastTimer = setTimeout(() => el.classList.remove("show"), action && run ? 6000 : 2600);
   };
 
-  /* ---- keys that work on every page: 1-9 go to the nav's pages that have that key,
-     ? shows every key (#keys-dialog), and N or Shift+N writes a new task (on
-     Projects, tasks.js puts it in the page's own list; elsewhere it opens
-     #capture-dialog). Never while typing, or over a dialog. ---- */
+  /* ---- keys that work on every page: Alt+1 to Alt+9 go to the sidebar's
+     pages showing, top to bottom (from a field too, which saves as the page
+     goes), and holding Alt shows their numbers; ? shows every key
+     (#keys-dialog), and N or Shift+N writes a new task (on Projects, tasks.js
+     puts it in the page's own list; elsewhere it opens #capture-dialog).
+     Never over a dialog, and the single keys never while typing. ---- */
 
   const TYPING = "input, textarea, select, [contenteditable]";
   const openCapture = () => {
@@ -444,6 +462,23 @@
     window.TaskSheet.compose(capture.querySelector(".task-sheet"));
     return true;
   };
+  const showKeys = (on) => root.toggleAttribute("data-nav-keys", on);
+  document.addEventListener("keydown", (e) => {
+    // Still held through Alt+Up/Down, so a module moved shows its new number.
+    if (e.key === "Alt") showKeys(!e.ctrlKey && !e.metaKey);
+    else if (!e.altKey) showKeys(false);
+    if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing || e.defaultPrevented) return;
+    if (!/^Digit[1-9]$/.test(e.code) || document.querySelector("dialog[open]")) return;
+    // The key, not its character: on a Mac, Alt+1 types "¡".
+    const link = document.querySelector(`.nav a[aria-keyshortcuts="Alt+${e.code.slice(5)}"]`);
+    if (!link) return;
+    e.preventDefault();
+    showKeys(false);
+    if (link.getAttribute("aria-current") !== "page") link.click();
+  });
+  document.addEventListener("keyup", (e) => { if (e.key === "Alt") showKeys(false); });
+  window.addEventListener("blur", () => showKeys(false));
+
   document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
     if (e.target.closest?.(TYPING) || document.querySelector("dialog[open]")) return;
@@ -461,13 +496,6 @@
       const dialog = document.getElementById("keys-dialog");
       dialog.showModal();
       dialog.focus(); // the dialog itself, so no control starts out ringed
-      return;
-    }
-    // A page keeps its key wherever it is dragged, and hidden too.
-    const link = /^[1-9]$/.test(e.key) && document.querySelector(`.nav a[aria-keyshortcuts="${e.key}"]`);
-    if (link && link.getAttribute("aria-current") !== "page") {
-      e.preventDefault();
-      link.click();
     }
   });
 

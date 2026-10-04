@@ -40,6 +40,21 @@ def modules(page, section: str) -> list[str]:
     )
 
 
+def numbers(page) -> dict[str, str]:
+    """Each module's Alt+number, top to bottom, as its link and its disc say."""
+    found = page.eval_on_selector_all(
+        ".nav-item",
+        """is => is.map(i => [
+            i.dataset.module,
+            i.querySelector("a").getAttribute("aria-keyshortcuts"),
+            i.querySelector(".nav-key").textContent,
+        ])""",
+    )
+    for _, shortcut, disc in found:
+        assert shortcut == (f"Alt+{disc}" if disc else None)
+    return {module: disc for module, _, disc in found if disc}
+
+
 def saved(app_db) -> list[tuple[str, list[str], bool]]:
     with app_db() as db:
         return [
@@ -75,9 +90,16 @@ def test_modules_hide_and_come_back_from_settings(page, live, app_db) -> None:
     until(lambda: ("finances", [], True) in saved(app_db))
     page.reload()
     assert page.locator("#nav-finances").is_hidden()
-    # Hidden, its page is still its key away (7 is Spending).
-    page.keyboard.press("7")
-    page.wait_for_url(f"{live}/spending")
+    # Hidden, they have no number: Repositories, past them, is Alt+7.
+    assert numbers(page) == {
+        "today": "1",
+        "calendar": "2",
+        "projects": "3",
+        "nutrition": "4",
+        "me": "5",
+        "garmin": "6",
+        "repositories": "7",
+    }
 
     # Settings lists the four, each with its section; Show brings one back.
     page.locator("[data-settings-open]").click()
@@ -95,6 +117,18 @@ def test_modules_hide_and_come_back_from_settings(page, live, app_db) -> None:
     assert dialog.locator(".settings-empty").is_visible()
     page.keyboard.press("Escape")
     until(lambda: ("finances", ["spending", "accounts", "bills", "goals"], False) in saved(app_db))
+    # Shown again, they are numbered again, at once: Goals is the tenth, past Alt+9.
+    assert numbers(page) == {
+        "today": "1",
+        "calendar": "2",
+        "projects": "3",
+        "nutrition": "4",
+        "me": "5",
+        "garmin": "6",
+        "spending": "7",
+        "accounts": "8",
+        "bills": "9",
+    }
 
 
 def test_modules_sections_and_projects_drag_within_their_own_place(page, live, app_db) -> None:
@@ -146,10 +180,46 @@ def test_modules_sections_and_projects_drag_within_their_own_place(page, live, a
     assert rail.locator(".nav-label").all_inner_texts() == ["Gamma", "Alpha", "Beta"]
     with app_db() as db:
         assert [p.name for p in projects_svc.list_projects(db)] == ["Gamma", "Alpha", "Beta"]
-    # Keys follow the page, not the place: 1 is still Today.
-    page.keyboard.press("1")
-    page.wait_for_url(f"{live}/today")
-    page.keyboard.press("3")
+    # Numbers follow the place: Health's three first, then Calendar and Today.
+    assert list(numbers(page)) == [
+        "nutrition",
+        "me",
+        "garmin",
+        "calendar",
+        "today",
+        "accounts",
+        "bills",
+        "goals",
+        "spending",
+    ]
+    page.keyboard.press("Alt+4")
+    page.wait_for_url(f"{live}/calendar")
+
+
+def test_alt_and_a_number_go_to_the_module_showing_there(page, live) -> None:
+    page.goto(f"{live}/today")
+    discs = page.locator(".nav-key:visible")
+    # The current page's number is on its icon; holding Alt shows every one.
+    assert discs.all_inner_texts() == ["1"]
+    page.keyboard.down("Alt")
+    assert discs.all_inner_texts() == [str(n) for n in range(1, 10)]
+    page.keyboard.up("Alt")
+    assert discs.all_inner_texts() == ["1"]
+
+    # From a field too: what was being written saves as the page goes.
+    page.goto(f"{live}/projects")
+    page.get_by_label("New project").focus()
+    page.keyboard.press("Alt+2")
+    page.wait_for_url(f"{live}/calendar")
+    assert discs.all_inner_texts() == ["2"]
+    assert page.evaluate("!document.documentElement.hasAttribute('data-nav-keys')")
+
+    # Hidden, Today has no number; Calendar is Alt+1 at once.
+    today = page.locator('.nav-item[data-module="today"]')
+    today.hover()
+    today.locator("[data-nav-hide]").click()
+    assert discs.all_inner_texts() == ["1"]
+    page.keyboard.press("Alt+2")
     page.wait_for_url(f"{live}/projects")
 
 
