@@ -2574,17 +2574,19 @@ li.repo-row:hover { background: var(--glass-row-hover); }
 .gantt-sheet.is-drawing .gantt-wk.in-range { box-shadow: inset 0 1.5px 0 var(--spark), inset 0 -1.5px 0 var(--spark); }
 .gantt-row.kind-task .gantt-wk { cursor: crosshair; }
 
-/* a task's row is dragged by its number: a grip shows beside it on hover;
-   the row in hand fades to 40%, the spark marks where it would land, and
-   the group it would land in takes the spark's rules */
+/* a row is dragged by its number: a grip shows beside it on hover; the
+   row in hand (a workstream's: its whole lane) fades to 40%, the spark
+   marks where it would land, and the group a task would land in takes the
+   spark's rules */
 .gantt-num[data-row-grip] { cursor: grab; }
 .gantt-num[data-row-grip]::before {
   content: ""; position: absolute; left: 7px; top: 50%; width: 6px; height: 10px; margin-top: -5px;
   background: radial-gradient(circle, var(--steel) 1px, transparent 1.2px) 0 0 / 3px 4px;
   opacity: 0; transition: opacity var(--dur) var(--ease);
 }
-.gantt-row:hover .gantt-num[data-row-grip]::before, .gantt-row.is-lifted .gantt-num[data-row-grip]::before { opacity: 1; }
-.gantt-row.is-lifted { opacity: 0.4; }
+.gantt-row:hover .gantt-num[data-row-grip]::before,
+:is(.gantt-row.is-lifted, .gantt-group.is-lifted > .kind-workstream) .gantt-num[data-row-grip]::before { opacity: 1; }
+.gantt-row.is-lifted, .gantt-group.is-lifted { opacity: 0.4; }
 .gantt-sheet.is-moving-row, .gantt-sheet.is-moving-row * { cursor: grabbing; }
 .gantt-drop-line {
   position: absolute; left: 0; right: 0; z-index: 3; height: 2px;

@@ -212,8 +212,7 @@ def groups(db: Session, project: Project, today: date) -> list[Group]:
     )
     done = [t for t in tasks if t.status == TaskStatus.done and t.recurrence_template_id is None]
     shown = sorted(open_tasks + done, key=_order)
-    workstreams = sorted(project.workstreams, key=lambda m: m.id)
-    out = [Group(m, [t for t in shown if t.workstream_id == m.id]) for m in workstreams]
+    out = [Group(m, [t for t in shown if t.workstream_id == m.id]) for m in project.workstreams]
     out.append(Group(None, [t for t in shown if t.workstream_id is None]))
     return out
 
@@ -412,7 +411,8 @@ def apply(db: Session, project: Project, ops: list[dict[str, Any]], today: date)
     as typed),
     delete (id), move (id, step), place (id, workstream_id, before: a task's
     id or none), workstream_create (name), workstream_delete (id: its tasks
-    stay, in none)."""
+    stay, in none), workstream_place (id, before: another workstream's id,
+    or none for last)."""
     made: list[int] = []
     for op in ops:
         kind = op.get("op")
@@ -452,6 +452,11 @@ def apply(db: Session, project: Project, ops: list[dict[str, Any]], today: date)
             made.append(workstream.id)
         elif kind == "workstream_delete":
             projects_svc.delete_workstream(db, _workstream(db, project, op["id"]).id)
+        elif kind == "workstream_place":
+            before = op.get("before")
+            projects_svc.place_workstream(
+                db, _workstream(db, project, op["id"]).id, int(before) if before else None
+            )
         else:
             raise DomainError(f"Unknown edit: {kind}")
     db.flush()

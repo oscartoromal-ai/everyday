@@ -3,7 +3,7 @@
    drag, cells written by typing, bars drawn over the time, moved and
    stretched by dragging or with Alt, rows moved with Alt+Up/Down or
    dragged by their number to another place or workstream, workstreams
-   folded to their row, a task's status stepped on by its box or chosen
+   moved among each other the same way and folded to their row, a task's status stepped on by its box or chosen
    from its menu, tasks shown by status, the time seen in weeks or drilled down to days,
    tasks deleted (their bin, or Delete on Task), and undo. A task opens on
    its page from the way at its Task cell's end, or Ctrl+Enter on its row.
@@ -530,15 +530,53 @@
     send(ops);
   };
 
+  // A task a row up or down; on a workstream's row, its whole lane past the
+  // workstream above or below.
   const moveRow = (by) => {
     const row = rowOf(cursor.key);
+    if (row?.dataset.kind === "workstream") { moveLane(row, by); return; }
     if (row?.dataset.kind !== "task") return;
+    // The sheet's first task cannot go up, nor its last down: no step to undo.
+    const groups = [...sheet.querySelectorAll(".gantt-group")];
+    const group = row.closest(".gantt-group");
+    const tasks = [...group.querySelectorAll(".gantt-row.kind-task")];
+    if (by < 0 && group === groups[0] && tasks[0] === row) return;
+    if (by > 0 && group === groups[groups.length - 1] && tasks[tasks.length - 1] === row) return;
     const id = Number(row.dataset.id);
     anchor = null;
     send([{ op: "move", id, step: by }], {
       undo: [{ op: "move", id, step: -by }], redo: [{ op: "move", id, step: by }],
       then: () => rowOf(`t${id}`) && moveTo(`t${id}`, cursor.col),
     });
+  };
+
+  /* ---- a workstream's lane, among the others: the other tasks stay last ---- */
+
+  const lanes = () => [...sheet.querySelectorAll(".gantt-group")].filter((g) => g.dataset.workstream);
+  const laneAfter = (group) => {
+    const all = lanes();
+    return all[all.indexOf(group) + 1] || null;
+  };
+  const laneId = (group) => (group ? Number(group.dataset.workstream) : null);
+
+  // A lane put before another (or last, before null), undone back before
+  // the one it was before.
+  const placeLane = (group, before, col) => {
+    const id = laneId(group);
+    const op = (to) => [{ op: "workstream_place", id, before: to }];
+    send(op(laneId(before)), {
+      undo: op(laneId(laneAfter(group))), redo: op(laneId(before)),
+      then: () => rowOf(`w${id}`) && moveTo(`w${id}`, col),
+    });
+  };
+
+  const moveLane = (row, by) => {
+    const group = row.closest(".gantt-group");
+    const all = lanes();
+    const at = all.indexOf(group);
+    if (at + by < 0 || at + by >= all.length) return;
+    anchor = null;
+    placeLane(group, by < 0 ? all[at - 1] : all[at + 2] || null, cursor.col);
   };
 
   const remove = async () => {
@@ -941,16 +979,33 @@
   }
 
   /* ---- the pointer: a task's row, dragged by its number to another
-     place, in its workstream or another (or out of any) ---- */
+     place, in its workstream or another (or out of any); a workstream's,
+     its whole lane to another place among the workstreams ---- */
 
-  let rowDrag = null; // {row, id, y, moved, drop}
+  let rowDrag = null; // {row, lane, lifted, id, y, moved, drop}
 
   function startRowDrag(e, row) {
     e.preventDefault();
     if (editing) commit();
     moveTo(row.dataset.key, TITLE);
-    rowDrag = { row, id: Number(row.dataset.id), y: e.clientY, pointer: e.pointerId, moved: false, drop: null };
+    const lane = row.dataset.kind === "workstream";
+    rowDrag = {
+      row, lane, lifted: lane ? row.closest(".gantt-group") : row,
+      id: Number(row.dataset.id), y: e.clientY, pointer: e.pointerId, moved: false, drop: null,
+    };
     sheet.setPointerCapture(e.pointerId);
+  }
+
+  // Where a lane would land under the pointer: before the first lane whose
+  // middle is below it, else last (over the other tasks, or past them).
+  function laneDropAt(y) {
+    if (y < sheet.querySelector(".gantt-head").getBoundingClientRect().bottom) return null;
+    const all = lanes();
+    for (const group of all) {
+      const box = group.getBoundingClientRect();
+      if (y < box.top + box.height / 2) return { before: group, line: group, edge: "top" };
+    }
+    return { before: null, line: all[all.length - 1], edge: "bottom" };
   }
 
   // Where the row would land under the pointer: in which group, before
@@ -985,16 +1040,18 @@
     if (e.pointerId !== rowDrag.pointer) return;
     if (!rowDrag.moved && Math.abs(e.clientY - rowDrag.y) < 4) return;
     rowDrag.moved = true;
-    rowDrag.row.classList.add("is-lifted");
+    rowDrag.lifted.classList.add("is-lifted");
     sheet.classList.add("is-moving-row");
     // Near the sheet's top or foot, it scrolls.
     const box = sheet.getBoundingClientRect();
     if (e.clientY < box.top + headHeight() + 24) sheet.scrollTop -= 12;
     else if (e.clientY > box.top + sheet.clientHeight - 24) sheet.scrollTop += 12;
-    const drop = dropAt(e.clientY);
-    // Onto itself, or just under the task above it: where it is.
-    const same = drop && (drop.before === rowDrag.row
-      || (drop.group === rowDrag.row.closest(".gantt-group") && nextTask(rowDrag.row) === drop.before));
+    const own = rowDrag.row.closest(".gantt-group");
+    const drop = rowDrag.lane ? laneDropAt(e.clientY) : dropAt(e.clientY);
+    // Onto itself, or just under the task (or lane) above it: where it is.
+    const same = drop && (rowDrag.lane
+      ? drop.before === own || drop.before === laneAfter(own)
+      : drop.before === rowDrag.row || (drop.group === own && nextTask(rowDrag.row) === drop.before));
     rowDrag.drop = same ? null : drop;
     let line = table().querySelector(".gantt-drop-line");
     if (!rowDrag.drop) { line?.remove(); return; }
@@ -1008,7 +1065,7 @@
     const top = (rowDrag.drop.edge === "top" ? at.top : at.bottom) - table().getBoundingClientRect().top;
     line.style.top = `${Math.round(top) - 1}px`;
     sheet.querySelectorAll(".gantt-group.is-drop").forEach((g) => g.classList.remove("is-drop"));
-    rowDrag.drop.group.classList.add("is-drop");
+    rowDrag.drop.group?.classList.add("is-drop");
   }
 
   const nextTask = (row) => {
@@ -1020,11 +1077,15 @@
     if (e && e.pointerId !== rowDrag.pointer) return;
     const was = rowDrag;
     rowDrag = null;
-    was.row.classList.remove("is-lifted");
+    was.lifted.classList.remove("is-lifted");
     sheet.classList.remove("is-moving-row");
     table().querySelector(".gantt-drop-line")?.remove();
     sheet.querySelectorAll(".gantt-group.is-drop").forEach((g) => g.classList.remove("is-drop"));
     if (!e || !was.drop) return;
+    if (was.lane) {
+      placeLane(was.lifted, was.drop.before, TITLE);
+      return;
+    }
     const from = {
       workstream_id: was.row.closest(".gantt-group").dataset.workstream,
       before: nextTask(was.row) ? Number(nextTask(was.row).dataset.id) : null,

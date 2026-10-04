@@ -136,6 +136,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   A title or a name being written wraps, its row growing with the words so all of them stay in sight (Oscar's call on 2026-10-04).
   In Weeks, bars are drawn to the day but move and stretch by whole weeks: a bar keeps its days as it moves, a due keeps its weekday as its bar stretches, and a bar drawn new runs Monday to Friday; typed lengths are weeks unless named ("10d"), and in Days, days unless named ("3w").
   Rows keep their order as they are edited (a spreadsheet's rows do not re-sort), their own order once moved: with Alt+Up/Down, or dragged by their number to another place or workstream (Oscar's call on 2026-10-01).
+  Workstreams keep an order of their own, a new one last: on a workstream's row, Alt+Up/Down moves its whole lane past the workstream above or below, and its number drags it to another place among them; the tasks in none stay under them all, and the Projects page lists them in the same order (Oscar's call on 2026-10-04).
   Done tasks stay on the plan, struck through; cancelled ones and a series' finished occurrences leave it.
 
 ### The notebook (decided 2026-09-26, set aside 2026-09-27)
@@ -171,7 +172,7 @@ Its name is read from the location, never stored.
 **Project document** (2026-10-04): belongs to one project; name (unique within the project, in any case), body (Markdown), when its body last changed.
 Every project has one named AGENTS.md, created with it, which cannot be renamed or deleted.
 
-**Workstream** (Oscar's call on 2026-10-01, replacing milestones: "I manage it that way"): belongs to one project; name, status (open / done).
+**Workstream** (Oscar's call on 2026-10-01, replacing milestones: "I manage it that way"): belongs to one project; name, status (open / done), position (its place among its project's workstreams).
 A stream of the project's work run beside its others, a lane of its tasks with no date of its own: its span is its tasks', and its progress is computable from them.
 Deleting one leaves its tasks in the project, in none.
 

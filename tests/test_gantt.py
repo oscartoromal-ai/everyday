@@ -314,6 +314,51 @@ def test_workstreams_are_written_in_the_sheet(db) -> None:
     assert [w.name for w in projects_svc.get_project(db, project.id).workstreams] == ["Launch"]
 
 
+def test_workstreams_are_put_in_an_order_of_their_own(db) -> None:
+    project, launch = _project(db)
+    beta, docs = (
+        projects_svc.create_workstream(db, project_id=project.id, name=n) for n in ("Beta", "Docs")
+    )
+    tasks_svc.create_task(db, title="Loose end", project_id=project.id)
+    tasks_svc.create_task(db, title="Ship", project_id=project.id, workstream_id=beta.id)
+
+    def lanes():
+        return [g.workstream.name if g.workstream else None
+                for g in gantt_svc.groups(db, project, TODAY)]
+
+    def place(workstream, before=None) -> None:
+        gantt_svc.apply(
+            db, project,
+            [{"op": "workstream_place", "id": workstream.id,
+              "before": before.id if before else None}],
+            TODAY,
+        )
+
+    # A new one goes last; the tasks in none stay under them all.
+    assert lanes() == ["Launch", "Beta", "Docs", None]
+    place(docs, before=launch)
+    assert lanes() == ["Docs", "Launch", "Beta", None]
+    place(docs)
+    assert lanes() == ["Launch", "Beta", "Docs", None]
+    place(beta, before=launch)
+    assert lanes() == ["Beta", "Launch", "Docs", None]
+    # Its tasks go with it, and every list of them reads the same order.
+    assert [t.title for t in gantt_svc.groups(db, project, TODAY)[0].tasks] == ["Ship"]
+    assert [m.name for m in projects_svc.get_project(db, project.id).workstreams] == [
+        "Beta", "Launch", "Docs"]
+    # One made after keeps to the end.
+    (made,) = gantt_svc.apply(db, project, [{"op": "workstream_create", "name": "QA"}], TODAY)
+    assert lanes() == ["Beta", "Launch", "Docs", "QA", None]
+    # Another project's workstream is refused, as the one moved or as where.
+    other = projects_svc.create_project(db, name="Other")
+    elsewhere = projects_svc.create_workstream(db, project_id=other.id, name="Elsewhere")
+    with pytest.raises(DomainError):
+        place(elsewhere)
+    with pytest.raises(DomainError):
+        place(launch, before=elsewhere)
+    assert elsewhere.position == 0
+
+
 def test_the_gantt_page_draws_the_plan(client, db) -> None:
     project, launch = _project(db)
     today = date.today()
