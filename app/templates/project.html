@@ -1,85 +1,91 @@
 {% extends "base.html" %}
 {% block title %}{{ project.name }} · Personal Calendar{% endblock %}
 {% block content %}
-{# A project's own page: the project, where its code is, and its context,
-   the documents an agent working on it reads, AGENTS.md first. One sheet
-   ruled as Me's is: each part a group, each field or item a row, saved as
-   it changes. Its Gantt is the next tab; each document opens on a page of
-   its own (project_doc.html). #}
+{# A project's own page: the project at a glance, then its sections, a card
+   each: what it is, the documents an agent working on it reads (AGENTS.md
+   first) and where its code is, beside its details. Each saves as it
+   changes. Its Gantt is the next tab; each document opens on a page of its
+   own (project_doc.html). #}
 <div class="project-page">
   <header class="page-header project-header">
     {% include "partials/project_head.html" %}
   </header>
 
-  <div class="project-sheet ruled-sheet">
-    <form class="sheet-group project-about" hx-post="/ui/projects/{{ project.id }}/about" hx-trigger="change, submit"
-          hx-target="#project-head" hx-swap="outerHTML" aria-labelledby="about-head">
-      <h2 class="sheet-row sheet-head" id="about-head">Project</h2>
-      <label class="sheet-row me-row">
-        <span class="me-label">Name</span>
-        <span class="sheet-field"><input name="name" value="{{ project.name }}" required autocomplete="off"></span>
-      </label>
-      <label class="sheet-row me-row">
-        <span class="me-label">Status</span>
-        <span class="sheet-field">
-          <select name="status">
-            {% for value, word in status_words.items() %}<option value="{{ value }}" {% if project.status.value == value %}selected{% endif %}>{{ word }}</option>{% endfor %}
-          </select>
-        </span>
-      </label>
-      {# Its colour: the flag on its tasks, and their rules. #}
-      <div class="sheet-row me-row" role="radiogroup" aria-labelledby="color-label">
-        <span class="me-label" id="color-label">Colour</span>
-        <span class="sheet-field swatches">
-          {% for n in range(1, 9) %}
-          <label class="swatch" style="--project: var(--hue-{{ n }})">
-            <input type="radio" name="color" value="{{ n }}"{% if project.color == n %} checked{% endif %} aria-label="Colour {{ n }}">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
-          </label>
-          {% endfor %}
-        </span>
-      </div>
-      <label class="sheet-row me-row">
-        <span class="me-label">Notes</span>
-        <span class="sheet-field"><textarea name="notes" rows="1" autocomplete="off" placeholder="What it is, and what done looks like">{{ project.notes }}</textarea></span>
-      </label>
-    </form>
+  {% include "partials/project_glance.html" %}
 
-    {% include "partials/project_repos.html" %}
-
-    <section class="sheet-group project-context" aria-labelledby="context-head">
-      <h2 class="sheet-row sheet-head" id="context-head">Context <span class="count">What an agent working on it reads, AGENTS.md first</span></h2>
-      <ul class="doc-list">
-        {% for row in docs %}
-        <li>
-          <a class="sheet-row me-row project-item doc-row" href="{{ row.href }}">
-            <span class="item-name" title="{{ row.doc.name }}">
-              <svg class="item-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.75h6.5L15 6.25v11H5z"/><path d="M11.25 2.75v3.75H15"/><path d="M7.75 10.25h4.5"/><path d="M7.75 13.25h4.5"/></svg>
-              <span>{{ row.doc.name }}</span>
-            </span>
-            {% if row.summary %}
-            <span class="doc-summary">{{ row.summary }}</span>
-            {% else %}
-            <span class="doc-summary is-empty">{% if row.doc.is_agents %}Not written yet: how to build and test it, its conventions, what to leave alone{% else %}Empty{% endif %}</span>
-            {% endif %}
-            {% if row.meta %}<span class="doc-meta">{{ row.meta }}</span>{% endif %}
-          </a>
-        </li>
-        {% endfor %}
-      </ul>
-      <form class="sheet-row me-row project-item add-item" hx-post="/ui/projects/{{ project.id }}/docs" hx-swap="none">
-        <label class="item-name" for="doc-new">
-          <svg class="item-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4.5v11"/><path d="M4.5 10h11"/></svg>
-          <span>New document</span>
-        </label>
-        <span class="sheet-field">
-          <input id="doc-new" name="name" required autocomplete="off" placeholder="Its name: CONTEXT.md, Architecture, Decisions…">
-        </span>
+  <div class="overview-grid">
+    <div class="overview-main">
+      <form class="list-section ov-card project-description" hx-post="/ui/projects/{{ project.id }}/about"
+            hx-trigger="change, submit" hx-target="#project-head" hx-swap="outerHTML">
+        <h2 id="description-head">Description</h2>
+        <textarea name="notes" rows="3" autocomplete="off" aria-labelledby="description-head"
+                  placeholder="What it is, and what done looks like">{{ project.notes }}</textarea>
       </form>
-    </section>
 
-    {# The empty rows under the last group, numbered on, to the sheet's foot. #}
-    <div class="sheet-filler" aria-hidden="true"><ol>{% for _ in range(30) %}<li></li>{% endfor %}</ol></div>
+      <section class="list-section ov-card project-context" aria-labelledby="context-head">
+        <h2 id="context-head">Context <span class="count">What an agent working on it reads, AGENTS.md first</span></h2>
+        <ul class="ov-list">
+          {% for row in docs %}
+          <li>
+            <a class="ov-item doc-row" href="{{ row.href }}">
+              <span class="ov-icon">
+                <svg class="item-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.75h6.5L15 6.25v11H5z"/><path d="M11.25 2.75v3.75H15"/><path d="M7.75 10.25h4.5"/><path d="M7.75 13.25h4.5"/></svg>
+              </span>
+              <span class="ov-text">
+                <span class="item-name" title="{{ row.doc.name }}">{{ row.doc.name }}</span>
+                {% if row.summary %}
+                <span class="doc-summary">{{ row.summary }}</span>
+                {% else %}
+                <span class="doc-summary is-empty">{% if row.doc.is_agents %}Not written yet: how to build and test it, its conventions, what to leave alone{% else %}Empty{% endif %}</span>
+                {% endif %}
+              </span>
+              {% if row.meta %}<span class="doc-meta">{{ row.meta }}</span>{% endif %}
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+        <form class="ov-add" hx-post="/ui/projects/{{ project.id }}/docs" hx-swap="none">
+          <svg class="item-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4.5v11"/><path d="M4.5 10h11"/></svg>
+          <input id="doc-new" name="name" required autocomplete="off" aria-label="New document"
+                 placeholder="New document: CONTEXT.md, Architecture, Decisions…">
+        </form>
+      </section>
+
+      {% include "partials/project_repos.html" %}
+    </div>
+
+    <aside class="overview-side">
+      <form class="list-section ov-card project-details" hx-post="/ui/projects/{{ project.id }}/about"
+            hx-trigger="change, submit" hx-target="#project-head" hx-swap="outerHTML" aria-labelledby="details-head">
+        <h2 id="details-head">Details</h2>
+        <div class="ov-fields">
+          <label class="field">
+            <span class="field-label">Name</span>
+            <span class="field-line"><input name="name" value="{{ project.name }}" required autocomplete="off"></span>
+          </label>
+          <label class="field">
+            <span class="field-label">Status</span>
+            <span class="field-line">
+              <select name="status">
+                {% for value, word in status_words.items() %}<option value="{{ value }}" {% if project.status.value == value %}selected{% endif %}>{{ word }}</option>{% endfor %}
+              </select>
+            </span>
+          </label>
+          {# Its colour: the flag on its tasks, and their rules. #}
+          <div class="field" role="radiogroup" aria-labelledby="color-label">
+            <span class="field-label" id="color-label">Colour</span>
+            <span class="swatches">
+              {% for n in range(1, 9) %}
+              <label class="swatch" style="--project: var(--hue-{{ n }})">
+                <input type="radio" name="color" value="{{ n }}"{% if project.color == n %} checked{% endif %} aria-label="Colour {{ n }}">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
+              </label>
+              {% endfor %}
+            </span>
+          </div>
+        </div>
+      </form>
+    </aside>
   </div>
 </div>
 {% endblock %}

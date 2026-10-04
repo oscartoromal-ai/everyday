@@ -1370,7 +1370,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
    edge. Projects' lists and rows are the cards' own markup, so the sheet
    restyles them here rather than in their markup; Me's are .sheet-group
    and .sheet-row. */
-:is(.projects-page, .me-page, .garmin-page, .project-page, .doc-page) { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-8)); }
+:is(.projects-page, .me-page, .garmin-page, .doc-page) { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-8)); }
 /* compact rows: the sheets and Today's notes 28px a row, not 36px, the text its size */
 :root[data-density="compact"] :is(.ruled-sheet, .notepad-card) {
   --pad-line: 28px; --pad-text: 20px; --pad-above: 3px; --pad-below: 4px;
@@ -2984,50 +2984,141 @@ td.ds-habit.is-unpainted > * { visibility: hidden; }
 }
 .gantt-header .keys-hint { margin-top: var(--s-3); }
 
-/* Its page: one ruled sheet as Me's. The repositories and documents are
-   items: a steel icon and the name in 500 ink, as wide as every group's
-   names, so all the values start on one line; then where it is, or what
-   it is about; the row to add one names it in graphite after a plus. */
-.project-sheet .me-label, .project-item .item-name { width: 176px; }
-.project-item { align-items: flex-start; }
-.project-item .item-name {
-  flex: none; display: flex; align-items: center; gap: var(--s-2); min-width: 0;
-  padding: var(--pad-above) 0 var(--pad-below); font-weight: 500; color: var(--ink);
+/* Its page: the project at a glance, then its sections, a glass card each,
+   at Projects' width: the description, the context and the repositories
+   in the main column, the details beside them. */
+.main:has(.project-page) { max-width: 1040px; }
+
+/* at a glance: a tile each, its name over its value, then a note */
+.project-glance {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-3);
+  margin: var(--s-2) 0 var(--s-6);
 }
-.project-item .item-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.glance-tile {
+  display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; padding: var(--s-4);
+  background: var(--glass-card); backdrop-filter: blur(20px) saturate(1.1);
+  border: 1px solid var(--glass-border);
+}
+.glance-tile :is(h2, p) { margin: 0; }
+/* the notes on one line along the tiles' feet, a meter or not */
+.glance-tile .glance-note { margin-top: auto; }
+.glance-label { font-size: var(--t-caption); font-weight: 500; line-height: 16px; color: var(--graphite); }
+.glance-value {
+  display: flex; align-items: center; min-height: 28px;
+  font-family: var(--font-num); font-size: var(--t-sub); line-height: 28px; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.glance-value.is-none { color: var(--pewter); font-weight: 500; }
+.glance-value .chip { font-family: var(--font-sans); font-size: var(--t-body-sm); line-height: 20px; padding: 2px var(--s-2); }
+.glance-meter { display: block; height: 4px; margin: var(--s-1) 0 2px; background: var(--hairline); overflow: hidden; }
+.glance-meter > span { display: block; height: 100%; background: var(--ink); }
+.glance-note {
+  font-size: var(--t-caption); line-height: 16px; color: var(--pewter);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* the sections: the main column, and the details beside it, kept in view */
+.project-page { container-type: inline-size; }
+.overview-grid {
+  display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: var(--s-6); align-items: start;
+}
+.overview-main, .overview-side { display: flex; flex-direction: column; gap: var(--s-6); min-width: 0; }
+.overview-side { position: sticky; top: var(--s-8); }
+.ov-card { margin: 0; }
+.ov-card > h2 .count { font-weight: 400; }
+
+/* the description: written straight on the card, which rules in ink round it */
+.project-description { transition: border-color var(--dur) var(--ease); }
+.project-description:focus-within { border-color: var(--ink); }
+.project-description textarea {
+  display: block; width: 100%; min-height: calc(3 * 22px + 2 * var(--s-4)); margin: 0; padding: var(--s-4);
+  font-size: var(--t-body-sm); line-height: 22px; color: var(--ink);
+  background: transparent; border: none; resize: none; field-sizing: content;
+}
+.project-description textarea:is(:focus, :focus-visible) { outline: none; box-shadow: none; }
+.project-description textarea::placeholder { color: var(--pewter); opacity: 1; }
+
+/* an item (a document, a repository): its icon on a tile, its name in 500
+   ink over what it is about or where it is, then what is at its right */
+.ov-list { margin: 0; padding: 0; list-style: none; }
+.ov-item {
+  display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--hairline-on-glass);
+  color: inherit; text-decoration: none;
+  transition: background-color var(--dur) var(--ease);
+}
+.ov-item:hover, .ov-item:focus-within { background: var(--glass-row-hover); }
+.ov-icon {
+  flex: none; display: grid; place-content: center; width: 32px; height: 32px;
+  background: var(--glass-btn); border: 1px solid var(--glass-border);
+}
 .item-icon {
-  flex: none; width: 14px; height: 14px;
+  flex: none; width: 16px; height: 16px;
   fill: none; stroke: var(--steel); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+  transition: stroke var(--dur) var(--ease);
 }
-.project-item.add-item .item-name { align-items: flex-start; color: var(--graphite); cursor: text; }
-.project-item.add-item .item-name > span { white-space: normal; }
-.project-item.add-item .item-icon { margin-top: 4px; }
-.project-item:is(:hover, :focus-within) .item-icon { stroke: var(--ink); }
-form.project-item:hover, a.doc-row:hover { background: var(--glass-row-hover); }
-.project-repos .sheet-field > input { flex: 1; width: 100%; color: var(--graphite); }
-.project-repos .sheet-field > input:focus { color: var(--ink); }
-.project-item .task-delete { width: 24px; height: 24px; margin: calc(var(--pad-above) - 1px) -4px 0 0; }
-.project-item:is(:hover, :focus-within) .task-delete { opacity: 1; }
-.project-about .swatches { gap: 2px; }
-.project-about .swatch { width: 24px; height: 24px; margin-block: -1px; }
-.project-about .swatch svg { width: 14px; height: 14px; }
-.sheet-head .count { margin-left: var(--s-2); font-weight: 400; }
-.doc-list { margin: 0; padding: 0; list-style: none; }
-a.doc-row { gap: 0 var(--s-3); color: inherit; text-decoration: none; }
-a.doc-row:hover .item-name > span { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
+.ov-item:is(:hover, :focus-within) .item-icon, .ov-add:focus-within .item-icon { stroke: var(--ink); }
+.ov-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.ov-text .item-name {
+  font-size: var(--t-body-sm); line-height: 20px; font-weight: 500; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+a.doc-row:hover .item-name { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
 .doc-summary {
-  flex: 1; min-width: 0; padding: var(--pad-above) 0 var(--pad-below);
-  color: var(--graphite); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--t-caption); line-height: 18px; color: var(--graphite);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .doc-summary.is-empty { color: var(--pewter); }
 .doc-meta {
-  flex: none; padding: var(--pad-above) 0 var(--pad-below);
-  font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums;
+  flex: none; font-size: var(--t-caption); color: var(--pewter);
+  font-family: var(--font-num); font-variant-numeric: tabular-nums;
 }
-@media (max-width: 540px) {
-  .project-sheet .me-label, .project-item .item-name { width: 112px; }
+/* where a repository is, written in place: a line under it once in use */
+.repo-location {
+  width: 100%; margin: 0; padding: 0;
+  font-size: var(--t-caption); line-height: 18px; color: var(--graphite);
+  background: transparent; border: none; border-radius: 0;
+  box-shadow: inset 0 -1px 0 transparent; transition: box-shadow var(--dur) var(--ease);
+}
+.repo-location:hover { box-shadow: inset 0 -1px 0 var(--steel); }
+.repo-location:is(:focus, :focus-visible) { outline: none; color: var(--ink); box-shadow: inset 0 -1px 0 var(--ink); }
+.repo-row .task-delete { margin: 0 -4px 0 0; }
+.repo-row:is(:hover, :focus-within) .task-delete { opacity: 1; }
+
+/* the line to add one: a plus, then its name written on it */
+.ov-add {
+  display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) var(--s-4) var(--s-2) calc(var(--s-4) + 9px);
+  transition: background-color var(--dur) var(--ease);
+}
+.ov-add:hover { background: var(--glass-row-hover); }
+.ov-add .item-icon { width: 14px; height: 14px; margin-right: 9px; }
+.ov-add input {
+  flex: 1; min-width: 0; height: 32px; margin: 0; padding: 0;
+  font-size: var(--t-body-sm); color: var(--ink); background: transparent; border: none;
+}
+.ov-add input:is(:focus, :focus-visible) { outline: none; box-shadow: none; }
+.ov-add input::placeholder { color: var(--graphite); opacity: 1; }
+.ov-add input:focus::placeholder { color: var(--pewter); }
+
+/* the details: a field each, its name over its line, as a form's */
+.ov-fields { display: flex; flex-direction: column; gap: var(--s-4); padding: var(--s-4); }
+.project-details .swatches { display: flex; flex-wrap: wrap; gap: 2px; margin-top: var(--s-1); }
+.project-details .swatch { width: 28px; height: 28px; }
+
+/* narrower: the details under the rest, their fields side by side; then
+   the glance two by two */
+@container (max-width: 760px) {
+  .overview-grid { grid-template-columns: minmax(0, 1fr); }
+  .overview-side { position: static; }
+  .ov-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--s-4) var(--s-6); }
+}
+@container (max-width: 600px) {
+  .project-glance { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .doc-meta { display: none; }
 }
+
+/* a sheet group's title's note, in pewter after its name */
+.sheet-head .count { margin-left: var(--s-2); font-weight: 400; }
 
 /* A document's page, at a task page's width: its name as the heading (in
    place, on no line, for one that can be renamed; its bin at the right),

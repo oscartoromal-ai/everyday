@@ -1,9 +1,10 @@
-"""A project's own page (/projects/<id>): the project, its repositories and
-its context, AGENTS.md first; each document on a page of its own; and the
-context handed to an agent, over MCP and the API."""
+"""A project's own page (/projects/<id>): the project at a glance, the
+project itself, its repositories and its context, AGENTS.md first; each
+document on a page of its own; and the context handed to an agent, over
+MCP and the API."""
 
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 import pytest
 from alembic import command
@@ -12,9 +13,10 @@ from fastmcp.exceptions import ToolError
 
 from app import migrate
 from app.mcp.server import mcp
-from app.models import AGENTS_DOC, ProjectDoc, ProjectStatus
+from app.models import AGENTS_DOC, ProjectDoc, ProjectStatus, TaskStatus
 from app.services import DomainError
 from app.services import projects as projects_svc
+from app.services import tasks as tasks_svc
 from app.ui.project_view import summary
 
 
@@ -82,7 +84,7 @@ def test_the_page_shows_the_project_its_repos_and_its_context(client, db) -> Non
     assert "Active · nothing open · 1 repository · 2 documents" in html
     assert f'<a href="/projects/{project.id}" aria-current="page">Overview</a>' in html
     assert f'<a href="/projects/{project.id}/gantt">Gantt</a>' in html
-    assert 'value="C:\\code\\note-app"' in html and "<span>note-app</span>" in html
+    assert 'value="C:\\code\\note-app"' in html and ">note-app</span>" in html
     # AGENTS.md first, what it is about beside it; then the others.
     assert html.index(">AGENTS.md<") < html.index(">Architecture<")
     assert '<span class="doc-summary">Note-app</span>' in html
@@ -127,19 +129,64 @@ def test_the_project_is_written_on_its_page(client, db) -> None:
     )
 
 
+def test_each_card_saves_only_its_own_fields(client, db) -> None:
+    project = projects_svc.create_project(db, name="Note-app", color=3)
+    db.commit()
+    # The description alone: its name, status and colour stay.
+    client.post(f"/ui/projects/{project.id}/about", data={"notes": " A notes app "})
+    db.refresh(project)
+    assert (project.name, project.status, project.color, project.notes) == (
+        "Note-app",
+        ProjectStatus.active,
+        3,
+        "A notes app",
+    )
+    # The details alone: the description stays.
+    client.post(
+        f"/ui/projects/{project.id}/about", data={"name": "Notes", "status": "active", "color": "4"}
+    )
+    db.refresh(project)
+    assert (project.name, project.color, project.notes) == ("Notes", 4, "A notes app")
+
+
+def test_the_page_opens_on_the_project_at_a_glance(client, db) -> None:
+    today = date.today()
+    project = projects_svc.create_project(db, name="Note-app")
+    tasks_svc.create_task(
+        db,
+        title="Ship sync",
+        project_id=project.id,
+        starts_on=today,
+        due=today + timedelta(days=20),
+    )
+    tasks_svc.create_task(db, title="Write the spec", project_id=project.id, status=TaskStatus.done)
+    db.commit()
+    html = client.get(f"/projects/{project.id}").text
+    glance = html.split('id="project-glance"')[1].split("</section>")[0]
+    assert '<span class="chip ok">On track</span>' in glance
+    assert "1 task open" in glance
+    assert "50%" in glance and "1 of 2 tasks done" in glance
+    assert 'title="Ship sync">Ship sync</p>' in glance
+    assert "3 weeks" in glance
+    # Its status changes the glance, drawn again with the header.
+    answer = client.post(f"/ui/projects/{project.id}/about", data={"status": "paused"})
+    assert 'id="project-glance" hx-swap-oob="true"' in answer.text
+    assert '<span class="chip neutral">Paused</span>' in answer.text
+
+
 def test_repositories_are_added_changed_and_removed(client, db) -> None:
     project = projects_svc.create_project(db, name="Note-app")
     db.commit()
     added = client.post(f"/ui/projects/{project.id}/repos", data={"location": "C:/code/note-app"})
-    assert 'id="project-repos"' in added.text and "<span>note-app</span>" in added.text
+    assert 'id="project-repos"' in added.text and ">note-app</span>" in added.text
     # The header's count comes with it.
     assert 'hx-swap-oob="true"' in added.text and "1 repository" in added.text
     repo = project.repos[0]
     changed = client.post(f"/ui/repos/{repo.id}", data={"location": "C:/code/notes"})
-    assert "<span>notes</span>" in changed.text
+    assert ">notes</span>" in changed.text
     assert client.post(f"/ui/repos/{repo.id}", data={"location": " "}).status_code == 422
     gone = client.post(f"/ui/repos/{repo.id}/delete")
-    assert "<span>notes</span>" not in gone.text
+    assert ">notes</span>" not in gone.text
     db.refresh(project)
     assert project.repos == []
 

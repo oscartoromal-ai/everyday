@@ -14,7 +14,13 @@ from app.db import DbSession
 from app.models import ProjectStatus
 from app.services import DomainError
 from app.services import projects as projects_svc
-from app.ui.project_view import doc_page_ctx, head_ctx, project_page_ctx, repos_ctx
+from app.ui.project_view import (
+    doc_page_ctx,
+    glance_ctx,
+    head_ctx,
+    project_page_ctx,
+    repos_ctx,
+)
 from app.ui.views import templates
 
 router = APIRouter(include_in_schema=False)
@@ -47,22 +53,34 @@ def save_about(
     request: Request,
     db: DbSession,
     project_id: int,
-    name: Annotated[str, Form()],
-    status: Annotated[ProjectStatus, Form()],
-    color: Annotated[int, Form()],
-    notes: Annotated[str, Form()] = "",
+    name: Annotated[str | None, Form()] = None,
+    status: Annotated[ProjectStatus | None, Form()] = None,
+    color: Annotated[int | None, Form()] = None,
+    notes: Annotated[str | None, Form()] = None,
 ):
-    """The project itself, written on its page: answered with its header,
-    which names it; the sidebar hears of it too."""
+    """The project itself, written on its page, a card at a time (its
+    details, its description): each posts only its own fields. Answered
+    with its header, which names it, and the glance, which its status
+    changes; the sidebar hears of it too."""
     projects_svc.update_project(
-        db, project_id, name=name, status=status, color=color, notes=notes.strip()
+        db,
+        project_id,
+        name=name,
+        status=status,
+        color=color,
+        notes=None if notes is None else notes.strip(),
     )
     db.commit()
     project = projects_svc.get_project(db, project_id)
     response = templates.TemplateResponse(
         request,
-        "partials/project_head.html",
-        {"request": request, "tab": "overview", **head_ctx(db, project)},
+        "partials/project_about.html",
+        {
+            "request": request,
+            "tab": "overview",
+            **head_ctx(db, project),
+            **glance_ctx(db, project, date.today()),
+        },
     )
     response.headers["HX-Trigger"] = "projects:changed"
     return response

@@ -1,6 +1,6 @@
 """View-model for a project's own pages: its page (project.html), the
-project itself, its repositories and its context; and a document of its
-context on a page of its own (project_doc.html)."""
+project at a glance, itself, its repositories and its context; and a
+document of its context on a page of its own (project_doc.html)."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.dates import short_date, upper_first
 from app.models import AGENTS_DOC, Project, ProjectDoc, Task, TaskStatus
 from app.services import projects as projects_svc
+from app.ui.views import project_glance
 
 OPEN = (TaskStatus.todo, TaskStatus.in_progress, TaskStatus.blocked, TaskStatus.needs_review)
 STATUS_WORDS = {"active": "Active", "paused": "Paused", "done": "Done"}
@@ -73,9 +74,26 @@ def doc_row(doc: ProjectDoc, project: Project, today: date) -> dict[str, Any]:
     }
 
 
+def glance_ctx(db: Session, project: Project, today: date) -> dict[str, Any]:
+    """The project at a glance, over its page: its health, its progress,
+    its next deadline and its span, with how long the span is."""
+    glance = project_glance(db, project, today)
+    first, last = glance["first"], glance["last"]
+    length = ""
+    if first and last:
+        days = (last - first).days + 1
+        length = (
+            _count(round(days / 7), "week", "weeks") if days >= 14 else _count(days, "day", "days")
+        )
+    # Each day of the span kept on one line: '5 Oct to / 23 Oct', never '23 / Oct'.
+    span = " to ".join(day.replace(" ", " ") for day in glance["span_label"].split(" to "))
+    return {"glance": {**glance, "span_label": span, "length": length}}
+
+
 def project_page_ctx(db: Session, project: Project, today: date) -> dict[str, Any]:
     return {
         **head_ctx(db, project),
+        **glance_ctx(db, project, today),
         "tab": "overview",
         "status_words": STATUS_WORDS,
         "repos": repos_ctx(project)["repos"],
