@@ -1,7 +1,9 @@
 """Repositories: GitHub's API client (its headers, paging and errors), the
-two ways to sign in (the GitHub CLI's, a pasted token), the sync, what
-Claude reads, and the page, over a stand-in for GitHub (github_fake.py)."""
+two ways to sign in (the GitHub CLI's, a pasted token), each account of
+several, the sync, what Claude reads, and the page, over a stand-in for
+GitHub (github_fake.py)."""
 
+import json
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -12,14 +14,20 @@ from github_fake import (
     LOGIN,
     NAME,
     PASTED_TOKEN,
+    USER_ID,
+    WORK_LOGIN,
+    WORK_NAME,
+    WORK_TOKEN,
+    WORK_USER_ID,
     FakeCli,
     FakeGitHub,
     fake_account,
     repo_payload,
+    signed_out,
 )
 
 from app.mcp.server import mcp
-from app.models import GitHubSource, Repository
+from app.models import GitHubLink, GitHubSource, Repository
 from app.services import github as github_svc
 from app.sources.github import (
     API_VERSION,
@@ -102,51 +110,78 @@ def test_the_token_link_asks_for_reading_metadata_only() -> None:
 # ---- signing in ----
 
 
-def test_the_cli_lends_its_token_and_the_app_keeps_none(tmp_path, github) -> None:
-    cli = FakeCli()
+def test_the_cli_lends_each_accounts_token_and_the_app_keeps_none(tmp_path, github) -> None:
+    cli = FakeCli({WORK_LOGIN: WORK_TOKEN, LOGIN: CLI_TOKEN})
     account = fake_account(tmp_path, github, cli)
-    assert account.cli_user() == {"login": LOGIN, "name": NAME}
-    assert cli.calls[-1][1:] == ["auth", "token", "--hostname", "github.com"]
-    with account.api(GitHubSource.cli) as api:
-        assert api.user()["login"] == LOGIN
-    assert not account.has_token() and not (tmp_path / "local").exists()
+    assert account.cli.logins() == [WORK_LOGIN, LOGIN]  # gh's active one first
+    assert cli.calls[-1][1:] == ["auth", "status", "--json", "hosts", "--hostname", "github.com"]
+    assert account.cli_user(LOGIN) == {"id": USER_ID, "login": LOGIN, "name": NAME}
+    assert cli.calls[-1][1:] == ["auth", "token", "--hostname", "github.com", "--user", LOGIN]
+    assert account.cli_user(WORK_LOGIN)["id"] == WORK_USER_ID
+    link = GitHubLink(id=1, source=GitHubSource.cli, login=WORK_LOGIN)
+    with account.api(link) as api:
+        assert api.user()["login"] == WORK_LOGIN
+    assert not (tmp_path / "local").exists()
 
-    cli.token = None  # gh auth logout
-    assert account.cli_user() is None
-    with pytest.raises(GitHubSignedOut, match="gh auth login"):
-        account.api(GitHubSource.cli)
+    del cli.accounts[WORK_LOGIN]  # gh auth logout --user oscar-work
+    assert account.cli.logins() == [LOGIN]
+    assert account.cli_user(WORK_LOGIN) is None
+    with pytest.raises(GitHubSignedOut, match=f"not signed in as {WORK_LOGIN}"):
+        account.api(link)
     # A token gh still has but GitHub no longer honours.
-    cli.token = "gho_revoked"
-    assert account.cli_user() is None
+    cli.accounts[LOGIN] = "gho_revoked"
+    assert account.cli_user(LOGIN) is None
 
 
-def test_no_cli_installed(tmp_path, github) -> None:
-    account = fake_account(tmp_path, github, None, installed=False)
-    assert not account.cli.installed and account.cli_user() is None
+def test_gh_reading_its_sign_ins(tmp_path, github) -> None:
+    assert fake_account(tmp_path, github, None, installed=False).cli.logins() == []
+    assert GitHubCli("gh.exe", run=signed_out()).logins() == []
 
+    def answering(text: str):  # noqa: ANN202
+        return lambda args: (1, text)
 
-def test_gh_failing_to_run_is_no_sign_in() -> None:
+    lapsed = {"hosts": {"github.com": [
+        {"state": "error", "active": True, "login": "old-account"},
+        {"state": "success", "active": False, "login": LOGIN},
+    ]}}
+    assert GitHubCli("gh.exe", run=answering(json.dumps(lapsed))).logins() == [LOGIN]
+    assert GitHubCli("gh.exe", run=answering("unknown flag: --json")).logins() == []
+    offline = {"hosts": {"github.com": [{"state": "timeout", "active": True, "login": LOGIN}]}}
+    with pytest.raises(GitHubUnavailable, match="could not reach GitHub"):
+        GitHubCli("gh.exe", run=answering(json.dumps(offline))).logins()
+
     def broken(args):  # noqa: ANN001, ANN202
         raise OSError("gone")
 
-    assert GitHubCli("gh.exe", run=broken).token() is None
+    assert GitHubCli("gh.exe", run=broken).token(LOGIN) is None
+    assert GitHubCli("gh.exe", run=broken).logins() == []
 
 
-def test_a_pasted_token_is_checked_then_kept(tmp_path, github) -> None:
+def test_a_pasted_token_is_checked_then_kept_for_its_account(tmp_path, github) -> None:
     account = fake_account(tmp_path, github, None)
     with pytest.raises(GitHubSignInFailed, match="did not accept"):
-        account.use_token("ghp_wrong")
+        account.check_token("ghp_wrong")
     with pytest.raises(GitHubSignInFailed, match="Paste"):
-        account.use_token("   ")
-    assert not account.has_token()
+        account.check_token("   ")
 
-    assert account.use_token(f"  {PASTED_TOKEN}\n")["login"] == LOGIN
-    assert account.token_file.read_text(encoding="utf-8") == PASTED_TOKEN
-    with account.api(GitHubSource.token) as api:
+    assert account.check_token(f"  {PASTED_TOKEN}\n")["login"] == LOGIN
+    account.keep_token(7, f"  {PASTED_TOKEN}\n")
+    assert account.token_file(7).read_text(encoding="utf-8") == PASTED_TOKEN
+    link = GitHubLink(id=7, source=GitHubSource.token, login=LOGIN)
+    with account.api(link) as api:
         assert api.user()["name"] == NAME
-    account.forget()
-    with pytest.raises(GitHubSignedOut, match="token is gone"):
-        account.api(GitHubSource.token)
+    account.forget(7)
+    with pytest.raises(GitHubSignedOut, match=f"token for {LOGIN} is gone"):
+        account.api(link)
+
+
+def test_the_one_token_kept_before_moves_to_its_accounts_file(tmp_path, github) -> None:
+    account = fake_account(tmp_path, github, None)
+    account.legacy_token_file.parent.mkdir(parents=True)
+    account.legacy_token_file.write_text(PASTED_TOKEN, encoding="utf-8")
+    with account.api(GitHubLink(id=3, source=GitHubSource.token, login=LOGIN)) as api:
+        assert api.user()["login"] == LOGIN
+    assert not account.legacy_token_file.exists() and account.has_token(3)
 
 
 # ---- syncing ----
@@ -171,15 +206,19 @@ def test_a_repository_reads_as_github_has_it() -> None:
     assert github_svc.repository_fields({"full_name": "a/b"}) is None
 
 
-def connected(db, account, source=GitHubSource.cli):  # noqa: ANN001, ANN201
-    return github_svc.connect(db, {"login": LOGIN, "name": NAME}, source, now=NOW)
+ME = {"id": USER_ID, "login": LOGIN, "name": NAME}
+WORK = {"id": WORK_USER_ID, "login": WORK_LOGIN, "name": WORK_NAME}
+
+
+def connected(db, user=ME, source=GitHubSource.cli):  # noqa: ANN001, ANN201
+    return github_svc.connect(db, user, source, now=NOW)
 
 
 def test_the_list_follows_github(db, tmp_path, github) -> None:
     account = fake_account(tmp_path, github, FakeCli())
     assert github_svc.sync(db, account) == 0  # not connected: nothing asked
     assert github.requests == []
-    connected(db, account)
+    connected(db)
     github.repos = [repo_payload(1, "everyday-app"), repo_payload(2, "pylon-web")]
     assert github_svc.sync(db, account, now=NOW) == 2
     assert [r.name for r in github_svc.repositories(db)] == ["everyday-app", "pylon-web"]
@@ -193,42 +232,118 @@ def test_the_list_follows_github(db, tmp_path, github) -> None:
     kept = {r.github_id: r for r in db.query(Repository)}
     assert set(kept) == {1, 3}
     assert (kept[1].name, kept[1].archived) == ("personal-calendar", True)
-    link = github_svc.link(db)
+    (link,) = github_svc.links(db)
     assert (link.synced_at, link.sync_error, link.signed_out) == (
         NOW + timedelta(hours=1), "", False,
     )
 
 
-def test_a_failed_sync_says_why_and_keeps_the_list(db, tmp_path, github) -> None:
-    cli = FakeCli()
+def test_two_accounts_reach_one_list(db, tmp_path, github) -> None:
+    cli = FakeCli({LOGIN: CLI_TOKEN, WORK_LOGIN: WORK_TOKEN})
     account = fake_account(tmp_path, github, cli)
-    connected(db, account)
+    shared = repo_payload(5, "pylon-platform", owner="acme-labs")
+    github.repos = [repo_payload(1, "everyday-app"), shared]
+    github.work_repos = [repo_payload(9, "roadmaps", owner=WORK_LOGIN), shared]
+    me, work = connected(db), connected(db, WORK)
+    assert github_svc.sync(db, account, now=NOW) == 3  # the shared one once
+    platform = db.query(Repository).filter_by(github_id=5).one()
+    assert [link.login for link in platform.links] == [LOGIN, WORK_LOGIN]
+    assert github_svc.repository_dict(platform)["accounts"] == [LOGIN, WORK_LOGIN]
+
+    # The work account loses it: still his, through the other.
+    github.work_repos = [repo_payload(9, "roadmaps", owner=WORK_LOGIN)]
+    github_svc.sync(db, account, now=NOW)
+    assert [link.login for link in platform.links] == [LOGIN]
+
+    # Disconnecting one goes with what only it reached.
+    github.work_repos = [repo_payload(9, "roadmaps", owner=WORK_LOGIN), shared]
+    github_svc.sync(db, account, now=NOW)
+    github_svc.disconnect(db, me)
+    assert {r.name for r in github_svc.repositories(db)} == {"roadmaps", "pylon-platform"}
+    assert github_svc.links(db) == [work]
+
+
+def test_one_account_failing_leaves_the_others_syncing(db, tmp_path, github) -> None:
+    cli = FakeCli({LOGIN: CLI_TOKEN, WORK_LOGIN: WORK_TOKEN})
+    account = fake_account(tmp_path, github, cli)
+    github.work_repos = [repo_payload(9, "roadmaps", owner=WORK_LOGIN)]
+    me, work = connected(db), connected(db, WORK)
+    github_svc.sync(db, account, now=NOW)
+
+    del cli.accounts[LOGIN]  # gh signed out of the first
+    github.repos = [repo_payload(1, "everyday-app", description="Renamed meanwhile")]
+    github.work_repos.append(repo_payload(10, "booking-lambda", owner=WORK_LOGIN))
+    later = NOW + timedelta(hours=1)
+    assert github_svc.sync(db, account, now=later) == 3
+    assert me.signed_out and "gh auth login" in me.sync_error and me.synced_at == NOW
+    assert (work.signed_out, work.sync_error, work.synced_at) == (False, "", later)
+    # What the signed-out one reached stays as it was, in sight.
+    assert db.query(Repository).filter_by(github_id=1).one().description == "What everyday-app is"
+
+    cli.accounts[LOGIN] = CLI_TOKEN  # signed in again: the next sync clears it
+    github_svc.sync(db, account, now=later)
+    assert (me.signed_out, me.sync_error, me.synced_at) == (False, "", later)
+
+
+def test_a_failed_sync_says_why_and_keeps_the_list(db, tmp_path, github) -> None:
+    account = fake_account(tmp_path, github, FakeCli())
+    link = connected(db)
     github_svc.sync(db, account, now=NOW)
 
     github.fail = httpx.Response(503)
     with pytest.raises(GitHubUnavailable):
-        github_svc.sync(db, account, now=NOW + timedelta(hours=1))
-    link = github_svc.link(db)
+        github_svc.sync_link(db, account, link, now=NOW + timedelta(hours=1))
     assert "having trouble" in link.sync_error and not link.signed_out
     assert link.synced_at == NOW and len(github_svc.repositories(db)) == 1
 
-    github.fail, cli.token = None, None  # gh signed out
-    with pytest.raises(GitHubSignedOut):
-        github_svc.sync(db, account)
-    assert link.signed_out and "gh auth login" in link.sync_error
 
-    cli.token = CLI_TOKEN  # signed in again: the next sync clears it
-    github_svc.sync(db, account, now=NOW + timedelta(hours=2))
-    later = NOW + timedelta(hours=2)
-    assert (link.signed_out, link.sync_error, link.synced_at) == (False, "", later)
+def test_a_sync_crashing_on_one_account_says_so_on_it(db, tmp_path, github) -> None:
+    account = fake_account(tmp_path, github, FakeCli({LOGIN: CLI_TOKEN, WORK_LOGIN: WORK_TOKEN}))
+    me, work = connected(db), connected(db, WORK)
+    db.commit()
+
+    class Crashing:
+        def api(self, link):  # noqa: ANN001, ANN202
+            if link.login == LOGIN:
+                raise RuntimeError("a bug")
+            return account.api(link)
+
+    github_svc.sync(db, Crashing(), now=NOW)
+    assert "stopped on an error" in me.sync_error and work.synced_at == NOW
 
 
-def test_disconnecting_forgets_the_list(db, tmp_path, github) -> None:
+def test_an_account_connected_while_syncing_is_synced_too(db, tmp_path, github) -> None:
+    account = fake_account(tmp_path, github, FakeCli({LOGIN: CLI_TOKEN, WORK_LOGIN: WORK_TOKEN}))
+    connected(db)
+    db.commit()
+
+    class ConnectingMeanwhile:
+        def api(self, link):  # noqa: ANN001, ANN202
+            if link.login == LOGIN and len(github_svc.links(db)) == 1:
+                connected(db, WORK)
+            return account.api(link)
+
+    github_svc.sync(db, ConnectingMeanwhile(), now=NOW)
+    assert [(link.login, link.synced_at) for link in github_svc.links(db)] == [
+        (LOGIN, NOW), (WORK_LOGIN, NOW),
+    ]
+
+
+def test_signing_in_again_as_an_account_keeps_it(db, tmp_path, github) -> None:
     account = fake_account(tmp_path, github, FakeCli())
-    connected(db, account)
-    github_svc.sync(db, account)
-    github_svc.disconnect(db)
-    assert github_svc.link(db) is None and github_svc.repositories(db) == []
+    link = connected(db)
+    github_svc.sync(db, account, now=NOW)
+    link.signed_out, link.sync_error = True, "gone"
+    # A rename on GitHub, then connecting it again with a token.
+    again = connected(db, {**ME, "login": "oscar-renamed"}, GitHubSource.token)
+    assert again is link and len(github_svc.links(db)) == 1
+    assert (link.login, link.source, link.signed_out, link.sync_error) == (
+        "oscar-renamed", GitHubSource.token, False, "",
+    )
+    assert len(link.repositories) == 1
+    # One connected before its id was kept is found by its login, then learns it.
+    link.user_id = None
+    assert connected(db, {**ME, "login": "Oscar-Renamed"}) is link and link.user_id == USER_ID
 
 
 def test_found_by_their_words_last_pushed_first(db) -> None:
@@ -255,6 +370,23 @@ def test_found_by_their_words_last_pushed_first(db) -> None:
     assert names("nothing here") == []
 
 
+@pytest.mark.parametrize(
+    ("location", "full_name"),
+    [
+        ("https://github.com/Acme-Labs/pylon-engine", "acme-labs/pylon-engine"),
+        ("https://github.com/me/app.git", "me/app"),
+        ("https://github.com/me/app/", "me/app"),
+        ("git@github.com:me/my.app.git", "me/my.app"),
+        ("github.com/me/app", "me/app"),
+        (r"C:\code\app", None),
+        ("https://gitlab.com/me/app", None),
+        ("https://github.com/me", None),
+    ],
+)
+def test_a_repository_on_github_is_known_by_its_url(location, full_name) -> None:
+    assert github_svc.full_name_of(location) == full_name
+
+
 def test_pushed_reads_as_a_column() -> None:
     assert pushed(None, NOW) == ""
     assert pushed(NOW - timedelta(seconds=20), NOW) == "Just now"
@@ -269,14 +401,14 @@ def test_pushed_reads_as_a_column() -> None:
 async def test_list_repositories_over_mcp(app_db, tmp_path, github) -> None:
     async with Client(mcp) as client:
         empty = (await client.call_tool("list_repositories", {})).data
-    assert empty == {"connected": False, "account": None, "synced_at": None, "repositories": []}
+    assert empty == {"connected": False, "accounts": [], "repositories": []}
     github.repos = [
         repo_payload(1, "everyday-app", open_issues_count=3),
         repo_payload(2, "pylon-legacy", archived=True, language="Java"),
     ]
     account = fake_account(tmp_path, github, FakeCli())
     with app_db() as db:
-        connected(db, account)
+        connected(db)
         github_svc.sync(db, account, now=NOW)
         db.commit()
     async with Client(mcp) as client:
@@ -285,12 +417,14 @@ async def test_list_repositories_over_mcp(app_db, tmp_path, github) -> None:
         java = (await client.call_tool(
             "list_repositories", {"query": "java", "include_archived": True}
         )).data
-    assert (got["connected"], got["account"], got["synced_at"]) == (True, LOGIN, "2026-10-04T11:00")
+    assert got["connected"] is True
+    assert got["accounts"] == [{"login": LOGIN, "connected": True, "synced_at": "2026-10-04T11:00"}]
     assert got["repositories"] == [{
         "full_name": f"{LOGIN}/everyday-app", "description": "What everyday-app is",
         "language": "Python", "private": True, "fork": False, "archived": False,
         "default_branch": "main", "url": f"https://github.com/{LOGIN}/everyday-app",
         "open_issues_and_pulls": 3, "pushed_at": got["repositories"][0]["pushed_at"],
+        "accounts": [LOGIN],
     }]
     assert len(every["repositories"]) == 2
     assert [r["full_name"] for r in java["repositories"]] == [f"{LOGIN}/pylon-legacy"]
@@ -320,39 +454,75 @@ def test_connecting_in_one_click_through_the_cli(page_client, db, github) -> Non
     ]
     page = client.get("/repositories").text
     assert "Connect GitHub" in page and 'hx-get="/ui/github/cli"' in page
+    assert 'hx-trigger="load"' in page  # nothing connected: asked at once
     assert "Find a repository" not in page  # nothing to find yet
 
     offer = client.get("/ui/github/cli").text
     assert f"Signed in as {LOGIN}" in offer and 'hx-post="/ui/github/connect/cli"' in offer
+    assert f'hx-vals=\'{{"login": "{LOGIN}"}}\'' in offer
 
-    done = client.post("/ui/github/connect/cli")
+    done = client.post("/ui/github/connect/cli", data={"login": LOGIN})
     assert done.status_code == 204 and done.headers["HX-Refresh"] == "true"
     github_svc.syncing.wait(5)
     db.expire_all()
-    link = github_svc.link(db)
-    assert (link.login, link.source, link.sync_error) == (LOGIN, GitHubSource.cli, "")
-    assert not account.has_token()
+    (link,) = github_svc.links(db)
+    assert (link.login, link.user_id, link.source, link.sync_error) == (
+        LOGIN, USER_ID, GitHubSource.cli, "",
+    )
+    assert not account.has_token(link.id)
 
     page = client.get("/repositories").text
     for words in ("Find a repository", "everyday-app", "What everyday-app is", "Public",
                   "acme-labs/", "Fork", "Archived", "pylon-legacy",
-                  "Through the GitHub CLI on this computer", "Sync now", "Disconnect"):
+                  ">GitHub CLI</span>", "Sync now", "Disconnect", "Add another account"):
         assert words in page, words
     assert 'href="https://github.com/oscartoromal-ai/everyday-app" target="_blank"' in page
     assert "Connect GitHub" not in page
+    # Adding another is folded away, gh asked only as it opens.
+    assert "<details class=\"github-add\">" in page
+    assert 'hx-trigger="toggle once from:closest details"' in page
 
     found = client.get("/ui/repositories/list", params={"q": "everyday"}).text
     assert "everyday-app" in found and "agent-conductor" not in found
     assert "No repository holds" in client.get("/ui/repositories/list", params={"q": "zz"}).text
 
 
+def test_adding_a_second_account_from_the_cli(page_client, db, github) -> None:
+    client, account, cli = page_client
+    cli.accounts[WORK_LOGIN] = WORK_TOKEN
+    github.work_repos = [repo_payload(9, "roadmaps", owner=WORK_LOGIN)]
+    client.post("/ui/github/connect/cli", data={"login": LOGIN})
+    github_svc.syncing.wait(5)
+
+    # Only the one not connected yet is offered.
+    offer = client.get("/ui/github/cli").text
+    assert f"Signed in as {WORK_LOGIN}" in offer and f"Signed in as {LOGIN}" not in offer
+    client.post("/ui/github/connect/cli", data={"login": WORK_LOGIN})
+    github_svc.syncing.wait(5)
+
+    page = client.get("/repositories").text
+    assert ">Accounts</span>" in page and WORK_LOGIN in page and WORK_NAME in page
+    # His first account's repositories go by their names, the other's by owner too.
+    assert '<span class="repo-owner">oscar-work/</span>roadmaps' in page
+    assert "Every account it is signed in to is connected" in client.get("/ui/github/cli").text
+
+    db.expire_all()
+    work = [link for link in github_svc.links(db) if link.login == WORK_LOGIN][0]
+    gone = client.post(f"/ui/github/{work.id}/disconnect")
+    assert gone.headers["HX-Refresh"] == "true"
+    db.expire_all()
+    assert [link.login for link in github_svc.links(db)] == [LOGIN]
+    assert [r.name for r in github_svc.repositories(db)] == ["everyday-app"]
+    assert client.post(f"/ui/github/{work.id}/disconnect").status_code == 404
+
+
 def test_the_cli_signed_out_or_missing(page_client, tmp_path, github) -> None:
     client, account, cli = page_client
-    cli.token = None
+    cli.accounts.clear()
     offer = client.get("/ui/github/cli").text
     assert "Not signed in" in offer and "gh auth login" in offer and "Check again" in offer
-    refused = client.post("/ui/github/connect/cli")
-    assert refused.status_code == 200 and "not signed in" in refused.text
+    refused = client.post("/ui/github/connect/cli", data={"login": LOGIN})
+    assert refused.status_code == 200 and f"not signed in as {LOGIN}" in refused.text
 
     from app.ui.repositories import get_github
 
@@ -362,8 +532,10 @@ def test_the_cli_signed_out_or_missing(page_client, tmp_path, github) -> None:
 
     github.fail = httpx.ConnectError("offline")
     client.app.dependency_overrides[get_github] = lambda: account
-    cli.token = CLI_TOKEN
-    assert "Could not reach GitHub" in client.get("/ui/github/cli").text
+    cli.accounts[LOGIN] = CLI_TOKEN
+    assert "Could not reach GitHub" in client.post(
+        "/ui/github/connect/cli", data={"login": LOGIN}
+    ).text
 
 
 def test_connecting_with_a_token_then_disconnecting(page_client, db) -> None:
@@ -374,33 +546,34 @@ def test_connecting_with_a_token_then_disconnecting(page_client, db) -> None:
     done = client.post("/ui/github/connect/token", data={"token": PASTED_TOKEN})
     assert done.status_code == 204
     github_svc.syncing.wait(5)
-    assert account.has_token()
-    page = client.get("/repositories").text
-    assert "With a token kept on this computer" in page and "everyday-app" in page
-
-    gone = client.post("/ui/github/disconnect")
-    assert gone.headers["HX-Refresh"] == "true" and not account.has_token()
     db.expire_all()
-    assert github_svc.link(db) is None and github_svc.repositories(db) == []
+    (link,) = github_svc.links(db)
+    assert account.token_file(link.id).read_text(encoding="utf-8") == PASTED_TOKEN
+    page = client.get("/repositories").text
+    assert ">Token</span>" in page and "everyday-app" in page
+
+    gone = client.post(f"/ui/github/{link.id}/disconnect")
+    assert gone.headers["HX-Refresh"] == "true" and not account.has_token(link.id)
+    db.expire_all()
+    assert github_svc.links(db) == [] and github_svc.repositories(db) == []
     assert "Connect GitHub" in client.get("/repositories").text
 
 
 def test_signed_out_by_github_asks_to_connect_again(page_client, db) -> None:
     client, account, cli = page_client
-    connected(db, account)
+    connected(db)
     github_svc.sync(db, account, now=NOW)
-    cli.token = None
-    with pytest.raises(GitHubSignedOut):
-        github_svc.sync(db, account)
-    db.commit()
+    cli.accounts.clear()
+    github_svc.sync(db, account)
     page = client.get("/repositories").text
-    assert "Connect GitHub" in page and "Syncing stopped" in page and "gh auth login" in page
+    assert "Signed out" in page and "gh auth login" in page
+    assert "<details class=\"github-add\" open>" in page and 'hx-trigger="load"' in page
     assert "everyday-app" in page  # the list kept stays in sight
 
 
 def test_syncing_from_the_page(page_client, db) -> None:
     client, account, _ = page_client
-    connected(db, account)
+    connected(db)
     db.commit()
     synced = client.post("/ui/github/sync")
     assert "Syncing" in synced.text or "today" in synced.text

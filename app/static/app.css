@@ -2376,13 +2376,27 @@ li.repo-row:hover { background: var(--glass-row-hover); }
 .github-line code { font-size: 0.93em; color: var(--ink); }
 .github-quiet { color: var(--pewter); }
 .github-error { color: var(--err-fg); }
-:is(.github-synced, .github-cli, .github-account p.me-row) :is(.me-value, .github-line) { flex: 1; min-width: 0; }
+:is(.github-link, .github-synced, .github-cli, .github-account p.me-row) :is(.me-value, .github-line) { flex: 1; min-width: 0; }
 :is(.github-synced, .github-cli, .github-account p.me-row) .github-line { padding: var(--pad-above) 0 var(--pad-below); }
-:is(.github-synced, .github-cli, .github-token) .plan-btn { flex: none; height: 24px; margin-top: calc(var(--pad-above) - 1px); }
-.github-synced .chip { margin-left: var(--s-2); vertical-align: 1px; }
-.github-cli { align-items: center; }
-.github-cli .btn { flex: none; height: 28px; margin-block: 3px; padding: 0 var(--s-4); }
-.github-cli .plan-btn { margin-top: 0; }
+:is(.github-link, .github-synced, .github-cli, .github-token) .plan-btn { flex: none; height: 24px; margin-top: calc(var(--pad-above) - 1px); }
+/* an account: its login in ink, its name quiet, a chip when its sync
+   fails; how it signs in, quiet, before its Disconnect */
+.github-link .chip { margin-left: var(--s-2); vertical-align: 1px; }
+.github-how {
+  flex: none; padding: var(--pad-above) 0 var(--pad-below);
+  font-size: var(--t-caption); color: var(--pewter); white-space: nowrap;
+}
+/* adding another account: a row that unfolds the ways to connect, as the
+   archived repositories' does */
+.github-add > summary { list-style: none; cursor: pointer; user-select: none; }
+.github-add > summary::-webkit-details-marker { display: none; }
+.github-add > summary:hover { background: var(--glass-row-hover); }
+.github-add > summary:focus-visible { outline: none; background: var(--glass-row-hover); }
+.github-add > summary .me-value { display: flex; align-items: center; gap: var(--s-2); flex: 1; font-weight: 500; }
+.github-add > summary svg { flex: none; stroke: currentColor; transition: transform var(--dur) var(--ease); }
+.github-add[open] > summary svg { transform: rotate(90deg); }
+/* Connect, the one click, a size up, still level with its row's first line */
+.github-cli .btn { flex: none; height: 28px; margin-top: calc(var(--pad-above) - 4px); padding: 0 var(--s-4); }
 .github-busy, .htmx-request .github-idle { display: none; }
 .htmx-request .github-busy { display: inline; }
 .github-account button:disabled { cursor: progress; }
@@ -3240,6 +3254,45 @@ a.doc-row:hover .item-name { text-decoration: underline; text-underline-offset: 
 .ov-add input:is(:focus, :focus-visible) { outline: none; box-shadow: none; }
 .ov-add input::placeholder { color: var(--graphite); opacity: 1; }
 .ov-add input:focus::placeholder { color: var(--pewter); }
+
+/* the GitHub repositories the line offers, under it: each its name over
+   what it is, its language and last push at its right; the one Enter
+   takes drawn as the keyboard's, with the rows' spark bar. Text starts
+   where the line's words do. */
+.repo-options {
+  --repo-indent: calc(var(--s-4) + 32px + var(--s-3));
+  padding: var(--s-1) 0; border-top: 1px solid var(--hairline-on-glass);
+}
+.repo-listbox { max-height: min(420px, 55vh); overflow-y: auto; }
+.repo-option {
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--s-3);
+  padding: 6px var(--s-4) 6px var(--repo-indent); cursor: pointer;
+}
+.repo-option[aria-selected="true"] { background: var(--glass-row-hover); }
+.repo-option[aria-selected="true"]::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px;
+  background: var(--spark); box-shadow: var(--spark-glow);
+}
+.repo-option-name { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
+.repo-option-label {
+  min-width: 0; font-size: var(--t-body-sm); line-height: 20px; font-weight: 500; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.repo-option-label .repo-owner { font-weight: 400; }
+.repo-option-name .chip { flex: none; }
+.repo-option-meta {
+  font-size: var(--t-caption); line-height: 20px; color: var(--pewter); white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.repo-option-description {
+  grid-column: 1 / -1; font-size: var(--t-caption); line-height: 18px; color: var(--graphite);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.repo-options-note {
+  margin: 0; padding: 6px var(--s-4) 6px var(--repo-indent);
+  font-size: var(--t-caption); line-height: 18px; color: var(--pewter); overflow-wrap: anywhere;
+}
+.repo-options-note a { color: var(--ink); text-underline-offset: 3px; }
 
 /* the details: a field each, its name over its line, as a form's */
 .ov-fields { display: flex; flex-direction: column; gap: var(--s-4); padding: var(--s-4); }

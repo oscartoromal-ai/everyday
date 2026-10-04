@@ -132,6 +132,8 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **A project has its own page** (Oscar's call on 2026-10-04: "Projects need their own context"): `/projects/<id>`, opened from its name on Projects, from the sidebar and from the command menu, with its Gantt as the page's second tab.
   The page is one ruled sheet, as Me's is, saved as it changes: the project (name, status, colour, notes), its repositories, and its context.
   A repository is where the project's code is, a local folder or a URL, as written; it is named after the last part of it.
+  The line to add one offers his GitHub repositories (Oscar's call on 2026-10-04: "make this easy"): focused, it lists those synced from GitHub, last pushed first, and written on, those holding its words, or the one its GitHub URL names; those already the project's are left out.
+  Up and Down move through them, Enter or a click adds the one picked as its URL on GitHub, and words nothing holds are added as written.
   The context is the documents an agent working on the project reads, in Markdown: its AGENTS.md first, which every project has and which keeps its name, then any others Oscar adds and names.
   Each document opens on a page of its own (`/projects/<id>/docs/<doc>`), written on a ruled, numbered sheet as Today's notes are and saved as it is written; any but AGENTS.md is renamed in its heading and deleted from its bin.
   The context is what the app will hand a Claude session it starts on the project (to come); for now Claude reads it over MCP (`get_project_context`), and the API serves it at `/api/projects/<id>/context`.
@@ -348,20 +350,25 @@ Oscar's call on 2026-09-30: the app keeps his money, fed by his banks' CSV expor
 ### Repositories
 
 Oscar's call on 2026-10-04: a Repositories page, connected to GitHub to pull his repositories, with connecting made as easy as it can be.
+Later that day: as many GitHub accounts as he has, connected side by side.
 
 - **Connecting is one click through the GitHub CLI** (`app/sources/github.py`), after how GitHub Desktop, VS Code and other tools sign in.
-  The CLI on the machine is usually signed in already (`gh auth login`, GitHub's own device flow); the page says as whom, and Connect uses it.
-  The app asks `gh auth token` for the token at each sync and never copies it, so signing gh out, or into another account, is followed.
+  The CLI on the machine is usually signed in already (`gh auth login`, GitHub's own device flow, once per account); the page lists the accounts it is signed in to (`gh auth status --json hosts`) that are not connected yet, and Connect on one connects as it.
+  The app asks `gh auth token --user <login>` for the account's token at each sync and never copies it, so signing gh out of it is followed.
   A registered OAuth app of the app's own was set aside: its device flow is the CLI's, with a registration to keep.
-- **Or a pasted token**, for a machine without the CLI: a link opens GitHub's form for a fine-grained token already filled in (read-only, repositories' metadata only), and the token is checked with GitHub before it is kept, in `[github].token_file` (git-ignored `local/`).
+- **Or a pasted token**, for a machine without the CLI: a link opens GitHub's form for a fine-grained token already filled in (read-only, repositories' metadata only), and the token is checked with GitHub before it is kept, in a file of the account's own in `[github].tokens_dir` (git-ignored `local/`).
+- **Several accounts.** Each account connected is a link of its own, connected, synced, signed out and disconnected on its own; signing in again as one connected already (known by its GitHub id, which a rename keeps) signs it in the new way.
+  The accounts sit at the page's foot, each its login, name, how it signs in and its Disconnect, then when the last sync finished and Add another account, folded away unless one needs connecting again.
 - **One client for GitHub.** Every request goes through `GitHub` in `app/sources/github.py`: the API version header, paging by the Link header, and GitHub's refusals in words (signed out, rate-limited until when, unreachable); a later GitHub feature is a method there.
-- **Kept in the database.** `github_link` holds who is signed in, how (`cli` or `token`) and how the last sync went; `repositories` every repository he can reach (his own, those he collaborates on, his organizations'), as GitHub had them at the last sync: name, owner, description, visibility, fork, archived, language, default branch, open issues and pull requests, and the last push in local time.
-  A sync adds the new, updates the changed and deletes the gone; disconnecting deletes the list with the link.
-  When GitHub stops accepting the sign-in, the link says so and the page asks to connect again, the list staying in sight.
-- **The page** is a ruled sheet: the repositories last pushed first, each name opening it on GitHub, another's with its owner, a public one or a fork marked; then its open issues, language and last push in columns; the archived ones folded under their own row; and the account at the foot.
+- **Kept in the database.** `github_link` holds each account: who is signed in, how (`cli` or `token`) and how its last sync went; `repositories` every repository he can reach through any of them (his own, those he collaborates on, his organizations'), as GitHub had them at the last sync: name, owner, description, visibility, fork, archived, language, default branch, open issues and pull requests, and the last push in local time.
+  `github_link_repositories` says which account reaches which: a repository two of his accounts reach is one repository, reached by both.
+  A sync syncs each account in turn: it adds the new, updates the changed and lets go of the gone, a repository being deleted once no account reaches it; disconnecting an account deletes what only it reached.
+  When GitHub stops accepting an account's sign-in, its link says so and the page asks to connect it again, its repositories staying in sight; the others sync on.
+- **The page** is a ruled sheet: the repositories last pushed first, each name opening it on GitHub, another's with its owner, a public one or a fork marked; then its open issues, language and last push in columns; the archived ones folded under their own row; and the accounts at the foot.
+  A repository of his first account goes by its name, any other's with its owner, so two of his named alike stay apart.
   A field at the header's right finds them by every word written, in their name, description or language.
 - **Synced by the scheduler** every `[github].sync_minutes` (60) and on demand.
-- **Read by Claude** through `list_repositories(query, include_archived)` over MCP.
+- **Read by Claude** through `list_repositories(query, include_archived)` over MCP: the accounts, and each repository with the accounts that reach it.
 
 ### Models
 

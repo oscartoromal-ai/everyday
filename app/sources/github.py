@@ -1,15 +1,18 @@
-"""GitHub: who the app is signed in as, and its REST API.
+"""GitHub: the accounts the app is signed in as, and its REST API.
 
 Every request the app makes to GitHub goes through here, so the next thing
 read from GitHub (issues, pull requests) is a method on GitHub, not a new
-client. Signing in is either of two ways, Oscar's choice on Repositories:
+client. Oscar connects as many accounts as he has, each either of two ways,
+his choice on Repositories:
 
-- The GitHub CLI's own sign-in (`gh auth login`, done once on the machine,
-  as GitHub Desktop, VS Code and Claude Code each sign in their own way).
-  The app asks gh for its token (`gh auth token`) at each sync and keeps
-  no copy, so signing gh out, or into another account, is followed.
+- The GitHub CLI's own sign-in (`gh auth login`, done once on the machine
+  for each account, as GitHub Desktop, VS Code and Claude Code each sign in
+  their own way). The app asks gh for the account's token (`gh auth token
+  --user`) at each sync and keeps no copy, so signing gh out of it is
+  followed.
 - A token pasted on the page, best a fine-grained one that reads metadata
-  only, kept in `[github].token_file` (git-ignored local/).
+  only, kept in a file of its own in `[github].tokens_dir` (git-ignored
+  local/).
 
 Only I/O lives here: services/github.py keeps what comes back. Tests stand
 in GitHub's API with an httpx transport, and gh with a function.
@@ -17,6 +20,7 @@ in GitHub's API with an httpx transport, and gh with a function.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shutil
@@ -30,7 +34,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from app.models import GitHubSource
+from app.models import GitHubLink, GitHubSource
 
 log = logging.getLogger(__name__)
 
@@ -194,14 +198,15 @@ Runner = Callable[[list[str]], tuple[int, str]]
 
 def _run(args: list[str]) -> tuple[int, str]:
     done = subprocess.run(
-        args, capture_output=True, text=True, timeout=15, stdin=subprocess.DEVNULL,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        args, capture_output=True, text=True, encoding="utf-8", timeout=15,
+        stdin=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     return done.returncode, done.stdout
 
 
 class GitHubCli:
-    """The GitHub CLI installed on this machine, for its sign-in."""
+    """The GitHub CLI installed on this machine, for its sign-ins: gh holds
+    one or more accounts on github.com (`gh auth login` again adds one)."""
 
     def __init__(self, path: str | None, run: Runner = _run) -> None:
         self.path = path
@@ -211,90 +216,144 @@ class GitHubCli:
     def installed(self) -> bool:
         return self.path is not None
 
-    def token(self) -> str | None:
-        """gh's token for github.com, or None when gh is missing or signed
-        out there."""
+    def _gh(self, *args: str) -> tuple[int, str] | None:
         if self.path is None:
             return None
         try:
-            code, out = self._run([self.path, "auth", "token", "--hostname", HOST])
+            return self._run([self.path, *args])
         except (OSError, subprocess.SubprocessError) as exc:
-            log.warning("gh auth token failed: %s", exc)
+            log.warning("gh %s failed: %s", " ".join(args[:2]), exc)
             return None
+
+    def logins(self) -> list[str]:
+        """The accounts gh is signed in to on github.com, its active one
+        first; none when gh is missing or signed out. gh checks each with
+        GitHub as it answers: one it can no longer sign in as is left out,
+        and GitHubUnavailable says when it could check none."""
+        done = self._gh("auth", "status", "--json", "hosts", "--hostname", HOST)
+        if done is None:
+            return []
+        # gh exits 1 while any account's sign-in fails, and still answers.
+        try:
+            accounts = json.loads(done[1] or "{}").get("hosts", {}).get(HOST) or []
+        except (ValueError, AttributeError):
+            log.warning("gh auth status answered what the app cannot read")
+            return []
+        signed_in = [a for a in accounts if a.get("state") == "success" and a.get("login")]
+        if not signed_in and any(a.get("state") == "timeout" for a in accounts):
+            raise GitHubUnavailable("The GitHub CLI could not reach GitHub. Try again in a moment.")
+        signed_in.sort(key=lambda a: not a.get("active"))
+        return [a["login"] for a in signed_in]
+
+    def token(self, login: str) -> str | None:
+        """gh's token for this account on github.com, or None when gh is
+        missing or not signed in to it."""
+        done = self._gh("auth", "token", "--hostname", HOST, "--user", login)
+        if done is None:
+            return None
+        code, out = done
         token = out.strip()
         return token if code == 0 and token else None
 
 
-# ---- the account ----
+# ---- the accounts ----
 
 
 class GitHubAccount:
-    """The app's GitHub sign-in: the CLI's, or a token kept in a file."""
+    """The app's GitHub sign-ins, an account each: the CLI's, or a token
+    kept in a file of its own."""
 
     def __init__(
-        self, token_file: Path, cli: GitHubCli, *, transport: httpx.BaseTransport | None = None
+        self,
+        tokens_dir: Path,
+        cli: GitHubCli,
+        *,
+        legacy_token_file: Path | None = None,
+        transport: httpx.BaseTransport | None = None,
     ) -> None:
-        self.token_file = token_file
+        self.tokens_dir = tokens_dir
         self.cli = cli
+        # Where the one token was kept while the app connected one account.
+        self.legacy_token_file = legacy_token_file
         self._transport = transport
 
     def _api(self, token: str) -> GitHub:
         return GitHub(token, transport=self._transport)
 
-    def has_token(self) -> bool:
-        return self.token_file.is_file()
+    def token_file(self, link_id: int) -> Path:
+        return self.tokens_dir / f"{link_id}.txt"
 
-    def cli_user(self) -> dict[str, Any] | None:
-        """Who the GitHub CLI is signed in as, or None when it is not
-        installed, signed out, or its token is no longer honoured."""
-        token = self.cli.token()
+    def has_token(self, link_id: int) -> bool:
+        return self.token_file(link_id).is_file()
+
+    def cli_user(self, login: str) -> dict[str, Any] | None:
+        """The account gh is signed in to by this login, as GitHub has it
+        (its id, login and name), or None when gh is not signed in to it or
+        GitHub no longer honours its token."""
+        token = self.cli.token(login)
         if token is None:
             return None
         with self._api(token) as api:
             try:
-                return api.user()
+                user = api.user()
             except GitHubSignedOut:
                 return None
+        return user if str(user.get("login", "")).lower() == login.lower() else None
 
-    def use_token(self, token: str) -> dict[str, Any]:
-        """Connect with a pasted token: checked with GitHub, then kept.
-        Returns the account it signs in as."""
+    def check_token(self, token: str) -> dict[str, Any]:
+        """The account a pasted token signs in as, checked with GitHub."""
         token = token.strip()
         if not token:
             raise GitHubSignInFailed("Paste a token to connect with.")
         with self._api(token) as api:
             try:
-                user = api.user()
+                return api.user()
             except GitHubSignedOut as exc:
                 raise GitHubSignInFailed("GitHub did not accept that token.") from exc
-        self.token_file.parent.mkdir(parents=True, exist_ok=True)
-        self.token_file.write_text(token, encoding="utf-8")
-        return user
 
-    def forget(self) -> None:
-        """The kept token deleted. gh's sign-in is gh's: it stays."""
-        self.token_file.unlink(missing_ok=True)
+    def keep_token(self, link_id: int, token: str) -> None:
+        path = self.token_file(link_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(token.strip(), encoding="utf-8")
 
-    def api(self, source: GitHubSource) -> GitHub:
-        """The API, signed in the way it was connected."""
-        if source == GitHubSource.cli:
-            token = self.cli.token()
+    def forget(self, link_id: int) -> None:
+        """The account's kept token deleted. gh's sign-ins are gh's: they stay."""
+        self.token_file(link_id).unlink(missing_ok=True)
+
+    def _kept_token(self, link_id: int) -> str:
+        path = self.token_file(link_id)
+        legacy = self.legacy_token_file
+        if not path.is_file() and legacy is not None and legacy.is_file():
+            # The token of the one account connected before there could be
+            # more, which can only be this one: moved to its own file.
+            path.parent.mkdir(parents=True, exist_ok=True)
+            legacy.replace(path)
+        return path.read_text(encoding="utf-8").strip() if path.is_file() else ""
+
+    def api(self, link: GitHubLink) -> GitHub:
+        """The API, signed in as the account, the way it was connected."""
+        if link.source == GitHubSource.cli:
+            token = self.cli.token(link.login)
             if token is None:
                 raise GitHubSignedOut(
-                    "The GitHub CLI is signed out on this computer. "
+                    f"The GitHub CLI on this computer is not signed in as {link.login}. "
                     "Sign it in again (gh auth login), or connect with a token."
                 )
         else:
-            token = self.token_file.read_text(encoding="utf-8").strip() if self.has_token() else ""
+            token = self._kept_token(link.id)
             if not token:
-                raise GitHubSignedOut("The app's GitHub token is gone. Connect again.")
+                raise GitHubSignedOut(f"The app's token for {link.login} is gone. Connect again.")
         return self._api(token)
 
 
 @lru_cache
 def account() -> GitHubAccount:
-    """The process's GitHub sign-in, where config says."""
+    """The process's GitHub sign-ins, where config says."""
     from app.config import get_settings
 
     settings = get_settings()
-    return GitHubAccount(settings.github_token_file, GitHubCli(find_cli(settings.github.cli)))
+    return GitHubAccount(
+        settings.github_tokens_dir,
+        GitHubCli(find_cli(settings.github.cli)),
+        legacy_token_file=settings.resolve("local/github-token.txt"),
+    )

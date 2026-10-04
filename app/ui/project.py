@@ -4,7 +4,7 @@ own, and the edits made on them. Its Gantt is app.ui.gantt's."""
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -19,6 +19,7 @@ from app.ui.project_view import (
     glance_ctx,
     head_ctx,
     project_page_ctx,
+    repo_options_ctx,
     repos_ctx,
 )
 from app.ui.views import templates
@@ -86,8 +87,10 @@ def save_about(
     return response
 
 
-def _repos(request: Request, db: DbSession, project_id: int) -> Response:
-    """Its repositories drawn again, and the header's count with them."""
+def _repos(request: Request, db: DbSession, project_id: int, added: bool = False) -> Response:
+    """Its repositories drawn again, and the header's count with them; just
+    after one is added, its line to add one quiet as the focus comes back
+    to it, rather than offering more at once."""
     project = projects_svc.get_project(db, project_id)
     db.refresh(project, ["repos"])
     return templates.TemplateResponse(
@@ -96,6 +99,7 @@ def _repos(request: Request, db: DbSession, project_id: int) -> Response:
         {
             "request": request,
             "oob_head": True,
+            "added": added,
             "tab": "overview",
             **head_ctx(db, project),
             **repos_ctx(project),
@@ -107,7 +111,18 @@ def _repos(request: Request, db: DbSession, project_id: int) -> Response:
 def add_repo(request: Request, db: DbSession, project_id: int, location: Annotated[str, Form()]):
     projects_svc.add_repo(db, project_id=project_id, location=location)
     db.commit()
-    return _repos(request, db, project_id)
+    return _repos(request, db, project_id, added=True)
+
+
+@router.get("/ui/projects/{project_id}/repo-options")
+def repo_options(request: Request, db: DbSession, project_id: int, location: str = ""):
+    """The GitHub repositories the line to add one offers, as it is written on."""
+    project = _project(db, project_id)
+    return templates.TemplateResponse(
+        request,
+        "partials/project_repo_options.html",
+        {"request": request, **repo_options_ctx(db, project, location, datetime.now())},
+    )
 
 
 @router.post("/ui/repos/{repo_id}")

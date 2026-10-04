@@ -1,0 +1,21 @@
+{# The ways to connect a GitHub account: in one click as the GitHub CLI
+   here is signed in to it (asked for once in sight: at once when `open`,
+   else as its fold opens), or with a token, which GitHub fills in for the
+   app; and why the last try failed. #}
+<div class="sheet-row me-row github-cli" id="github-cli" hx-get="/ui/github/cli"
+     hx-trigger="{% if open %}load{% else %}toggle once from:closest details{% endif %}" hx-swap="outerHTML">
+  <span class="me-label">GitHub CLI</span>
+  <span class="me-value me-unset">Looking for its sign-ins…</span>
+</div>
+<form class="github-form" hx-post="/ui/github/connect/token" hx-target="#github-account" hx-swap="outerHTML" hx-disabled-elt="find button">
+  <div class="sheet-row me-row github-token">
+    <label class="me-label" for="github-token">Or a token</label>
+    <span class="sheet-field"><input type="password" id="github-token" name="token" autocomplete="off" spellcheck="false" required placeholder="Paste a GitHub token"></span>
+    <button type="submit" class="plan-btn"><span class="github-idle">Connect</span><span class="github-busy">Connecting…</span></button>
+  </div>
+  <p class="sheet-row me-row">
+    <span class="me-label"></span>
+    <span class="github-line github-quiet"><a href="{{ new_token_url }}" target="_blank" rel="noopener noreferrer">Make one on GitHub</a>, filled in for the app to read your repositories' names and nothing else. Choose All repositories, then Generate token, and paste it here.</span>
+  </p>
+</form>
+{% if error %}<p class="sheet-row github-line github-error" role="alert">{{ error }}</p>{% endif %}

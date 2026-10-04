@@ -172,15 +172,17 @@ Garmin has no API for individuals, so the library signs in as Garmin's mobile ap
 Repositories (under Code in the sidebar, or 8) lists the GitHub repositories Oscar can reach, synced from GitHub.
 
 1. Open Repositories.
-   When the [GitHub CLI](https://cli.github.com) on this machine is signed in, it says as whom; press Connect.
-   That is all: the app asks `gh` for its sign-in at each sync (`gh auth token`) and keeps no copy of it.
+   When the [GitHub CLI](https://cli.github.com) on this machine is signed in, it lists the accounts it is signed in to; press Connect on one.
+   That is all: the app asks `gh` for the account's sign-in at each sync (`gh auth token --user`) and keeps no copy of it.
 2. Without the CLI, install it (`winget install GitHub.cli`) and sign in once (`gh auth login`), then press Check again.
 3. Or paste a token instead.
    "Make one on GitHub" opens GitHub's form already filled in for a read-only, metadata-only token; choose All repositories, Generate token, and paste it.
-   It is kept in `local/github-token.txt` in the app's home (`[github].token_file`).
-4. The first sync starts on connecting; after that the app syncs every hour while it runs (`[github].sync_minutes`), or on Sync now.
-5. If GitHub stops accepting the sign-in (the CLI signed out, or the token revoked), the page asks to connect again and the list stays.
-   Disconnect forgets the list and deletes a pasted token; the CLI stays signed in.
+   It is kept in a file of the account's own in `local/github-tokens/` in the app's home (`[github].tokens_dir`).
+4. To connect another account, sign gh in to it too (`gh auth login` again), then open Add another account under the accounts and press Connect on it, or paste a token for it.
+   A repository two accounts reach is listed once.
+5. The first sync starts on connecting; after that the app syncs every account every hour while it runs (`[github].sync_minutes`), or on Sync now.
+6. If GitHub stops accepting an account's sign-in (the CLI signed out of it, or its token revoked), its row says so and asks to connect it again; its repositories stay, and the other accounts sync on.
+   Disconnect on an account forgets the repositories only it reached and deletes its pasted token; the CLI stays signed in.
 
 Every request to GitHub goes through `app/sources/github.py`, the one GitHub client, so a later GitHub feature (issues, pull requests) is a method there.
 

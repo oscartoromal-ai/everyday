@@ -50,12 +50,12 @@
     <h2 class="sheet-row sheet-head" id="repos-none">Nothing found</h2>
     <p class="sheet-row repos-line">No repository holds “{{ query }}” in its name, description or language.</p>
   </section>
-{% elif link and not link.signed_out %}
+{% elif connected %}
   <section class="sheet-group" aria-labelledby="repos-none">
     <h2 class="sheet-row sheet-head" id="repos-none">Repositories</h2>
     <p class="sheet-row repos-line repos-quiet">
-      {% if running or not link.synced_at %}Fetching your repositories from GitHub…
-      {% else %}GitHub has no repositories for {{ link.login }} yet.{% endif %}
+      {% if running or fetching %}Fetching your repositories from GitHub…
+      {% else %}GitHub has no repositories for your accounts yet.{% endif %}
     </p>
   </section>
 {% endif %}

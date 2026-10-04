@@ -1,0 +1,31 @@
+{# The GitHub repositories the line to add one offers, under it in the
+   card: each its name (another's with its owner), what it is, its
+   language and last push; then how many more the words would find, what
+   Enter does with words nothing holds, or, before GitHub is connected,
+   where to connect it. Nothing to say, it is hidden. repo-picker.js moves
+   through them and adds the one picked. #}
+{% set note = (more and options) or (query and not options) or (not linked and not query) %}
+<div class="repo-options" id="repo-options"{% if not options and not note %} hidden{% endif %}>
+  {% if options %}
+  <div class="repo-listbox" id="repo-listbox" role="listbox" aria-label="Your GitHub repositories">
+    {% for r in options %}
+    <div class="repo-option" role="option" id="repo-option-{{ loop.index }}" aria-selected="false"
+         data-location="{{ r.url }}" title="{{ r.full_name }}">
+      <span class="repo-option-name">
+        <span class="repo-option-label">{% if r.owner %}<span class="repo-owner">{{ r.owner }}/</span>{% endif %}{{ r.name }}</span>
+        {% if r.archived %}<span class="chip neutral">Archived</span>{% endif %}
+      </span>
+      <span class="repo-option-meta"{% if r.pushed %} title="{{ r.pushed_full }}"{% endif %}>{{ r.language }}{% if r.language and r.pushed %} · {% endif %}{{ r.pushed }}</span>
+      {% if r.description %}<span class="repo-option-description">{{ r.description }}</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if more and options %}
+  <p class="repo-options-note">{{ more }} more: keep writing to find {{ "it" if more == 1 else "them" }}.</p>
+  {% elif query and not options %}
+  <p class="repo-options-note">Enter adds “{{ query }}” as written.</p>
+  {% elif not linked and not query %}
+  <p class="repo-options-note"><a href="/repositories">Connect GitHub</a> to pick one of your repositories here, or write its folder or URL.</p>
+  {% endif %}
+</div>
