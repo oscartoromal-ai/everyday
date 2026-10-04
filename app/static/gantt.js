@@ -17,9 +17,12 @@
   const sheet = document.getElementById("gantt");
   if (!sheet) return;
   const project = sheet.dataset.project;
-  const FROZEN = 5; // the box, Task, Start, the length, Due; the time follows
+  const FROZEN = 6; // the box, Task, Priority, Start, the length, Due; the time follows
   const TITLE = 1;
-  const DUE = 4;
+  const PRIORITY = 2;
+  const START = 3;
+  const LENGTH = 4;
+  const DUE = 5;
   const DAY_MS = 864e5;
 
   const store = (key, value) => { try { localStorage.setItem(key, value); } catch { /* private mode */ } };
@@ -232,7 +235,7 @@
     if (!row) return null;
     const d = row.dataset;
     if (d.kind === "task") {
-      return { op: "task", id: Number(d.id), set: { title: d.title, status: d.status, starts_on: d.startsOn, due: d.due } };
+      return { op: "task", id: Number(d.id), set: { title: d.title, status: d.status, priority: d.priority, starts_on: d.startsOn, due: d.due } };
     }
     if (d.kind === "workstream") {
       return { op: "workstream", id: Number(d.id), set: { name: d.title, status: d.status } };
@@ -493,17 +496,18 @@
     if (d.kind === "workstream") send([{ op: "workstream", id: Number(d.id), done: d.status !== "done" }]);
   };
 
-  // Delete: clears what the range covers: a bar (its time, Start or its
-  // length), or a due (and the bar ending on it).
+  // Delete: clears what the range covers: a priority, a bar (its time,
+  // Start or its length), or a due (and the bar ending on it).
   const clear = () => {
     const range = rangeRows();
     const ops = [];
     for (const row of range.rows) {
-      const id = Number(row.dataset.id);
-      if (row.dataset.kind === "task") {
-        if (range.cols.includes(DUE) && row.dataset.due) ops.push({ op: "task", id, clear: "due" });
-        else if (range.cols.some((c) => c === 2 || c === 3 || isTime(c)) && row.dataset.startsOn) ops.push({ op: "task", id, clear: "span" });
-      }
+      if (row.dataset.kind !== "task") continue;
+      const op = { op: "task", id: Number(row.dataset.id) };
+      if (range.cols.includes(PRIORITY) && row.dataset.priority) op.priority = "";
+      if (range.cols.includes(DUE) && row.dataset.due) op.clear = "due";
+      else if (range.cols.some((c) => c === START || c === LENGTH || isTime(c)) && row.dataset.startsOn) op.clear = "span";
+      if (Object.keys(op).length > 2) ops.push(op);
     }
     if (ops.length) send(ops);
   };
@@ -601,8 +605,9 @@
   };
 
   // Pasted lines onto the Task column write new tasks in the cursor's group,
-  // their columns Task, Start, the length, Due; onto Start, the length or
-  // Due they write those cells, a line a task, down from the cursor.
+  // their columns Task, Priority, Start, the length, Due; onto Priority,
+  // Start, the length or Due they write those cells, a line a task, down
+  // from the cursor.
   const paste = (text) => {
     const lines = text.replace(/\r/g, "").split("\n").filter((l) => l.trim());
     if (!lines.length) return;
@@ -620,8 +625,8 @@
       const group = row.closest(".gantt-group");
       const add = group?.querySelector(".gantt-row.kind-add");
       if (!add) return;
-      const ops = grid.map(([title = "", start = "", length = "", due = ""]) => ({
-        op: "create", workstream_id: add.dataset.workstream, title: title.trim(), start, length, due, unit: unit(),
+      const ops = grid.map(([title = "", priority = "", start = "", length = "", due = ""]) => ({
+        op: "create", workstream_id: add.dataset.workstream, title: title.trim(), priority, start, length, due, unit: unit(),
       }));
       send(ops, {
         then: (made) => {
@@ -633,7 +638,7 @@
       });
       return;
     }
-    const names = { 2: "start", 3: "length", 4: "due" };
+    const names = { [PRIORITY]: "priority", [START]: "start", [LENGTH]: "length", [DUE]: "due" };
     const all = rows();
     const targets = all.slice(all.indexOf(row)).filter((r) => r.dataset.kind === "task");
     const ops = [];
@@ -716,7 +721,8 @@
     }
     if (key === "Enter" || key === "F2") {
       handled();
-      if (cell.dataset.edit) edit(cell);
+      if (cell.dataset.edit === "priority") openPriorityMenu(cell);
+      else if (cell.dataset.edit) edit(cell);
       else if (isTime(cursor.col)) fill();
       else if (cell.hasAttribute("data-toggle")) toggle(row);
       else if (key === "Enter") step(1, 0);
@@ -726,6 +732,7 @@
       handled();
       if (cell.hasAttribute("data-toggle")) toggle(row);
       else if (isTime(cursor.col)) fill();
+      else if (cell.dataset.edit === "priority") openPriorityMenu(cell);
       else if (cell.dataset.edit) edit(cell, { value: " ", typed: true });
       return;
     }
@@ -834,7 +841,8 @@
     lastDown = { cell, at: e.timeStamp };
     if (again && cell.dataset.edit) {
       lastDown = null;
-      edit(cell);
+      if (cell.dataset.edit === "priority") openPriorityMenu(cell, { pointer: true });
+      else edit(cell);
       return;
     }
     drag = {
@@ -1071,16 +1079,16 @@
   /* ---- the menus: a task's status, and the statuses shown ---- */
 
   // In the body, not the sheet, which clips what overflows it; one open at
-  // a time. Its items are [label, value, checked].
+  // a time. Its items are [label, value, checked, icon?].
   const TICK = '<svg class="tick" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.5 3.5 7.5-8"/></svg>';
-  let menu = null; // {button, el, choose}
+  let menu = null; // {button, el, choose, skipClick}
 
   function openMenu(button, { label, role, items, choose }) {
     const el = document.createElement("div");
     el.className = "sheet-menu";
     el.setAttribute("role", "menu");
     el.setAttribute("aria-label", label);
-    for (const [text, value, checked] of items) {
+    for (const [text, value, checked, icon] of items) {
       const item = document.createElement("button");
       item.type = "button";
       item.tabIndex = -1;
@@ -1089,6 +1097,7 @@
       item.dataset.value = value;
       item.innerHTML = `<span class="label"></span>${checked ? TICK : ""}`;
       item.querySelector(".label").textContent = text;
+      if (icon) item.prepend(icon);
       el.append(item);
     }
     document.body.append(el);
@@ -1113,6 +1122,8 @@
 
   document.addEventListener("click", (e) => {
     if (!menu || e.target.closest?.("[data-status-menu], [data-gantt-show]")) return;
+    // The click of the double click that opened it.
+    if (menu.skipClick) { menu.skipClick = false; return; }
     const item = e.target.closest?.(".sheet-menu [data-value]");
     if (item && menu.el.contains(item)) menu.choose(item);
     else if (!menu.el.contains(e.target)) closeMenu(false);
@@ -1160,6 +1171,32 @@
         if (item.dataset.value !== row.dataset.status) send([{ op: "task", id: Number(row.dataset.id), status: item.dataset.value }]);
       },
     });
+  }
+
+  // A task's priority, chosen from the menu its Priority cell opens (Enter,
+  // Space or a double click), each after its bars.
+  const PRIORITIES = [["Urgent", "urgent"], ["High", "high"], ["Medium", "medium"], ["Low", "low"], ["No priority", ""]];
+  const priorityIcon = (value) => {
+    const icon = document.getElementById("gantt-priority-icon")?.content.firstElementChild?.cloneNode(true);
+    icon?.setAttribute("data-priority", value);
+    return icon;
+  };
+
+  function openPriorityMenu(cell, { pointer = false } = {}) {
+    const row = cell.closest(".gantt-row");
+    if (row?.dataset.kind !== "task") return;
+    closeMenu(false);
+    const current = row.dataset.priority;
+    openMenu(cell, {
+      label: `Priority of “${row.dataset.title}”`,
+      role: "menuitemradio",
+      items: PRIORITIES.map(([text, value]) => [text, value, value === current, priorityIcon(value)]),
+      choose: (item) => {
+        closeMenu();
+        if (item.dataset.value !== current) send([{ op: "task", id: Number(row.dataset.id), priority: item.dataset.value }]);
+      },
+    });
+    if (pointer) menu.skipClick = true;
   }
 
   /* ---- the tasks shown, by status, remembered (pc-gantt-hidden) ---- */

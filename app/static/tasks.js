@@ -207,6 +207,10 @@
       e.preventDefault();
       // The sheet opens on the field's menu; a change lands on the next row.
       window.TaskSheet.edit(row, key === "d" ? "planned_for" : "project", neighbour(row)?.id ?? null);
+    } else if (key === "!") {
+      e.preventDefault();
+      // Its priority's menu; the cursor stays on the task.
+      window.TaskSheet.edit(row, "priority", null);
     } else if (key === "x") {
       e.preventDefault();
       leaving();
@@ -254,7 +258,7 @@
 
   // A row's key pressed while its list was re-rendering, done once it has
   // settled, on the row as it is now.
-  const ROW_KEYS = new Set(["t", "m", "d", "p", "x", "e", "Enter", " ", "Delete", "Backspace"]);
+  const ROW_KEYS = new Set(["t", "m", "d", "p", "!", "x", "e", "Enter", " ", "Delete", "Backspace"]);
   const listBusy = () => !!document.querySelector("[hx-trigger*='tasks:changed'].htmx-request");
   let waiting = null; // {id, key, shiftKey}
   document.addEventListener("htmx:afterSettle", () => {

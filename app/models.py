@@ -50,6 +50,21 @@ class TaskStatus(enum.StrEnum):
     cancelled = "cancelled"
 
 
+class TaskPriority(enum.StrEnum):
+    """How much a task matters against the others, most first. A task need
+    not have one: none is no priority."""
+
+    urgent = "urgent"
+    high = "high"
+    medium = "medium"
+    low = "low"
+
+    @property
+    def label(self) -> str:
+        """Its word as the app writes it: "High"."""
+        return self.value.capitalize()
+
+
 class TaskOwner(enum.StrEnum):
     oscar = "oscar"
     claude = "claude"
@@ -149,6 +164,8 @@ class Task(Base):
     written_on: Mapped[date | None] = mapped_column(Date, default=None)
     # How long its work is thought to take, in minutes: its weight in a day's plan.
     estimate_minutes: Mapped[int | None] = mapped_column(Integer, default=None)
+    # How much it matters against the others; None for no priority.
+    priority: Mapped[TaskPriority | None] = mapped_column(_enum(TaskPriority), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     # When the current status was entered; drives the needs_review-age nudge.
     status_changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

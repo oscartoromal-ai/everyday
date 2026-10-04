@@ -24,8 +24,9 @@ SCALE_UNIT = {"weeks": "week", "days": "day"}
 WEEKS_AHEAD = 19
 # And this many weeks past the plan's last, so a bar can be drawn beyond it.
 WEEKS_PAST_PLAN = 4
-# The frozen columns before the time: the box, Task, Start, the length, Due.
-FROZEN = 5
+# The frozen columns before the time: the box, Task, Priority, Start, the
+# length, Due.
+FROZEN = 6
 # Columns before today's left in view as the sheet opens, in each scale.
 LEAD = {"weeks": 1, "days": 3}
 # A task's status as its box names it.
@@ -133,6 +134,8 @@ def _task_row(task: Task, place: _Place, scale: str, today: date, indent: bool) 
         "indent": indent,
         "status": task.status.value,
         "status_label": STATUS_LABEL[task.status],
+        "priority": task.priority.value if task.priority else "",
+        "priority_label": task.priority.label if task.priority else "",
         "starts_on": task.starts_on.isoformat() if task.starts_on else "",
         "due": task.due.isoformat() if task.due else "",
         "start_label": start_label,
@@ -147,6 +150,8 @@ def _task_row(task: Task, place: _Place, scale: str, today: date, indent: bool) 
         "tick": place.middle(task.due) if task.due and not has_bar else None,
         "describe": ", ".join(
             p for p in (task.title, span, f"due {due_label}" if due_label else "",
+                        f"{task.priority.label.lower()} priority"
+                        if task.priority else "",
                         STATUS_LABEL[task.status].lower()
                         if task.status != TaskStatus.todo else "") if p
         ),

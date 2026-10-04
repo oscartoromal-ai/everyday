@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from app.api.schemas import EventOut, ProjectOut, WorkstreamOut
 from app.api.tasks import task_out
 from app.db import session_scope
-from app.models import ProjectStatus, TaskOwner, TaskStatus
+from app.models import ProjectStatus, TaskOwner, TaskPriority, TaskStatus
 from app.services import DomainError
 from app.services import events as events_svc
 from app.services import habits as habits_svc
@@ -128,6 +128,7 @@ class TaskUpsert(BaseModel):
     due: date | None = None
     starts_on: date | None = None
     estimate_minutes: int | None = None
+    priority: TaskPriority | None = None
 
 
 @mcp.tool
@@ -138,8 +139,9 @@ def upsert_tasks(tasks: list[TaskUpsert]) -> list[dict[str, Any]]:
     Gantt (a week's work starts on its Monday): its bar runs from there to its
     due, so give a due with it (alone it ends that week's Friday); null clears
     it. estimate_minutes is how long its work is thought to take (its weight
-    in a day's plan); null clears it. owner is oscar
-    or claude. notes is the description: write
+    in a day's plan); null clears it. priority is how much it matters
+    against his other tasks: urgent, high, medium or low; null is none. owner is
+    oscar or claude. notes is the description: write
     sub-tasks as '- ' lines (tick one by rewriting it as '- [x] '), keeping context
     lines next to the sub-tasks they explain."""
     out: list[dict[str, Any]] = []

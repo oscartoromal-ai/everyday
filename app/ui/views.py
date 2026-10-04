@@ -22,6 +22,7 @@ from app.models import (
     ProjectStatus,
     Task,
     TaskOwner,
+    TaskPriority,
     TaskStatus,
     Workstream,
     WorkstreamStatus,
@@ -173,6 +174,8 @@ def sheet_ctx(db: Session, task: Task, today: date) -> dict[str, Any]:
         # How long it is thought to take, in minutes, as the sheet's field holds it.
         "estimate": task.estimate_minutes or "",
         "estimate_label": duration_label(task.estimate_minutes) if task.estimate_minutes else "",
+        "priority": task.priority.value if task.priority else "",
+        "priority_label": task.priority.label if task.priority else "",
         "project_label": project_label,
         "project_color": task.project.color if task.project else None,
         "projects": projects,
@@ -192,6 +195,8 @@ def row_ctx(task: Task, now: datetime) -> dict[str, Any]:
         "estimate_label": (
             duration_label(task.estimate_minutes) if task.estimate_minutes else None
         ),
+        "priority": task.priority.value if task.priority else None,
+        "priority_label": task.priority.label if task.priority else None,
         "planned_label": short_date(task.planned_for, today) if task.planned_for else None,
         "task": task,
         "done": task.status == TaskStatus.done,
@@ -347,8 +352,11 @@ def workstream_ctx(db: Session, workstream: Workstream) -> dict[str, Any]:
 
 
 def _plan_order(task: Task) -> tuple:
-    """Soonest first: do-date, then deadline, then oldest undated."""
-    return (task.planned_for or date.max, task.due or date.max, task.created_at)
+    """Soonest first: do-date, then deadline, then priority, then oldest."""
+    return (
+        task.planned_for or date.max, task.due or date.max, tasks_svc.priority_rank(task),
+        task.created_at,
+    )
 
 
 def project_card_ctx(db: Session, project: Project, now: datetime) -> dict[str, Any]:
@@ -387,6 +395,7 @@ HABIT = "/habit"
 # A task's fields as the sheet posts them (fragments.save_task).
 TASK_FIELDS = (
     "planned_for", "due", "repeat", "project_id", "workstream_id", "status", "owner", "estimate",
+    "priority",
 )
 
 
@@ -585,6 +594,7 @@ HISTORY_FIELDS = {
     "due": "Due",
     "starts_on": "Start week",
     "estimate_minutes": "Estimate",
+    "priority": "Priority",
 }
 STATUS_WORDS = {
     "todo": "To do",
@@ -622,6 +632,8 @@ def _history_value(field: str, value: Any, today: date) -> str:
         return f"{short_date(start, today)} ({week_label(start, today)})"
     if field == "estimate_minutes":
         return duration_label(int(value))
+    if field == "priority":
+        return TaskPriority(value).label
     if field == "status":
         return STATUS_WORDS.get(value, value)
     if field == "owner":

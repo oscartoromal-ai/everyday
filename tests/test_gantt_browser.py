@@ -46,6 +46,14 @@ def test_a_task_and_its_weeks_are_written_from_the_keyboard(page, live, project)
     page.keyboard.type("Write the spec")
     page.keyboard.press("Tab")
     _row(page, "Write the spec").wait_for()
+    # Its priority, as a letter, then on to its Start.
+    page.keyboard.type("h")
+    page.keyboard.press("Tab")
+    page.wait_for_function(
+        "document.querySelector('.gantt-row[data-title=\"Write the spec\"]')"
+        ".dataset.priority === 'high'"
+    )
+    assert _row(page, "Write the spec").locator(".gantt-priority").inner_text() == "High"
     page.keyboard.type("next week")
     page.keyboard.press("Tab")
     page.wait_for_function(
@@ -314,7 +322,7 @@ def test_ctrl_arrows_stop_at_the_edges_of_what_is_drawn(page, live, app_db) -> N
     page.keyboard.press("Control+ArrowLeft")
     assert at() == ("Draft", day(2))
     page.keyboard.press("Control+ArrowLeft")
-    assert page.evaluate("document.activeElement.dataset.col") == "4"
+    assert page.evaluate("document.activeElement.dataset.col") == "5"  # Due
 
     # Think has no days: today stops it on the way in, and on the way back.
     _row(page, "Think").locator(".gantt-due").click()

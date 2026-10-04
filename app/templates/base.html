@@ -202,7 +202,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
           <dt><kbd>Ctrl</kbd> <kbd>Enter</kbd></dt><dd>Add the task, or save it</dd>
           <dt><kbd>Esc</kbd></dt><dd>Back to the list (an edit saves)</dd>
           <dt><kbd>Tab</kbd></dt><dd>Through the fields; in the description, nests a sub-task</dd>
-          <dt>friday <kbd>Space</kbd></dt><dd>Words become fields: today, tomorrow, a weekday, next week; at 3pm, 15:00-16:30; due friday; every day, weekday, week or month; 45m, 1h30, 2 hours (the estimate)</dd>
+          <dt>friday <kbd>Space</kbd></dt><dd>Words become fields: today, tomorrow, a weekday, next week; at 3pm, 15:00-16:30; due friday; every day, weekday, week or month; 45m, 1h30, 2 hours (the estimate); p1 to p4 (the priority, urgent to low)</dd>
           <dt><kbd>Backspace</kbd></dt><dd>Right after, turns them back into words</dd>
         </dl>
         <h3>Today</h3>
@@ -267,6 +267,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
           <dt><kbd>T</kbd> <kbd>M</kbd></dt><dd>Do today, tomorrow</dd>
           <dt><kbd>D</kbd></dt><dd>Pick a day, or none</dd>
           <dt><kbd>P</kbd></dt><dd>Project and workstream</dd>
+          <dt><kbd>!</kbd></dt><dd>Priority</dd>
           <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Fold the cursor's project to its name, or unfold it (Alt+click its chevron: every project)</dd>
           <dt><kbd>Space</kbd></dt><dd>Show the description; opens Done and shelves</dd>
           <dt><kbd>Delete</kbd></dt><dd>Delete, after asking</dd>
@@ -276,17 +277,17 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         <dl>
           <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> <span class="or">or</span> <kbd>Tab</kbd></dt><dd>Move between cells; with Shift, hold a range. Right from Due goes to the row's own days</dd>
           <dt><kbd>Ctrl</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>To the end of the bars (or words) the cursor is on, else the next ones, else the sheet's edge</dd>
-          <dt>Typing, <kbd>Enter</kbd> <span class="or">or</span> <kbd>F2</kbd></dt><dd>Write in the cell: a task, W42, 12 Oct or next week, a length (3, 3w, 10d); Enter keeps it and goes down, Tab across, Esc drops it</dd>
+          <dt>Typing, <kbd>Enter</kbd> <span class="or">or</span> <kbd>F2</kbd></dt><dd>Write in the cell: a task, a priority (urgent, high, medium, low, or 1 to 4), W42, 12 Oct or next week, a length (3, 3w, 10d); Enter keeps it and goes down, Tab across, Esc drops it. On Priority, Enter opens its menu</dd>
           <dt><kbd>V</kbd></dt><dd>Weeks or days (outside the sheet's cells)</dd>
           <dt><kbd>Alt</kbd> <kbd>W</kbd></dt><dd>Add a workstream: write its name, Enter keeps it</dd>
           <dt><kbd>Space</kbd></dt><dd>On the time: the bar over the weeks or days held; on the box: a task to its next status (in progress, review, done, to do)</dd>
           <dt><kbd>Alt</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>Bars a week (or a day) earlier or later; with Shift, their ends; on a workstream's row, fold it or open it</dd>
           <dt><kbd>Alt</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dt><dd>The task a row up or down, into the workstream above or below; or drag it by its number</dd>
-          <dt><kbd>Delete</kbd></dt><dd>On Task: delete the tasks held, after asking (or a task's bin, on hover); elsewhere: clear the bars or dues held</dd>
+          <dt><kbd>Delete</kbd></dt><dd>On Task: delete the tasks held, after asking (or a task's bin, on hover); elsewhere: clear the priorities, bars or dues held</dd>
           <dt><kbd>Ctrl</kbd> <kbd>-</kbd></dt><dd>Delete the tasks held, or a workstream (its tasks stay), after asking</dd>
           <dt><kbd>Ctrl</kbd> <kbd>Enter</kbd></dt><dd>Open the cursor's task on its page (or the arrow at its Task cell's end, on hover)</dd>
           <dt><kbd>Ctrl</kbd> <kbd>Z</kbd> <span class="or">or</span> <kbd>Y</kbd></dt><dd>Undo, redo</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>C</kbd> <kbd>V</kbd></dt><dd>Copy cells; paste lines onto Task as new tasks (Task, Start, Wks, Due in columns)</dd>
+          <dt><kbd>Ctrl</kbd> <kbd>C</kbd> <kbd>V</kbd></dt><dd>Copy cells; paste lines onto Task as new tasks (Task, Priority, Start, Wks, Due in columns)</dd>
         </dl>
       </section>
     </div>

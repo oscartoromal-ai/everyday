@@ -61,7 +61,8 @@ def _stay_columns(
 
 def _tasks(db: Session, first: date, last: date) -> dict[date, list[dict[str, Any]]]:
     """Each day's tasks: Oscar's planned for it (done ones too), then those
-    still open due on it, a deadline still open saying so."""
+    still open due on it, a deadline still open saying so; each by priority,
+    then as written."""
     found = db.scalars(
         select(Task)
         .where(
@@ -74,7 +75,12 @@ def _tasks(db: Session, first: date, last: date) -> dict[date, list[dict[str, An
     out: dict[date, list[dict[str, Any]]] = {}
     for task in found:
         done = task.status == TaskStatus.done
-        entry = {"id": task.id, "title": task.title, "done": done, "status": task.status.value}
+        entry = {
+            "id": task.id, "title": task.title, "done": done, "status": task.status.value,
+            "priority": task.priority.value if task.priority else "",
+            "priority_label": task.priority.label if task.priority else "",
+            "rank": tasks_svc.priority_rank(task),
+        }
         if task.planned_for and first <= task.planned_for <= last:
             out.setdefault(task.planned_for, []).append(
                 {**entry, "due": task.due == task.planned_for and not done, "only_due": False}
@@ -85,7 +91,8 @@ def _tasks(db: Session, first: date, last: date) -> dict[date, list[dict[str, An
         ):
             out.setdefault(task.due, []).append({**entry, "due": True, "only_due": True})
     for entries in out.values():
-        entries.sort(key=lambda t: t["only_due"])  # the day's work, then its deadlines
+        # The day's work, then its deadlines; the most pressing first in each.
+        entries.sort(key=lambda t: (t["only_due"], t["rank"]))
     return out
 
 

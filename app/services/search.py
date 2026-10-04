@@ -52,6 +52,8 @@ def _task_meta(task: Task, today: date) -> str:
     if task.status == TaskStatus.done:
         return "done"
     parts = []
+    if task.priority:
+        parts.append(task.priority.value)
     if task.planned_for:
         parts.append(short_date(task.planned_for, today))
     if task.due:
