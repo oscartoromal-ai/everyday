@@ -1,0 +1,41 @@
+{# Settings' Check for updates, in the installed app (app/desktop/update.py):
+   it looks at GitHub's master now and, when there is a newer commit, starts
+   building it at once; while it builds it is looked at again every few
+   seconds (with Settings open), until it is staged for Restart. After a
+   check the rail's Update button comes along, out of band. #}
+{# GitHub out of reach says so, unless an update is under way or staged already. #}
+{% if update and (not why or update.state in ("updating", "staged")) %}{% set state = update.state %}
+{% else %}{% set state = "unreachable" if why else "current" %}{% endif %}
+{% set icon %}<svg class="update-check__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v3.8h-3.8"/></svg>{% endset %}
+<div id="update-check" class="update-check" data-update="{{ state }}"
+     {% if state == "updating" %}hx-get="/ui/desktop/update/check" hx-trigger="every 4s [this.closest('dialog')?.open]" hx-swap="outerHTML"{% endif %}>
+  <p class="update-check__status" role="status">
+    {% if state == "updating" %}
+    {{ icon }}Downloading and building {{ update.latest }}. Restart to update shows here and in the sidebar once it is ready, in a few minutes.
+    {% elif state == "staged" %}
+    {{ update.latest }} is downloaded and ready (this is {{ update.installed }}).
+    {% elif state == "failed" %}
+    The update to {{ update.latest }} failed{% if update.log %}; why is in {{ update.log }}{% endif %}.
+    {% elif state == "ready" %}
+    {{ update.latest }} is out (this is {{ update.installed }}).
+    {% elif state == "unreachable" %}
+    Could not reach GitHub: {{ why }}
+    {% elif checked %}
+    Up to date: nothing newer on GitHub.
+    {% else %}
+    Looks on GitHub for a newer version, and downloads it.
+    {% endif %}
+  </p>
+  {% if state == "staged" %}
+  <button type="button" class="btn primary" hx-post="/ui/desktop/restart" hx-target="#rail-update" hx-swap="innerHTML">Restart to update</button>
+  {% elif state != "updating" %}
+  <button type="button" class="btn quiet" data-update-check
+          hx-post="/ui/desktop/update/check" hx-target="#update-check" hx-swap="outerHTML" hx-disabled-elt="this">
+    <span class="update-check__idle">{{ {"ready": "Download update", "failed": "Try again", "unreachable": "Try again"}.get(state, "Check for updates") }}</span>
+    <span class="update-check__busy">{{ icon }}Checking…</span>
+  </button>
+  {% endif %}
+</div>
+{% if oob %}
+<div id="rail-update" class="rail-update" hx-swap-oob="true">{% include "partials/update_button.html" %}</div>
+{% endif %}

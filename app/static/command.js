@@ -94,6 +94,13 @@
           run: press("button.update-button"),
         }]
       : []),
+    // Settings' Check for updates, in the installed app: Settings opened on it, looking.
+    ...(document.getElementById("update-check")
+      ? [{
+          kind: "Do", label: "Check for updates", words: "upgrade download new version release latest",
+          run: () => { press("[data-settings-open]")(); press("[data-update-check]")(); },
+        }]
+      : []),
     { kind: "Do", label: "Every key", words: "keyboard shortcuts help", hint: "?",
       run: () => { const keys = document.getElementById("keys-dialog"); keys.showModal(); keys.focus(); } },
   ];

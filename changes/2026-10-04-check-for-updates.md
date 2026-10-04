@@ -1,0 +1,1 @@
+- Feature: Check for updates from Settings: it looks on GitHub now and, when there is a newer version, starts downloading it at once
