@@ -3,7 +3,7 @@
    has enough days), then a row saying how. Drawn again after each save, and
    after a weigh-in. #}
 <section class="sheet-group me-context" id="me-context" aria-labelledby="me-glance"
-         hx-get="/ui/me/context" hx-trigger="me:changed from:body" hx-swap="outerHTML">
+         hx-get="/ui/me/context" hx-trigger="me:changed from:body" hx-swap="outerHTML" hx-sync="this:replace" hx-disinherit="hx-sync">
   <h2 class="sheet-row sheet-head" id="me-glance">At a glance</h2>
   <dl class="me-figures">
     <div class="sheet-row me-row">

@@ -20,7 +20,7 @@
 </ul>
 {% endmacro %}
 <div class="repos-list" id="repos-list"
-     hx-get="/ui/repositories/list" hx-trigger="github:synced from:body" hx-include=".repos-find input" hx-swap="outerHTML">
+     hx-get="/ui/repositories/list" hx-trigger="github:synced from:body" hx-include=".repos-find input" hx-swap="outerHTML" hx-sync="this:replace" hx-disinherit="hx-sync">
 {% if repos or archived %}
   {% if repos %}
   <section class="sheet-group" aria-labelledby="repos-active">

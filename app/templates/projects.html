@@ -36,11 +36,14 @@
   </section>
 
   {# Re-renders whenever a task or a project changes; task-sheet.js carries
-     any half-written composer across the swap. #}
+     any half-written composer across the swap. A newer refresh replaces one
+     in flight: queued behind it, it would be dropped once the older one swaps
+     this element out, and a task added meanwhile would vanish until the next.
+     So does every list here that redraws itself whole. #}
   <div id="task-groups" class="tasks-groups" data-cursor
        hx-get="/projects" hx-select="#task-groups" hx-select-oob="#projects-rest,#projects-overview" hx-swap="outerHTML"
        hx-trigger="task:added from:body, tasks:changed from:body, calendar:refresh from:body"
-       hx-disinherit="hx-get hx-select hx-select-oob hx-swap hx-trigger">
+       hx-sync="this:replace" hx-disinherit="hx-get hx-select hx-select-oob hx-swap hx-trigger hx-sync">
     {# Styled as a project card, so it reads as a sibling of the ones below. #}
     <section class="project-card" id="group-loose" data-file-project="">
       <header>

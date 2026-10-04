@@ -5,7 +5,7 @@
 {% set m = totals %}
 {% set key = month.strftime("%Y-%m") %}
 <div class="money-totals" id="money-totals"
-     hx-get="/ui/money/{{ key }}/totals" hx-trigger="money:sorted from:body" hx-swap="outerHTML">
+     hx-get="/ui/money/{{ key }}/totals" hx-trigger="money:sorted from:body" hx-swap="outerHTML" hx-sync="this:replace" hx-disinherit="hx-sync">
 <section class="sheet-group" aria-labelledby="money-month">
   <h2 class="sheet-row sheet-head" id="money-month">The month{% if m.so_far %} <span class="count">so far</span>{% endif %}</h2>
   <dl class="money-figures">

@@ -6,7 +6,7 @@
      data-hour-px="{{ grid.hour_px }}"
      hx-get="/calendar/grid?start={{ grid.start.isoformat() }}&days={{ grid.day_count }}&head={{ 'true' if grid.head else 'false' }}"
      hx-trigger="calendar:refresh from:body"
-     hx-swap="outerHTML">
+     hx-swap="outerHTML" hx-sync="this:replace" hx-disinherit="hx-sync">
   {% set has_all_day = grid.days | selectattr("all_day") | list | length > 0 %}
   {# A day's load: what its planned tasks are estimated at against the time
      still free in its usual hours, in the tooltip with the meetings' time. #}

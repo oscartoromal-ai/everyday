@@ -3,7 +3,7 @@
    watch. Today's is redrawn each minute and as the calendar changes, so
    its waits stay true. #}
 <div class="day-glance" id="day-glance"
-     {% if glance.live %}hx-get="/today/glance" hx-trigger="every 60s, calendar:refresh from:body" hx-swap="outerHTML"{% endif %}>
+     {% if glance.live %}hx-get="/today/glance" hx-trigger="every 60s, calendar:refresh from:body" hx-swap="outerHTML" hx-sync="this:replace" hx-disinherit="hx-sync"{% endif %}>
   {% if glance.on %}
   <ul class="glance-on">
     {% for item in glance.on %}
