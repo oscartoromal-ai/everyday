@@ -108,6 +108,23 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 .rail-back .rail-button__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .rail-back:disabled { color: var(--mist); background: none; cursor: default; }
 
+/* New task, the rail's one action: a plus in a spark disc (pink is you),
+   then its name in ink and its key, on a nav row's metrics */
+.rail-new {
+  flex: none; display: flex; align-items: center; gap: 10px;
+  width: 100%; margin: calc(-1 * var(--s-3)) 0 var(--s-6); padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-ctl);
+  font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); white-space: nowrap;
+  transition: background-color var(--dur) var(--ease);
+}
+.rail-new:hover { background: var(--glass-hover); }
+.rail-new__icon {
+  flex: none; display: grid; place-content: center; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--spark); box-shadow: var(--spark-glow);
+}
+.rail-new__icon svg { width: 12px; height: 12px; fill: none; stroke: var(--on-spark); stroke-width: 2; stroke-linecap: round; }
+.rail-new:hover .rail-new__icon { background: var(--spark-hover); }
+
 .nav { display: flex; flex-direction: column; gap: var(--s-6); }
 /* a desktop rail too short for every page and project: the nav scrolls between
    the head and the foot, wide enough on its left for the current page's spark */
@@ -300,7 +317,10 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 :root[data-rail="collapsed"] .nav-key { left: calc(50% - 19px); }
 :root[data-rail="collapsed"] .nav-group-label { height: 0; margin: 0 var(--s-1) var(--s-3); padding: 0; border-top: 1px solid var(--chrome-flank-border); font-size: 0; }
 :root[data-rail="collapsed"] .nav a,
-:root[data-rail="collapsed"] .rail-button { justify-content: center; padding-inline: 0; }
+:root[data-rail="collapsed"] .rail-button,
+:root[data-rail="collapsed"] .rail-new { justify-content: center; padding-inline: 0; }
+:root[data-rail="collapsed"] .rail-new__label,
+:root[data-rail="collapsed"] .rail-new .rail-button__key { display: none; }
 /* compact rows' toggle: three lines that close up when on */
 .density-toggle__icon {
   flex: none; width: 16px; height: 16px;
@@ -328,8 +348,14 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
   }
   .rail-head, .rail-back, .nav-group-label, .nav-fold, .nav-hide, .nav-sub { display: none; }
   .nav-item { display: contents; }
-  .rail-foot { display: flex; align-self: center; margin: 0; padding: 0 0 0 var(--s-1); border-top: none; border-left: 1px solid var(--chrome-flank-border); }
+  .rail-foot { order: 2; display: flex; align-self: center; margin: 0; padding: 0 0 0 var(--s-1); border-top: none; border-left: 1px solid var(--chrome-flank-border); }
   .rail-button { width: 44px; height: 44px; padding: 0; justify-content: center; }
+  /* New task ends the tabs, its disc the bar's one spark beside the current tab's */
+  .rail-new { order: 1; align-self: center; width: 44px; height: 44px; margin: 0; padding: 0; justify-content: center; }
+  .rail-new:hover { background: none; }
+  .rail-new__icon { width: 28px; height: 28px; }
+  .rail-new__icon svg { width: 14px; height: 14px; }
+  .rail-new__label, .rail-new .rail-button__key { display: none; }
   .update-button__dot { position: absolute; top: calc(50% - 9px); left: calc(50% + 4px); margin: 0; }
   .rail-button:hover { background: none; }
   .rail-button__label, .rail-button__key { display: none; }
@@ -847,6 +873,22 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   fill: none; stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
 }
 .sheet-menu .aside + .tick { margin-left: 0; }
+/* a menu that filters (projects): a line to find one on, written on the line;
+   the item Enter takes is drawn as the keyboard's, and a name found nowhere says so */
+.sheet-menu-find {
+  display: block; width: 100%; margin: 0 0 var(--s-1); padding: 6px 10px 7px;
+  border: none; border-bottom: 1px solid var(--hairline); background: transparent;
+  font: inherit; color: var(--ink); outline: none;
+}
+.sheet-menu-find::placeholder { color: var(--pewter); }
+.sheet-menu-find:is(:focus, :focus-visible) { outline: none; box-shadow: none; border-radius: 0; border-bottom-color: var(--ink); }
+.sheet-menu [hidden] { display: none; }
+.sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"])[data-active] { background: var(--fog); }
+.sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"])[data-active]::before {
+  content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px;
+  background: var(--spark); box-shadow: var(--spark-glow);
+}
+.sheet-menu-empty { margin: 0; padding: 6px 10px; color: var(--pewter); font-size: var(--t-caption); }
 /* the native picker anchors to its input, which sits unseen under the item */
 .sheet-menu .pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
 
@@ -1080,6 +1122,25 @@ dialog.capture-dialog {
 }
 dialog.capture-dialog[open] { animation: confirm-in 220ms var(--ease); }
 dialog.capture-dialog::backdrop { background: var(--scrim); }
+/* its foot from the start: where the task goes, and how to add it */
+.capture-dialog .task-sheet:not(.composing) .sheet-more { display: block; }
+/* one line: a long Project › Workstream gives way (its full name on hover), then the hint */
+.capture-dialog .sheet-actions { flex-wrap: nowrap; margin-top: var(--s-2); }
+.capture-dialog .sheet-actions > * { flex: none; }
+.capture-dialog .sheet-actions > .spacer { flex: 1; }
+.capture-dialog .sheet-actions > .prop.file-into { flex: 0 1 auto; min-width: 0; }
+.capture-dialog .sheet-actions .hint { white-space: nowrap; }
+/* a phone: no hint, and where it goes has a line of its own, Cancel and Add task under it at the right */
+@media (max-width: 640px) {
+  .capture-dialog .sheet-actions { flex-wrap: wrap; }
+  .capture-dialog .sheet-actions .hint { display: none; }
+  .capture-dialog .sheet-actions > .spacer { flex-basis: 100%; height: 0; }
+  .capture-dialog .sheet-actions > [data-composer-cancel] { margin-left: auto; }
+}
+/* where it goes, named in full, a chevron after: the window's one choice in words */
+.prop.file-into { margin: 0 0 0 -8px; padding: 2px 8px; gap: 6px; max-width: 100%; color: var(--graphite); font-variant-numeric: normal; }
+.prop.file-into .prop-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prop.file-into.in-project { color: var(--ink); }
 
 /* the command menu (Ctrl+K, command.js): the capture window's paper, a line
    to write on, then what it finds, grouped, the one Enter opens in fog */
@@ -1992,6 +2053,9 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .task-sheet.pad-props .prop { height: var(--pad-text); min-height: 0; margin: 0; padding-block: 0; }
 /* a project's flag keeps its colour, set or hovered */
 .task-sheet :is(.prop.in-project, .prop.in-project:hover, .prop.in-project[aria-expanded="true"]) svg { stroke: var(--project); }
+/* but not the New task window's chevron after it */
+.task-sheet .prop.file-into svg.file-into__chevron { width: 10px; height: 10px; fill: none; stroke: var(--steel); stroke-width: 1.6; }
+.task-sheet .prop.file-into:is(:hover, [aria-expanded="true"]) svg.file-into__chevron { stroke: var(--ink); }
 .task-sheet.pad-props .task-delete { width: 24px; height: var(--pad-text); margin: 0; opacity: 1; }
 
 /* under the notes: the habits due this day not yet written, each a name

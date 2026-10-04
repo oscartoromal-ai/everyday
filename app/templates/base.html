@@ -104,6 +104,12 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       <svg class="rail-back__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
       <span class="rail-button__label" data-back-label>Back</span>
     </button>
+    {# New task, from any page: the New task window (#capture-dialog, shell.js). #}
+    <button type="button" class="rail-new" data-capture-open aria-haspopup="dialog" aria-keyshortcuts="N" title="New task (N)">
+      <span class="rail-new__icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 5v10"/><path d="M5 10h10"/></svg></span>
+      <span class="rail-new__label">New task</span>
+      <kbd class="rail-button__key">N</kbd>
+    </button>
     <nav class="nav" id="main-nav" aria-label="Main">
       {% for placed in rail_layout(request) %}{% set section = placed.section %}
       <div class="nav-group" data-section="{{ section.key }}"{% if section.label %} role="group" aria-labelledby="nav-{{ section.key }}"{% endif %}>
@@ -179,17 +185,18 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
     </div>
   </form>
 </dialog>
-{% if active in ("today", "calendar") %}
-{# N or Shift+N on a page without a list of its own: a task sheet in a window
-   (shell.js). New tasks join a list nobody sees here, so the page says where
+{# The New task window: the sidebar's New task, or N on a page without a list
+   of its own (shell.js). A task sheet that files the task into a project and
+   workstream at its foot (or with #), the project of a project's pages to
+   start with. New tasks join a list nobody sees here, so the page says where
    each one went; Esc closes it and keeps a half-written draft. #}
 <dialog id="capture-dialog" class="capture-dialog" aria-label="New task">
-  {% with mode = "compose", target = "capture-sink", planned_for = None, project_id = None, placeholder = "Add a task…" %}
+  {% with mode = "compose", target = "capture-sink", planned_for = None, placeholder = "Add a task…",
+          project_id = project.id if active == "project" else None, file_into = capture_projects(request) %}
     {% include "partials/task_sheet.html" %}
   {% endwith %}
   <ul id="capture-sink" hidden></ul>
 </dialog>
-{% endif %}
 {# Ctrl+K (or Cmd+K) opens it anywhere, and Search in the rail (command.js). #}
 <dialog id="command-dialog" class="command-dialog" aria-label="Search, go or do">
   <input class="command-input" type="text" placeholder="Search tasks, events, notes; a page or a day; or a thing to do"
@@ -241,7 +248,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         <h3>Anywhere</h3>
         <dl>
           <dt><kbd>Alt</kbd> <kbd>1</kbd>–<kbd>9</kbd></dt><dd>The sidebar's pages, as it shows them; hold Alt to see their numbers</dd>
-          <dt><kbd>N</kbd> <span class="or">or</span> <kbd>Shift</kbd> <kbd>N</kbd></dt><dd>New task</dd>
+          <dt><kbd>N</kbd> <span class="or">or</span> <kbd>Shift</kbd> <kbd>N</kbd></dt><dd>New task (the sidebar's New task too, from any page)</dd>
           <dt><kbd>Alt</kbd> <kbd>←</kbd></dt><dd>Back to the page before, as you left it (or the mouse's back button; on a sheet's cell, Alt ← is the sheet's)</dd>
           <dt><kbd>?</kbd></dt><dd>These keys</dd>
           <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Search tasks, projects, events and notes; go to a page or a day ("friday", "12 oct"); or do (new task or event, theme)</dd>
@@ -265,6 +272,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
           <dt><kbd>Ctrl</kbd> click</dt><dd>Opens a link in the description</dd>
           <dt>friday <kbd>Space</kbd></dt><dd>Words become fields: today, tomorrow, a weekday, next week; at 3pm, 15:00-16:30; due friday; every day, weekday, week or month; 45m, 1h30, 2 hours (the estimate); p1 to p4 (the priority, urgent to low)</dd>
           <dt><kbd>Backspace</kbd></dt><dd>Right after, turns them back into words</dd>
+          <dt><kbd>#</kbd> name</dt><dd>Files it in a project or workstream: <kbd>↑</kbd> <kbd>↓</kbd> pick, <kbd>Enter</kbd> or <kbd>Tab</kbd> take it; a few letters of the project's name and the workstream's will do</dd>
         </dl>
         <h3>Today</h3>
         <dl>

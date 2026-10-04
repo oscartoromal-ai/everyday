@@ -104,7 +104,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   Then how Oscar came into the day, from his watch: readiness (a low one, Garmin's POOR or LOW, asking to keep the day light), sleep and its score, and body battery; a past day's page shows its own.
   Today's is redrawn each minute and as the calendar changes.
   On a phone the page stacks: the header with its glance first, so the next thing on is the first thing seen, then the notes and their lists, then the timeline in a window of its own (75% of the screen), opened on now.
-  N writes a new task from Today in the capture window, as on Calendar.
+  N writes a new task from Today in the capture window, as on Calendar and every page without a list of its own; the sidebar's New task opens that window on every page, filing the task into a project and workstream as it is written (Oscar's ask on 2026-10-04).
   Today's page opens with the nudge center, above the notes, each nudge saying its days from today ("due today" for one raised yesterday as "due tomorrow").
   It replaces [the notebook](#the-notebook-decided-2026-09-26), where lines became tasks and reflections, and the storyboard sheet that followed it; both are in git history.
 - **Calendar** (Oscar's call on 2026-10-02, against Google Calendar, Notion Calendar and Fantastical) is the time grid of events, as a day, three days or a week (D, X, W), or the sheet of days (S), the choice remembered on each device and a phone starting on three days.

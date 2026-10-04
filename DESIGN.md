@@ -72,6 +72,8 @@ Field names are 12px/500 graphite Inter, as the notes' "Task" label is: Inter is
 The shell is a 240px matte sidebar plus a content column on the canvas.
 The wordmark is Brasa's pattern: the name in 600 followed by a spark period, "Personal Calendar.".
 At night the name carries a faint halo (`--ink-glow-text`) and the period glows and strikes once on load, three stutters and then steady, like a tube coming on (`--spark-entrance`).
+Under the wordmark, New task is the sidebar's one action, from any page: an 18px spark disc with a plus in `--on-spark` (pink is you; glowing at night), then "New task" in 14px/500 ink and its key ("N") in a hairline box at the right, on a nav item's metrics; it opens the capture window (see Capture window).
+The icon rail keeps the disc alone, and the phone's tab bar ends its tabs with it, 28px in a 44px target, before the foot's hairline.
 Nav items are 14px/500 graphite; the active one is ink 600 with Brasa's 3px spark bar, glowing at night, inset 8px from the viewport edge.
 Nav is grouped in the Brasa manner: the planning pages (Today, Calendar) sit under a 12px pewter "Planner" group label, Today first since the app opens on it; Projects follows as a second group, Health (Nutrition, Me, Garmin) a third, Finances (Spending, Accounts, Bills, Goals) a fourth, and Code (Repositories) a fifth, each under its own label.
 That is the order the code lists; Oscar's own is kept as the `rail` setting in the database (`app/services/rail.py`), so it holds on every device.
@@ -147,7 +149,7 @@ The words leave the title as they convert, and Backspace straight after puts the
 The description follows under the title, aligned with its text.
 Editing adds an end line under the description: the project (its flag, filled in the project's colour with the project and workstream named on hover; an outline and "No project" when there is none; one menu of open projects, each after its flag, with their open workstreams indented), a person icon that names Claude when the task is Claude's, its status once it is Claude's or beyond the box, History, and the bin.
 History opens under the end line, above a hairline: each change newest first, a 12px pewter line of when and who ("Today 14:02 · Claude"), then a 12px graphite line per field that moved ("Do date: tomorrow → Fri 2 Oct", "Ticked “oil”", "Description edited").
-Project and workstream live only there, since the list a task is written in already says which project it belongs to.
+Project and workstream live only there and in the capture window, since the list a task is written in already says which project it belongs to; in either, "#" and a few letters of a name in the title file it too (see Capture window).
 
 To add, each list card ends in the sheet's plus and a pewter placeholder, filed by the card it sits in (a project card's is in that project).
 Typing a title opens the icons and the description (focus alone does not, so a composer that folds away never shifts the page under a click), and a line under them: a pewter "Ctrl+Enter to add" hint (hidden on touch), then Cancel in 12px graphite and "Add task" in 12px/600 ink, words on the line with the fog under them on hover, not boxes.
@@ -267,9 +269,17 @@ The dialog takes focus itself, so no control opens ringed; Esc closes it.
 **Command menu** (`app/static/command.js`, Ctrl+K). The capture window's paper, 640px wide and 12vh from the top over the scrim: a 16px line to write on, ruled off from what it finds, then the results grouped under 12px/600 pewter names (Days, Pages, Do, Tasks, Projects, Events, Notes), at most 70% of the window tall, and a foot of keys.
 A result is a 36px row: its name in 14px/500 ink (a done task or cancelled meeting pewter and struck through, a project after an 8px square of its colour) and its detail at the right in 12px pewter figures (a do-date or due, a meeting's day and time, a page's or action's key in a hairline box); a day's notes give the words found the row's room.
 The row Enter opens is in fog, and follows the pointer.
-**Capture window.** N or Shift+N writes a new task from any page: on Projects into the page's own list, and on Today and Calendar, which have no list to write in, in a window holding the task sheet (600px, 15vh from the top, on the confirm dialog's paper).
-It stays open for the next task, and a toast says where each one went ("Added “Call the plumber” for Fri 2 Oct", or "to No date"), since no list on the page shows it.
-Esc closes it and keeps a half-written draft for the next time.
+**Capture window (New task).** The sidebar's New task opens it on every page, and so do N and Shift+N, except on Projects, where they write into the page's own list.
+It holds the task sheet (600px, 15vh from the top, on the confirm dialog's paper), its foot shown from the start: where the task goes, then the hint and the sheet's Cancel and "Add task", on one line where a long Project › Workstream gives way to an ellipsis (its full name on hover).
+On a phone the hint goes, and where the task goes takes a line of its own, Cancel and "Add task" under it at the right.
+Where it goes is a chip named in full, "No project", "Note-app" or "Note-app › Design" in 12px/500 (graphite for none, ink once filed), after the project's flag in its colour and before a steel chevron; on a project's pages (its page, its Gantt, a document) it starts in that project.
+The chip opens the project menu with a line to find one on at its top, written on the line (a hairline that turns ink while it has the caret); a few letters of each name narrow it ("home kit" leaves Home and its Kitchen), a workstream shown under its project, and a name found nowhere says so in pewter.
+The arrows move the active item, drawn as the keyboard's (the fog and the spark bar), and Enter takes it, the menu as wide as its widest name whatever it is narrowed to.
+The hint reads "# project · Ctrl+Enter to add": a "#" starting a word in the title drops the same menu down from the "#" itself, without its line, narrowed by the words typed after it while the title keeps the caret; Enter or Tab takes the active item, and the "#" and its words leave the title, Backspace straight after putting them back, as for any field.
+Words no name matches ("#42") close it and stay words; Esc closes the menu and leaves the window open.
+It stays open for the next task, filed where the last one went, and a toast says where each one went (its project, "Added “Call the plumber” to Home › Kitchen", else its day, "for Fri 2 Oct" or "to No date"), with Open for the task's page, since no list on the page shows it; over the window the toast is in it, so Open can be reached.
+Esc closes it and keeps a half-written draft for the next time; opened again empty, it starts afresh.
+The sheet's menus open inside the window, over its backdrop.
 
 **Buttons.** `.btn.primary` is the spark primary, glowing at night, `.btn.quiet` the glass secondary, `.btn.danger-quiet` the destructive secondary with an err border.
 Week navigation and nudge actions are secondary-style controls.

@@ -1422,6 +1422,22 @@
     });
   };
 
+  // A task added or changed from elsewhere on the page (the New task
+  // window): the sheet drawn again, after any edit still on its way.
+  const reload = () => {
+    chain = chain.then(async () => {
+      try {
+        const response = await fetch(`/ui/projects/${project}/gantt?scale=${scale()}`);
+        if (!response.ok) throw await failure(response);
+        draw(await response.text());
+      } catch (error) {
+        window.toast(error.message);
+      }
+    });
+  };
+  document.body.addEventListener("task:added", reload);
+  document.body.addEventListener("tasks:changed", reload);
+
   document.querySelector("[data-gantt-scales]")?.addEventListener("click", (e) => {
     const link = e.target.closest("[data-gantt-scale]");
     if (!link) return;

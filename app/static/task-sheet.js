@@ -9,7 +9,9 @@
    followed by a space turns the words into the matching field;
    Backspace straight after puts them back. Each field is a hidden input the
    form posts; the icons and the small menus they open only read and write
-   those inputs.
+   those inputs. A sheet that files its task (edit, and the New task
+   window) also takes "#" and a few letters: the projects and workstreams
+   they match drop down under it, and Enter or Tab files the task there.
 
    A sheet of controls only (data-sheet="props", a task row's in Today's
    notepad) is the icons and their menus alone: each change it makes is
@@ -145,8 +147,9 @@
     { name: "priority", re: /(?:^|\s)(p([1-4])) $/i, value: (m) => PRIORITIES[Number(m[2]) - 1] },
   ];
 
-  // The last conversion, so Backspace right after it can take it back.
-  let converted = null; // {form, before, caretBefore, after, caretAfter, name, previous, start}
+  // The last conversion, so Backspace right after it can take it back: the
+  // fields' values before it, and the title as Backspace would have left it.
+  let converted = null; // {form, after, caretAfter, previous: {name: value}, undoText, undoCaret, start}
   // Words taken back stay words: {form, start} of each, until the title changes around them.
   const kept = new WeakMap(); // form -> Set of start offsets
 
@@ -200,8 +203,9 @@
     const full = titleOf(form).textContent;
     const after = full.slice(0, start) + full.slice(caret);
     converted = {
-      form, before: full, caretBefore: caret, after, caretAfter: start,
-      name, previous: valueOf(form, name), start,
+      form, after, caretAfter: start, previous: { [name]: valueOf(form, name) }, start,
+      // Backspace would have eaten the space: the words come back without it.
+      undoText: full.slice(0, caret - 1) + full.slice(caret), undoCaret: caret - 1,
     };
     setField(form, name, value);
     setTitle(form, after, moveCaret ? start : null);
@@ -221,9 +225,9 @@
   const undoConversion = (form) => {
     const c = converted;
     converted = null;
-    setField(form, c.name, c.previous);
-    // Backspace would have eaten the space: the words come back without it.
-    setTitle(form, c.before.slice(0, c.caretBefore - 1) + c.before.slice(c.caretBefore), c.caretBefore - 1);
+    // In order: a project put back clears the workstream, put back after it.
+    for (const [name, value] of Object.entries(c.previous)) setField(form, name, value);
+    setTitle(form, c.undoText, c.undoCaret);
     if (!kept.has(form)) kept.set(form, new Set());
     kept.get(form).add(c.start);
   };
@@ -296,15 +300,18 @@
         spoken = set ? `Repeats: ${REPEAT_LABELS[value].toLowerCase()}` : "Repeat";
         button.title = set ? `Repeats ${REPEAT_LABELS[value].toLowerCase()}` : "Repeat";
       } else if (name === "project") {
-        // In a project: its flag in the project's colour, the name on hover.
+        // In a project: its flag in the project's colour, the name on hover;
+        // the New task window's names it in full (data-label="full").
         const project = projectOf(form);
+        const full = button.dataset.label === "full";
         set = !!project;
         spoken = set ? `Project: ${projectLabel(form)}` : "Project: none";
         button.title = set ? spoken : "Project and workstream";
+        if (full) button.title += " (#)";
         button.classList.toggle("in-project", set);
         if (set) button.style.setProperty("--project", `var(--hue-${project.color})`);
         else button.style.removeProperty("--project");
-        text = set ? "" : label.dataset.empty || "";
+        text = set ? (full ? projectLabel(form) : "") : label.dataset.empty || "";
       } else if (name === "owner") {
         const value = valueOf(form, "owner");
         set = value === "claude";
@@ -344,7 +351,7 @@
 
   const setField = (form, name, value) => {
     field(form, name).value = value;
-    if (name === "project_id") field(form, "workstream_id").value = "";
+    if (name === "project_id" && field(form, "workstream_id")) field(form, "workstream_id").value = "";
     draw(form);
     // Heard by a page that keeps the fields itself (Today's notepad).
     form.dispatchEvent(new CustomEvent("sheet:field", { bubbles: true, detail: { name, value } }));
@@ -387,10 +394,86 @@
     if (!title) return;
     const form = sheetOf(title);
     syncTitle(form);
+    // Words after a "#" name a project, not a field.
+    if (hashMenu(form)) return;
     if (e.inputType === "insertText" && e.data === " ") {
       const caret = caretIn(title);
       if (caret != null) convert(form, title.textContent.slice(0, caret), caret);
     }
+  });
+
+  /* ---- "#": the projects and workstreams the words after it match ---- */
+
+  // A "#" starting a word, then up to 40 characters to the caret (a
+  // project's name has spaces in it).
+  const HASH = /(?:^|\s)#([^#\n]{0,40})$/;
+  const filesTask = (form) => !!field(form, "workstream_id") && projectsOf(form).length > 0;
+
+  // The rect of one character of a title, to drop a menu down from.
+  const rectAt = (el, offset) => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(), left = offset; node; node = walker.nextNode()) {
+      if (left < node.length) {
+        const range = document.createRange();
+        range.setStart(node, left);
+        range.setEnd(node, left + 1);
+        return range.getClientRects()[0] || range.getBoundingClientRect();
+      }
+      left -= node.length;
+    }
+    return el.getBoundingClientRect();
+  };
+
+  // While the words before the caret are a "#" and some of a name, the
+  // menu of projects drops down from the "#", narrowed to them; it goes
+  // once they match nothing (a "#2" was just words). True while it is open.
+  const hashMenu = (form) => {
+    if (!filesTask(form)) return false;
+    const title = titleOf(form);
+    const caret = caretIn(title);
+    const m = caret == null ? null : HASH.exec(title.textContent.slice(0, caret));
+    const open = menu?.inline && menu.form === form;
+    if (!m) {
+      if (open) closeMenu(false);
+      return false;
+    }
+    const start = caret - m[1].length - 1;
+    if (open) {
+      menu.inline.start = start;
+    } else {
+      const inline = { query: m[1], start, at: rectAt(title, start) };
+      openMenu(form, form.querySelector('.prop[data-prop="project"]'), { inline });
+    }
+    if (!filterMenu(m[1])) {
+      closeMenu(false);
+      return false;
+    }
+    return true;
+  };
+
+  // An item taken: the task is filed there, and the "#" and its words go
+  // from the title; Backspace right after puts them back, as for a field.
+  const fileFromHash = (el) => {
+    const { form, inline } = menu;
+    const title = titleOf(form);
+    const full = title.textContent;
+    const caret = caretIn(title) ?? full.length;
+    const previous = { project_id: valueOf(form, "project_id"), workstream_id: valueOf(form, "workstream_id") };
+    closeMenu(false);
+    const tail = full.slice(caret);
+    let head = full.slice(0, inline.start);
+    if (head.endsWith(" ") && tail.startsWith(" ")) head = head.slice(0, -1);
+    const after = head + tail;
+    // The words go first: on a task's page, a field chosen is saved at once.
+    setTitle(form, after, head.length);
+    el._pick();
+    converted = {
+      form, after, caretAfter: head.length, previous, start: inline.start, undoText: full, undoCaret: caret,
+    };
+  };
+
+  document.addEventListener("focusout", (e) => {
+    if (menu?.inline && e.target === titleOf(menu.form)) closeMenu(false);
   });
 
   // A click beside the words (the rest of the line) writes at the title's end.
@@ -553,25 +636,34 @@
         item(label, { checked: current === value, pick: () => setField(form, "status", value) }));
     }
     if (name === "project") {
+      // Each item knows the words it is found by (filterMenu): a workstream
+      // its project's name and its own, and its project, shown above it.
       const project = valueOf(form, "project_id");
       const workstream = valueOf(form, "workstream_id");
-      const items = [item("No project", { flag: true, checked: project === "", pick: () => setField(form, "project_id", "") })];
+      const none = item("No project", { flag: true, checked: project === "", pick: () => setField(form, "project_id", "") });
+      none._words = "no project none";
+      const items = [none];
       for (const p of projectsOf(form)) {
-        items.push(item(p.name, {
+        const head = item(p.name, {
           flag: true,
           color: p.color,
           checked: String(p.id) === project && workstream === "",
           pick: () => setField(form, "project_id", String(p.id)),
-        }));
+        });
+        head._words = p.name.toLowerCase();
+        items.push(head);
         for (const m of p.workstreams) {
-          items.push(item(m.name, {
+          const el = item(m.name, {
             indent: true,
             checked: String(m.id) === workstream,
             pick: () => {
               setField(form, "project_id", String(p.id));
               setField(form, "workstream_id", String(m.id));
             },
-          }));
+          });
+          el._words = `${p.name} ${m.name}`.toLowerCase();
+          el._head = head;
+          items.push(el);
         }
       }
       return items;
@@ -579,17 +671,72 @@
     return [];
   };
 
-  const place = (el, button) => {
-    const at = button.getBoundingClientRect();
+  // Under its button, or above where there is more room; `at` a rect (the
+  // "#" a menu of projects drops down from).
+  const place = (el, at) => {
     const width = el.offsetWidth;
     const height = el.offsetHeight;
     const below = window.innerHeight - at.bottom;
-    const top = below >= height + 8 || below >= at.top ? at.bottom + 4 : at.top - height - 4;
-    el.style.top = `${Math.max(8, top)}px`;
+    if (below >= height + 8 || below >= at.top) {
+      el.style.top = `${at.bottom + 4}px`;
+    } else {
+      // Above, held by its foot, so a menu that filters stays against it as it shortens.
+      el.style.bottom = `${window.innerHeight - at.top + 4}px`;
+      el.style.maxHeight = `min(360px, 60vh, ${at.top - 12}px)`;
+    }
     el.style.left = `${Math.max(8, Math.min(at.left, window.innerWidth - width - 8))}px`;
   };
 
-  const openMenu = (form, button) => {
+  /* A menu of projects filters. Opened from its icon it starts with a line
+     to find one on; dropped down from a "#" in the title (inline) the title
+     itself is that line, and keeps the focus. Either way the keys move an
+     active item rather than the focus, Enter takes it, and what the words
+     match shows: a workstream with its project above it. */
+
+  let itemIds = 0;
+  const shownItems = () => [...menu.el.querySelectorAll(ITEMS)].filter((el) => !el.hidden);
+  const setActive = (el) => {
+    const { el: box, find } = menu;
+    box.querySelector("[data-active]")?.removeAttribute("data-active");
+    (find || titleOf(menu.form)).removeAttribute("aria-activedescendant");
+    if (!el) return;
+    el.dataset.active = "";
+    (find || titleOf(menu.form)).setAttribute("aria-activedescendant", el.id);
+    // Into view within the menu (scrolling the page would close it).
+    if (el.offsetTop < box.scrollTop) box.scrollTop = el.offsetTop - 4;
+    else if (el.offsetTop + el.offsetHeight > box.scrollTop + box.clientHeight) {
+      box.scrollTop = el.offsetTop + el.offsetHeight - box.clientHeight + 4;
+    }
+  };
+  const stepActive = (step) => {
+    const shown = shownItems();
+    if (!shown.length) return;
+    const at = shown.indexOf(menu.el.querySelector("[data-active]"));
+    setActive(shown[at === -1 ? 0 : (at + step + shown.length) % shown.length]);
+  };
+  // Every word typed is found in an item's words. The active item is the
+  // first found, or with nothing typed yet, the current choice. Returns how
+  // many are found.
+  const filterMenu = (query) => {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const items = [...menu.el.querySelectorAll(ITEMS)];
+    const found = new Set(items.filter((el) => words.every((w) => el._words.includes(w))));
+    for (const el of items) el.hidden = !found.has(el) && ![...found].some((f) => f._head === el);
+    const empty = menu.el.querySelector(".sheet-menu-empty");
+    if (empty) empty.hidden = found.size > 0;
+    const current = !words.length && items.find((el) => el.getAttribute("aria-checked") === "true");
+    setActive(current || items.find((el) => found.has(el)));
+    return found.size;
+  };
+  const takeActive = () => {
+    const el = menu?.el.querySelector("[data-active]");
+    if (!el) return false;
+    el.click();
+    return true;
+  };
+
+  // `inline`: dropped down from the title's "#" (hashMenu), with no line of its own.
+  const openMenu = (form, button, { inline = null } = {}) => {
     closeMenu(false);
     const sel = document.getSelection();
     const range = sel.rangeCount && form.contains(sel.anchorNode) ? sel.getRangeAt(0).cloneRange() : null;
@@ -602,21 +749,59 @@
     el.setAttribute("role", "menu");
     el.setAttribute("aria-label", button.title);
     const items = menuItems(form, button.dataset.prop);
+    const filters = button.dataset.prop === "project";
+    let find = null;
+    if (filters) {
+      items.forEach((i) => { i.id = `sheet-item-${++itemIds}`; });
+      if (!inline) {
+        find = document.createElement("input");
+        find.type = "text";
+        find.className = "sheet-menu-find";
+        find.placeholder = "Find a project or workstream";
+        find.setAttribute("aria-label", "Find a project or workstream");
+        find.autocomplete = "off";
+        find.spellcheck = false;
+        el.append(find);
+      }
+    }
     el.append(...items);
-    // In the body, not the sheet: list cards clip what overflows them.
-    document.body.append(el);
-    place(el, button);
+    if (filters) {
+      const empty = document.createElement("p");
+      empty.className = "sheet-menu-empty";
+      empty.textContent = "No project or workstream by that name";
+      empty.hidden = true;
+      el.append(empty);
+    }
+    if (inline) el.classList.add("inline");
+    // In the body, not the sheet: list cards clip what overflows them. In a
+    // window (the New task window), in the window, the top layer the body
+    // is under.
+    (form.closest("dialog") || document.body).append(el);
+    menu = { form, button, el, returnTo, range, find, inline };
+    // As wide as its widest name, whatever the words narrow it to.
+    if (filters) el.style.width = `${el.offsetWidth}px`;
+    if (filters) filterMenu(inline ? inline.query : "");
+    place(el, inline ? inline.at : button.getBoundingClientRect());
     button.setAttribute("aria-expanded", "true");
-    menu = { form, button, el, returnTo, range };
+    if (inline) return;
+    if (find) {
+      find.addEventListener("input", () => filterMenu(find.value));
+      find.focus();
+      return;
+    }
     (items.find((i) => i.getAttribute("aria-checked") === "true") || items[0])?.focus();
   };
 
   const closeMenu = (restore = true) => {
     if (!menu) return;
-    const { form, el, button, returnTo, range } = menu;
+    const { form, el, button, returnTo, range, inline } = menu;
     menu = null;
     el.remove();
     button.setAttribute("aria-expanded", "false");
+    if (inline) {
+      titleOf(form).removeAttribute("aria-activedescendant");
+      return; // the title kept the focus all along
+    }
     // A sheet opened for one field (D or P on a row) is done once its menu is.
     if (form._quick) {
       save(form, { keyboard: true });
@@ -631,29 +816,59 @@
     }
   };
 
-  // Pressing an icon keeps focus (and the caret) where it was writing.
+  // Pressing an icon keeps focus (and the caret) where it was writing; so
+  // does pressing an item of a menu dropped down from the title's "#".
   document.addEventListener("pointerdown", (e) => {
-    if (e.target.closest?.(".task-sheet .prop, .sheet-actions button")) e.preventDefault();
+    if (e.target.closest?.(".task-sheet .prop, .sheet-actions button, .sheet-menu.inline")) e.preventDefault();
   });
 
   document.addEventListener("click", (e) => {
     const button = e.target.closest?.(".task-sheet .prop[data-prop]");
     if (button) {
-      const open = menu?.button === button;
+      const open = menu?.button === button && !menu.inline;
       closeMenu(open);
       if (!open) openMenu(sheetOf(button), button);
       return;
     }
     const chosen = e.target.closest?.(`.sheet-menu :is(${ITEMS})`);
     if (chosen && menu) {
-      if (chosen._pick?.() !== "keep") closeMenu();
+      if (menu.inline) fileFromHash(chosen);
+      else if (chosen._pick?.() !== "keep") closeMenu();
       return;
     }
     if (menu && !e.target.closest?.(".sheet-menu")) closeMenu(false);
   });
 
   document.addEventListener("keydown", (e) => {
-    if (!menu || !menu.el.contains(e.target)) return;
+    if (!menu || e.isComposing) return;
+    // A menu that filters: the keys move its active item, wherever the
+    // words are written (its line, or the title after a "#").
+    const inline = menu.inline && e.target === titleOf(menu.form);
+    if (inline || (menu.find && e.target === menu.find)) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        stepActive(e.key === "ArrowDown" ? 1 : -1);
+      } else if (e.key === "Enter" || (inline && e.key === "Tab" && !e.shiftKey)) {
+        // Ctrl+Enter takes it and adds the task too (the sheet's own keys).
+        const adding = SUBMIT(e);
+        if (!adding) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        takeActive();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        closeMenu();
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        closeMenu();
+      } else if (inline && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {
+        closeMenu(false);
+      }
+      return;
+    }
+    if (!menu.el.contains(e.target)) return;
     const items = [...menu.el.querySelectorAll(ITEMS)];
     const at = items.indexOf(e.target.closest(ITEMS));
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -827,19 +1042,31 @@
   const added = (form, e) => {
     const row = /id="(task-\d+)"/.exec(e.detail.xhr.responseText);
     if (row) window.TaskCursor?.remember(row[1]);
-    if (form.closest("dialog")) {
-      // Written away from any list: say where it went, and let the page's
-      // own views of tasks catch up.
+    const inWindow = !!form.closest("dialog");
+    let filed = null; // the project and workstream, kept for the window's next task
+    if (inWindow) {
+      // Written away from any list: say where it went (its project, else its
+      // day), offer its page, and let the page's own views of tasks catch up.
       const day = valueOf(form, "planned_for");
-      window.toast(`Added “${titleText(form)}” ${day ? `for ${shortDate(day)}` : "to No date"}`);
+      const where = projectLabel(form);
+      const when = day ? `for ${shortDate(day)}` : "to No date";
+      const open = row && (() => { window.location.href = `/tasks/${row[1].slice(5)}`; });
+      window.toast(`Added “${titleText(form)}” ${where ? `to ${where}${day ? `, ${when}` : ""}` : when}`,
+        open ? { action: "Open", run: open } : {});
       document.getElementById("capture-sink")?.replaceChildren();
       htmx.trigger(document.body, "calendar:refresh");
+      if (filesTask(form)) filed = { project_id: valueOf(form, "project_id"), workstream_id: valueOf(form, "workstream_id") };
     }
     // The list re-rendered while the add was in flight, from a moment before
     // it: the new row went to the old list. Render the lists again.
     if (!e.detail.target?.isConnected) htmx.trigger(document.body, "tasks:changed");
     if (!form.isConnected) return; // its twin took the focus, and no draft
     resetComposer(form);
+    // The window stays for the next task, often one more for the same place.
+    if (filed) {
+      for (const [name, value] of Object.entries(filed)) field(form, name).value = value;
+      draw(form);
+    }
     placeCaret(titleOf(form), 0); // ready for the next one
   };
 
@@ -1071,6 +1298,13 @@
       form.scrollIntoView({ block: "nearest" });
       const title = titleOf(form);
       placeCaret(title, title.textContent.length);
+    },
+    // Start writing in the New task window, just opened: a draft left in it
+    // stays, else it starts afresh, in the page's project if it has one.
+    capture(form) {
+      if (!form) return;
+      if (!titleText(form) && !hasNotes(form)) resetComposer(form);
+      this.compose(form);
     },
   };
   // A list re-rendered while such an edit was on its way (D, then P at
