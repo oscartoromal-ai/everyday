@@ -1,0 +1,46 @@
+{# The agent window's insides (#agent-panel, base.html): which agent, its
+   model, New chat and Collapse; the latest chat (partials/chat.html); and
+   the composer (chat.js). Choosing another agent, or New chat, draws it
+   again. An agent that is not here (not installed, not signed in) says why
+   and how to put it right, its composer closed. #}
+<header class="agent-head">
+  <div class="agent-title">
+    <select class="agent-select" name="agent" aria-label="Agent" title="The agent to chat with"
+            hx-post="/ui/agent/agent" hx-target="#agent-panel" hx-swap="innerHTML">
+      {% for a in window.agents %}
+      <option value="{{ a.key }}"{% if a.key == window.agent %} selected{% endif %}>{{ a.label }}{% if a.badge %} · {{ a.badge }}{% endif %}</option>
+      {% endfor %}
+    </select>
+    <p class="agent-model"><a href="/models" title="Choose its model on Models">{{ window.model }}</a></p>
+  </div>
+  <button type="button" class="agent-tool" hx-post="/ui/agent/new" hx-target="#agent-panel" hx-swap="innerHTML"
+          aria-label="New chat" title="New chat">
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3.5h-4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-4"/><path d="M14.25 3.25a1.6 1.6 0 0 1 2.25 2.25L10.5 11.5l-3 .75.75-3z"/></svg>
+  </button>
+  <button type="button" class="agent-tool" data-agent-toggle aria-controls="agent-panel" aria-expanded="true"
+          aria-keyshortcuts="A" aria-label="Collapse the agent window" title="Collapse (A)">
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3.5" width="14" height="13" rx="2.5"/><path d="M12 3.5v13"/></svg>
+  </button>
+</header>
+{# Why the agent is not here: in place of the chat's first words while
+   nothing is said, else over the composer. #}
+{% set why %}<p class="agent-why"><span class="chip warn">{{ window.badge }}</span> {{ window.why }} <a href="/models">Open Models</a></p>{% endset %}
+{% if not window.ready and not window.chat.messages %}{{ why }}{% endif %}
+<div class="chat-log agent-log" id="agent-log" aria-live="polite"
+     hx-get="/ui/agent/log" hx-trigger="agent:changed from:body" hx-swap="innerHTML">
+  {% with chat = window.chat %}{% include "partials/chat.html" %}{% endwith %}
+</div>
+{% if not window.ready and window.chat.messages %}{{ why }}{% endif %}
+<form class="chat-composer agent-composer" data-chat data-log="agent-log" data-changed="agent:changed"
+      data-name="{{ window.name }}" action="/ui/agent/chat" method="post">
+  <input type="hidden" name="agent" value="{{ window.agent }}">
+  {% if window.conversation %}<input type="hidden" name="conversation" value="{{ window.conversation }}">{% endif %}
+  {# Written on the line, as every input is. #}
+  <span class="field-line chat-field">
+    <textarea name="message" rows="1" maxlength="4000" autocomplete="off" required
+              aria-label="Message to {{ window.name }}"
+              placeholder="{% if window.ready %}Ask {{ window.name }}…{% else %}{{ window.name }} is not here yet{% endif %}"
+              {% if not window.ready %}disabled{% endif %}></textarea>
+  </span>
+  <button type="submit" class="btn primary chat-send"{% if not window.ready %} disabled{% endif %}>Send</button>
+</form>

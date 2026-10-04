@@ -53,12 +53,17 @@ class Use:
 
 
 # The chats run Claude Code through the Agent SDK (its tools and hooks are
-# the SDK's), so Claude alone.
+# the SDK's), so Claude alone. The agent window chats with either agent,
+# chosen in the window itself, so each is a use of its own.
 USES = (
     Use("nutrition", "Nutrition's chat", "Keeps the day's log from what you tell it",
         ("claude",), "health"),
     Use("money", "Spending's chat", "Sorts and budgets the month with you",
         ("claude",), "finances"),
+    Use("agent-claude", "Agent window: Claude", "Chats with you beside every page",
+        ("claude",)),
+    Use("agent-codex", "Agent window: Codex", "Chats with you beside every page",
+        ("openai",)),
 )
 _USES = {u.key: u for u in USES}
 

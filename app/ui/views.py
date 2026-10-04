@@ -39,6 +39,7 @@ from app.services import projects as projects_svc
 from app.services import rail as rail_svc
 from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
+from app.ui.agent_window_view import window_ctx
 from app.ui.calendar_view import link_host
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
@@ -130,6 +131,16 @@ def llm_summary(request: Request) -> list[dict[str, str]]:
 
 
 templates.env.globals["llm_summary"] = llm_summary
+
+
+def agent_window(request: Request) -> dict[str, Any] | None:
+    """The agent window beside every page (agent_window_view). None for a
+    page rendered outside a UI route."""
+    db = getattr(request.state, "db", None)
+    return None if db is None else window_ctx(db)
+
+
+templates.env.globals["agent_window"] = agent_window
 # The modules this machine has, for what a page shows of the optional ones.
 templates.env.globals["installed"] = lambda module: get_settings().installed(module)
 templates.env.globals["not_installed"] = rail_svc.not_installed

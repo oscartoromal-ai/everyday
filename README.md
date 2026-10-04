@@ -144,6 +144,12 @@ Models, opened from Settings (or Ctrl+K), shows how each stands, the models it o
 
 The files are the record, outside the database and its backups: git keeps their history.
 
+## Agent window setup
+
+The agent window (Agent at the foot of the sidebar, or A) chats with Claude or Codex, the CLIs set up above (Models and the chats), on this machine's sign-ins, so it runs on your subscriptions and needs no API key.
+Each is a use of its own on Models ("Agent window: Claude", "Agent window: Codex"), where its model and effort are chosen.
+An agent whose CLI is not installed or not signed in says so in the window, with the commands that put it right.
+
 ## Finances setup
 
 Finances (Spending, Accounts, Bills, Goals) is fed by the CSV exports of Oscar's banks: Revolut and ING Australia.

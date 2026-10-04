@@ -68,7 +68,8 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 
 .shell {
   --rail-w: 240px;
-  display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  --agent-w: 0px; /* the agent window's column, while it is docked open */
+  display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--agent-w);
   min-height: 100vh;
   background: var(--canvas);
   background-attachment: fixed;
@@ -376,6 +377,121 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
   .nav a:is([aria-current="page"], [aria-current="true"])::before { left: 25%; right: 25%; }
 }
 
+/* ---------- the agent window: a chat beside every page (base.html, shell.js) ---------- */
+
+/* the sidebar's Agent: ink while the window is open, a spark dot while an
+   answer is on its way (seen too with the window collapsed) */
+.agent-open { position: relative; }
+.agent-open__icon { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+.agent-open[aria-expanded="true"] { color: var(--ink); }
+.agent-open__dot { display: none; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--spark); box-shadow: var(--spark-glow); }
+:root:has(#agent-log .is-pending) .agent-open__dot { display: block; }
+:root[data-rail="collapsed"] .agent-open__dot { position: absolute; top: calc(50% - 9px); left: calc(50% + 4px); }
+
+/* Docked, as wide as a chat card, at the right of a window wide enough to
+   keep the page beside it: the matte flank the sidebar is, its column
+   opening and closing with the sidebar's ease. Its parts keep their width
+   while the column moves, so it slides rather than reflows; collapsed, it
+   is hidden once the column has closed. */
+.agent-panel {
+  --agent-open-w: 400px;
+  position: sticky; top: 0; height: 100vh; z-index: 5;
+  display: flex; flex-direction: column;
+  min-width: 0; overflow: hidden;
+  background: var(--chrome-flank);
+  backdrop-filter: blur(18px) saturate(1.1);
+  border-left: 1px solid var(--chrome-flank-border);
+  visibility: hidden;
+  transition: visibility 0s linear 220ms;
+}
+.agent-panel > * { flex: none; width: calc(var(--agent-open-w) - 1px); } /* inside its edge */
+.agent-panel > .agent-log { flex: 1; min-height: 0; }
+:root[data-agent="open"] .agent-panel { visibility: visible; transition-delay: 0s; }
+@media (min-width: 1100px) {
+  :root[data-agent="open"] .shell { --agent-w: 400px; }
+}
+
+/* its head: the agent (a select, as the card's title), its model under it,
+   then New chat and Collapse, the sidebar's collapse control mirrored; on the
+   sidebar's head line */
+.agent-head {
+  display: flex; align-items: flex-start; gap: var(--s-1);
+  padding: var(--s-6) var(--s-3) var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--chrome-flank-border);
+}
+.agent-title { flex: 1; min-width: 0; }
+.agent-select {
+  appearance: none; cursor: pointer; max-width: 100%;
+  field-sizing: content; /* the chosen agent's width, not its longest option's */
+  margin: -3px 0 0 calc(-1 * var(--s-2)); padding: 2px 26px 2px var(--s-2);
+  font-size: var(--t-body); font-weight: 600; line-height: 24px; color: var(--ink);
+  border: none; border-radius: 0;
+  --chevron: transparent calc(50% - 0.75px), var(--steel) calc(50% - 0.75px) calc(50% + 0.75px), transparent calc(50% + 0.75px);
+  background:
+    linear-gradient(45deg, var(--chevron)) no-repeat calc(100% - 15px) 55% / 5px 5px,
+    linear-gradient(-45deg, var(--chevron)) no-repeat calc(100% - 10px) 55% / 5px 5px;
+  transition: background-color var(--dur) var(--ease);
+}
+.agent-select:hover { background-color: var(--glass-hover); }
+.agent-select option { font-size: var(--t-body-sm); font-weight: 400; color: var(--ink); background: var(--paper); }
+.agent-model {
+  margin: 2px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--t-caption); color: var(--pewter);
+}
+/* it opens Models, where it is chosen */
+.agent-model a { color: inherit; text-decoration: none; transition: color var(--dur) var(--ease); }
+.agent-model a:hover { color: var(--graphite); text-decoration: underline; text-underline-offset: 3px; }
+.agent-why a { color: inherit; text-underline-offset: 3px; }
+.agent-why a:hover { color: var(--ink); }
+.agent-tool {
+  flex: none; display: grid; place-content: center;
+  width: 32px; height: 32px; margin-top: -6px;
+  border-radius: var(--r-ctl); color: var(--steel);
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.agent-tool:hover { color: var(--ink); background: var(--glass-hover); }
+.agent-tool svg { stroke: currentColor; }
+/* the chat and its composer, as a chat card's, on the flank */
+.agent-panel .chat-message { border-bottom-color: var(--chrome-flank-border); }
+.agent-panel .chat-composer { border-top-color: var(--chrome-flank-border); }
+/* an agent not here: why, and how to put it right, over its closed composer */
+.agent-why {
+  margin: 0; padding: var(--s-3) var(--s-4);
+  font-size: var(--t-body-sm); line-height: 22px; color: var(--graphite);
+  border-top: 1px solid var(--chrome-flank-border);
+}
+.agent-head + .agent-why { padding-top: var(--s-4); border-top: none; } /* as the chat's first words */
+.agent-why .chip { margin-right: var(--s-1); }
+.agent-why code { font-family: var(--font-code); font-size: 0.9em; padding: 0 3px; background: var(--ink-tint-tag); }
+.agent-composer textarea:disabled { cursor: not-allowed; }
+.agent-composer textarea:disabled::placeholder { color: var(--mist); }
+.agent-composer:has(textarea:disabled) .field-line { box-shadow: none; }
+
+/* a window too narrow to keep the page beside it: the window floats over the
+   page's right edge, opaque, with a floating thing's shadow, sliding in */
+@media (min-width: 721px) and (max-width: 1099px) {
+  .agent-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; height: auto; z-index: 30;
+    width: var(--agent-open-w);
+    background: var(--paper); backdrop-filter: none;
+    border-left-color: var(--hairline); box-shadow: var(--shadow-dropdown);
+    transform: translateX(100%);
+    transition: transform 220ms var(--ease), visibility 0s linear 220ms;
+  }
+  :root[data-agent="open"] .agent-panel { transform: none; transition: transform 220ms var(--ease); }
+}
+/* a phone: the whole screen, over the tab bar; Collapse goes back to the page */
+@media (max-width: 720px) {
+  .agent-panel {
+    position: fixed; inset: 0; height: auto; z-index: 30;
+    background: var(--paper); backdrop-filter: none; border: none;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .agent-panel > * { width: auto; }
+  .agent-head { padding-top: var(--s-4); }
+  .agent-open__dot { position: absolute; top: calc(50% - 9px); left: calc(50% + 4px); }
+}
+
 /* ---------- page headers ---------- */
 
 .page-header, .day-header {
@@ -536,7 +652,7 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .task-meta {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3);
   margin-top: 4px;
-  font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums;
+  font-size: var(--t-caption); color: var(--pewter);
 }
 .task-meta .planned { color: var(--graphite); }
 /* how long it is thought to take */
@@ -1174,7 +1290,7 @@ dialog.command-dialog::backdrop { background: var(--scrim); }
 }
 .command-meta {
   flex: none; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums;
+  font-size: var(--t-caption); color: var(--pewter);
 }
 /* a day's notes: the day, then the words found, which take the room */
 .command-item[data-kind="Notes"] .command-label { flex: none; }
@@ -1686,7 +1802,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .gutter { position: relative; }
 .hour-label {
   position: absolute; right: var(--s-2); transform: translateY(-50%);
-  font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums;
+  font-size: var(--t-caption); color: var(--pewter);
 }
 .gutter .hour-label:first-child { transform: none; top: 2px !important; }
 /* an hour label the now-label would half cover gives way to it */
@@ -2253,7 +2369,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   }
   .chat-page-header { margin-bottom: 0; }
   .chat-card { position: static; height: auto; min-height: 0; }
-  .chat-log { max-height: 50vh; }
+  .chat-card .chat-log { max-height: 50vh; }
 }
 @media (max-width: 720px) {
   .chat-page .ruled-sheet { --pad-rows: 34px; --pad-gap: var(--s-2); }

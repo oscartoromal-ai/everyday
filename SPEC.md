@@ -308,6 +308,22 @@ Oscar's call on 2026-09-30: Nutrition is tracked by day, and a chat with Claude 
   A run goes on in its own thread after its page closes, and its answer is saved; one run at a time per day.
 - **The log stays readable.** After a run the day's file is read back; if it does not follow the format, Claude gets one unseen turn to fix it, and a file that still cannot be read is shown as such, with why.
 
+### Agent window
+
+Oscar's call on 2026-10-04: an agent window beside every page, to chat with the agents his subscriptions give him (Claude, Codex); this first cut is the chat, how it looks, and expanding and collapsing it.
+
+- **Each agent through its own CLI, on this machine's sign-in, as Models finds it.** Claude is Models' Claude provider and Codex its OpenAI one; each is a use of its own on Models ("Agent window: Claude", "Agent window: Codex"), so its model and effort are chosen there, and its CLI is where Models says.
+  Claude runs through the Claude Agent SDK; Codex through `codex exec --json`, its prompt on stdin so no words of Oscar's are ever on a command line, its effort as `model_reasoning_effort`, and npm's `codex.cmd` shim resolved to the native `codex.exe` beside it, so a run cut short stops Codex itself (`app/services/agents.py`).
+- **Who is here is Models' last check.** The window draws each agent as Models last checked its provider: one never checked is taken to be here (a run says why if not); one not installed, not signed in or failing says why and how to put it right, with a link to Models, and takes no message.
+  Turning to one that was not here, or sending to it, asks its provider again first and keeps the answer for Models, since Oscar may have just installed it or signed in.
+  The desktop app checks the providers as it starts, when the last check is old.
+- **No reach into his world yet.** Neither agent has the planner's tools, a shell or his files: Claude may search and read the web, with no setting, CLAUDE.md, skill or MCP server of the machine's; Codex works in a read-only sandbox from an empty folder of its own, its session not kept.
+  Giving them the planner's tools is the next step.
+- **Each message is one stateless run**, as Nutrition's and Spending's are: the chat so far goes into the prompt.
+  A run goes on in its own thread as Oscar moves from page to page, and its answer is saved; one run at a time per chat.
+- **Chats are kept.** A chat (`agent_conversations`) is with one agent, its messages in `agent_messages`; the window shows the latest.
+  New chat starts another (an empty latest is reused, so empty chats never pile up); choosing another agent once something is said starts a chat with it, and choosing back while that one is still empty returns to the chat left.
+
 ### Garmin
 
 Oscar's call on 2026-09-30: the app connects to his Garmin metrics.

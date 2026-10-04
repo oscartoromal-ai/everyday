@@ -69,7 +69,7 @@ Field names are 12px/500 graphite Inter, as the notes' "Task" label is: Inter is
 
 ## Shell
 
-The shell is a 240px matte sidebar plus a content column on the canvas.
+The shell is a 240px matte sidebar plus a content column on the canvas, and at the right the agent window's column while it is docked open.
 The wordmark is Brasa's pattern: the name in 600 followed by a spark period, "Personal Calendar.".
 At night the name carries a faint halo (`--ink-glow-text`) and the period glows and strikes once on load, three stutters and then steady, like a tube coming on (`--spark-entrance`).
 Under the wordmark and Back, New task is the sidebar's one action, from any page: an 18px spark disc with a plus in `--on-spark` (pink is you; glowing at night), then "New task" in 14px/500 ink and its key ("N") in a hairline box at the right, on a nav item's metrics; it opens the capture window (see Capture window).
@@ -91,7 +91,8 @@ On any of a project's pages (its page, its Gantt, a document of its context) the
 A chevron at the right of Projects folds the list away and back (`data-rail-projects="folded"`, saved as `pc-rail-projects`, applied before paint); while the list is out of sight (folded, the icon rail, the phone's tab bar), Projects holds the spark on a project's pages.
 The list is drawn again when a project is added, renamed, recoloured or shelved (`projects:changed`).
 On a desktop rail too short for every page, the nav scrolls between the head and the foot with no scrollbar, and an edge with pages past it fades (`data-more`).
-The foot starts with Search, its magnifier and name, and its key ("Ctrl K") in a hairline box at the right, as the keys dialog draws keys; it opens the command menu.
+The foot starts with Agent, a sparkle, its name and its key ("A") drawn as Search's are, which expands and collapses the agent window (see The agent window); ink while the window is open, and a 6px spark dot after its name, the Update button's, while an answer is on its way, on the icon's shoulder in the icon rail and the phone's tab bar.
+Then Search, its magnifier and name, and its key ("Ctrl K") in a hairline box at the right, as the keys dialog draws keys; it opens the command menu.
 Then Brasa's shipped light/dark toggle: the current mode's sun or moon, which rotates and fades into the other, beside the mode's name in 12px pewter.
 The names are the installed system's own, read from `design-language.json`: "Day" and "Night" for Neon Signage.
 Settings ends the foot, two sliders and its name; it opens the keys dialog's paper, 480px wide, whose Modules section lists the hidden pages, each its icon, its name, its section in pewter and a quiet Show, or says every page is in the sidebar.
@@ -244,6 +245,16 @@ The chat's header is "Claude" at 16px/600 over a pewter caption; its messages ar
 While Claude answers, its row names what it is doing in pewter ("Reading the plan…") and its words arrive as written; a failed answer keeps what was said, in graphite, with an err "Did not finish" badge.
 The composer ends the card: the message written on the line (a textarea that grows to eight lines), and the spark "Send", the card's one primary, faded while an answer is on its way.
 Under 1100px the page is one column: the header, the chat (its messages up to half the window's height), then the log.
+
+**The agent window** (`partials/agent_panel.html`, in `base.html`, beside every page).
+A chat with Claude or Codex, expanded or collapsed by the sidebar's Agent, its own Collapse or A, remembered as `pc-agent` and applied before paint.
+Expanded on a window 1100px or wider it docks as the shell's third column, 400px, the sidebar's matte flank mirrored (`--chrome-flank`, its edge a flank border on its left), the column opening and closing over the sidebar's 220ms; its parts keep their width as the column moves, so it slides rather than reflows, and the page's own column narrows beside it.
+Narrower, it floats over the page's right edge instead, 400px of opaque paper with the dropdown shadow, sliding in over the same 220ms; on a phone it takes the whole screen, over the tab bar.
+Collapsed it is hidden and inert, out of the tab order.
+Its head sits on the sidebar's head line: the agent, a select drawn as the card's title (16px/600 ink, a steel chevron, the glass hover under it, as wide as its name), its model under it in 12px pewter, as Models names it ("Claude Sonnet 5.5 · High", "Default · Claude Opus 5.5"), a link to Models, where it is chosen (graphite and underlined on hover), then New chat (a pencil on a page) and Collapse (the sidebar's collapse control mirrored), 32px steel icons, ink on the glass hover.
+In the list an agent not here is named with why ("Codex · Not installed").
+Under a flank border, the latest chat, drawn as Nutrition's (rows divided by flank borders, "You" and the agent's name, the answer as Markdown), its empty line saying what the agent can and cannot see; then the composer, as a chat card's.
+An agent that is not here (not installed, not signed in) says so in place of the chat's first words: a warn badge ("Not installed", "Not signed in", "Needs attention") and why, in 14px graphite, its commands as code, then "Open Models", underlined; its composer is closed, the placeholder in mist ("Codex is not here yet").
 
 **Finances.**
 Spending is a month's page laid out as Nutrition's day is (the chat page, `.chat-page`): the month's header ("This month", or the month's name, the chevrons, a pill back to This month, the month and year, and a key line), the month on a ruled sheet at the left, and the month's chat with Claude at the right, the same card as Nutrition's.
@@ -512,8 +523,11 @@ Undo keeps the rows' fields as they were before each edit (taken when its turn i
 The pointer: a click moves the cursor (Shift holds a range), a drag over a task's time draws its bar there, a bar's middle drags it and its grips stretch it, a tick drags its due, all by whole columns (weeks, or days), previewed as they move; a row dragged by its number drops before the row it is over (above its middle) or after it, at a workstream's top over its row, and at a group's end over its add row, and undoes back where it was; a workstream's row dragged by its number takes its whole lane, faded, and drops before the first lane whose middle is under the pointer, else after the last, and undoes back before the lane it was before.
 Weeks / Days (or V outside the sheet's cells) fetches the sheet in the other scale and keeps the same days in view and the cursor on its day's column; it is remembered (a `gantt_scale` cookie), and edits answer in the scale they were made in.
 
-**The chats** (`app/static/chat.js`, vanilla; Nutrition's and Spending's).
+**The chats** (`app/static/chat.js`, vanilla, on every page; Nutrition's, Spending's and the agent window's).
+Each composer is a `form[data-chat]` naming its log (`data-log`) and its agent (`data-name`), its listeners on the document, so the agent window's, drawn again on a new chat, works as it lands.
 Enter sends and Shift+Enter starts a new line; Left and Right, outside the message, go a day (a month, on Spending) back or on.
+In the agent window, A (outside a field) opens it with the caret in its message, or collapses it; Esc steps out of the message, so A collapses it next; collapsing it from inside hands the focus to the sidebar's Agent, and New chat or another agent puts the caret back in the message.
+Its answer goes on as Oscar moves from page to page: the next page shows it so far and asks after it every two seconds, as a chat page opened mid-answer does.
 Sending draws Oscar's message and Claude's row at once, then reads the answer as it streams (newline-delimited JSON: the words, what Claude is doing, then done), following it down the chat while the chat is scrolled to its end.
 Done, the chat and what Claude changed are drawn again from the server (the composer's `data-changed` event: `nutrition:changed`, `money:changed`), the answer as Markdown and the log or the month as Claude left it.
 A page opened while an answer is on its way shows it so far and asks after it every two seconds; once it lands, the log or the month is drawn again too (`nutrition:answered`, `money:answered`).

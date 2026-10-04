@@ -20,16 +20,18 @@
   <meta name="theme-color" content="#ffffff">
   <script>
     // Before first paint: the saved theme (else the system's), the
-    // sidebar's collapsed state and its folded projects, compact rows and
-    // Today's folded timeline, so none flashes. shell.js keeps them.
+    // sidebar's collapsed state and its folded projects, compact rows,
+    // Today's folded timeline and the agent window, open or not, so none
+    // flashes. shell.js keeps them.
     (() => {
       const root = document.documentElement;
-      let theme = null, rail = null, density = null, timeline = null, railProjects = null;
+      let theme = null, rail = null, density = null, timeline = null, railProjects = null, agent = null;
       try {
         theme = localStorage.getItem("pc-theme"); rail = localStorage.getItem("pc-rail");
         density = localStorage.getItem("pc-density"); timeline = localStorage.getItem("pc-timeline");
-        railProjects = localStorage.getItem("pc-rail-projects");
+        railProjects = localStorage.getItem("pc-rail-projects"); agent = localStorage.getItem("pc-agent");
       } catch {}
+      if (agent === "open") root.dataset.agent = "open";
       if (theme !== "light" && theme !== "dark") {
         theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       }
@@ -63,6 +65,7 @@
   <script src="{{ asset('tasks.js') }}" defer></script>
   <script src="{{ asset('repo-picker.js') }}" defer></script>
   <script src="{{ asset('command.js') }}" defer></script>
+  <script src="{{ asset('chat.js') }}" defer></script>
 </head>
 <body>
 <!--
@@ -70,6 +73,7 @@ SYSTEM: {{ ds.name }} {{ ds.version }}, from the design-language repo (C:/Users/
 Switch with: node ../design-language/bin/design-language.mjs use <system> app/static/design
 -->
 <div class="shell">
+  {% set agent_ctx = agent_window(request) %}
   {# The sidebar's modules, each a page, in the sections and order Oscar laid them out
      (app/services/rail.py); shell.js drags them within their section, hides them, and
      brings them back from Settings. The ones showing are Alt+1 to Alt+9 top to bottom,
@@ -143,6 +147,16 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
     <div class="rail-foot">
       {# Its own box, for Settings' Check for updates to swap (out of band). #}
       <div id="rail-update" class="rail-update">{% with update = app_update() %}{% include "partials/update_button.html" %}{% endwith %}</div>
+      {% if agent_ctx %}
+      {# The agent window, open or closed (A); a spark dot while an answer is on its way (app.css). #}
+      <button type="button" class="rail-button agent-open" data-agent-toggle aria-controls="agent-panel" aria-expanded="false"
+              aria-keyshortcuts="A" title="Agent (A)">
+        <svg class="agent-open__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 3.5c.5 4.4 2.1 6 6.5 6.5-4.4.5-6 2.1-6.5 6.5-.5-4.4-2.1-6-6.5-6.5 4.4-.5 6-2.1 6.5-6.5z"/><path d="M18 15.5c.25 1.9.85 2.5 2.5 2.75-1.65.25-2.25.85-2.5 2.75-.25-1.9-.85-2.5-2.5-2.75 1.65-.25 2.25-.85 2.5-2.75z"/></svg>
+        <span class="rail-button__label">Agent</span>
+        <span class="agent-open__dot" aria-hidden="true"></span>
+        <kbd class="rail-button__key">A</kbd>
+      </button>
+      {% endif %}
       {# The command menu (Ctrl+K): search, go to a page or a day, or do (command.js). #}
       <button type="button" class="rail-button command-open" data-command-open title="Search, go or do (Ctrl+K)">
         <svg class="command-open__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>
@@ -175,6 +189,15 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
   <main class="main">
     {% block content %}{% endblock %}
   </main>
+  {% if agent_ctx %}
+  {# The agent window: a chat with Claude or Codex beside every page, docked at
+     the right (floating over a narrower window, the whole screen on a phone),
+     expanded or collapsed by the sidebar's Agent, its own Collapse, or A
+     (shell.js), remembered as pc-agent. Collapsed, it is out of the tab order. #}
+  <aside class="agent-panel" id="agent-panel" aria-label="Agent window">
+    {% with window = agent_ctx %}{% include "partials/agent_panel.html" %}{% endwith %}
+  </aside>
+  {% endif %}
 </div>
 <dialog id="confirm-dialog" class="confirm" aria-labelledby="confirm-title">
   <form method="dialog">
@@ -262,6 +285,12 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
           <dt><kbd>?</kbd></dt><dd>These keys</dd>
           <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Search tasks, projects, events and notes; go to a page or a day ("friday", "12 oct"); or do (new task or event, theme)</dd>
           <dt><kbd>C</kbd></dt><dd>Compact rows, or roomy again (Projects, Today's notes)</dd>
+          <dt><kbd>A</kbd></dt><dd>The agent window: open it, at its message, or collapse it</dd>
+        </dl>
+        <h3>Agent window</h3>
+        <dl>
+          <dt><kbd>Enter</kbd></dt><dd>Send the message (<kbd>Shift</kbd> <kbd>Enter</kbd>: a new line)</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Out of the message, back to the page</dd>
         </dl>
         <h3>Sidebar</h3>
         <dl>

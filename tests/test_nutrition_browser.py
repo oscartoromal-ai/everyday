@@ -102,24 +102,24 @@ def test_a_message_streams_in_and_the_day_is_drawn_again(browser_page, served) -
     page.goto(f"{served}/nutrition")
     assert "Nothing logged yet" in page.locator("#nutrition-log").inner_text()
 
-    field = page.locator(".chat-field textarea")
+    field = page.locator("#chat-composer textarea")
     field.fill("Oats for breakfast")
     field.press("Shift+Enter")  # a new line, not a send
     assert field.input_value() == "Oats for breakfast\n"
     field.press("Enter")
 
     # Drawn at once: the message, and Claude's row saying what it is doing.
-    page.locator(".chat-message.from-oscar", has_text="Oats for breakfast").wait_for()
-    page.locator(".chat-status", has_text="…").wait_for()
+    page.locator("#chat-log .chat-message.from-oscar", has_text="Oats for breakfast").wait_for()
+    page.locator("#chat-log .chat-status", has_text="…").wait_for()
     assert field.input_value() == ""
 
     # Done: the answer as Markdown, and the log as the stand-in left it.
-    page.locator(".chat-message.from-claude strong", has_text="40 g").wait_for()
+    page.locator("#chat-log .chat-message.from-agent strong", has_text="40 g").wait_for()
     log = page.locator("#nutrition-log")
     log.locator(".nutrition-item", has_text="Rolled oats").wait_for()
     assert "of 2,500 kcal" in log.inner_text()
     assert "Salmon tonight" in log.inner_text()
-    assert page.locator(".chat-send").is_enabled()
+    assert page.locator("#chat-composer .chat-send").is_enabled()
 
 
 def test_left_and_right_change_the_day(browser_page, served) -> None:

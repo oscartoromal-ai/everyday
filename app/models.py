@@ -447,6 +447,52 @@ class ChatRole(enum.StrEnum):
     claude = "claude"
 
 
+class AgentKind(enum.StrEnum):
+    """The agents the agent window chats with, each through its own CLI on
+    this machine's sign-in (app/services/agents.py)."""
+
+    claude = "claude"
+    codex = "codex"
+
+
+class AgentRole(enum.StrEnum):
+    oscar = "oscar"
+    agent = "agent"
+
+
+class AgentConversation(Base):
+    """One chat in the agent window, with one agent. The window shows the
+    latest; New chat starts another, and an earlier one is kept."""
+
+    __tablename__ = "agent_conversations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    agent: Mapped[AgentKind] = mapped_column(_enum(AgentKind))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    messages: Mapped[list[AgentMessage]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan", order_by="AgentMessage.id"
+    )
+
+
+class AgentMessage(Base):
+    """One message of a chat in the agent window, Oscar's or the agent's."""
+
+    __tablename__ = "agent_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("agent_conversations.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[AgentRole] = mapped_column(_enum(AgentRole))
+    text: Mapped[str] = mapped_column(Text)
+    # The agent's answer did not finish (an error, or the run was cut short).
+    failed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    conversation: Mapped[AgentConversation] = relationship(back_populates="messages")
+
+
 class NutritionMessage(Base):
     """One message of a day's chat on Nutrition, Oscar's or Claude's. The
     chat is the day's: each day starts a fresh one, the day's log file
