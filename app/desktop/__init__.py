@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 import threading
 import time
@@ -720,3 +721,8 @@ def main() -> None:
         shell.servers.stop(f"quit: {shell.quit_reason}")
         shell.servers.join()
     log.info("Stopped")
+    # Ended now: Python's own exit unloads .NET (pythonnet), which takes 10 to
+    # 25 seconds while the claim stays held, so a launch meanwhile, or the
+    # installer, would wait for it.
+    logging.shutdown()
+    os._exit(0)
