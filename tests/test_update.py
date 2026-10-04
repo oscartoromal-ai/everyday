@@ -282,6 +282,120 @@ def test_a_staged_update_whose_folder_is_gone_is_offered_again(origin, repo, tmp
     assert not updater.status_path.exists()
 
 
+def watch_once(updater: Updater) -> None:
+    """The watch's next step, its fetch due."""
+    updater._fetched = float("-inf")
+    updater.tick()
+
+
+def test_the_watch_starts_the_update_once_master_moves_on(
+    origin, repo, tmp_path, scripts_started
+) -> None:
+    installed = commit(origin, "a")
+    updater = updater_at(repo, installed, tmp_path)
+    watch_once(updater)
+    assert scripts_started == []
+
+    latest = commit(origin, "b")
+    watch_once(updater)
+
+    (args,) = scripts_started
+    assert args[args.index("-Sha") + 1] == latest
+    assert updater.state() == UpdateState("updating", installed[:7], latest[:7])
+    # Watching on starts nothing more.
+    watch_once(updater)
+    assert len(scripts_started) == 1
+
+
+def test_the_watch_fetches_only_every_so_often(origin, repo, tmp_path, scripts_started) -> None:
+    installed = commit(origin, "a")
+    updater = updater_at(repo, installed, tmp_path)
+    commit(origin, "b")
+    updater.tick()
+    assert scripts_started == []
+
+
+def test_the_watch_leaves_a_failed_update_to_oscar_until_master_moves_on(
+    origin, repo, tmp_path, scripts_started
+) -> None:
+    installed = commit(origin, "a")
+    failed = commit(origin, "b")
+    updater = updater_at(repo, installed, tmp_path)
+    updater._write_status({"state": "failed", "sha": failed})
+
+    watch_once(updater)
+    assert scripts_started == []
+
+    latest = commit(origin, "c")
+    watch_once(updater)
+    (args,) = scripts_started
+    assert args[args.index("-Sha") + 1] == latest
+
+
+def test_retry_builds_the_commit_that_failed(origin, repo, tmp_path, scripts_started) -> None:
+    installed = commit(origin, "a")
+    failed = commit(origin, "b")
+    updater = updater_at(repo, installed, tmp_path)
+    updater._write_status({"state": "failed", "sha": failed})
+
+    assert updater.start().state == "updating"
+
+    (args,) = scripts_started
+    assert args[args.index("-Sha") + 1] == failed
+
+
+def test_a_newer_master_is_built_in_place_of_the_one_staged(
+    origin, repo, tmp_path, scripts_started
+) -> None:
+    installed = commit(origin, "a")
+    staged = commit(origin, "b")
+    install = installed_at(tmp_path, f"app-{installed[:7]}", f"app-{staged[:7]}")
+    updater = updater_at(repo, installed, tmp_path, install)
+    released = []
+    updater.before_build = lambda: released.append(True)
+    stage(updater, staged, install / f"app-{staged[:7]}")
+    watch_once(updater)
+    assert scripts_started == [] and released == []
+
+    latest = commit(origin, "c")
+    watch_once(updater)
+
+    # What stood by on the staged version let go of it first.
+    assert released == [True]
+    (args,) = scripts_started
+    assert args[args.index("-Sha") + 1] == latest
+
+
+def test_nothing_is_built_while_a_restart_is_under_way(
+    origin, repo, tmp_path, scripts_started
+) -> None:
+    installed = commit(origin, "a")
+    staged = commit(origin, "b")
+    install = installed_at(tmp_path, f"app-{installed[:7]}", f"app-{staged[:7]}")
+    updater = updater_at(repo, installed, tmp_path, install)
+    stage(updater, staged, install / f"app-{staged[:7]}")
+
+    assert updater.hold() == install / f"app-{staged[:7]}" / "Personal Calendar.exe"
+    commit(origin, "c")
+    watch_once(updater)
+    assert updater.start().state == "staged"
+    assert scripts_started == []
+
+    # The restart given up: the newer master is built.
+    updater.release()
+    watch_once(updater)
+    assert len(scripts_started) == 1
+
+
+def test_nothing_staged_holds_nothing(origin, repo, tmp_path, scripts_started) -> None:
+    installed = commit(origin, "a")
+    commit(origin, "b")
+    updater = updater_at(repo, installed, tmp_path)
+    assert updater.hold() is None
+    watch_once(updater)
+    assert len(scripts_started) == 1
+
+
 def test_a_restart_that_did_not_come_up_has_failed(origin, repo, tmp_path) -> None:
     installed = commit(origin, "a")
     latest = commit(origin, "b")
@@ -391,13 +505,23 @@ class FakeUpdater:
     def __init__(self, state) -> None:  # noqa: ANN001
         self._state = state
         self.started = False
+        self.held = False
         self.failures: list[str] = []
 
     def state(self):  # noqa: ANN201
         return self._state
 
     def staged(self):  # noqa: ANN201
-        return Path("C:/staged/Personal Calendar.exe") if self._state.state == "staged" else None
+        staged = self._state and self._state.state == "staged"
+        return Path("C:/staged/Personal Calendar.exe") if staged else None
+
+    def hold(self):  # noqa: ANN201
+        exe = self.staged()
+        self.held = exe is not None
+        return exe
+
+    def release(self) -> None:
+        self.held = False
 
     def start(self):  # noqa: ANN201
         self.started = True
@@ -456,16 +580,19 @@ def test_pressing_restart_hands_over_to_the_staged_app() -> None:
     assert 'data-update="restarting"' in html and "Restarting…" in html
     assert shell.restarted.wait(5)
     assert shell.restarted_on == Path("C:/staged/Personal Calendar.exe")
+    # Nothing is built meanwhile, which would replace what it restarts on.
+    assert updater.held
     # Should it not come up, the button says so.
     assert updater.failures == ["it did not come up"]
 
 
 def test_restart_with_nothing_staged_shows_what_there_is() -> None:
-    html, _, shell = button(
+    html, updater, shell = button(
         UpdateState("updating", "1111111", "2222222"), method="post", path="/ui/desktop/restart"
     )
     assert 'data-update="updating"' in html
     assert shell.restarted_on is None
+    assert not updater.held
 
 
 def test_a_failed_update_offers_a_retry_and_its_log() -> None:

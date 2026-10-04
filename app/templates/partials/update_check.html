@@ -11,7 +11,7 @@
      {% if state == "updating" %}hx-get="/ui/desktop/update/check" hx-trigger="every 4s [this.closest('dialog')?.open]" hx-swap="outerHTML"{% endif %}>
   <p class="update-check__status" role="status">
     {% if state == "updating" %}
-    {{ icon }}Downloading and building {{ update.latest }}. Restart to update shows here and in the sidebar once it is ready, in a few minutes.
+    {{ icon }}Downloading and building {{ update.latest }}. Restart to update shows here and in the sidebar once it is ready.
     {% elif state == "staged" %}
     {{ update.latest }} is downloaded and ready (this is {{ update.installed }}).
     {% elif state == "failed" %}

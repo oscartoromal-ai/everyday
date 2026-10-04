@@ -1,0 +1,14 @@
+# The program's version resource (its Properties, Task Manager), for
+# desktop/personal-calendar.spec: what it is, not which version. An update
+# can change the app's code and keep the program (build.ps1 -Reuse); the
+# version is the app's own (Settings, Installed apps, build-info.json).
+VSVersionInfo(
+  ffi=FixedFileInfo(filevers=(0, 0, 0, 0), prodvers=(0, 0, 0, 0)),
+  kids=[
+    StringFileInfo([StringTable('040904B0', [
+      StringStruct('ProductName', 'Personal Calendar'),
+      StringStruct('FileDescription', 'Personal Calendar'),
+      StringStruct('OriginalFilename', 'Personal Calendar.exe')])]),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])
+  ]
+)

@@ -6,7 +6,9 @@ version = "0.1.0"
 description = "Oscar's personal planner: calendar, todos, projects, and an MCP planner interface."
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi[standard]>=0.115",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "python-multipart>=0.0.9",
     "jinja2>=3.1",
     "sqlalchemy>=2.0",
     "alembic>=1.13",

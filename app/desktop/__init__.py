@@ -6,16 +6,21 @@ an Edge WebView2 onto the server's pages. Closing the window hides it to the
 tray, where the app keeps running; Quit, on the tray icon's menu, ends it. It
 starts hidden at sign-in (--background, from the installer's Run entry).
 
+It starts its window first, on a placeholder in the page's paper, and loads
+the server's code and starts serving while WebView2 starts, the slowest two
+things it does side by side; then it opens the page.
+
 Its data lives in its home (config.py): %LOCALAPPDATA%/Personal Calendar when
 installed, the database created and migrated as it starts. Launching it again
 while it runs brings its window forward (--open <path> at a page), through
 /desktop on the running one's server.
 
 Restarting on an update (update.py) hands over between two processes: the
-updated app starts (--replacing), this one stops serving and gives up its
-claim, and the new one comes up where this window is, at its page, over it,
-then tells this one to go (the handoff event). The window never leaves the
-screen, and the server is away only while the new one starts.
+updated version, started ahead to stand by with its code and window loaded
+(standby.py), is told to go; this one stops serving and gives up its claim,
+and the new one comes up where this window is, at its page, over it, then
+tells this one to go. The window never leaves the screen, and the server is
+away only while the new one migrates and binds.
 
 Entry point for the installed app (desktop/personal-calendar.spec) and for
 `uv run personal-calendar-desktop` from the repo.
@@ -26,8 +31,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
-import subprocess
 import sys
 import threading
 import time
@@ -35,7 +38,6 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import httpx
 import webview
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -43,6 +45,7 @@ from pydantic import BaseModel
 
 from app.config import REPO_ROOT, get_settings
 from app.desktop import update, win32
+from app.desktop.standby import Handover, Standby, Waiting
 from app.desktop.tray import Tray
 from app.desktop.update import Updater, UpdateState
 
@@ -54,8 +57,11 @@ log = logging.getLogger(__name__)
 NAME = "Personal Calendar"
 APP_ID = "Oscar.PersonalCalendar"
 MUTEX = "Local\\Oscar.PersonalCalendar"
-# How long an updated app has to come up: its start, its database migrated.
+# How long a version restarted on has to get ready (its code and window
+# loaded), and then to come up (its database migrated, its page drawn).
 HANDOFF_SECONDS = 90
+# How long a version taking over waits for the one it replaces to let go.
+CLAIM_SECONDS = 60
 ICON = REPO_ROOT / "app" / "static" / "icons" / "app.ico"
 # How often the nudges waiting are counted again, besides as they change.
 BADGE_SECONDS = 60
@@ -63,6 +69,8 @@ BADGE_SECONDS = 60
 # checks with Windows' own spellers, so each needs Windows' basic typing
 # feature for its language (Language.Basic~~~es-ES~0.0.1.0, as admin).
 SPELLING = ["en-US", "es-ES"]
+# What the window shows until its page is there.
+PLACEHOLDER = '<!doctype html><html style="background:{paper}"><title>{name}</title></html>'
 
 
 def instance_name(port: int) -> str:
@@ -72,15 +80,26 @@ def instance_name(port: int) -> str:
     return MUTEX if port == 8377 else f"{MUTEX}.{port}"
 
 
+def claim(instance: str, timeout: float) -> bool:
+    """Whether this app got the instance's claim within `timeout` seconds, as
+    the one it takes over from lets go."""
+    deadline = time.monotonic() + timeout
+    while not win32.claim_single_instance(instance):
+        if time.monotonic() > deadline:
+            return False
+        time.sleep(0.05)
+    return True
+
+
 class Shell:
     """The window and the tray icon, over the app's server at `url`."""
 
     def __init__(self, url: str, state_path: Path, instance: str) -> None:
         self.url = url
         self.state_path = state_path
-        # Set by an updated app once its window is up, for the one it
-        # replaces to go.
-        self.handoff_name = f"{instance}.Handoff"
+        # The data folder, beside the window's state.
+        self.data = state_path.parent
+        self.instance = instance
         self.state = self._load_state()
         self.quitting = False
         self.quit_reason = "the window closed"
@@ -90,9 +109,20 @@ class Shell:
         # Set once the window is where it belongs; until then another launch
         # waits to bring it forward.
         self.ready = threading.Event()
-        # Started to take over from an app restarting on its update.
+        # Started to stand by for the app restarting on it (standby.py).
+        self.waiting: Waiting | None = None
+        # Started by a version from before standbys, restarting on its update:
+        # it waits on the handoff event, and this one waits for its claim.
         self.replacing = False
         self.servers: serve.Servers | None = None
+        self.updater: Updater | None = None
+        # The version started to stand by for the next restart; a restart
+        # under way, which the watch leaves alone; the watch's end.
+        self.standby: Standby | None = None
+        self._standby_lock = threading.RLock()
+        self._standby_failed: Path | None = None
+        self.restarting = False
+        self.watching = threading.Event()
 
     # ---- what it remembers between runs: where the window was, its title
     # bar's colours, and whether the tray has been pointed out ----
@@ -113,11 +143,12 @@ class Shell:
     def hwnd(self) -> int:
         return int(self.window.native.Handle.ToInt64())
 
-    def create_window(self, path: str = "/today") -> webview.Window:
+    def create_window(self) -> webview.Window:
+        """The window, hidden, on its placeholder until started() opens the page."""
         paper = self.state.get("title_bar", {}).get("paper", "#ffffff")
         self.window = webview.create_window(
             NAME,
-            f"{self.url}{path}",
+            html=PLACEHOLDER.format(paper=paper, name=NAME),
             js_api=Api(self),
             width=1280,
             height=860,
@@ -134,14 +165,64 @@ class Shell:
         self.window.events.loaded += self._on_loaded
         return self.window
 
-    def started(self, background: bool) -> None:
-        """Once the window exists (pywebview's thread): back where it was, its
-        title bar as it last was, shown unless started at sign-in."""
-        # pywebview shows a hidden window for a moment as it makes it.
-        self.window.events.shown.wait()
-        if self.replacing:
+    def started(self, background: bool, page: str) -> None:
+        """The app brought up around its window (pywebview's thread, from as
+        WebView2 starts): its server, its page, the window back where it was,
+        its title bar as it last was, shown unless started at sign-in. A
+        standby does it once told to go, where the app it replaces was."""
+        try:
+            self._bring_up(background, page)
+        except Exception as exc:
+            log.exception("Could not start")
+            self._fail(f"{NAME} could not start.\n\n{exc}")
+
+    def _bring_up(self, background: bool, page: str) -> None:
+        if self.waiting:
+            handover = self._stand_by()
+            if handover is None:
+                self.quit("not needed as a standby")
+                return
+            page, background = handover.page, handover.background
+            if not self._serve():
+                return
+        else:
+            served: list[bool] = []
+            serving = threading.Thread(
+                target=lambda: served.append(self._serve()), name="serve", daemon=True
+            )
+            serving.start()
+            # pywebview shows a hidden window for a moment as it makes it.
+            self.window.events.shown.wait()
+            if not self.replacing:
+                # On screen at once, in the page's paper, while it loads.
+                self._place(background)
+            serving.join()
+            if not served or not served[0]:
+                return
+        # The placeholder drawn, so that the page's own load is waited on.
+        self.window.events.loaded.wait(10)
+        self.window.events.loaded.clear()
+        self.window.load_url(f"{self.url}{page}")
+        if self.waiting or self.replacing:
             # Over the window it replaces, its page drawn already.
             self.window.events.loaded.wait(30)
+            self._place(background)
+        self.ready.set()
+        if self.waiting:
+            self.waiting.up()
+        if self.replacing:
+            handoff = win32.Signal(f"{self.instance}.Handoff")
+            handoff.set()
+            handoff.close()
+        info = update.build_info()
+        if info:
+            update.take_over(Path(sys.executable), info.get("version", info["commit"]))
+        threading.Thread(target=self._count_nudges, name="taskbar-badge", daemon=True).start()
+        if self.updater:
+            threading.Thread(target=self._watch_updates, name="watch updates", daemon=True).start()
+        self.tray.start()
+
+    def _place(self, background: bool) -> None:
         placement = self.state.get("placement")
         if placement:
             win32.set_placement(self.hwnd, placement)
@@ -149,16 +230,82 @@ class Shell:
             self.paint_title_bar(**self.state["title_bar"])
         if not background:
             self._show(maximized=bool(placement and placement["maximized"]))
-        self.ready.set()
-        if self.replacing:
-            handoff = win32.Signal(self.handoff_name)
-            handoff.set()
-            handoff.close()
-        info = update.build_info()
-        if info:
-            update.take_over(Path(sys.executable), info.get("version", info["commit"]))
-        threading.Thread(target=self._count_nudges, name="taskbar-badge", daemon=True).start()
-        self.tray.start()
+
+    def _stand_by(self) -> Handover | None:
+        """As a standby: its code loaded and its window up, Ready said, then
+        once told to go, the app's claim taken over. Where to come up; None
+        when not needed after all."""
+        from app import serve
+
+        serve.configure_logging(serve.log_path().with_name("standby.log"))
+        self._load_server_code()
+        self.window.events.loaded.wait()
+        log.info("Standing by")
+        handover = self.waiting.wait_for_go()
+        if handover is None:
+            return None
+        # The app's own log from now on, and the window's state as the app it
+        # replaces left it.
+        serve.configure_logging(serve.log_path())
+        log.info("Taking over at %s", handover.page)
+        self.state = self._load_state()
+        if not claim(self.instance, CLAIM_SECONDS):
+            log.error("The app restarting did not let go within %ss", CLAIM_SECONDS)
+            return None
+        return handover
+
+    def _load_server_code(self) -> None:
+        """The server's code imported: most of the time a start takes."""
+        from app import migrate, serve  # noqa: F401
+        from app.ui import views  # noqa: F401
+
+    def _serve(self) -> bool:
+        """Whether the app is serving: its database migrated, its routes and
+        its Update button's added. Should it not, it says why and quits."""
+        from app import migrate
+
+        try:
+            return self._start_serving()
+        except migrate.DatabaseTooNew as exc:
+            self._fail(f"This version of {NAME} is older than its data.\n\n{exc}")
+        except Exception as exc:
+            log.exception("Could not start")
+            self._fail(f"{NAME} could not start.\n\n{exc}")
+        return False
+
+    def _start_serving(self) -> bool:
+        from app import serve
+
+        self._load_server_code()
+        app = serve.prepare()
+        app.include_router(control_router(self))
+        settings = get_settings()
+        self.updater = Updater.for_installed_app(settings.db_path.parent / "update.json")
+        if self.updater:
+            from app.ui.views import templates
+
+            self.updater.settle()
+            self.updater.before_build = self._stop_standby
+            templates.env.globals["app_update"] = self.updater.state
+            templates.env.globals["app_updatable"] = lambda: True
+            app.include_router(update_router(self.updater, self))
+        self.servers = serve.Servers(app)
+        self.servers.start()
+        if not self.servers.wait_started():
+            self.servers.stop("could not serve")
+            self._fail(f"{NAME} could not serve on {self.url}: is another copy of it running?")
+            return False
+        return True
+
+    def _fail(self, message: str) -> None:
+        """It cannot come up: says why, unless a standby (the app restarting
+        on it carries on, and tells), and quits."""
+        if not self.waiting:
+            from app import serve
+
+            win32.message_box(NAME, f"{message}\n\nLog: {serve.log_path()}")
+        self.window.events.shown.wait()
+        self.quit("could not start")
 
     def _on_loaded(self) -> None:
         # pywebview keeps WebView2's context menu (the spelling suggestions)
@@ -198,9 +345,8 @@ class Shell:
         """The window on screen and in front, and WinForms told so: WebView2
         draws the page only while its control is visible to WinForms, which
         Windows' own showing leaves unaware. Hidden through WinForms while
-        WebView2 was up already (pywebview hides a new window so; an app
-        restarting on its update has its browser running), it would stay
-        blank."""
+        WebView2 was up already (pywebview hides a new window so; a standby
+        has its browser running), it would stay blank."""
         win32.show(self.hwnd, maximized=maximized)
         self.window.show()
 
@@ -219,12 +365,60 @@ class Shell:
             self.window.load_url(f"{self.url}/today?capture=1")
         self.open()
 
+    # ---- updates: the watch, the standby, the restart ----
+
+    def _watch_updates(self) -> None:
+        """The updater's watch (update.py), and a standby kept on the version
+        it staged, ready for Restart."""
+        while not self.quitting:
+            if not self.restarting:
+                try:
+                    self.updater.tick()
+                    self._keep_standby(self.updater.staged())
+                except Exception:
+                    log.exception("Watching for updates failed")
+            self.watching.wait(update.WATCH_SECONDS)
+
+    def _keep_standby(self, exe: Path | None) -> None:
+        """A standby on the staged version `exe`, none without one. One that
+        ended by itself is not started again for the same version: Restart
+        then starts it afresh, and says why it failed."""
+        with self._standby_lock:
+            if self.standby and (self.standby.exe != exe or not self.standby.alive()):
+                if not self.standby.alive():
+                    log.warning("The standby on %s ended by itself", self.standby.exe)
+                    self._standby_failed = self.standby.exe
+                self._stop_standby()
+            wanted = exe and exe != self._standby_failed
+            if wanted and self.standby is None and not (self.quitting or self.restarting):
+                self.standby = Standby(exe, self.instance, self.data)
+
+    def _stop_standby(self) -> None:
+        with self._standby_lock:
+            if self.standby:
+                self.standby.stop()
+                self.standby = None
+
+    def _standby_on(self, exe: Path) -> Standby:
+        """The standby on `exe`, taken for a restart: the one kept, else one
+        started now."""
+        with self._standby_lock:
+            standby = self.standby
+            self.standby = None
+            if standby and standby.exe == exe and standby.alive():
+                return standby
+            if standby:
+                standby.stop()
+            return Standby(exe, self.instance, self.data)
+
     def restart(self, exe: Path, on_failure: Callable[[str], None]) -> None:
         """This app replaced by the updated one at `exe`, which comes up over
-        this window, at its page. Should it not, `on_failure` hears why and
-        this version starts again the same way."""
+        this window, at its page. Should it not get ready, `on_failure` hears
+        why and this one carries on; should it not come up once this one has
+        stopped serving, this version starts again the same way."""
         from app import serve
 
+        self.restarting = True
         visible = win32.is_visible(self.hwnd)
         current = self.window.get_current_url() or ""
         page = current[len(self.url):] if current.startswith(f"{self.url}/") else "/today"
@@ -235,50 +429,53 @@ class Shell:
         self.window.evaluate_js(
             "document.documentElement.dataset.restarting = ''; document.body.inert = true"
         )
-        handoff = win32.Signal(self.handoff_name)
-        handoff.reset()
-        try:
-            if self._hand_over(exe, page, visible, handoff):
-                self.quit("restarted on its update")
-                return
-            on_failure(f"{exe} did not come up within {HANDOFF_SECONDS}s")
-            if self._hand_over(Path(sys.executable), page, visible, handoff):
-                self.quit("restarted after its update failed")
-                return
-            win32.message_box(
-                NAME, f"{NAME} could not restart. Open it again.\n\nLog: {serve.log_path()}"
-            )
-            self.quit("could not restart")
-        finally:
-            handoff.close()
-
-    def _hand_over(self, exe: Path, page: str, visible: bool, handoff: win32.Signal) -> bool:
-        """Whether the app at `exe` came up in this one's place."""
-        args = [str(exe), "--replacing", "--open", page]
-        if not visible:
-            args.append("--background")
-        log.info("Handing over to %s", exe)
-        process = subprocess.Popen(
-            args,
-            # One frozen app starting another: that one sets itself up afresh.
-            env={**os.environ, "PYINSTALLER_RESET_ENVIRONMENT": "1"},
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+        handover = Handover(page, background=not visible)
+        standby = self._standby_on(exe)
+        if not standby.wait_ready(HANDOFF_SECONDS):
+            standby.stop()
+            on_failure(f"{exe} did not get ready within {HANDOFF_SECONDS}s")
+            # Nothing stopped yet: the page back, its button saying so.
+            self.restarting = False
+            if self.updater:
+                self.updater.release()
+            self.window.evaluate_js("location.reload()")
+            return
+        if self._hand_over(standby, handover):
+            self.quit("restarted on its update")
+            return
+        on_failure(f"{exe} did not come up within {HANDOFF_SECONDS}s")
+        again = Standby(Path(sys.executable), self.instance, self.data)
+        if again.wait_ready(HANDOFF_SECONDS) and self._hand_over(again, handover):
+            self.quit("restarted after its update failed")
+            return
+        again.stop()
+        win32.message_box(
+            NAME, f"{NAME} could not restart. Open it again.\n\nLog: {serve.log_path()}"
         )
-        win32.allow_foreground(process.pid)
-        # It starts meanwhile, and waits for the port and the claim.
+        self.quit("could not restart")
+
+    def _hand_over(self, standby: Standby, handover: Handover) -> bool:
+        """Whether the ready `standby` came up in this one's place; ended,
+        should it not."""
+        log.info("Handing over to %s", standby.exe)
+        standby.go(handover)
         self.servers.stop("handing over to an update")
         self.servers.join()
         win32.release_single_instance()
-        return handoff.wait_unless_exited(process.pid, HANDOFF_SECONDS)
+        if standby.wait_up(HANDOFF_SECONDS):
+            return True
+        standby.stop()
+        return False
 
     def quit(self, reason: str) -> None:
         self.quitting = True
         self.quit_reason = reason
+        self.watching.set()
+        self._stop_standby()
         if win32.is_visible(self.hwnd):
             self.state["placement"] = win32.get_placement(self.hwnd)
-        self._save_state()
+        if not self.waiting or self.ready.is_set():
+            self._save_state()
         self.tray.stop()
         self.window.destroy()
 
@@ -401,9 +598,11 @@ def update_router(updater: Updater, shell: Shell) -> APIRouter:
 
     @router.post("/restart", response_class=HTMLResponse)
     def restart(request: Request) -> HTMLResponse:
+        # Nothing built from now on: a build would replace what it restarts on.
+        exe = updater.hold()
         state = updater.state()
-        exe = updater.staged()
         if state is None or exe is None:
+            updater.release()
             return button(request, state)
 
         def failed(why: str) -> None:
@@ -439,6 +638,9 @@ def spell_in(storage: Path, languages: list[str]) -> None:
 def _forward(url: str, path: str | None) -> bool:
     """Whether the running instance took the request to come forward (at
     `path`); False while it is not answering, starting or quitting."""
+    # Only here: the start that serves has no need of it so soon.
+    import httpx
+
     win32.allow_any_foreground()
     try:
         httpx.post(f"{url}/desktop/open", json={"path": path}, timeout=5).raise_for_status()
@@ -455,77 +657,52 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="personal-calendar-desktop")
     parser.add_argument("--background", action="store_true", help="start in the tray")
     parser.add_argument("--open", metavar="PATH", help="a page to open, e.g. /calendar")
-    # From an app restarting on its update (Shell.restart): wait for it to let go.
+    # Started ahead of a restart by the app with this process id, by the id
+    # it gave it (standby.py).
+    parser.add_argument("--standby", nargs=2, metavar=("PID", "ID"), help=argparse.SUPPRESS)
+    # From a version before standbys restarting on its update: wait for it to let go.
     parser.add_argument("--replacing", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
-    page = args.open if args.open and args.open.startswith("/") else None
+    opened = args.open if args.open and args.open.startswith("/") else None
 
     settings = get_settings()
     url = f"http://127.0.0.1:{settings.server.port}"
     win32.set_app_id(APP_ID)
-    # Already running: that one comes forward. One quitting as this starts
-    # leaves the claim to this one.
-    deadline = time.monotonic() + 60
     instance = instance_name(settings.server.port)
-    while not win32.claim_single_instance(instance):
-        if args.replacing:
-            if time.monotonic() > deadline:
-                # The app restarting carries on.
+    if args.replacing:
+        if not claim(instance, CLAIM_SECONDS):
+            # The app restarting carries on.
+            return
+    elif args.standby is None:
+        # Already running: that one comes forward. One quitting as this starts
+        # leaves the claim to this one.
+        deadline = time.monotonic() + 60
+        while not win32.claim_single_instance(instance):
+            if args.background or _forward(url, opened):
                 return
-            time.sleep(0.05)
-            continue
-        if args.background or _forward(url, page):
-            return
-        if time.monotonic() > deadline:
-            win32.message_box(NAME, f"{NAME} is running but not answering at {url}.")
-            return
-        time.sleep(0.5)
+            if time.monotonic() > deadline:
+                win32.message_box(NAME, f"{NAME} is running but not answering at {url}.")
+                return
+            time.sleep(0.5)
     win32.no_console_windows()
-
-    from app import migrate, serve
-
-    try:
-        app = serve.prepare()
-    except migrate.DatabaseTooNew as exc:
-        win32.message_box(NAME, f"This version of {NAME} is older than its data.\n\n{exc}")
-        return
-    except Exception as exc:
-        log.exception("Could not start")
-        win32.message_box(NAME, f"{NAME} could not start.\n\n{exc}\n\nLog: {serve.log_path()}")
-        return
 
     shell = Shell(url, settings.db_path.parent / "desktop.json", instance)
     shell.replacing = args.replacing
-    app.include_router(control_router(shell))
-    updater = Updater.for_installed_app(settings.db_path.parent / "update.json")
-    if updater:
-        from app.ui.views import templates
-
-        updater.settle()
-        templates.env.globals["app_update"] = updater.state
-        templates.env.globals["app_updatable"] = lambda: True
-        app.include_router(update_router(updater, shell))
-    servers = shell.servers = serve.Servers(app)
-    servers.start()
-    if not servers.wait_started():
-        servers.stop("could not serve")
-        win32.message_box(
-            NAME,
-            f"{NAME} could not serve on {url}: is another copy of it running?\n\n"
-            f"Log: {serve.log_path()}",
-        )
-        return
-
+    if args.standby is not None:
+        parent, standby_id = args.standby
+        shell.waiting = Waiting(instance, int(parent), standby_id, shell.data)
     storage = settings.db_path.parent / "webview"
     spell_in(storage, SPELLING)
-    shell.create_window(page or "/today")
+    shell.create_window()
     webview.start(
         shell.started,
-        args.background,
+        (args.background, opened or "/today"),
         private_mode=False,
         storage_path=str(storage),
         icon=str(ICON),
     )
-    servers.stop(f"quit: {shell.quit_reason}")
-    servers.join()
+    shell.watching.set()
+    if shell.servers:
+        shell.servers.stop(f"quit: {shell.quit_reason}")
+        shell.servers.join()
     log.info("Stopped")

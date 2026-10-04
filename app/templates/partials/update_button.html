@@ -8,7 +8,7 @@
 {% if update.state == "updating" %}
 <div class="rail-button update-button" data-update="updating" role="status"
      hx-get="/ui/desktop/update" hx-trigger="every 4s" hx-swap="outerHTML"
-     title="Building {{ update.latest }} in the background; Restart shows here once it is ready, in a few minutes">
+     title="Building {{ update.latest }} in the background; Restart shows here once it is ready">
   {{ icon }}<span class="rail-button__label">Updating…</span>
 </div>
 {% elif update.state == "staged" %}
