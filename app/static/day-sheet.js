@@ -8,7 +8,8 @@
    chevron a menu of the statuses it can be given; a
    habit's cell, or accommodation's, is ticked by a click or Space, and a
    drag down its column paints the days it crosses. Ctrl+D fills the range
-   from its first row (one cell, from the row above), Delete clears it (a
+   from its first row (one cell, from the row above), Ctrl+C and Ctrl+V
+   copy and paste it as a spreadsheet's cells, Delete clears it (a
    plan's tasks deleted after asking, as a task's bin does). A
    day whose plan runs over a line folds to its first (its chevron, or
    Alt+Left and Right), and stays folded in this browser. A task's title
@@ -186,6 +187,110 @@
     }
     if (!sources) return;
     send(targets.flatMap((row) => range.cols.map((c) => fillOp(cellAt(sources, c), cellAt(row, c))).filter(Boolean)));
+  };
+
+  /* ---- copy and paste, as tab-separated text, so cells go to and come
+     from a spreadsheet too: a tick is "x", a plan its tasks' titles a line
+     each (quoted, as Excel quotes a cell of lines) ---- */
+
+  const tickedText = (text) => text !== "" && !/^(0|false|no|n)$/i.test(text);
+
+  const cellText = (cell) => {
+    if (!cell) return "";
+    const kind = cell.dataset.kind;
+    if (kind === "day") return cell.querySelector("a")?.textContent.replace(/\s+/g, " ").trim() || dayOf(cell);
+    if (kind === "stay") return cell.dataset.value;
+    if (kind === "plan") return [...cell.querySelectorAll(".ds-task .ds-title")].map((t) => t.textContent.trim()).join("\n");
+    return isTicked(cell) ? "x" : "";
+  };
+
+  const quoted = (text) => (/[\t\n"]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text);
+
+  // Ctrl+C: the range, a row a line, its cells apart by tabs.
+  const copy = () => {
+    const range = rangeCells();
+    const text = range.rows.map((row) => range.cols.map((c) => quoted(cellText(cellAt(row, c)))).join("\t")).join("\n");
+    navigator.clipboard?.writeText(text).then(
+      () => window.toast(range.cells.length > 1 ? "Copied the cells" : "Copied"),
+      () => window.toast("Could not copy"),
+    );
+  };
+
+  // Tab-separated text as rows of cells; a quoted cell may hold tabs, lines and "".
+  const parseCells = (text) => {
+    const grid = [[]];
+    let i = 0;
+    text = text.replace(/\r\n?/g, "\n").replace(/\n$/, "");
+    for (;;) {
+      let value = "";
+      if (text[i] === '"') {
+        i++;
+        for (;;) {
+          const close = text.indexOf('"', i);
+          if (close < 0) { value += text.slice(i); i = text.length; break; }
+          value += text.slice(i, close);
+          i = close + 1;
+          if (text[i] !== '"') break;
+          value += '"';
+          i++;
+        }
+        const end = text.slice(i).search(/[\t\n]/);
+        i = end < 0 ? text.length : i + end; // anything after the closing quote is dropped
+      } else {
+        const end = text.slice(i).search(/[\t\n]/);
+        value = text.slice(i, end < 0 ? text.length : i + end);
+        i = end < 0 ? text.length : i + end;
+      }
+      grid[grid.length - 1].push(value);
+      if (i >= text.length) return grid;
+      if (text[i] === "\n") grid.push([]);
+      i++;
+    }
+  };
+
+  // What pasting `text` into a cell writes: a stay's words, a tick, a plan's
+  // tasks (a line each, but for one the day already has).
+  const pasteOps = (cell, text) => {
+    const kind = cell.dataset.kind;
+    if (kind === "stay") {
+      const value = text.replace(/\s+/g, " ").trim();
+      return value === cell.dataset.value ? [] : [{ op: "stay", day: dayOf(cell), name: cell.dataset.name, value }];
+    }
+    if (tickable(cell)) {
+      const done = tickedText(text.trim());
+      return done === isTicked(cell) ? [] : [tickOp(cell, done)];
+    }
+    if (kind === "plan") {
+      const has = new Set(cellText(cell).split("\n"));
+      return text.split("\n").map((l) => l.replace(/\s+/g, " ").trim())
+        .filter((title) => title && !has.has(title) && has.add(title))
+        .map((title) => ({ op: "task", day: dayOf(cell), title }));
+    }
+    return [];
+  };
+
+  // Ctrl+V: the cells from the range's top left corner; a range that is
+  // a whole number of them over takes them again and again, as in Excel
+  // (one cell copied fills the range).
+  const paste = (text) => {
+    const grid = parseCells(text);
+    const range = rangeCells();
+    const all = rows();
+    const top = all.indexOf(range.rows[0]);
+    const left = range.cols[0];
+    const width = Math.max(...grid.map((r) => r.length));
+    const tiled = range.rows.length % grid.length === 0 && range.cols.length % width === 0;
+    const height = tiled ? range.rows.length : grid.length;
+    const across = tiled ? range.cols.length : width;
+    const ops = [];
+    for (let r = 0; r < height && top + r < all.length; r++) {
+      for (let c = 0; c < across && left + c < colCount(); c++) {
+        const cell = cellAt(all[top + r], left + c);
+        const value = grid[r % grid.length][c % width];
+        if (cell && value !== undefined) ops.push(...pasteOps(cell, value));
+      }
+    }
+    send(ops);
   };
 
   // Tasks deleted, after asking (their bins, as Projects' rows'); the
@@ -426,6 +531,7 @@
 
     if ((e.ctrlKey || e.metaKey) && !e.altKey) {
       if (key.toLowerCase() === "d") { handled(); fillDown(); return; }
+      if (key.toLowerCase() === "c") { handled(); copy(); return; }
       if (key === "Enter") {
         // A Plan cell's first task, on its page.
         const link = cell.dataset.kind === "plan" && cell.querySelector(".ds-task a.ds-title");
@@ -434,7 +540,7 @@
       }
       if (key === "Home") { handled(); moveTo(rows()[0].dataset.day, 0, { extend: e.shiftKey }); return; }
       if (key === "End") { const all = rows(); handled(); moveTo(all[all.length - 1].dataset.day, colCount() - 1, { extend: e.shiftKey }); return; }
-      return; // other Ctrl keys stay the browser's
+      return; // Ctrl+V comes as a paste event; other Ctrl keys stay the browser's
     }
     if (e.altKey) {
       if (key === "ArrowLeft" || key === "ArrowRight") {
@@ -477,6 +583,13 @@
       handled();
       edit(cell, { value: key });
     }
+  });
+
+  // On the document: with no words focused, the paste is the page's, not the cell's.
+  document.addEventListener("paste", (e) => {
+    if (editing || !cursor || !sheet.contains(document.activeElement)) return;
+    e.preventDefault();
+    paste(e.clipboardData.getData("text/plain"));
   });
 
   /* ---- the pointer: a cell, a range, a column's days painted, a day folded ---- */

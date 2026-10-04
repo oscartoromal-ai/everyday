@@ -230,3 +230,63 @@ def test_a_task_is_deleted_from_its_bin_or_with_delete(page, live, app_db) -> No
     with app_db() as db:
         assert db.query(Task).count() == 0
     assert page.locator(".ds-cell.is-cursor").get_attribute("data-kind") == "plan"
+
+
+def test_cells_are_copied_and_pasted_as_a_spreadsheets(page, live, app_db) -> None:
+    monday = START
+    wednesday, thursday, saturday = (START + timedelta(days=i) for i in (2, 3, 5))
+    with app_db() as db:
+        notebook.set_stay_item(db, monday, "place", value="Leiden")
+        notebook.set_stay_item(db, monday, "accommodation", done=True)
+        tasks_svc.create_task(db, title="Pay rent", planned_for=monday)
+        tasks_svc.create_task(db, title='Call "mum"', planned_for=monday)
+        habits_svc.set_days(db, "morning-run", "")
+        notebook.set_habit(db, monday, "morning-run", True)
+        db.commit()
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"], origin=live)
+    open_sheet(page, live)
+    # Windows' clipboard breaks lines with CRLF.
+    clipboard = lambda: page.evaluate("navigator.clipboard.readText()").replace("\r\n", "\n")  # noqa: E731
+    # The day's row across, as tab-separated text: a tick an x, a plan its
+    # tasks a line each, quoted.
+    cell(page, monday, '[data-name="place"]').click()
+    for _ in range(3):
+        page.keyboard.press("Shift+ArrowRight")
+    page.keyboard.press("Control+c")
+    page.wait_for_function("navigator.clipboard.readText().then(t => t.length > 0)")
+    assert clipboard() == 'Leiden\tx\t"Pay rent\nCall ""mum"""\tx'
+    # Pasted from Wednesday's place, the whole row written there.
+    cell(page, wednesday, '[data-name="place"]').click()
+    page.keyboard.press("Control+v")
+    cell(page, wednesday, '[data-slug="morning-run"][data-state="done"]').wait_for()
+    assert stay(app_db, wednesday) == [
+        {"name": "place", "value": "Leiden", "done": False},
+        {"name": "accommodation", "value": "", "done": True},
+    ]
+    with app_db() as db:
+        titles = sorted(t.title for t in db.query(Task).filter(Task.planned_for == wednesday))
+    assert titles == ['Call "mum"', "Pay rent"]
+    # Again, over a place written since: the tasks the day has already are
+    # not written twice.
+    page.keyboard.type("Perth")
+    page.keyboard.press("Enter")
+    cell(page, wednesday, '[data-name="place"][data-value="Perth"]').click()
+    page.keyboard.press("Control+v")
+    cell(page, wednesday, '[data-name="place"][data-value="Leiden"]').wait_for()
+    with app_db() as db:
+        assert db.query(Task).filter(Task.planned_for == wednesday).count() == 2
+    # One cell fills the range.
+    cell(page, monday, '[data-name="place"]').click()
+    page.keyboard.press("Control+c")
+    cell(page, thursday, '[data-name="place"]').click()
+    cell(page, saturday, '[data-name="place"]').click(modifiers=["Shift"])
+    page.keyboard.press("Control+v")
+    cell(page, saturday, '[data-name="place"][data-value="Leiden"]').wait_for()
+    for day in (thursday, thursday + timedelta(days=1), saturday):
+        assert stay(app_db, day)[0]["value"] == "Leiden"
+    # A spreadsheet's cells paste too; an empty one clears.
+    page.evaluate("text => navigator.clipboard.writeText(text)", "Delft\t\r\n")
+    cell(page, wednesday, '[data-name="place"]').click()
+    page.keyboard.press("Control+v")
+    cell(page, wednesday, '[data-name="accommodation"][data-done="false"]').wait_for()
+    assert cell(page, wednesday, '[data-name="place"]').get_attribute("data-value") == "Delft"
