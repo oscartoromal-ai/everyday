@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import changelog, checklist
+from app.config import get_settings
 from app.dates import duration_label, human_date, monday, short_date, upper_first, week_label
 from app.db import DbSession
 from app.models import (
@@ -104,6 +105,11 @@ def rail_layout(request: Request) -> list[rail_svc.PlacedSection]:
 
 
 templates.env.globals["rail_layout"] = rail_layout
+# The modules this machine has, for what a page shows of the optional ones.
+templates.env.globals["installed"] = lambda module: get_settings().installed(module)
+templates.env.globals["rail_keys"] = rail_svc.keyed
+templates.env.globals["rail_key_runs"] = rail_svc.key_runs
+templates.env.globals["not_installed"] = rail_svc.not_installed
 
 
 def description_blocks(notes: str) -> list[dict[str, Any]]:
@@ -553,8 +559,9 @@ def day_glance_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
     """A day's glance, under its date: on today's, the events on now and
     next; and how Oscar came into the day (his watch's readiness,
     sleep and body battery). Whether the day's plan fits it is the
-    timeline's to say (calendar_view.day_load)."""
-    measured = garmin_svc.day(db, day)
+    timeline's to say (calendar_view.day_load). The watch's figures are
+    Health's: a machine installed without it has none."""
+    measured = garmin_svc.day(db, day) if get_settings().installed("health") else None
     ctx: dict[str, Any] = {
         "live": day == now.date(),
         "body": _body_figures(measured) if measured else [],

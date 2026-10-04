@@ -112,18 +112,21 @@ def create_scheduler() -> BackgroundScheduler:
         CronTrigger(hour=int(digest_hour), minute=int(digest_minute)),
         id="morning_digest",
     )
-    scheduler.add_job(
-        run_garmin_sync,
-        IntervalTrigger(minutes=get_settings().garmin.sync_minutes),
-        id="garmin_sync",
-        next_run_time=datetime.now() + timedelta(seconds=45),  # catch up at startup too
-    )
-    scheduler.add_job(
-        run_github_sync,
-        IntervalTrigger(minutes=get_settings().github.sync_minutes),
-        id="github_sync",
-        next_run_time=datetime.now() + timedelta(seconds=60),  # catch up at startup too
-    )
+    # The optional modules' syncs, unless the machine was installed without them.
+    if get_settings().installed("health"):
+        scheduler.add_job(
+            run_garmin_sync,
+            IntervalTrigger(minutes=get_settings().garmin.sync_minutes),
+            id="garmin_sync",
+            next_run_time=datetime.now() + timedelta(seconds=45),  # catch up at startup too
+        )
+    if get_settings().installed("code"):
+        scheduler.add_job(
+            run_github_sync,
+            IntervalTrigger(minutes=get_settings().github.sync_minutes),
+            id="github_sync",
+            next_run_time=datetime.now() + timedelta(seconds=60),  # catch up at startup too
+        )
     scheduler.add_job(
         run_daily_backup,
         CronTrigger(hour=3, minute=30),

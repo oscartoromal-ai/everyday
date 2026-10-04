@@ -3,10 +3,15 @@
 Claude reads and writes the plan through these tools. The upsert_* /
 update_task_status shapes are also the v2 auto-capture contract, so v2 adds
 clients, not surface. Everything is a thin wrapper over the service layer.
+
+An optional module's tools (Health's, Finances', Code's) are left out of a
+machine installed without it, and so are their words in the instructions:
+create_mcp builds the server for the modules installed.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -25,31 +30,67 @@ from app.services import notebook as notebook_svc
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
-mcp = FastMCP(
-    "personal-calendar",
-    instructions=(
-        "Oscar's personal planner: projects, tasks and calendar events. "
-        "The app database is canonical for cross-project plan state. "
-        "Each project has its context on its page: its repositories, and documents "
-        "for the agents working on it, AGENTS.md first; read them with "
-        "get_project_context before working on a project. "
-        "Dates are calendar dates (YYYY-MM-DD); datetimes are naive local wall time. "
-        "A task's notes are its free-form description: lines starting with '- ' are "
-        "its sub-tasks ('- [x] ' once done), and other lines are context around them. "
-        "Each day has a notebook page Oscar writes in: prose, the tasks he wrote there "
-        "(as they stand now), reflections, the habits he checked that day, and where he "
-        "stays (a stay: its items, such as place and accommodation, each sorted or not); "
-        "read it for context with get_notebook. How consistent he is with each habit: "
-        "get_habits. His health context (body, activity, goal, diet, allergies, "
+INSTRUCTIONS = (
+    "Oscar's personal planner: projects, tasks and calendar events. "
+    "The app database is canonical for cross-project plan state. "
+    "Each project has its context on its page: its repositories, and documents "
+    "for the agents working on it, AGENTS.md first; read them with "
+    "get_project_context before working on a project. "
+    "Dates are calendar dates (YYYY-MM-DD); datetimes are naive local wall time. "
+    "A task's notes are its free-form description: lines starting with '- ' are "
+    "its sub-tasks ('- [x] ' once done), and other lines are context around them. "
+    "Each day has a notebook page Oscar writes in: prose, the tasks he wrote there "
+    "(as they stand now), reflections, the habits he checked that day, and where he "
+    "stays (a stay: its items, such as place and accommodation, each sorted or not); "
+    "read it for context with get_notebook. How consistent he is with each habit: "
+    "get_habits."
+)
+# What each optional module adds to the instructions, in this order.
+MODULE_INSTRUCTIONS = {
+    "health": (
+        "His health context (body, activity, goal, diet, allergies, "
         "weigh-ins, estimated daily energy), for anything about what he eats: "
         "get_health_profile. What his Garmin watch measured day by day (steps, energy "
         "burned, sleep, resting heart rate, HRV, stress, body battery, readiness, "
-        "activities): get_garmin. His money (a month's spending against budgets, "
-        "accounts and net worth, bills, savings goals): get_finances. The GitHub "
-        "repositories he can reach (what each is, its language, when last pushed): "
-        "list_repositories."
+        "activities): get_garmin."
     ),
-)
+    "finances": (
+        "His money (a month's spending against budgets, "
+        "accounts and net worth, bills, savings goals): get_finances."
+    ),
+    "code": (
+        "The GitHub repositories he can reach (what each is, its language, when "
+        "last pushed): list_repositories."
+    ),
+}
+
+# The tools, in order, each with the optional module it belongs to (None for
+# the planner's own, always served).
+_TOOLS: list[tuple[Callable[..., Any], str | None]] = []
+
+
+def tool(fn: Callable[..., Any] | None = None, *, module: str | None = None):  # noqa: ANN201
+    """Register a tool: `@tool`, or `@tool(module="health")` for an optional
+    module's."""
+
+    def register(fn: Callable[..., Any]) -> Callable[..., Any]:
+        _TOOLS.append((fn, module))
+        return fn
+
+    return register(fn) if fn is not None else register
+
+
+def create_mcp(without: Iterable[str] = ()) -> FastMCP:
+    """The MCP server for a machine installed without the modules named."""
+    without = set(without)
+    instructions = " ".join(
+        [INSTRUCTIONS, *(words for m, words in MODULE_INSTRUCTIONS.items() if m not in without)]
+    )
+    server = FastMCP("personal-calendar", instructions=instructions)
+    for fn, module in _TOOLS:
+        if module not in without:
+            server.tool(fn)
+    return server
 
 
 def _project_payload(db, project) -> dict[str, Any]:  # noqa: ANN001
@@ -64,14 +105,14 @@ def _project_payload(db, project) -> dict[str, Any]:  # noqa: ANN001
     return payload
 
 
-@mcp.tool
+@tool
 def list_projects(status: ProjectStatus | None = None) -> list[dict[str, Any]]:
     """List projects with their workstreams and per-workstream (done, total) progress."""
     with session_scope("claude") as db:
         return [_project_payload(db, p) for p in projects_svc.list_projects(db, status=status)]
 
 
-@mcp.tool
+@tool
 def upsert_project(
     name: str,
     project_id: int | None = None,
@@ -99,7 +140,7 @@ def upsert_project(
         return _project_payload(db, project)
 
 
-@mcp.tool
+@tool
 def get_project_context(project_id: int | None = None, name: str | None = None) -> dict[str, Any]:
     """A project's context, for working on it: the project (name, status,
     notes), its repositories (each a local path or a URL), and its documents
@@ -118,7 +159,7 @@ def get_project_context(project_id: int | None = None, name: str | None = None) 
         return projects_svc.project_context(project)
 
 
-@mcp.tool
+@tool
 def list_tasks(
     project_id: int | None = None,
     status: TaskStatus | None = None,
@@ -154,7 +195,7 @@ class TaskUpsert(BaseModel):
     priority: TaskPriority | None = None
 
 
-@mcp.tool
+@tool
 def upsert_tasks(tasks: list[TaskUpsert]) -> list[dict[str, Any]]:
     """Create or update tasks in bulk. Items with task_id update that task; items
     without create a new one (title required). planned_for is the intended do-date;
@@ -182,7 +223,7 @@ def upsert_tasks(tasks: list[TaskUpsert]) -> list[dict[str, Any]]:
     return out
 
 
-@mcp.tool
+@tool
 def update_task_status(task_id: int, status: TaskStatus) -> dict[str, Any]:
     """Set a task's lifecycle status (todo, in_progress, blocked, needs_review,
     done, cancelled)."""
@@ -190,7 +231,7 @@ def update_task_status(task_id: int, status: TaskStatus) -> dict[str, Any]:
         return task_out(tasks_svc.set_status(db, task_id, status)).model_dump()
 
 
-@mcp.tool
+@tool
 def get_agenda(start: date | None = None, days: int = 1) -> dict[str, Any]:
     """The plan for `days` days from `start` (default today): calendar events,
     tasks planned per day, and upcoming dues."""
@@ -243,7 +284,7 @@ def _notebook_payload(db, day: date, *, brief: bool = False) -> list[dict[str, A
     return out
 
 
-@mcp.tool
+@tool
 def get_notebook(start: date | None = None, days: int = 1) -> dict[str, Any]:
     """Oscar's notebook pages for `days` days from `start` (default today), in
     the order he wrote them: prose ("text"), tasks written there ("task", as
@@ -257,7 +298,7 @@ def get_notebook(start: date | None = None, days: int = 1) -> dict[str, Any]:
         }
 
 
-@mcp.tool
+@tool
 def get_habits(start: date | None = None, days: int = 14) -> list[dict[str, Any]]:
     """Oscar's habits over `days` days from `start` (default: the 14 days up to
     today), day by day: "done", "skipped" (written, its box unticked),
@@ -273,7 +314,7 @@ def get_habits(start: date | None = None, days: int = 14) -> list[dict[str, Any]
         ]
 
 
-@mcp.tool
+@tool(module="health")
 def get_health_profile() -> dict[str, Any]:
     """Oscar's health context (Health > Me), for advice on what he eats: his
     height, birth date and age, sex, activity level, goal and target weight,
@@ -297,7 +338,7 @@ def get_health_profile() -> dict[str, Any]:
         }
 
 
-@mcp.tool
+@tool(module="health")
 def get_garmin(start: date | None = None, days: int = 7) -> dict[str, Any]:
     """What Oscar's Garmin watch measured over `days` days from `start`
     (default: the 7 days up to today), synced from Garmin Connect: each day's
@@ -325,7 +366,7 @@ def get_garmin(start: date | None = None, days: int = 7) -> dict[str, Any]:
         }
 
 
-@mcp.tool
+@tool(module="finances")
 def get_finances(month: str | None = None) -> dict[str, Any]:
     """Oscar's finances (Finances in the app), in Australian dollars, out
     negative: the month's money (YYYY-MM, default this month) spent by
@@ -348,7 +389,7 @@ def get_finances(month: str | None = None) -> dict[str, Any]:
         }
 
 
-@mcp.tool
+@tool(module="code")
 def list_repositories(query: str = "", include_archived: bool = False) -> dict[str, Any]:
     """The GitHub repositories Oscar can reach (his own, those he
     collaborates on, and his organizations'), as GitHub had them at the
@@ -377,7 +418,7 @@ def list_repositories(query: str = "", include_archived: bool = False) -> dict[s
         }
 
 
-@mcp.tool
+@tool
 def get_task_history(task_id: int) -> list[dict[str, Any]]:
     """How a task changed, newest first: when, who (oscar, claude or system),
     the kind of change (created, updated, deleted) and, for an update, each
@@ -389,7 +430,7 @@ def get_task_history(task_id: int) -> list[dict[str, Any]]:
         ]
 
 
-@mcp.tool
+@tool
 def add_event(
     title: str,
     start: datetime,
@@ -405,3 +446,7 @@ def add_event(
                 db, title=title, start=start, end=end, all_day=all_day, location=location
             )
         ).model_dump()
+
+
+# Every tool, as a machine with every module serves them.
+mcp = create_mcp()

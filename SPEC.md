@@ -61,6 +61,10 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   The layout is kept in the database, so it holds on every device; a hidden page keeps its key and is still found by the command menu.
 - **Every version says what it changed** (Oscar's call on 2026-10-04: "Create changelog & features/bugs applied per version"): Settings names the running version and the commit it was built from, and opens the Changelog, a page listing every version, newest first, with its changes, each a Major, a Feature or a Fix.
   Each pull request adds its changes as a file in `changes/`; versions are numbered from the order master took them in, never by hand (README, Recording a change).
+- **A machine has the modules ticked when installing** (Oscar's call on 2026-10-04: "I want to use this for work without Finances"): the installer's Modules page lists Health, Finances and Code, each ticked to start with; Planner and Projects are always in.
+  A module left unticked is not in that machine's app at all, unlike a hidden page: no pages, no keys, no Claude tools (and no words about them in the MCP server's instructions), no syncs, no nudges, and no Garmin figures on Today.
+  The choice is the installer's `install.toml` in the app's home (`[install] without`), remembered by Setup for the next install; running Setup again changes it, and Settings names the modules not installed.
+  Their data is not touched: a module installed again finds what it had.
 - **Filing by drag**: on Projects a task is dragged onto a workstream, another project, or No project to file it there.
 - **Today is a notepad beside the day's timeline** (Oscar's call on 2026-09-27, "for now"): the whole left column is one plain notepad for the day, the right the day's timeline.
   The notes are plain text, saved as they are written.

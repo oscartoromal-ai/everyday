@@ -23,7 +23,6 @@ from app.ui.day_sheet_view import day_sheet_ctx
 from app.ui.views import (
     day_glance_ctx,
     day_page_ctx,
-    me_ctx,
     projects_page_ctx,
     task_page_ctx,
     templates,
@@ -91,14 +90,6 @@ def _day_page(request: Request, db: DbSession, day: date):
 def backlog_page():
     # The backlog is Projects' tasks without a day.
     return RedirectResponse("/projects", status_code=301)
-
-
-@router.get("/me")
-def me_page(request: Request, db: DbSession):
-    # Health > Me: the context health advice needs.
-    ctx = me_ctx(db, date.today())
-    db.commit()  # the profile, begun empty the first time
-    return templates.TemplateResponse(request, "me.html", {**_base(request, "me"), **ctx})
 
 
 @router.get("/changelog")
