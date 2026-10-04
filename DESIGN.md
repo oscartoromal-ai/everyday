@@ -83,9 +83,9 @@ Alt+Up/Down moves the focused page or project a place, with Shift its whole sect
 On hover or focus a page shows an eye at its right (14px, `--steel`, left of Projects' chevron) that hides it; the toast says so with Undo, and the eyes wait for the pointer to move on, so the page sliding up under it is not hidden by a second click.
 A hidden page stays in the markup (`hidden`), so the command menu still reaches it, and a section with every page hidden goes, label and all.
 The pages showing are Alt+1 to Alt+9, top to bottom, hidden ones skipped; they are numbered again at once as a page is hidden, shown or moved, and a tenth has no number.
-A page's number is a 14px disc (9px/600 tabular figures) on its icon's top-left corner, 3px out from it, the icon cut away 1.5px around it (a mask, so it holds over any fill).
-The current page's disc always shows, `--ink` with `--paper` figures (on a project's pages, Projects'); holding Alt shows every one, the others quieter in `--hairline` with `--graphite` figures.
-The phone's tab bar has none.
+A page's number always shows, between its icon and its name: a 12px/500 `--pewter` tabular figure in an 8px column, right-aligned 6px from the name and set on its baseline.
+The column holds its place on every page, numbered or not (a hidden page's, the tenth's), so the names stay in line, and the projects' names under Projects move over with them.
+Like the names, the numbers give way on the icon rail and the phone's tab bar.
 Under Projects sit the active projects, in Projects' order: 400-weight rows 32px tall, each a 12px flag in its colour, with the name in line with "Projects" and cut short with an ellipsis, opening that project's page.
 On any of a project's pages (its page, its Gantt, a document of its context) the project's own row holds the spark, and Projects is `aria-current="true"`.
 A chevron at the right of Projects folds the list away and back (`data-rail-projects="folded"`, saved as `pc-rail-projects`, applied before paint); while the list is out of sight (folded, the icon rail, the phone's tab bar), Projects holds the spark on a project's pages.

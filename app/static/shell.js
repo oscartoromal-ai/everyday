@@ -457,8 +457,8 @@
   };
 
   /* ---- keys that work on every page: Alt+1 to Alt+9 go to the sidebar's
-     pages showing, top to bottom (from a field too, which saves as the page
-     goes), and holding Alt shows their numbers; ? shows every key
+     pages showing, top to bottom, each its number beside its name (from a
+     field too, which saves as the page goes); ? shows every key
      (#keys-dialog), and N or Shift+N writes a new task (on Projects, tasks.js
      puts it in the page's own list; elsewhere it opens #capture-dialog, as the
      sidebar's New task does on every page).
@@ -475,22 +475,15 @@
   document.addEventListener("click", (e) => {
     if (e.target.closest?.("[data-capture-open]")) openCapture();
   });
-  const showKeys = (on) => root.toggleAttribute("data-nav-keys", on);
   document.addEventListener("keydown", (e) => {
-    // Still held through Alt+Up/Down, so a module moved shows its new number.
-    if (e.key === "Alt") showKeys(!e.ctrlKey && !e.metaKey);
-    else if (!e.altKey) showKeys(false);
     if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing || e.defaultPrevented) return;
     if (!/^Digit[1-9]$/.test(e.code) || document.querySelector("dialog[open]")) return;
     // The key, not its character: on a Mac, Alt+1 types "¡".
     const link = document.querySelector(`.nav a[aria-keyshortcuts="Alt+${e.code.slice(5)}"]`);
     if (!link) return;
     e.preventDefault();
-    showKeys(false);
     if (link.getAttribute("aria-current") !== "page") link.click();
   });
-  document.addEventListener("keyup", (e) => { if (e.key === "Alt") showKeys(false); });
-  window.addEventListener("blur", () => showKeys(false));
 
   document.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
