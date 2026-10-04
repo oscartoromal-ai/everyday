@@ -34,7 +34,7 @@ def test_a_task_written_on_the_sheet_opens_to_be_written_out(page, live, app_db)
     page.wait_for_url(f"{live}/tasks/*")
     # The description takes the caret: the task is there to be written out.
     editor = page.locator("[data-notes-editor]")
-    assert editor.evaluate("el => el === document.activeElement")
+    assert editor.evaluate("el => el.contains(document.activeElement)")
     page.keyboard.type("Flights first, then the rail pass.")
     page.locator("[data-page-state]", has_text="Saved").wait_for()
     assert stored(app_db, "Plan the trip").notes == "Flights first, then the rail pass."

@@ -1,4 +1,5 @@
-// What the notepad (app/static/notepad.js) takes from CodeMirror 6.
+// What the app's editors (app/static/notepad.js, doc-editor.js and
+// markdown-editor.js) take from CodeMirror 6 and its Markdown parser.
 export {
   Annotation, EditorSelection, EditorState, MapMode, Prec, RangeSetBuilder, StateEffect, StateField,
   Transaction,
@@ -9,3 +10,5 @@ export {
 } from "@codemirror/view";
 export { defaultKeymap, history, historyKeymap, invertedEffects, isolateHistory } from "@codemirror/commands";
 export { autocompletion, completionStatus, startCompletion } from "@codemirror/autocomplete";
+export { Language, LanguageSupport, defineLanguageFacet, syntaxTree } from "@codemirror/language";
+export { GFM, parser as markdownParser } from "@lezer/markdown";

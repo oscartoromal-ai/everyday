@@ -10,12 +10,14 @@ from typing import Any
 
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import checklist
 from app.dates import duration_label, human_date, monday, short_date, upper_first, week_label
 from app.db import DbSession
+from app.markdown import render_note
 from app.models import (
     GarminDay,
     Project,
@@ -64,6 +66,8 @@ templates.env.filters["human_date"] = human_date
 templates.env.filters["short_date"] = short_date
 templates.env.filters["duration"] = duration_label
 templates.env.filters["upper_first"] = upper_first
+# A line of a task's description, or a sub-task's words, as Markdown.
+templates.env.filters["note"] = lambda text: Markup(render_note(text))
 templates.env.globals["asset"] = asset
 
 
@@ -104,15 +108,28 @@ def rail_layout(request: Request) -> list[rail_svc.PlacedSection]:
 templates.env.globals["rail_layout"] = rail_layout
 
 
+_FENCE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})")
+
+
 def description_blocks(notes: str) -> list[dict[str, Any]]:
     """The description as the row renders it: runs of context lines become
     paragraphs, runs of sub-tasks become checklists, blank lines separate.
     An indented line right under a sub-task is that sub-task's note, hung
-    under its words rather than starting a paragraph of its own."""
+    under its words rather than starting a paragraph of its own. A fenced
+    block ("```" to "```") is code, its lines as written."""
     blocks: list[dict[str, Any]] = []
-    for line in checklist.parse(notes):
+    fence: str | None = None  # the open fence's marks, while in a fenced block
+    for raw, line in zip(notes.split("\n"), checklist.parse(notes), strict=True):
         last = blocks[-1] if blocks else None
-        if line.kind == "blank":
+        if fence is not None:
+            if re.fullmatch(rf"[ \t]*{re.escape(fence[0])}{{{len(fence)},}}[ \t]*", raw):
+                fence = None
+            else:
+                last["lines"].append(raw)
+        elif opens := _FENCE.match(raw):
+            fence = opens[1]
+            blocks.append({"kind": "code", "lines": []})
+        elif line.kind == "blank":
             blocks.append({"kind": "gap"})
         elif line.kind == "item":
             if last is None or last["kind"] != "list":

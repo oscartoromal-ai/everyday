@@ -385,7 +385,7 @@ Only one card floats at a time; a press outside closes it and does nothing else,
 Every mutation re-asks the server by firing `calendar:refresh`; the grid re-renders.
 A height-capped grid opens on the usual day, 06:00 at its top, or with now in view an hour and a half under the top as far as 22:00 allows, and keeps its scroll position across refreshes.
 
-**Writing tasks** (`app/static/task-sheet.js`, `app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`).
+**Writing tasks** (`app/static/task-sheet.js`, `app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`; the description on CodeMirror 6 and `markdown-editor.js`).
 `task-sheet.js` runs the task sheet: the title line, its field icons and their menus, typed words becoming fields, adding, and saving an edit when focus leaves it.
 Every field is a hidden input the form posts, so the icons and menus only read and write those inputs; the menus live in the body, since list cards clip what overflows them.
 `tasks.js` runs the row disclosures, the folds, the cursor on Projects, and filing by drag; `shell.js` the keys that work on every page, 1 to 7 for the nav's pages and ? for the keys dialog, and Left and Right (outside a field) on a page of days, a day back or on, and on Calendar, the days it shows.
@@ -395,12 +395,36 @@ htmx wires up swapped-in content in the same step as the swap (`defaultSettleDel
 Keys never fire while typing in a field or over a dialog, and reaching for the mouse ends the pass.
 Lists that re-render from the server take any half-written task with them: `task-sheet.js` carries its title, description, fields and focus across the swap to the fresh sheet with the same `data-composer-key`.
 A task whose add is in flight is not a draft: only the focus moves over, so it is never offered to be added twice, and if its list re-rendered from a moment before the add landed, the lists render again so the new task shows.
-`notes-editor.js` is the description editor: a contenteditable whose structure is always its own, since every edit that could split, merge or restyle a line is cancelled in `beforeinput` and redone on a line model.
-It writes the same plain text the server stores into a hidden `notes` textarea, so forms and the server never see the editor.
+`notes-editor.js` is the description editor: the Markdown engine (below) as a checklist, mounted in each `[data-notes-editor]` as htmx loads it and destroyed as htmx removes it.
+It writes the same plain text the server stores into a hidden `notes` textarea, with an input event, so forms and the server never see the editor; a form reset, or a draft carried to a fresh sheet, sets the editor from the field with a fresh history.
+Ctrl+Enter is taken out of CodeMirror's keys: it belongs to the sheet (add, or save).
 The confirm dialog answers the row it was asked about even when a late list refresh swapped that row while it was open: focus goes back to the row's live twin, and a confirmed delete is sent from it rather than silently dropped with the detached one.
 
+**The Markdown engine** (`app/static/markdown-editor.js`, `window.MarkdownEditor.livePreview({checklist})`, on CodeMirror 6 and the Lezer Markdown parser).
+Markdown is written and shown as it reads while it is written, as Obsidian's Live Preview does: no preview pane, no mode to switch.
+The text is the record: every effect is a decoration over the characters, never a change to them, so what is saved, copied and undone is the Markdown as written, byte for byte, and Claude reads and writes the same text.
+It parses CommonMark with GitHub's tables, strikethrough, task boxes and bare links, incrementally, and draws only the window's lines.
+Indented lines nest instead of turning into code, "---" under a line is a rule rather than a heading, and HTML blocks stay text, since these are notes, not a typesetting source.
+A mark ("**", "*", "~~", "`", "[ ](url)", "\\") hides until the caret or a selection reaches the words it marks, then shows in steel; a heading's "# ", a quote's "> " and a rule's "---" show while the caret is on their line; a fenced block's fences fold to 6px edges until the caret is in the block.
+With the editor unfocused, nothing shows.
+Headings are 600 ink (h1 16px, 20px on a task's page; h4 to h6 graphite), inline and fenced code a tinted chip in Inter (`--ink-tint-tag`, Inter being the only face), a quote a 2px steel rule at its left, a rule a mist hairline.
+Only an http(s) address is a link (underlined ink, as every link).
+Ctrl+click (Cmd+click) opens it beside the app, and a plain click writes in it.
+An address pasted over words on one line makes them its link.
+Lists are read line by line, as `app/checklist.py` reads sub-tasks: a line's lead (its indentation, "- " and box) is one piece the caret never stands in, drawn as a 14px steel box (ink with a paper tick when done) or, outside a checklist, a bullet, the words hanging 22px a level beside it.
+As a checklist every "- " or "* " line is a box, exactly the lines the server counts; ticking writes the line as the server does ("- [x] ", or "- " open).
+Enter goes on to the next item ("[ ] " if the item had a box), at an item's first word puts an empty one above it, and on an empty item steps out a level, then out of the list.
+Shift+Enter writes a note under an item.
+Enter on a note goes on to its item's next sibling.
+Backspace at an item's first word takes its box away, and on an indented line a level.
+Tab nests an item or note under the line above (at most a level deeper) and Shift+Tab takes it back; where nothing can nest Tab moves focus on.
+Ctrl+L makes a line an item, then ticks and unticks it.
+Ctrl+B and Ctrl+I wrap the selection in "**" and "*", or unwrap it.
+Spelling is marked only on the caret's line.
+A task row draws the same description through `app/markdown.py` `render_note` (headings, quotes, rules and inline Markdown; fenced blocks as code), so the row reads as the editor does with the caret elsewhere.
+
 **Notepad** (`app/static/notepad.js`, on CodeMirror 6).
-The editor is `app/static/vendor/codemirror.js` (window.CM), built from `scripts/vendor/codemirror` (`npm install`, `npm run build`) and committed, so the app itself has no build step; it takes the page's textarea's place, the textarea holding the notes as the server sends them.
+The editor is `app/static/vendor/codemirror.js` (window.CM, with the Lezer Markdown parser; every page loads it, for the task sheet's description), built from `scripts/vendor/codemirror` (`npm install`, `npm run build`) and committed, so the app itself has no build step; it takes the page's textarea's place, the textarea holding the notes as the server sends them.
 The notes are the text as stored: a task row is its "- [ ] " or "- [x] " line, drawn as its box (one piece: the caret never stands in it), and a task's other rows start with a tab, drawn as its indent; the rows are line decorations, the box, indent and controls widgets, the controls a float at the title's end (so they wrap to their own line by themselves).
 "- [ ] " at a row's start makes the row a task, and Enter in a task starts its next row with a tab, under its title ("- " rows its sub-tasks); Enter on an empty tabbed row steps back out to a plain row, and Enter at a title's first word puts a plain row above it.
 "/reflection" at a row's start makes the row a reflection, drawn as its label (one piece, like a task's box); Enter in it starts its next row with a tab, as in a task, and Ctrl+Enter goes on to a plain row after it.

@@ -122,21 +122,22 @@ def test_spelling_is_marked_only_in_the_line_being_written(page, live) -> None:
     page.keyboard.type("frst lin")
     page.keyboard.press("Enter")
     page.keyboard.type("secnd lin")
-    # The page follows the caret a moment after it moves (selectionchange).
+    # The editor's lines are unmarked but for the caret's (spellcheck="true").
     def marked(expected: list) -> None:
         page.wait_for_function(
             """expected => JSON.stringify([...document.querySelectorAll(
-                '.task-sheet[data-sheet=compose] [data-notes-editor] > .ln')]
-                .map(e => e.getAttribute('spellcheck'))) === JSON.stringify(expected)""",
+                '.task-sheet[data-sheet=compose] [data-notes-editor] .cm-line')]
+                .map(e => e.closest('[spellcheck]').getAttribute('spellcheck') === 'true'))
+                === JSON.stringify(expected)""",
             arg=expected, timeout=3000,
         )
 
-    marked(["false", "true"])
+    marked([False, True])
     page.keyboard.press("ArrowUp")
-    marked(["true", "false"])
+    marked([True, False])
     # Out of it, no line is.
     title.click()
-    marked(["false", "false"])
+    marked([False, False])
 
 
 def test_an_estimate_is_written_as_words_or_picked(page, live, app_db) -> None:

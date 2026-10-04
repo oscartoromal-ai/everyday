@@ -136,9 +136,9 @@
     <div class="sheet-more">
       <div class="notes-field" data-notes-field>
         <textarea name="notes" hidden>{{ s.notes }}</textarea>
-        <div class="notes-editor" contenteditable="true" role="textbox" aria-multiline="true"
-             aria-label="Description" data-notes-editor
-             data-placeholder="{{ 'Write it out: the context, the plan, what done looks like. Start a line with - to make it a sub-task.' if page else 'Add context. Start a line with - to make it a sub-task.' }}"></div>
+        {# Its Markdown, written and shown as it reads (notes-editor.js). #}
+        <div class="notes-editor" aria-label="Description" data-notes-editor
+             data-placeholder="{{ 'Write it out in Markdown: the context, the plan, what done looks like. Start a line with - to make it a sub-task.' if page else 'Add context. Start a line with - to make it a sub-task.' }}"></div>
       </div>
 
       {% if editing %}
