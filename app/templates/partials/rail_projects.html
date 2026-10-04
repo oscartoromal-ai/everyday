@@ -1,6 +1,7 @@
 {# The active projects under Projects in the sidebar, each in its colour,
-   opening its Gantt; the one open is current. Drawn again as a project is
-   added, renamed, recoloured or shelved (projects:changed). #}
+   opening its page; the one open (on any of its pages) is current. Drawn
+   again as a project is added, renamed, recoloured or shelved
+   (projects:changed). #}
 <ul class="nav-sub" id="rail-projects" aria-label="Projects"
     hx-get="/ui/rail/projects{% if current %}?current={{ current }}{% endif %}"
     hx-trigger="projects:changed from:body" hx-swap="outerHTML">

@@ -1,0 +1,41 @@
+{# The project's repositories: each its name, read from where it is, then
+   where it is, written on the line and saved as it changes; then a row to
+   add one. Drawn again after each change, the page's header with it. #}
+<section class="sheet-group project-repos" id="project-repos" aria-labelledby="repos-head">
+  <h2 class="sheet-row sheet-head" id="repos-head">Repositories</h2>
+  {% for r in repos %}
+  <form class="sheet-row me-row project-item" hx-post="/ui/repos/{{ r.repo.id }}" hx-trigger="change, submit"
+        hx-target="#project-repos" hx-swap="outerHTML">
+    <span class="item-name" title="{{ r.name }}">
+      <svg class="item-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="6" cy="4.5" r="1.75"/><circle cx="6" cy="15.5" r="1.75"/><circle cx="14" cy="6.5" r="1.75"/><path d="M6 6.25v7.5"/><path d="M14 8.25c0 3.5-8 2.5-8 5.5"/></svg>
+      <span>{{ r.name }}</span>
+    </span>
+    <span class="sheet-field">
+      <input name="location" value="{{ r.repo.location }}" required autocomplete="off" spellcheck="false"
+             aria-label="Where {{ r.name }} is">
+    </span>
+    <button type="button" class="task-delete" title="Remove this repository"
+            aria-label="Remove {{ r.name }}"
+            hx-post="/ui/repos/{{ r.repo.id }}/delete" hx-target="#project-repos" hx-swap="outerHTML"
+            hx-confirm="Remove repository?"
+            data-confirm-title="Remove repository?"
+            data-confirm-name="{{ r.name }}"
+            data-confirm-detail="will no longer be one of {{ project.name }}'s repositories. Nothing on disk changes."
+            data-confirm-action="Remove">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>
+    </button>
+  </form>
+  {% endfor %}
+  <form class="sheet-row me-row project-item add-item" hx-post="/ui/projects/{{ project.id }}/repos"
+        hx-target="#project-repos" hx-swap="outerHTML">
+    <label class="item-name" for="repo-new">
+      <svg class="item-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4.5v11"/><path d="M4.5 10h11"/></svg>
+      <span>Add a repository</span>
+    </label>
+    <span class="sheet-field">
+      <input id="repo-new" name="location" required autocomplete="off" spellcheck="false"
+             placeholder="Its folder or its URL">
+    </span>
+  </form>
+</section>
+{% if oob_head %}{% include "partials/project_head.html" %}{% endif %}

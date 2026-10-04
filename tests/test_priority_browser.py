@@ -114,7 +114,7 @@ def test_the_gantt_works_it_as_a_cell(page, live, app_db) -> None:
         tasks_svc.create_task(db, title="Book the venue", project_id=project.id)
         db.commit()
         project_id = project.id
-    page.goto(f"{live}/projects/{project_id}")
+    page.goto(f"{live}/projects/{project_id}/gantt")
     row = page.locator('.gantt-row[data-title="Book the venue"]')
     cell = row.locator(".gantt-priority")
     head = page.locator(".gantt-head .gantt-priority")

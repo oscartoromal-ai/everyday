@@ -171,7 +171,7 @@ def test_the_gantt_page_has_a_priority_column(client, db) -> None:
     tasks_svc.create_task(db, title="Book the venue", project_id=project.id,
                           priority=TaskPriority.urgent)
     db.commit()
-    html = client.get(f"/projects/{project.id}").text
+    html = client.get(f"/projects/{project.id}/gantt").text
     assert '<span class="gantt-cell gantt-priority" role="columnheader">Priority</span>' in html
     assert 'data-edit="priority"' in html and 'data-priority="urgent"' in html
     assert '<span class="gantt-priority-word">Urgent</span>' in html

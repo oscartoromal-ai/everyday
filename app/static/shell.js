@@ -326,6 +326,19 @@
   // A form's reset event comes before its fields go back.
   document.addEventListener("reset", (e) => setTimeout(() => markDates(e.target)));
 
+  /* ---- a ruled sheet's row numbers (app.css, "ruled sheets") ---- */
+
+  // Chrome can leave the numbers after a part of a sheet that was swapped
+  // in as they were, counting the rows it replaced, when the same answer
+  // also swaps something out of band; counting the sheet afresh puts them right.
+  document.addEventListener("htmx:afterSettle", (e) => {
+    const sheet = e.detail.elt.closest?.(".ruled-sheet");
+    if (!sheet) return;
+    sheet.style.counterReset = "none";
+    void sheet.offsetHeight;
+    sheet.style.counterReset = "";
+  });
+
   /* ---- the phone's tab bar scrolls sideways once it holds more tabs than
      fit, and the desktop's rail down once it holds more pages and projects
      than fit: it opens on the current page's tab, and marks the edges that

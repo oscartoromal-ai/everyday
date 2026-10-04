@@ -41,7 +41,7 @@ def _span(page, title: str) -> tuple[str, str]:
 
 
 def test_a_task_and_its_weeks_are_written_from_the_keyboard(page, live, project) -> None:
-    page.goto(f"{live}/projects/{project}")
+    page.goto(f"{live}/projects/{project}/gantt")
     page.locator('.gantt-row.kind-add[data-key^="add-w"] .gantt-title').click()
     page.keyboard.type("Write the spec")
     page.keyboard.press("Tab")
@@ -85,7 +85,7 @@ def test_a_task_and_its_weeks_are_written_from_the_keyboard(page, live, project)
 
 
 def test_bars_are_drawn_dragged_moved_and_undone(page, live, project) -> None:
-    page.goto(f"{live}/projects/{project}")
+    page.goto(f"{live}/projects/{project}/gantt")
     row = _row(page, "Loose end")
     week = page.locator(".gantt-wk-head").first.bounding_box()["width"]
 
@@ -141,7 +141,7 @@ def _status_is(page, title: str, status: str) -> None:
 
 
 def test_a_click_steps_the_status_and_a_double_click_writes(page, live, project) -> None:
-    page.goto(f"{live}/projects/{project}")
+    page.goto(f"{live}/projects/{project}/gantt")
     # The box steps it on: in progress, review, done, and round to to do.
     box = _row(page, "Loose end").locator(".gantt-check")
     for status in ("in_progress", "needs_review", "done", "todo", "in_progress"):
@@ -180,7 +180,7 @@ def test_a_click_steps_the_status_and_a_double_click_writes(page, live, project)
 
 def test_weeks_drill_down_to_days_and_back(page, live, project) -> None:
     with_bar = (THIS + timedelta(days=2)).isoformat()
-    page.goto(f"{live}/projects/{project}")
+    page.goto(f"{live}/projects/{project}/gantt")
     row = _row(page, "Loose end")
     row.locator(".gantt-start").click()
     page.keyboard.type(with_bar)
@@ -243,7 +243,7 @@ def test_right_from_due_lands_where_the_row_works(page, live, app_db) -> None:
         page.keyboard.press("ArrowRight")
         return page.evaluate("document.activeElement.dataset.day")
 
-    page.goto(f"{live}/projects/{project_id}?scale=days")
+    page.goto(f"{live}/projects/{project_id}/gantt?scale=days")
     assert lands_from_due(_row(page, "Spec")) == (THIS + timedelta(days=16)).isoformat()
     assert lands_from_due(_row(page, "Review")) == (THIS + timedelta(days=25)).isoformat()
     # Review is due on a Friday: Polish follows it on the Monday.
@@ -289,7 +289,7 @@ def test_ctrl_arrows_stop_at_the_edges_of_what_is_drawn(page, live, app_db) -> N
             )
         )
 
-    page.goto(f"{live}/projects/{project_id}?scale=days")
+    page.goto(f"{live}/projects/{project_id}/gantt?scale=days")
     # Into the time from Draft's Due (its bar's first day), a day on to Thursday.
     _row(page, "Draft").locator(".gantt-due").click()
     page.keyboard.press("ArrowRight")
@@ -335,7 +335,7 @@ def test_ctrl_arrows_stop_at_the_edges_of_what_is_drawn(page, live, app_db) -> N
 
 
 def test_a_row_is_dragged_into_a_workstream(page, live, project) -> None:
-    page.goto(f"{live}/projects/{project}")
+    page.goto(f"{live}/projects/{project}/gantt")
     grip = _row(page, "Loose end").locator("[data-row-grip]").bounding_box()
     target = page.locator('.gantt-row.kind-workstream').bounding_box()
     page.mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
@@ -350,7 +350,7 @@ def test_a_row_is_dragged_into_a_workstream(page, live, project) -> None:
 
 
 def test_a_workstream_folds_to_its_row(page, live, project) -> None:
-    page.goto(f"{live}/projects/{project}")
+    page.goto(f"{live}/projects/{project}/gantt")
     lane = page.locator(".gantt-row.kind-workstream")
     page.locator('.gantt-row.kind-add[data-key^="add-w"] .gantt-title').click()
     page.keyboard.type("Spec")
@@ -387,7 +387,7 @@ def test_tasks_are_shown_by_status(page, live, app_db, project) -> None:
         tasks_svc.set_status(db, started.id, TaskStatus.in_progress)
         tasks_svc.create_task(db, title="Still open", project_id=project)
         db.commit()
-    page.goto(f"{live}/projects/{project}")
+    page.goto(f"{live}/projects/{project}/gantt")
     show = page.locator("[data-gantt-show]")
     assert show.inner_text() == "All tasks"
 
@@ -439,7 +439,7 @@ def test_a_task_is_deleted_from_its_bin_or_with_delete(page, live, app_db, proje
     with app_db() as db:
         tasks_svc.create_task(db, title="Spare", project_id=project)
         db.commit()
-    page.goto(f"{live}/projects/{project}")
+    page.goto(f"{live}/projects/{project}/gantt")
     loose = _row(page, "Loose end")
     dialog = page.locator("#confirm-dialog")
     # Its bin asks first; Cancel keeps it.
@@ -464,7 +464,7 @@ def test_a_task_is_deleted_from_its_bin_or_with_delete(page, live, app_db, proje
 
 
 def test_a_title_being_written_grows_its_row_to_show_every_word(page, live, project) -> None:
-    page.goto(f"{live}/projects/{project}")
+    page.goto(f"{live}/projects/{project}/gantt")
     row = _row(page, "Loose end")
     line = row.bounding_box()["height"]
     row.locator(".gantt-title").dblclick()
@@ -484,7 +484,7 @@ def test_a_title_being_written_grows_its_row_to_show_every_word(page, live, proj
 def test_a_task_opens_on_its_page_and_comes_back(page, live, app_db, project) -> None:
     with app_db() as db:
         loose = db.query(Task).filter_by(title="Loose end").one().id
-    page.goto(f"{live}/projects/{project}")
+    page.goto(f"{live}/projects/{project}/gantt")
     row = _row(page, "Loose end")
     # Quiet until its row is hovered, as its bin is.
     assert row.locator(".gantt-open").evaluate("el => getComputedStyle(el).opacity") == "0"
@@ -494,7 +494,7 @@ def test_a_task_opens_on_its_page_and_comes_back(page, live, app_db, project) ->
     back = page.locator(".page-back")
     assert back.inner_text() == "Gantt"
     back.click()
-    page.wait_for_url(f"{live}/projects/{project}")
+    page.wait_for_url(f"{live}/projects/{project}/gantt")
     # Ctrl+Enter opens the cursor's task, from any of its row's cells.
     _row(page, "Loose end").locator(".gantt-due").click()
     page.keyboard.press("Control+Enter")
@@ -502,7 +502,7 @@ def test_a_task_opens_on_its_page_and_comes_back(page, live, app_db, project) ->
 
 
 def test_alt_w_writes_a_new_workstream_from_anywhere_on_the_page(page, live, project) -> None:
-    page.goto(f"{live}/projects/{project}")
+    page.goto(f"{live}/projects/{project}/gantt")
     # From a task's cell in the sheet, where plain letters are written.
     _row(page, "Loose end").locator(".gantt-title .gantt-text").click()
     page.keyboard.press("Alt+w")

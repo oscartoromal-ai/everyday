@@ -40,7 +40,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **Projects at a glance** (2026-10-03, after the portfolio views of Linear, Asana and Things): above the tasks, a row for each active project, then each paused one, as a portfolio list.
   Each row gives the project's health, its progress (tasks done of all, cancelled ones aside), its next deadline, and its span (its tasks' first start to their last due) on twelve weeks shared by every row, from last week's Monday, with now marked.
   Health is read from the deadlines, not set by hand, since one person has no one to report to: "N overdue", "Due soon" (within three days), "On track", "No deadline" or "Nothing open"; a paused project is "Paused".
-  The name opens the project's Gantt.
+  The name opens the project's page.
   The app opens on Today (`/` goes there); dates are planned on Today and each project's Gantt.
 - **Done folds away**: finished tasks leave their lists for a collapsed Done fold, at the foot of Projects (the last 14 days), where unticking one sends it back.
 - **Sub-tasks** live in their task's description and tick off on its row; workstreams hold tasks, never sub-tasks.
@@ -49,7 +49,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   It saves as it is written (a moment after the writing pauses, as a field is chosen, and as the page is left; Ctrl+S, Ctrl+Enter or Esc at once), and goes back to the page it was opened from, named ("‹ Calendar"), or Projects; deleted, it goes back there too.
   It opens from Calendar's sheet first (a Plan cell's task title, or Ctrl+Enter); the other places tasks are listed follow.
 - **The command menu** (Oscar's call on 2026-10-02, after Akiflow and Notion Calendar): Ctrl+K (or Cmd+K) anywhere, or Search in the rail (the phone's tab bar), is one line to find and go.
-  It finds tasks (open first, by their words or their description), projects, events (a series once, at its meeting nearest now) and the days' notes; a task found opens Projects with the cursor on it, a project its Gantt, an event its day on Calendar with its card open, and notes their day.
+  It finds tasks (open first, by their words or their description), projects, events (a series once, at its meeting nearest now) and the days' notes; a task found opens Projects with the cursor on it, a project its page, an event its day on Calendar with its card open, and notes their day.
   A day's words ("friday", "tomorrow", "12 oct", "2026-10-12") go to that day on Calendar or to its notes; every page is there by name, and the things to do from anywhere (a new task, a new event, the theme, compact rows, the keys).
 - **Triage by keyboard**: on Projects, arrow keys move a row cursor and single keys act on it (T today, M tomorrow, D pick a day, X done, E edit), the cursor moving on to the next row as each one is dated or finished.
 - **A task's project is its colour** (Oscar's call on 2026-09-28, chosen from a prototype of four): each project has a colour, set in its editor on Projects, and a task in it shows the project as its flag filled in that colour, the name only on hover, wherever tasks are listed.
@@ -114,7 +114,13 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   A day whose plan runs over a line folds to its first (Oscar's call on 2026-10-03), the line saying how many more ("+5"): its chevron before the date, or Alt+Left and Right on it (or a range of days); Alt with a chevron, or the Day header's, folds or opens them all, and folded days stay so in that browser.
   It is worked as the Gantt is: a cell cursor, a range with Shift or a drag, typing writes over a cell, Enter writes in it and keeps it going down, Esc lets it go; Ctrl+D fills the range from its first row (one cell, from the row above), and Delete clears the range's stays, unticks its habits and deletes its plans' tasks (after asking).
   A new event from the command menu opens the week instead, its composer being the grid's; the sheet stays the choice.
-- **A project as a Gantt chart** (Oscar's call on 2026-09-30: "I work in weeks", "a kind of Excel interface"): each project opens (`/projects/<id>`, from its card's bars icon) as a spreadsheet of its plan by week.
+- **A project has its own page** (Oscar's call on 2026-10-04: "Projects need their own context"): `/projects/<id>`, opened from its name on Projects, from the sidebar and from the command menu, with its Gantt as the page's second tab.
+  The page is one ruled sheet, as Me's is, saved as it changes: the project (name, status, colour, notes), its repositories, and its context.
+  A repository is where the project's code is, a local folder or a URL, as written; it is named after the last part of it.
+  The context is the documents an agent working on the project reads, in Markdown: its AGENTS.md first, which every project has and which keeps its name, then any others Oscar adds and names.
+  Each document opens on a page of its own (`/projects/<id>/docs/<doc>`), written on a ruled, numbered sheet as Today's notes are and saved as it is written; any but AGENTS.md is renamed in its heading and deleted from its bin.
+  The context is what the app will hand a Claude session it starts on the project (to come); for now Claude reads it over MCP (`get_project_context`), and the API serves it at `/api/projects/<id>/context`.
+- **A project as a Gantt chart** (Oscar's call on 2026-09-30: "I work in weeks", "a kind of Excel interface"): each project opens (`/projects/<id>/gantt`, the Gantt tab of its page, or its card's bars icon) as a spreadsheet of its plan by week.
   A row per workstream, its tasks under it and a row to write one more; then a row to write a workstream, the tasks in none under it and a row to write one more; a column per week (the ISO week, over its Monday), frozen beside Task, Priority, Start, Wks and Due.
   It drills down to days (Oscar's call on 2026-10-01): a Weeks / Days switch (or V) for the whole sheet, remembered, the same days kept in view; in Days a column per day, weekends tinted, the length in days, and every move by days.
   A task's bar is its span: from its start day to its due, so the end of a bar is its deadline, and Projects and the nudges see the plan through the due they already read (Oscar's call: a task has to be done by a day).
@@ -154,6 +160,12 @@ Per [Domain model](tracker/tickets/008-domain-model.md). All v1 entities below; 
 **Project**: name, status (active / paused / done), notes, colour (one of the design's eight hues; a new project takes the one fewest open projects have).
 Flat, no nesting.
 v3 adds a Goal entity plus a nullable goal reference on Project.
+
+**Project repository** (2026-10-04): belongs to one project; its location, a local path or a URL, as written.
+Its name is read from the location, never stored.
+
+**Project document** (2026-10-04): belongs to one project; name (unique within the project, in any case), body (Markdown), when its body last changed.
+Every project has one named AGENTS.md, created with it, which cannot be renamed or deleted.
 
 **Workstream** (Oscar's call on 2026-10-01, replacing milestones: "I manage it that way"): belongs to one project; name, status (open / done).
 A stream of the project's work run beside its others, a lane of its tasks with no date of its own: its span is its tasks', and its progress is computable from them.
@@ -252,6 +264,12 @@ Hook commands need a short HTTP timeout so a down app never delays sessions.
   `get_agenda` carries each day's page in brief too, so planning with Claude starts from what Oscar wrote.
   The notebook is read-only to Claude: it is Oscar's own writing.
 - `get_task_history(task_id)` reads how a task changed and who changed it; Claude's own changes are named as Claude's.
+
+### Project context
+
+- `get_project_context(project_id or name)` reads a project's context: the project, its repositories, and its documents in full, AGENTS.md first.
+  `list_projects` names each project's repositories too, so a session can tell which project its folder belongs to.
+  The context is read-only to Claude for now: Oscar writes it on the project's page.
 
 ### Nutrition chat
 

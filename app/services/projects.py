@@ -1,13 +1,20 @@
-"""Project and workstream domain logic."""
+"""Project and workstream domain logic, and a project's context: its
+repositories and its documents, AGENTS.md first."""
 
 from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import (
+    AGENTS_DOC,
     PROJECT_COLORS,
     Project,
+    ProjectDoc,
+    ProjectRepo,
     ProjectStatus,
     Task,
     TaskStatus,
@@ -43,6 +50,8 @@ def create_project(
         raise DomainError("Project name must not be empty")
     color = next_color(db) if color is None else _check_color(color)
     project = Project(name=name.strip(), notes=notes, color=color)
+    # Every project has its AGENTS.md, empty until written.
+    project.docs.append(ProjectDoc(name=AGENTS_DOC))
     db.add(project)
     db.flush()
     return project
@@ -147,3 +156,131 @@ def workstream_progress(db: Session, workstream_id: int) -> tuple[int, int]:
     counted = [t for t in tasks if t.status != TaskStatus.cancelled]
     done = sum(1 for t in counted if t.status == TaskStatus.done)
     return done, len(counted)
+
+
+# ---- a project's context: its repositories and its documents ----
+
+
+def repo_name(location: str) -> str:
+    """A repository's name, read from where it is: the last part of its path
+    or URL, without ".git" ("C:/code/app" and "https://github.com/me/app.git"
+    are both "app")."""
+    last = location.strip().rstrip("/\\").replace("\\", "/").rsplit("/", 1)[-1]
+    return last.removesuffix(".git") or location.strip()
+
+
+def add_repo(db: Session, *, project_id: int, location: str) -> ProjectRepo:
+    project = get_project(db, project_id)
+    repo = ProjectRepo(location=_check_location(location))
+    project.repos.append(repo)
+    db.flush()
+    return repo
+
+
+def update_repo(db: Session, repo_id: int, *, location: str) -> ProjectRepo:
+    repo = get_repo(db, repo_id)
+    repo.location = _check_location(location)
+    db.flush()
+    return repo
+
+
+def delete_repo(db: Session, repo_id: int) -> None:
+    repo = get_repo(db, repo_id)
+    repo.project.repos.remove(repo)
+    db.flush()
+
+
+def get_repo(db: Session, repo_id: int) -> ProjectRepo:
+    repo = db.get(ProjectRepo, repo_id)
+    if repo is None:
+        raise DomainError(f"Repository {repo_id} does not exist")
+    return repo
+
+
+def _check_location(location: str) -> str:
+    location = location.strip()
+    if not location:
+        raise DomainError("Write where the repository is: a path or a URL")
+    if len(location) > 1000:
+        raise DomainError("A repository's location is 1000 characters at most")
+    return location
+
+
+def docs_of(project: Project) -> list[ProjectDoc]:
+    """A project's documents in their order: AGENTS.md, then the others as
+    they were added."""
+    return sorted(project.docs, key=lambda d: (not d.is_agents, d.id or 0))
+
+
+def create_doc(db: Session, *, project_id: int, name: str, body: str = "") -> ProjectDoc:
+    project = get_project(db, project_id)
+    doc = ProjectDoc(name=_check_doc_name(project, name), body=body)
+    project.docs.append(doc)
+    db.flush()
+    return doc
+
+
+def update_doc(
+    db: Session, doc_id: int, *, name: str | None = None, body: str | None = None
+) -> ProjectDoc:
+    doc = get_doc(db, doc_id)
+    if name is not None and name.strip() != doc.name:
+        if doc.is_agents:
+            raise DomainError(f"{AGENTS_DOC} keeps its name")
+        doc.name = _check_doc_name(doc.project, name, renaming=doc)
+    if body is not None and body != doc.body:
+        doc.body = body
+        doc.updated_at = datetime.now()
+    db.flush()
+    return doc
+
+
+def delete_doc(db: Session, doc_id: int) -> None:
+    doc = get_doc(db, doc_id)
+    if doc.is_agents:
+        raise DomainError(f"Every project keeps its {AGENTS_DOC}")
+    doc.project.docs.remove(doc)
+    db.flush()
+
+
+def get_doc(db: Session, doc_id: int) -> ProjectDoc:
+    doc = db.get(ProjectDoc, doc_id)
+    if doc is None:
+        raise DomainError(f"Document {doc_id} does not exist")
+    return doc
+
+
+def _check_doc_name(project: Project, name: str, renaming: ProjectDoc | None = None) -> str:
+    """A new name for one of the project's documents: written, and no other
+    document of the project's has it (in any case); AGENTS.md is taken."""
+    name = " ".join(name.split())
+    if not name:
+        raise DomainError("A document needs a name")
+    if len(name) > 200:
+        raise DomainError("A document's name is 200 characters at most")
+    taken = next(
+        (d for d in project.docs if d is not renaming and d.name.lower() == name.lower()), None
+    )
+    if taken is not None:
+        raise DomainError(f"{project.name} already has {taken.name}")
+    return name
+
+
+def project_context(project: Project) -> dict[str, Any]:
+    """What an agent working on the project is given: the project, where its
+    code is, and its documents in full, AGENTS.md first."""
+    return {
+        "id": project.id,
+        "name": project.name,
+        "status": project.status.value,
+        "notes": project.notes,
+        "repos": [{"name": repo_name(r.location), "location": r.location} for r in project.repos],
+        "docs": [
+            {
+                "name": d.name,
+                "body": d.body,
+                "updated_at": d.updated_at.isoformat(timespec="seconds"),
+            }
+            for d in docs_of(project)
+        ],
+    }

@@ -1156,7 +1156,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
    edge. Projects' lists and rows are the cards' own markup, so the sheet
    restyles them here rather than in their markup; Me's are .sheet-group
    and .sheet-row. */
-:is(.projects-page, .me-page, .garmin-page) { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-8)); }
+:is(.projects-page, .me-page, .garmin-page, .project-page, .doc-page) { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-8)); }
 /* compact rows: the sheets and Today's notes 28px a row, not 36px, the text its size */
 :root[data-density="compact"] :is(.ruled-sheet, .notepad-card) {
   --pad-line: 28px; --pad-text: 20px; --pad-above: 3px; --pad-below: 4px;
@@ -2231,15 +2231,15 @@ li.repo-row:hover { background: var(--glass-row-hover); }
 .main:has(.gantt-page) { max-width: 1600px; }
 .gantt-page { display: flex; flex-direction: column; height: calc(100dvh - 2 * var(--s-8)); min-height: 560px; }
 .gantt-header { margin-bottom: var(--s-4); }
-.gantt-header h1 { display: flex; align-items: center; gap: var(--s-2); }
-.gantt-header h1 .project-flag { width: 20px; height: 20px; }
-.gantt-header h1 .project-flag svg { width: 18px; height: 18px; }
-.gantt-back, .page-back {
+:is(.gantt-header, .project-head) h1 { display: flex; align-items: center; gap: var(--s-2); }
+:is(.gantt-header, .project-head) h1 .project-flag { width: 20px; height: 20px; }
+:is(.gantt-header, .project-head) h1 .project-flag svg { width: 18px; height: 18px; }
+.page-back {
   display: inline-block; margin-bottom: var(--s-1);
   font-size: var(--t-caption); font-weight: 500; color: var(--graphite); text-decoration: none;
 }
-.gantt-back::before, .page-back::before { content: "‹ "; }
-.gantt-back:hover, .page-back:hover { color: var(--ink); }
+.page-back::before { content: "‹ "; }
+.page-back:hover { color: var(--ink); }
 .gantt-controls { flex: none; display: flex; align-items: center; gap: var(--s-3); margin-top: var(--s-1); }
 .gantt-controls .segmented { margin: 0; }
 .gantt-this-week { flex: none; min-width: 96px; }
@@ -2744,3 +2744,89 @@ td.ds-habit.is-unpainted > * { visibility: hidden; }
 
 .ds-empty { margin: var(--s-3) var(--s-2); font-size: var(--t-caption); color: var(--pewter); }
 .sheet-hint { margin: 0 auto 0 0; }
+
+/* ---------- a project's pages (project.html, project_doc.html) ---------- */
+
+/* Its header, shared by its pages: back to Projects, its flag and name,
+   its status and counts, then its tabs, the current one ink 600 on the
+   nav's spark bar, laid flat under it. */
+.project-header { margin-bottom: var(--s-4); }
+.project-tabs { display: flex; gap: var(--s-6); margin-top: var(--s-3); }
+.project-tabs a {
+  position: relative; padding: var(--s-1) 0 var(--s-2);
+  font-size: var(--t-body-sm); font-weight: 500; color: var(--graphite); text-decoration: none;
+}
+.project-tabs a:hover { color: var(--ink); }
+.project-tabs a[aria-current] { color: var(--ink); font-weight: 600; }
+.project-tabs a[aria-current]::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+  background: var(--spark); box-shadow: var(--spark-glow);
+}
+.gantt-header .keys-hint { margin-top: var(--s-3); }
+
+/* Its page: one ruled sheet as Me's. The repositories and documents are
+   items: a steel icon and the name in 500 ink, as wide as every group's
+   names, so all the values start on one line; then where it is, or what
+   it is about; the row to add one names it in graphite after a plus. */
+.project-sheet .me-label, .project-item .item-name { width: 176px; }
+.project-item { align-items: flex-start; }
+.project-item .item-name {
+  flex: none; display: flex; align-items: center; gap: var(--s-2); min-width: 0;
+  padding: var(--pad-above) 0 var(--pad-below); font-weight: 500; color: var(--ink);
+}
+.project-item .item-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-icon {
+  flex: none; width: 14px; height: 14px;
+  fill: none; stroke: var(--steel); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.project-item.add-item .item-name { align-items: flex-start; color: var(--graphite); cursor: text; }
+.project-item.add-item .item-name > span { white-space: normal; }
+.project-item.add-item .item-icon { margin-top: 4px; }
+.project-item:is(:hover, :focus-within) .item-icon { stroke: var(--ink); }
+form.project-item:hover, a.doc-row:hover { background: var(--glass-row-hover); }
+.project-repos .sheet-field > input { flex: 1; width: 100%; color: var(--graphite); }
+.project-repos .sheet-field > input:focus { color: var(--ink); }
+.project-item .task-delete { width: 24px; height: 24px; margin: calc(var(--pad-above) - 1px) -4px 0 0; }
+.project-item:is(:hover, :focus-within) .task-delete { opacity: 1; }
+.project-about .swatches { gap: 2px; }
+.project-about .swatch { width: 24px; height: 24px; margin-block: -1px; }
+.project-about .swatch svg { width: 14px; height: 14px; }
+.sheet-head .count { margin-left: var(--s-2); font-weight: 400; }
+.doc-list { margin: 0; padding: 0; list-style: none; }
+a.doc-row { gap: 0 var(--s-3); color: inherit; text-decoration: none; }
+a.doc-row:hover .item-name > span { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
+.doc-summary {
+  flex: 1; min-width: 0; padding: var(--pad-above) 0 var(--pad-below);
+  color: var(--graphite); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.doc-summary.is-empty { color: var(--pewter); }
+.doc-meta {
+  flex: none; padding: var(--pad-above) 0 var(--pad-below);
+  font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums;
+}
+@media (max-width: 540px) {
+  .project-sheet .me-label, .project-item .item-name { width: 112px; }
+  .doc-meta { display: none; }
+}
+
+/* A document's page, at a task page's width: its name as the heading (in
+   place, on no line, for one that can be renamed; its bin at the right),
+   the project it is context for, then its Markdown on a ruled, numbered
+   sheet to the window's foot, the page scrolling as it grows. */
+.doc-title { display: flex; align-items: center; gap: var(--s-2); }
+.doc-title h1 {
+  flex: 1; min-width: 0;
+  font-family: var(--font-display); font-size: var(--t-h-sm); line-height: 32px; font-weight: 600; letter-spacing: -0.015em;
+}
+.doc-name {
+  width: 100%; padding: 0; border: none; background: none; outline: none;
+  font: inherit; letter-spacing: inherit; color: var(--ink);
+}
+.doc-name:focus-visible { box-shadow: none; }
+.doc-title .task-delete { opacity: 1; margin: 0 -6px 0 0; }
+.doc-rest { display: flex; align-items: center; gap: var(--s-2); margin: var(--s-1) 0 var(--s-4); }
+.doc-sheet { padding-top: 0; }
+.doc-sheet .doc-source { display: none; }
+.doc-sheet .cm-editor { flex: none; }
+.doc-sheet .sheet-filler { min-height: calc(3 * var(--pad-line)); cursor: text; }
+.doc-sheet .cm-content:is(:focus, :focus-visible) { outline: none; box-shadow: none; }

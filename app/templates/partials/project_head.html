@@ -1,0 +1,11 @@
+{% from "partials/project_flag.html" import project_flag %}
+{# A project's page's header: back to Projects, its flag and name, its
+   status and counts, and its tabs. Drawn again as the project is written
+   on the page (its name, colour or status), and, out of band, with its
+   repositories as one is added or removed. #}
+<div class="project-head" id="project-head"{% if oob_head %} hx-swap-oob="true"{% endif %}>
+  <a class="page-back" href="/projects">Projects</a>
+  <h1>{{ project_flag(project) }}<span>{{ project.name }}</span></h1>
+  <div class="rest">{{ head_rest }}</div>
+  {% include "partials/project_tabs.html" %}
+</div>
