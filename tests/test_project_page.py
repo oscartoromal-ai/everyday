@@ -5,6 +5,7 @@ MCP and the API."""
 
 import sqlite3
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from alembic import command
@@ -31,7 +32,7 @@ def test_documents_are_named_once_and_agents_md_stays(db) -> None:
     notes = projects_svc.create_doc(db, project_id=project.id, name="  Architecture   notes ")
     # A document's name is its file's: .md added when not written.
     assert notes.name == "Architecture notes.md"
-    for taken in ("agents.md", "ARCHITECTURE NOTES", "architecture notes.MD", "  ", "a/b", "CON"):
+    for taken in ("agents.md", "ARCHITECTURE NOTES", "architecture notes.MD", "  ", "CON", "a:b"):
         with pytest.raises(DomainError):
             projects_svc.create_doc(db, project_id=project.id, name=taken)
     # Renamed in another case is the same document, not a clash.
@@ -256,7 +257,11 @@ def test_a_document_is_added_written_renamed_and_deleted(client, db) -> None:
 
     saved = client.post(f"/ui/docs/{doc.id}", data={"body": "# How\r\nIt fits.", "name": "Design"})
     # Answered with its version and its name, a file's.
-    assert saved.json() == {"version": everyday.version("# How\nIt fits."), "name": "Design.md"}
+    assert saved.json() == {
+        "version": everyday.version("# How\nIt fits."),
+        "name": "Design.md",
+        "file": str(Path("projects", "note-app", "Design.md")),
+    }
     db.refresh(doc)
     assert (doc.name, doc.body) == ("Design.md", "# How\nIt fits.")
     assert client.post(f"/ui/docs/{doc.id}", data={"name": "AGENTS.md"}).status_code == 422
@@ -324,8 +329,10 @@ def test_folders_nest_and_names_are_unique_beside_each_other(db) -> None:
     for taken in ("Decisions", "AGENTS.md"):
         with pytest.raises(DomainError, match="already has"):
             projects_svc.create_folder(db, project_id=project.id, name=taken)
-    with pytest.raises(DomainError, match="already has"):
-        projects_svc.create_doc(db, project_id=project.id, name="decisions")
+    # A document is its file, Markdown: "decisions" is decisions.md, beside the folder.
+    assert projects_svc.create_doc(db, project_id=project.id, name="decisions").name == (
+        "decisions.md"
+    )
     with pytest.raises(DomainError, match="already has adr"):
         projects_svc.create_folder(db, project_id=project.id, name="ADR", parent_id=decisions.id)
     # The same name in another folder is another document, AGENTS.md too.
@@ -441,7 +448,7 @@ def test_the_tree_is_drawn_and_worked_on_the_page(client, db) -> None:
     assert folder.name == "adr"
     page = client.get(f"/projects/{project.id}/docs/{doc.id}").text
     assert f'<option value="{folder.id}" selected>adr</option>' in page
-    assert client.post(f"/ui/docs/{doc.id}", data={"folder": "top"}).status_code == 204
+    assert client.post(f"/ui/docs/{doc.id}", data={"folder": "top"}).status_code == 200
     db.refresh(doc)
     assert doc.folder_id is None
     assert client.post(f"/ui/docs/{doc.id}/place", data={"name": "AGENTS.md"}).status_code == 422

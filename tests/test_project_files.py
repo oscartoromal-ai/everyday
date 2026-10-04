@@ -2,6 +2,7 @@
 everyday files' projects/ is the master copy, written first by the app and
 read back into the database as an editor or an agent changes it."""
 
+import shutil
 import sqlite3
 import threading
 import time
@@ -13,7 +14,7 @@ from alembic import command
 from sqlalchemy import select
 
 from app import migrate
-from app.models import AGENTS_DOC, Project, ProjectDoc, ProjectDocRevision
+from app.models import AGENTS_DOC, Project, ProjectDoc, ProjectDocFolder, ProjectDocRevision
 from app.services import DomainError, everyday, project_files
 from app.services import projects as projects_svc
 
@@ -318,3 +319,79 @@ def test_the_watcher_reads_in_a_file_written_while_the_app_runs(app_db) -> None:
         stop.set()
         watcher.join(10)
     assert not watcher.is_alive()
+
+
+# ---- folders, on disk ----
+
+
+def test_the_apps_folders_are_folders_on_disk(db) -> None:
+    project = projects_svc.create_project(db, name="Note-app")
+    decisions = projects_svc.create_folder(db, project_id=project.id, name="decisions")
+    adr = projects_svc.create_folder(db, project_id=project.id, name="adr", parent_id=decisions.id)
+    assert (folder() / "decisions" / "adr").is_dir()
+    doc = projects_svc.create_doc(
+        db, project_id=project.id, name="decisions/adr/0001", body="Use files."
+    )
+    assert doc.path == "decisions/adr/0001.md"
+    assert (folder() / "decisions" / "adr" / "0001.md").read_text(encoding="utf-8") == "Use files."
+
+    # Renamed, moved: on disk with it.
+    projects_svc.update_folder(db, adr.id, name="records")
+    assert (folder() / "decisions" / "records" / "0001.md").is_file()
+    assert not (folder() / "decisions" / "adr").exists()
+    projects_svc.update_doc(db, doc.id, folder_id=None)
+    assert (folder() / "0001.md").is_file() and not (
+        folder() / "decisions" / "records" / "0001.md"
+    ).exists()
+    projects_svc.update_folder(db, adr.id, parent_id=None)
+    assert (folder() / "records").is_dir() and not (folder() / "decisions" / "records").exists()
+
+    # Deleted, with everything in it.
+    projects_svc.create_doc(db, project_id=project.id, name="Plan", folder_id=decisions.id)
+    projects_svc.delete_folder(db, decisions.id)
+    assert not (folder() / "decisions").exists()
+
+
+def test_folders_and_files_made_elsewhere_are_the_contexts(db) -> None:
+    project = projects_svc.create_project(db, name="Note-app")
+    (folder() / "decisions" / "adr").mkdir(parents=True)
+    (folder() / "decisions" / "adr" / "0001.md").write_text("Use files.", encoding="utf-8")
+    (folder() / "empty").mkdir()
+    (folder() / ".git").mkdir()  # hidden: not the context's
+    (folder() / ".git" / "HEAD.md").write_text("x", encoding="utf-8")
+    project_files.refresh(db, project)
+    assert sorted(f.path for f in project.doc_folders) == ["decisions", "decisions/adr", "empty"]
+    record = next(d for d in project.docs if d.name == "0001.md")
+    assert (record.path, record.body) == ("decisions/adr/0001.md", "Use files.")
+
+    # Moved to another folder by hand: the same document, its history kept.
+    (folder() / "records").mkdir()
+    (folder() / "decisions" / "adr" / "0001.md").rename(folder() / "records" / "0001.md")
+    project_files.refresh(db, project)
+    assert record.path == "records/0001.md" and record in project.docs
+
+    # A folder deleted by hand goes, with what it held.
+    (folder() / "records" / "0001.md").unlink()
+    (folder() / "records").rmdir()
+    shutil.rmtree(folder() / "decisions")
+    project_files.refresh(db, project)
+    assert [f.path for f in project.doc_folders] == ["empty"]
+    assert [d.name for d in project.docs] == [AGENTS_DOC]
+
+
+def test_folders_from_before_get_their_folders_on_disk(db) -> None:
+    # As upstream's folders were before they were on disk.
+    project = Project(name="Old one", color=1, position=0)
+    db.add(project)
+    db.flush()
+    with db.no_autoflush:
+        plans = ProjectDocFolder(name="Plans: Q4")
+        project.doc_folders.append(plans)
+        project.docs = [
+            ProjectDoc(name=AGENTS_DOC, body="Build it."),
+            ProjectDoc(name="Launch", body="Soon.", folder=plans),
+        ]
+    db.flush()
+    project_files.sync_all(db)
+    assert plans.name == "Plans- Q4"
+    assert (folder("old-one") / "Plans- Q4" / "Launch.md").read_text(encoding="utf-8") == "Soon."

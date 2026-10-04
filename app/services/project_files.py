@@ -332,9 +332,8 @@ def _sync_docs(db: Session, project: Project, path: Path) -> None:
             name, _ = added.pop(moved)
             doc.name, doc.folder = name, folder_at(moved)
         else:
+            doc.folder = None  # out of its folder's list too
             project.docs.remove(doc)
-            if doc.folder is not None:
-                doc.folder.docs.remove(doc)
         db.flush()
     for key, (name, body) in added.items():
         doc = ProjectDoc(name=name, body=body, updated_at=datetime.now())
@@ -342,15 +341,25 @@ def _sync_docs(db: Session, project: Project, path: Path) -> None:
         project.docs.append(doc)
         db.flush()
         record(db, doc, FILE)
-    # Folders gone from disk go, the deepest first; what they held went above.
-    for key in sorted(folders, key=lambda k: -k.count("/")):
-        if key not in dirs:
-            folder = folders[key]
+    # Folders gone from disk go, each with its subfolders, as a folder deleted
+    # in the app does (what they held went above).
+    gone = {key for key in folders if key not in dirs}
+    if gone:
+        # Each folder's list of its documents read again: one moved out and
+        # deleted since a list was read would be cascaded to as it goes.
+        for folder in project.doc_folders:
+            db.expire(folder, ["docs"])
+    for key in gone:
+        if key.rpartition("/")[0] in gone:
+            continue  # it goes with the folder it is in
+        top = folders[key]
+        below = [f for k, f in folders.items() if k.startswith(f"{key}/")]
+        # Taken out of their lists, they are orphans, and go as such.
+        for folder in (top, *below):
             project.doc_folders.remove(folder)
-            if folder.parent is not None:
-                folder.parent.children.remove(folder)
-            db.delete(folder)
-            db.flush()
+        if top.parent is not None:
+            top.parent.children.remove(top)
+    db.flush()
     if not any(d.is_agents for d in project.docs):
         project.docs.append(ProjectDoc(name=AGENTS_DOC))
         everyday.write_text(path / AGENTS_DOC, "")

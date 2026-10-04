@@ -543,6 +543,8 @@ def update_doc(
         folder = doc.folder
         if folder_id is not KEEP:
             folder = None if folder_id is None else _folder_of(db, project, folder_id)
+        if name is not None and re.search(r"[/\\]", name):
+            raise DomainError("A document's name can't hold a slash")
         new = doc.name if name is None else everyday.doc_file_name(name)
         if doc.is_agents and new != doc.name:
             raise DomainError(f"{AGENTS_DOC} keeps its name")

@@ -101,7 +101,7 @@ Everything the app keeps lives under its home, `%LOCALAPPDATA%\Personal Calendar
 The everyday files live outside the home, in `C:\everyday-files` unless another folder was chosen on Setup's Everyday files page (SPEC.md, Agent runs):
 
 - `repos/`: each repository's main clone, once.
-- `projects/`: a folder for each project, its context: its documents as Markdown files (AGENTS.md first) and `project.toml` (its id and repositories). These files are the master copy: the app reads them into the database as it starts, as a project's page opens, and as they change while it runs, so an editor or an agent may write them; a folder made there is a new project.
+- `projects/`: a folder for each project, its context: its documents as Markdown files (AGENTS.md first), in folders on disk as the project files them, and `project.toml` (its id and repositories). These files are the master copy: the app reads them into the database as it starts, as a project's page opens, and as they change while it runs, so an editor or an agent may write them; a folder made there is a new project.
 - `work/`: the folders agents work in.
 
 Run from the repo, the app keeps its own `everyday-files/` in it (git-ignored), never the real one.

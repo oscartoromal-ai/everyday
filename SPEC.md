@@ -449,10 +449,12 @@ Built in three steps: the everyday files and the context as files (first), then 
   The app makes any of the folders that is missing as it starts; uninstalling keeps them.
   A short path at a drive's root keeps deep worktrees under Windows' 260-character path limit.
 - **A project's context is files** (Oscar's call: the master copy lives in the files, synced to the database).
-  `projects/<folder>/` holds its documents, each a Markdown file named as the document is (`AGENTS.md`, `Architecture.md`), and `project.toml`: the project's id, the app's link to the folder, and its repositories (`repos`, their locations as written).
+  `projects/<folder>/` holds its documents, each a Markdown file named as the document is (`AGENTS.md`, `Architecture.md`), in folders and subfolders on disk as the context files them (`decisions/adr/0001.md`), and `project.toml`: the project's id, the app's link to the folder, and its repositories (`repos`, their locations as written).
+  A folder or file whose name starts with a dot (`.git`) is not the context's.
   The database keeps a copy of each, for the pages, search, Claude and the API.
   It is read again from the files as the app starts, as a project's page or its context is read, and, while the desktop app runs, as the folder changes (a watcher).
-  A file written, added, renamed or deleted, by Oscar's editor or an agent, is that document written, added, renamed (a new name for the same words) or deleted; AGENTS.md deleted is written back, as every project keeps it.
+  A file written, added, renamed, moved or deleted, by Oscar's editor or an agent, is that document written, added, renamed or moved (the same words at another path, so it keeps its history) or deleted; a folder made or deleted there is a folder of the context made or deleted, with what it holds; AGENTS.md deleted is written back, as every project keeps it.
+  In the app, a folder made, renamed, moved or deleted is so on disk too, with everything in it.
   A folder made in `projects/` without a `project.toml` is a new project, named after the folder.
   A folder moved or renamed is followed by the id in its `project.toml`; a project whose folder is gone gets it written again from the database's copy.
   The project's name, status, colour and notes stay the database's, as its tasks do; a project renamed keeps its folder.
