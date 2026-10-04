@@ -1,3 +1,4 @@
+import gc
 import sqlite3
 
 import pytest
@@ -24,6 +25,9 @@ def test_a_start_on_a_current_database_changes_nothing(tmp_path) -> None:
     path = tmp_path / "app.db"
     migrate.upgrade(path)
     revisions, before = migrate.current_revisions(path), path.read_bytes()
+    # A connection the upgrade left open would be closed now, and its write
+    # ahead log checkpointed into the file: the upgrade must close its own.
+    gc.collect()
     migrate.upgrade(path)
     assert migrate.current_revisions(path) == revisions
     assert path.read_bytes() == before
