@@ -1,0 +1,1 @@
+- Fix: The app starts again on the version after the audit's fixes, whose database changes had two ends
