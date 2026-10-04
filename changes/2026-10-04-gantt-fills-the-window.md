@@ -1,0 +1,2 @@
+- Feature: The Gantt takes the whole window, and its weeks always reach the right edge, so zooming out shows more weeks ahead
+- Fix: The Gantt's weeks in next year no longer run into each other: the year is named only where it turns

@@ -21,6 +21,16 @@ router = APIRouter(include_in_schema=False)
 
 # The scale last chosen, for every project's Gantt.
 SCALE_COOKIE = "gantt_scale"
+# The columns of time in view in a scale, as gantt.js last measured them
+# (gantt_fit_weeks, gantt_fit_days), so the sheet is drawn to fill the view.
+FIT_COOKIE = "gantt_fit_{}"
+# The most columns a view is drawn for, however far out it is zoomed.
+MAX_FIT = 500
+
+
+def _fit(request: Request, scale: str) -> int:
+    value = request.cookies.get(FIT_COOKIE.format(scale), "")
+    return min(int(value), MAX_FIT) if value.isdigit() else 0
 
 
 def _scale(request: Request, scale: str | None) -> str:
@@ -41,14 +51,15 @@ def gantt_page(request: Request, db: DbSession, project_id: int, scale: str | No
         request,
         "gantt.html",
         {"request": request, "active": "project", "tab": "gantt", "today": date.today(),
-         **gantt_ctx(db, project, date.today(), scale)},
+         **gantt_ctx(db, project, date.today(), scale, _fit(request, scale))},
     )
     return _remember(response, scale)
 
 
 def _sheet(request: Request, db: DbSession, project_id: int, scale: str) -> Response:
     project = projects_svc.get_project(db, project_id)
-    ctx = {"request": request, **gantt_ctx(db, project, date.today(), scale)}
+    ctx = {"request": request,
+           **gantt_ctx(db, project, date.today(), scale, _fit(request, scale))}
     return templates.TemplateResponse(request, "partials/gantt_sheet.html", ctx)
 
 

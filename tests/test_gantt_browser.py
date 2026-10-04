@@ -1,8 +1,9 @@
 """A project's Gantt in a real browser, worked as a spreadsheet: writing a
 task and its weeks from the keyboard, a refused week, drawing and dragging
 bars, Alt moves, rows moved into a workstream, a workstream added by Alt+W,
-undo, deleting a task, a title growing its row as it is written, and a task
-opened on its page. The `live`, `page` and `app_db` fixtures are conftest.py's."""
+undo, deleting a task, a title growing its row as it is written, a task
+opened on its page, and the time filling a window however wide. The
+`live`, `page` and `app_db` fixtures are conftest.py's."""
 
 from datetime import date, timedelta
 
@@ -631,3 +632,33 @@ def test_alt_w_writes_a_new_workstream_from_anywhere_on_the_page(page, live, pro
     assert page.locator(".gantt-row.kind-add-workstream .gantt-input").is_visible()
     page.keyboard.press("Escape")
     assert page.locator(".gantt-input").count() == 0
+
+
+def test_the_time_fills_the_view_however_wide(page, live, project) -> None:
+    # The sheet's right edge, as far right as it scrolls, against the view's:
+    # the time reaches it, and nothing (a week's name) runs past the time.
+    reaches = (
+        "() => { const s = document.getElementById('gantt');"
+        " s.scrollLeft = s.scrollWidth;"
+        " return s.querySelector('.gantt-table').getBoundingClientRect().right"
+        " >= s.getBoundingClientRect().left + s.clientLeft + s.clientWidth - 1; }"
+    )
+    page.goto(f"{live}/projects/{project}/gantt")
+    assert page.locator(".gantt-table").get_attribute("data-col-count") == "21"
+    # A window three times as wide, as a zoom out makes it, is drawn again to fill it.
+    page.set_viewport_size({"width": 3600, "height": 900})
+    page.wait_for_function("Number(document.querySelector('.gantt-table').dataset.colCount) > 21")
+    assert page.evaluate(reaches)
+    # The page takes the whole window.
+    assert page.locator(".main").bounding_box()["width"] > 3000
+    # Opened again, it is drawn that wide at once, with nothing to fetch.
+    fetched = []
+    page.on("request", lambda r: fetched.append(r.url) if "/ui/projects/" in r.url else None)
+    page.reload()
+    page.wait_for_timeout(400)
+    assert fetched == [] and page.evaluate(reaches)
+    # In days too.
+    page.keyboard.press("v")
+    page.locator('.gantt-table[data-scale="days"]').wait_for()
+    page.wait_for_timeout(400)
+    assert page.evaluate(reaches)
