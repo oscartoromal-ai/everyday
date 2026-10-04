@@ -64,6 +64,80 @@ def test_a_project_page_holds_its_repos_and_its_context(page, live, app_db) -> N
         assert db.query(ProjectDoc).filter_by(name="Architecture.md").count() == 0
 
 
+def paths(app_db, project: str) -> list[str]:
+    with app_db() as db:
+        return [d.path for d in db.query(Project).filter_by(name=project).one().docs]
+
+
+def test_the_context_is_filed_in_folders_on_its_tree(page, live, app_db) -> None:
+    with app_db() as db:
+        project = projects_svc.create_project(db, name="Note-app")
+        projects_svc.create_doc(db, project_id=project.id, name="Plan.md", body="# Plan")
+        db.commit()
+        url = f"{live}/projects/{project.id}"
+    page.goto(url)
+    tree = page.locator("#project-context")
+
+    # New folder: named in a row at the top, Enter keeps it, and it lands focused.
+    tree.locator(".ctx-new-folder").click()
+    page.keyboard.type("decisions")
+    page.keyboard.press("Enter")
+    decisions = tree.locator(".ctx-folder[data-name='decisions']")
+    decisions.wait_for()
+    assert page.evaluate("document.activeElement.closest('.ctx-node')?.dataset.name") == "decisions"
+    assert decisions.locator(".doc-meta").text_content() == "Empty"
+
+    # A subfolder from the folder's own tools; Esc on a new row lets it go.
+    decisions.locator(":scope > .ctx-row").hover()
+    decisions.locator(":scope > .ctx-row [data-ctx-new='folder']").click()
+    page.keyboard.press("Escape")
+    assert tree.locator(".ctx-draft").count() == 0
+    decisions.locator(":scope > .ctx-row").hover()
+    decisions.locator(":scope > .ctx-row [data-ctx-new='folder']").click()
+    page.keyboard.type("adr")
+    page.keyboard.press("Enter")
+    tree.locator(".ctx-folder[data-name='decisions'] .ctx-folder[data-name='adr']").wait_for()
+
+    # A document dragged into a folder, and out to the top again.
+    plan = tree.locator(".ctx-doc[data-name='Plan.md'] > .ctx-row")
+    plan.drag_to(decisions.locator(":scope > .ctx-row"))
+    decisions.locator(".ctx-doc[data-name='Plan.md']").wait_for()
+    assert "decisions/Plan.md" in paths(app_db, "Note-app")
+    tree.locator(".ctx-doc[data-name='Plan.md'] > .ctx-row").drag_to(
+        tree.locator(".ctx-doc[data-name='AGENTS.md'] > .ctx-row")
+    )
+    tree.locator("[data-ctx-root] > .ctx-doc[data-name='Plan.md']").wait_for()
+
+    # F2 renames, the name before its extension chosen to be written over.
+    tree.locator(".ctx-doc[data-name='Plan.md'] .ctx-open").focus()
+    page.keyboard.press("F2")
+    page.keyboard.type("Roadmap")
+    page.keyboard.press("Enter")
+    tree.locator(".ctx-doc[data-name='Roadmap.md']").wait_for()
+
+    # Folded, it stays folded when the page comes back.
+    decisions.locator(":scope > .ctx-row .ctx-toggle").click()
+    page.wait_for_load_state("networkidle")
+    page.reload()
+    assert decisions.locator(":scope > .ctx-group").is_hidden()
+    assert decisions.locator(".ctx-toggle").first.get_attribute("aria-expanded") == "false"
+
+    # A document written in a folder as a path opens on its own page.
+    page.fill("#doc-new", "decisions/adr/0001.md")
+    page.press("#doc-new", "Enter")
+    page.wait_for_url(f"{url}/docs/*")
+    assert page.locator(".doc-folder select option:checked").inner_text() == "decisions/adr"
+    page.goto(url)
+
+    # Deleted, after asking, with everything in it.
+    decisions.locator(":scope > .ctx-row .ctx-open").focus()
+    page.keyboard.press("Delete")
+    page.locator("dialog[open] .confirm-detail", has_text="and the 1 document in it").wait_for()
+    page.locator("dialog[open] button", has_text="Delete").click()
+    decisions.wait_for(state="detached")
+    assert sorted(paths(app_db, "Note-app")) == ["AGENTS.md", "Roadmap.md"]
+
+
 def test_the_gantt_is_the_projects_next_tab(page, live, app_db) -> None:
     with app_db() as db:
         project = projects_svc.create_project(db, name="Note-app")

@@ -3344,6 +3344,105 @@ a.doc-row:hover .item-name { text-decoration: underline; text-underline-offset: 
   flex: none; font-size: var(--t-caption); color: var(--pewter);
   font-family: var(--font-num); font-variant-numeric: tabular-nums;
 }
+/* the context as a tree (context-tree.js): a row a folder or a document,
+   each level one step in (--depth) behind a chevron's column, a folder's
+   contents under a hairline guide from its chevron; a row's tools over its
+   right end on hover, where its meta was */
+.ctx-tree, .ctx-group { margin: 0; padding: 0; list-style: none; }
+.ctx-node, .ctx-empty { --step: 24px; --indent: calc(var(--s-4) + var(--depth, 0) * var(--step)); }
+.ctx-row { position: relative; padding: 0; gap: 0; }
+.ctx-open, .ctx-draft form, .ctx-rename {
+  flex: 1; display: flex; align-items: center; gap: var(--s-3); min-width: 0;
+  padding: var(--s-3) var(--s-4) var(--s-3) var(--indent);
+  color: inherit; text-align: left; text-decoration: none;
+}
+.ctx-open:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--spark); }
+.ctx-chevron { flex: none; display: grid; place-content: center; width: 12px; margin-right: calc(-1 * var(--s-1)); color: var(--steel); }
+.ctx-chevron svg {
+  width: 12px; height: 12px; fill: none; stroke: currentColor;
+  stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+  transition: transform var(--dur) var(--ease);
+}
+.ctx-toggle[aria-expanded="true"] .ctx-chevron svg { transform: rotate(90deg); }
+.ctx-toggle:hover .ctx-chevron, .ctx-toggle:focus-visible .ctx-chevron { color: var(--ink); }
+.ctx-toggle[aria-expanded="true"] .folder-shut, .ctx-toggle[aria-expanded="false"] .folder-open { display: none; }
+.ctx-folder > .ctx-row .doc-meta { font-family: inherit; }
+.ctx-group { position: relative; }
+.ctx-group::before {
+  content: ""; position: absolute; top: 0; bottom: 0; z-index: 1; pointer-events: none;
+  left: calc(var(--indent) + 5.5px); width: 1px; background: var(--hairline-on-glass-strong);
+}
+.ctx-empty {
+  padding: var(--s-2) var(--s-4) var(--s-2) calc(var(--indent) + 12px + var(--s-2));
+  font-size: var(--t-caption); line-height: 24px; color: var(--pewter);
+  border-bottom: 1px solid var(--hairline-on-glass);
+}
+
+.ctx-tools {
+  position: absolute; top: 50%; right: var(--s-3); translate: 0 -50%;
+  display: none; align-items: center; gap: 2px;
+}
+.ctx-row:is(:hover, :focus-within) .ctx-tools { display: flex; }
+.ctx-row:is(:hover, :focus-within) .doc-meta { visibility: hidden; }
+/* the name gives way to the tools: two for a document, four for a folder */
+.ctx-doc > .ctx-row:is(:hover, :focus-within) .ctx-open { padding-right: calc(var(--s-3) + 2 * 30px); }
+.ctx-folder > .ctx-row:is(:hover, :focus-within) .ctx-open { padding-right: calc(var(--s-3) + 4 * 30px); }
+.ctx-tool {
+  display: grid; place-content: center; width: 28px; height: 28px; margin: 0;
+  border-radius: var(--r-tag); color: var(--steel);
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.ctx-tool svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ctx-tool:hover { color: var(--ink); background: var(--glass-hover); }
+.ctx-tool.task-delete { opacity: 1; }
+.ctx-tool.task-delete:hover { color: var(--err-fg); background: var(--err-bg); }
+@media (hover: none) { .ctx-tools { display: flex; } .ctx-row .doc-meta { display: none; } }
+
+/* a name written in place: a new one's row, or a rename over the row */
+.ctx-row.is-renaming > :is(.ctx-open, .ctx-tools) { display: none; }
+.ctx-draft[data-kind="doc"] .ov-icon[data-kind="folder"],
+.ctx-draft[data-kind="folder"] .ov-icon[data-kind="doc"] { display: none; }
+.ctx-draft .ov-icon .folder-open { display: none; }
+.ctx-row:has(.ctx-name) { background: var(--glass-row-hover); }
+.ctx-row:has(.ctx-name) .item-icon { stroke: var(--ink); }
+.ctx-name {
+  flex: 1; min-width: 0; height: 32px; margin: 0; padding: 0;
+  font-size: var(--t-body-sm); font-weight: 500; color: var(--ink);
+  background: transparent; border: none; border-radius: 0; box-shadow: inset 0 -1px 0 var(--ink);
+}
+.ctx-name:is(:focus, :focus-visible) { outline: none; box-shadow: inset 0 -1.5px 0 var(--spark); }
+.ctx-name::placeholder { color: var(--pewter); opacity: 1; font-weight: 400; }
+.ctx-hint { flex: none; font-size: var(--t-caption); color: var(--pewter); white-space: nowrap; }
+.ctx-hint kbd {
+  display: inline-block; min-width: 18px; padding: 0 4px;
+  font: inherit; font-weight: 500; color: var(--graphite); text-align: center;
+  border: 1px solid var(--hairline); border-radius: var(--r-tag);
+}
+
+/* dragged: the row it is faint, where it would land lit as the task
+   lists' are; just landed (made, renamed, moved), its row glows once */
+.ctx-node.is-dragging > .ctx-row { opacity: 0.4; }
+.ctx-folder.is-drop-target > .ctx-row,
+.ctx-tree.is-drop-target { background: var(--spark-tint); box-shadow: inset 0 0 0 1.5px var(--spark); }
+.ctx-folder.is-drop-target > .ctx-group { background: var(--ink-tint-faint); }
+.project-context.is-dragging-in .ctx-tree { min-height: 48px; }
+.ctx-row.is-landed { animation: ctx-landed 1.2s var(--ease); }
+@keyframes ctx-landed { from { background: var(--spark-tint); } }
+
+/* the card's foot: a document's line to add one, and New folder beside it */
+.ctx-add { display: flex; align-items: stretch; }
+.ctx-add .ov-add { flex: 1; min-width: 0; }
+.ctx-new-folder {
+  flex: none; display: flex; align-items: center; gap: var(--s-2); padding: 0 var(--s-4);
+  font-size: var(--t-body-sm); color: var(--graphite);
+  border-left: 1px solid var(--hairline-on-glass);
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.ctx-new-folder svg { fill: none; stroke: var(--steel); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; transition: stroke var(--dur) var(--ease); }
+.ctx-new-folder:hover { color: var(--ink); background: var(--glass-row-hover); }
+.ctx-new-folder:hover svg { stroke: var(--ink); }
+.ctx-new-folder:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--spark); }
+
 /* where a repository is, written in place: a line under it once in use */
 .repo-location {
   width: 100%; margin: 0; padding: 0;
@@ -3447,5 +3546,20 @@ a.doc-row:hover .item-name { text-decoration: underline; text-underline-offset: 
 .doc-name:focus-visible { box-shadow: none; }
 .doc-title .task-delete { opacity: 1; margin: 0 -6px 0 0; }
 .doc-rest { display: flex; align-items: center; gap: var(--s-2); margin: var(--s-1) 0 var(--s-4); }
+/* the folder it is in, chosen in place: its path in the line's words, the
+   notes' small chevron after it, a fog under it on hover */
+.doc-folder { display: inline-flex; align-items: center; gap: var(--s-1); }
+.doc-folder select {
+  width: auto; height: 24px; margin: 0; padding: 0 20px 0 var(--s-1); appearance: none; cursor: pointer;
+  font: inherit; color: var(--ink); border: none; border-radius: var(--r-tag);
+  --chevron: transparent calc(50% - 0.75px), var(--steel) calc(50% - 0.75px) calc(50% + 0.75px), transparent calc(50% + 0.75px);
+  background:
+    linear-gradient(45deg, var(--chevron)) no-repeat calc(100% - 11px) 50% / 5px 5px,
+    linear-gradient(-45deg, var(--chevron)) no-repeat calc(100% - 6px) 50% / 5px 5px;
+  transition: background-color var(--dur) var(--ease);
+}
+.doc-folder select:hover { background-color: var(--fog); }
+.doc-folder select:has(option[value="top"]:checked) { color: var(--graphite); }
+.doc-folder select option { color: var(--ink); background: var(--paper); }
 .doc-body { flex: 1 0 auto; padding-bottom: var(--s-8); font-size: var(--t-body); line-height: 1.6; }
 .doc-body .cm-md-h1 { font-size: var(--t-sub); }

@@ -1,0 +1,111 @@
+{# The project's context, a card: its documents and folders as a tree,
+   AGENTS.md first, then at each level its folders, then its documents.
+   A folder folds by its row (remembered); a document's row opens it. Each
+   row's tools show on hover: a folder adds a document or a folder in it,
+   is renamed or deleted; a document is renamed or deleted (AGENTS.md
+   neither). Rows are dragged into folders, or out to the top. The card
+   ends in a line to add a document (a path, "decisions/0001.md", makes its
+   folders) and a New folder button. Drawn again after each change, the
+   page's header with it; context-tree.js works it. #}
+{% macro doc_icon() %}<svg class="item-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.75h6.5L15 6.25v11H5z"/><path d="M11.25 2.75v3.75H15"/><path d="M7.75 10.25h4.5"/><path d="M7.75 13.25h4.5"/></svg>{% endmacro %}
+{% macro folder_icon() %}<svg class="item-icon folder-shut" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.75 5.25a1.5 1.5 0 0 1 1.5-1.5h3.4l1.75 2h6.35a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-1.5 1.5H4.25a1.5 1.5 0 0 1-1.5-1.5z"/></svg><svg class="item-icon folder-open" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.75 15.25v-10a1.5 1.5 0 0 1 1.5-1.5h3.4l1.75 2h5.35a1.5 1.5 0 0 1 1.5 1.5v1.5"/><path d="M2.75 15.25 4.9 9.7a1.5 1.5 0 0 1 1.4-.95h10.45a.75.75 0 0 1 .7 1.02l-2.1 5.48z"/></svg>{% endmacro %}
+{% macro bin() %}<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>{% endmacro %}
+{% macro pencil() %}<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M12.75 4.25l3 3L7.5 15.5l-3.75.75.75-3.75z"/><path d="M11 6l3 3"/></svg>{% endmacro %}
+{% macro add_doc_icon() %}<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M10.5 17.25H5V2.75h6.5L15 6.25v4"/><path d="M11.25 2.75v3.75H15"/><path d="M15 13v5"/><path d="M12.5 15.5h5"/></svg>{% endmacro %}
+{% macro add_folder_icon() %}<svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><path d="M10.5 16.25H4.25a1.5 1.5 0 0 1-1.5-1.5v-9.5a1.5 1.5 0 0 1 1.5-1.5h3.4l1.75 2h6.35a1.5 1.5 0 0 1 1.5 1.5v2.5"/><path d="M15 12v5"/><path d="M12.5 14.5h5"/></svg>{% endmacro %}
+
+{% macro node(n, depth) %}
+{% if n.kind == "folder" %}
+{% set f = n.folder %}
+<li class="ctx-node ctx-folder" data-folder="{{ f.id }}" data-name="{{ f.name }}" style="--depth: {{ depth }}">
+  <div class="ov-item ctx-row" draggable="true">
+    <button type="button" class="ctx-open ctx-toggle" aria-expanded="{{ 'false' if f.folded else 'true' }}"
+            aria-controls="ctx-in-{{ f.id }}">
+      <span class="ctx-chevron"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 3 7.5 6 4.5 9"/></svg></span>
+      <span class="ov-icon">{{ folder_icon() }}</span>
+      <span class="ov-text"><span class="item-name" title="{{ f.path }}">{{ f.name }}</span></span>
+      <span class="doc-meta">{{ n.meta }}</span>
+    </button>
+    <span class="ctx-tools">
+      <button type="button" class="ctx-tool" data-ctx-new="doc" title="New document in {{ f.name }}" aria-label="New document in {{ f.name }}">{{ add_doc_icon() }}</button>
+      <button type="button" class="ctx-tool" data-ctx-new="folder" title="New folder in {{ f.name }}" aria-label="New folder in {{ f.name }}">{{ add_folder_icon() }}</button>
+      <button type="button" class="ctx-tool" data-ctx-rename title="Rename (F2)" aria-label="Rename {{ f.name }}">{{ pencil() }}</button>
+      <button type="button" class="ctx-tool task-delete" data-ctx-delete title="Delete this folder" aria-label="Delete {{ f.name }}"
+              hx-post="/ui/folders/{{ f.id }}/delete" hx-target="#project-context" hx-swap="outerHTML"
+              hx-confirm="Delete folder?"
+              data-confirm-title="Delete folder?"
+              data-confirm-name="{{ f.name }}"
+              data-confirm-detail="{% if n.count %}and the {{ n.count }} document{{ '' if n.count == 1 else 's' }} in it will be deleted from {{ project.name }}{% else %}will be deleted from {{ project.name }}{% endif %}. This can't be undone."
+              data-confirm-action="Delete">{{ bin() }}</button>
+    </span>
+  </div>
+  <ul class="ctx-group" id="ctx-in-{{ f.id }}"{% if f.folded %} hidden{% endif %}>
+    {% for child in n.children %}{{ node(child, depth + 1) }}{% endfor %}
+    {% if not n.children %}<li class="ctx-empty" style="--depth: {{ depth + 1 }}">Nothing in it yet: add a document, or drag one here</li>{% endif %}
+  </ul>
+</li>
+{% else %}
+{% set d = n.doc %}
+<li class="ctx-node ctx-doc" data-doc="{{ d.id }}" data-name="{{ d.name }}" style="--depth: {{ depth }}">
+  <div class="ov-item ctx-row"{% if not d.is_agents %} draggable="true"{% endif %}>
+    <a class="ctx-open doc-row" href="{{ n.href }}" draggable="false">
+      <span class="ctx-chevron"></span>
+      <span class="ov-icon">{{ doc_icon() }}</span>
+      <span class="ov-text">
+        <span class="item-name" title="{{ d.path }}">{{ d.name }}</span>
+        {% if n.summary %}
+        <span class="doc-summary">{{ n.summary }}</span>
+        {% else %}
+        <span class="doc-summary is-empty">{% if d.is_agents %}Not written yet: how to build and test it, its conventions, what to leave alone{% else %}Empty{% endif %}</span>
+        {% endif %}
+      </span>
+      {% if n.meta %}<span class="doc-meta">{{ n.meta }}</span>{% endif %}
+    </a>
+    {% if not d.is_agents %}
+    <span class="ctx-tools">
+      <button type="button" class="ctx-tool" data-ctx-rename title="Rename (F2)" aria-label="Rename {{ d.name }}">{{ pencil() }}</button>
+      <button type="button" class="ctx-tool task-delete" data-ctx-delete title="Delete this document" aria-label="Delete {{ d.name }}"
+              hx-post="/ui/docs/{{ d.id }}/delete?tree=1" hx-target="#project-context" hx-swap="outerHTML"
+              hx-confirm="Delete document?"
+              data-confirm-title="Delete document?"
+              data-confirm-name="{{ d.name }}"
+              data-confirm-detail="will be deleted from {{ project.name }}. This can't be undone."
+              data-confirm-action="Delete">{{ bin() }}</button>
+    </span>
+    {% endif %}
+  </div>
+</li>
+{% endif %}
+{% endmacro %}
+
+<section class="list-section ov-card project-context" id="project-context" aria-labelledby="context-head"
+         data-project="{{ project.id }}">
+  <h2 id="context-head">Context <span class="count">What an agent working on it reads, AGENTS.md first</span></h2>
+  <ul class="ov-list ctx-tree" data-ctx-root>
+    {% for n in tree %}{{ node(n, 0) }}{% endfor %}
+  </ul>
+  <div class="ctx-add">
+    <form class="ov-add" hx-post="/ui/projects/{{ project.id }}/docs" hx-swap="none">
+      <svg class="item-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4.5v11"/><path d="M4.5 10h11"/></svg>
+      <input id="doc-new" name="name" required autocomplete="off" spellcheck="false" aria-label="New document"
+             placeholder="New document: CONTEXT.md, decisions/0001.md…">
+    </form>
+    <button type="button" class="ctx-new-folder" data-ctx-new="folder">
+      {{ add_folder_icon() }}<span>New folder</span>
+    </button>
+  </div>
+  {# A row to name a new document or folder, put where it goes by context-tree.js. #}
+  <template id="ctx-draft">
+    <li class="ctx-node ctx-draft">
+      <form class="ov-item ctx-row" hx-swap="outerHTML">
+        <span class="ctx-chevron"></span>
+        <span class="ov-icon" data-kind="doc">{{ doc_icon() }}</span>
+        <span class="ov-icon" data-kind="folder">{{ folder_icon() }}</span>
+        <input type="hidden" name="folder">
+        <input class="ctx-name" name="name" required autocomplete="off" spellcheck="false" maxlength="200">
+        <span class="ctx-hint"><kbd>Enter</kbd> to add, <kbd>Esc</kbd> to cancel</span>
+      </form>
+    </li>
+  </template>
+</section>
+{% if oob_head %}{% include "partials/project_head.html" %}{% endif %}

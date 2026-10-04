@@ -3,6 +3,7 @@ repositories and its documents, AGENTS.md first."""
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any
 
@@ -14,6 +15,7 @@ from app.models import (
     PROJECT_COLORS,
     Project,
     ProjectDoc,
+    ProjectDocFolder,
     ProjectRepo,
     ProjectStatus,
     Task,
@@ -259,28 +261,207 @@ def _check_location(location: str) -> str:
     return location
 
 
+# A move's folder left as it is: None is the context's top.
+KEEP: Any = ...
+
+
+def _order(name: str) -> list[Any]:
+    """A name's place among its neighbours: by its words in any case, its
+    numbers as numbers ("2 Plan" before "10 Plan")."""
+    return [int(p) if p.isdigit() else p.casefold() for p in re.split(r"(\d+)", name)]
+
+
+def folders_in(project: Project, folder: ProjectDocFolder | None) -> list[ProjectDocFolder]:
+    """The folders in a folder (or at the context's top), by name."""
+    return sorted(
+        (f for f in project.doc_folders if f.parent is folder), key=lambda f: _order(f.name)
+    )
+
+
+def docs_in(project: Project, folder: ProjectDocFolder | None) -> list[ProjectDoc]:
+    """The documents in a folder (or at the context's top), by name; at the
+    top, AGENTS.md first."""
+    return sorted(
+        (d for d in project.docs if d.folder is folder),
+        key=lambda d: (not d.is_agents, _order(d.name)),
+    )
+
+
 def docs_of(project: Project) -> list[ProjectDoc]:
-    """A project's documents in their order: AGENTS.md, then the others as
-    they were added."""
-    return sorted(project.docs, key=lambda d: (not d.is_agents, d.id or 0))
+    """A project's documents in the order its tree reads them: AGENTS.md,
+    then each folder's (its subfolders' first), then the rest at the top."""
+
+    def walk(folder: ProjectDocFolder | None) -> list[ProjectDoc]:
+        inside = [d for f in folders_in(project, folder) for d in walk(f)]
+        here = docs_in(project, folder)
+        if folder is None and here and here[0].is_agents:
+            return [here[0], *inside, *here[1:]]
+        return inside + here
+
+    return walk(None)
 
 
-def create_doc(db: Session, *, project_id: int, name: str, body: str = "") -> ProjectDoc:
+def folders_of(project: Project) -> list[ProjectDocFolder]:
+    """Every folder of the project's context, in the order its tree reads
+    them: each followed by its subfolders."""
+
+    def walk(folder: ProjectDocFolder | None) -> list[ProjectDocFolder]:
+        return [g for f in folders_in(project, folder) for g in (f, *walk(f))]
+
+    return walk(None)
+
+
+def _place(
+    db: Session, project: Project, folder_id: int | None, name: str
+) -> tuple[ProjectDocFolder | None, str]:
+    """Where a name written to add one goes: in the folder it was written in,
+    or, written as a path ("decisions/adr/0001.md"), in the folders the path
+    names under it, made as they are missing. Answers the folder and the
+    name left."""
+    folder = None if folder_id is None else _folder_of(db, project, folder_id)
+    *parents, name = re.split(r"[/\\]", name)
+    for part in parents:
+        part = " ".join(part.split())
+        if not part:
+            continue
+        found = next(
+            (f for f in folders_in(project, folder) if f.name.lower() == part.lower()), None
+        )
+        folder = found or _make_folder(db, project, folder, part)
+    return folder, name
+
+
+def _make_folder(
+    db: Session, project: Project, parent: ProjectDocFolder | None, name: str
+) -> ProjectDocFolder:
+    folder = ProjectDocFolder(name=_check_name(project, parent, name), parent=parent)
+    project.doc_folders.append(folder)
+    db.flush()
+    return folder
+
+
+def create_folder(
+    db: Session, *, project_id: int, name: str, parent_id: int | None = None
+) -> ProjectDocFolder:
+    """A new folder, in a folder or at the top; written as a path, the
+    folders it names under it too."""
     project = get_project(db, project_id)
-    doc = ProjectDoc(name=_check_doc_name(project, name), body=body)
+    parent, name = _place(db, project, parent_id, name)
+    return _make_folder(db, project, parent, name)
+
+
+def update_folder(
+    db: Session,
+    folder_id: int,
+    *,
+    name: str | None = None,
+    parent_id: int | None = KEEP,
+    folded: bool | None = None,
+) -> ProjectDocFolder:
+    """A folder renamed, moved into another (None: to the top), or folded."""
+    folder = get_folder(db, folder_id)
+    project = folder.project
+    parent = folder.parent
+    if parent_id is not KEEP:
+        parent = None if parent_id is None else _folder_of(db, project, parent_id)
+        ancestor = parent
+        while ancestor is not None:
+            if ancestor is folder:
+                raise DomainError(f"{folder.name} can't go inside itself")
+            ancestor = ancestor.parent
+    if name is not None or parent is not folder.parent:
+        folder.name = _check_name(
+            project, parent, folder.name if name is None else name, renaming=folder
+        )
+        folder.parent = parent
+    if folded is not None:
+        folder.folded = folded
+    db.flush()
+    return folder
+
+
+def delete_folder(db: Session, folder_id: int) -> None:
+    """A folder gone, with everything in it: its documents and its
+    subfolders, theirs too."""
+    folder = get_folder(db, folder_id)
+    project = folder.project
+    folders, docs = contents(folder)
+    for doc in docs:
+        project.docs.remove(doc)
+    for gone in (folder, *folders):
+        project.doc_folders.remove(gone)
+    if folder.parent is not None:
+        folder.parent.children.remove(folder)
+    db.delete(folder)
+    db.flush()
+
+
+def contents(folder: ProjectDocFolder) -> tuple[list[ProjectDocFolder], list[ProjectDoc]]:
+    """Everything a folder holds, however deep: its subfolders and its
+    documents."""
+    folders, docs = [], list(folder.docs)
+    for child in folder.children:
+        below = contents(child)
+        folders += [child, *below[0]]
+        docs += below[1]
+    return folders, docs
+
+
+def get_folder(db: Session, folder_id: int) -> ProjectDocFolder:
+    folder = db.get(ProjectDocFolder, folder_id)
+    if folder is None:
+        raise DomainError(f"Folder {folder_id} does not exist")
+    return folder
+
+
+def _folder_of(db: Session, project: Project, folder_id: int) -> ProjectDocFolder:
+    """One of the project's folders, never another project's."""
+    folder = get_folder(db, folder_id)
+    if folder.project_id != project.id:
+        raise DomainError(f"Folder {folder_id} is not one of {project.name}'s")
+    return folder
+
+
+def create_doc(
+    db: Session, *, project_id: int, name: str, body: str = "", folder_id: int | None = None
+) -> ProjectDoc:
+    """A new document, in a folder or at the top; written as a path
+    ("decisions/0001.md"), in the folders it names, made as they are
+    missing."""
+    project = get_project(db, project_id)
+    folder, name = _place(db, project, folder_id, name)
+    doc = ProjectDoc(name=_check_name(project, folder, name, what="document"), body=body)
+    doc.folder = folder
     project.docs.append(doc)
     db.flush()
     return doc
 
 
 def update_doc(
-    db: Session, doc_id: int, *, name: str | None = None, body: str | None = None
+    db: Session,
+    doc_id: int,
+    *,
+    name: str | None = None,
+    body: str | None = None,
+    folder_id: int | None = KEEP,
 ) -> ProjectDoc:
+    """A document renamed, rewritten, or moved into a folder (None: to the
+    top). AGENTS.md keeps its name and its place."""
     doc = get_doc(db, doc_id)
-    if name is not None and name.strip() != doc.name:
-        if doc.is_agents:
-            raise DomainError(f"{AGENTS_DOC} keeps its name")
-        doc.name = _check_doc_name(doc.project, name, renaming=doc)
+    project = doc.project
+    folder = doc.folder
+    if folder_id is not KEEP:
+        folder = None if folder_id is None else _folder_of(db, project, folder_id)
+    renamed = name is not None and " ".join(name.split()) != doc.name
+    if doc.is_agents and renamed:
+        raise DomainError(f"{AGENTS_DOC} keeps its name")
+    if doc.is_agents and folder is not None:
+        raise DomainError(f"{AGENTS_DOC} stays at the top of the context")
+    if renamed or folder is not doc.folder:
+        doc.name = _check_name(
+            project, folder, doc.name if name is None else name, renaming=doc, what="document"
+        )
+        doc.folder = folder
     if body is not None and body != doc.body:
         doc.body = body
         doc.updated_at = datetime.now()
@@ -293,6 +474,8 @@ def delete_doc(db: Session, doc_id: int) -> None:
     if doc.is_agents:
         raise DomainError(f"Every project keeps its {AGENTS_DOC}")
     doc.project.docs.remove(doc)
+    if doc.folder is not None:
+        doc.folder.docs.remove(doc)
     db.flush()
 
 
@@ -303,34 +486,47 @@ def get_doc(db: Session, doc_id: int) -> ProjectDoc:
     return doc
 
 
-def _check_doc_name(project: Project, name: str, renaming: ProjectDoc | None = None) -> str:
-    """A new name for one of the project's documents: written, and no other
-    document of the project's has it (in any case); AGENTS.md is taken."""
+def _check_name(
+    project: Project,
+    folder: ProjectDocFolder | None,
+    name: str,
+    *,
+    renaming: ProjectDoc | ProjectDocFolder | None = None,
+    what: str = "folder",
+) -> str:
+    """A name for a document or a folder of the project's context, as a
+    file's on disk: written, no slash in it, and nothing beside it in its
+    folder has it (in any case), documents and folders alike."""
     name = " ".join(name.split())
     if not name:
-        raise DomainError("A document needs a name")
+        raise DomainError(f"A {what} needs a name")
     if len(name) > 200:
-        raise DomainError("A document's name is 200 characters at most")
-    taken = next(
-        (d for d in project.docs if d is not renaming and d.name.lower() == name.lower()), None
-    )
+        raise DomainError(f"A {what}'s name is 200 characters at most")
+    if re.search(r"[/\\]", name) or name in (".", ".."):
+        raise DomainError(f"A {what}'s name can't hold a slash")
+    beside = [*folders_in(project, folder), *docs_in(project, folder)]
+    taken = next((n for n in beside if n is not renaming and n.name.lower() == name.lower()), None)
     if taken is not None:
-        raise DomainError(f"{project.name} already has {taken.name}")
+        where = f"{project.name}'s {folder.path}" if folder else project.name
+        raise DomainError(f"{where} already has {taken.name}")
     return name
 
 
 def project_context(project: Project) -> dict[str, Any]:
     """What an agent working on the project is given: the project, where its
-    code is, and its documents in full, AGENTS.md first."""
+    code is, and its documents in full, AGENTS.md first, each with its path
+    among the context's folders, and the folders themselves."""
     return {
         "id": project.id,
         "name": project.name,
         "status": project.status.value,
         "notes": project.notes,
         "repos": [{"name": repo_name(r.location), "location": r.location} for r in project.repos],
+        "folders": [f.path for f in folders_of(project)],
         "docs": [
             {
                 "name": d.name,
+                "path": d.path,
                 "body": d.body,
                 "updated_at": d.updated_at.isoformat(timespec="seconds"),
             }

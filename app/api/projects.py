@@ -43,7 +43,8 @@ def update_project(
 @router.get("/{project_id}/context")
 def project_context(project_id: int, db: DbSession) -> dict[str, Any]:
     """What an agent working on the project is given: the project, its
-    repositories, and its documents in full, AGENTS.md first."""
+    repositories, its folders, and its documents in full, AGENTS.md first,
+    each with its path among the folders."""
     return projects_svc.project_context(projects_svc.get_project(db, project_id))
 
 

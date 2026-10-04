@@ -145,8 +145,10 @@ def get_project_context(project_id: int | None = None, name: str | None = None) 
     """A project's context, for working on it: the project (name, status,
     notes), its repositories (each a local path or a URL), and its documents
     in full, written in Markdown on its page in the app: AGENTS.md first,
-    what an agent should know before working on it, then the others. Give
-    project_id, or its exact name."""
+    what an agent should know before working on it, then the others. Oscar
+    files documents in folders: each document has its path among them
+    ("decisions/0001.md"), and folders lists every folder's path, empty ones
+    too. Give project_id, or its exact name."""
     with session_scope("claude") as db:
         if project_id is None:
             project = next(
