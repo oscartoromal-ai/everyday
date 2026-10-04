@@ -71,6 +71,8 @@
     })),
     // Settings' Changelog, which no nav item opens.
     { kind: "Page", label: "Changelog", words: "go to version release what's new history", run: go("/changelog") },
+    // Settings' Models, likewise.
+    { kind: "Page", label: "Models", words: "go to ai llm claude openai codex provider model", run: go("/models") },
     {
       kind: "Do", label: "New task", words: "add write capture", hint: "N",
       // As N would: the page's own list, or the capture window.

@@ -223,6 +223,14 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       <p class="settings-install">Not installed on this machine: {{ names[:-1] | join(", ") }}{% if names | length > 1 %} and {% endif %}{{ names[-1] }}. Run the installer again to add {{ "them" if names | length > 1 else "it" }}.</p>
       {% endif %}
     </section>
+    {# The model providers, as last checked, opening Models (app/ui/models.py). #}
+    <section class="settings-section" aria-labelledby="settings-models">
+      <h3 id="settings-models">Models</h3>
+      <a class="settings-version settings-models" href="/models">
+        {% for p in llm_summary(request) %}<span class="settings-models__provider">{{ p.name }} <span class="chip {{ p.tone }}">{{ p.label }}</span></span>{% endfor %}
+        <span class="settings-version__open">Set up</span>
+      </a>
+    </section>
     {# The app's version, opening the Changelog (app/changelog.py). #}
     {% set running = app_version() %}
     <section class="settings-section" aria-labelledby="settings-version">

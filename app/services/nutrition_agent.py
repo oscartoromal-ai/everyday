@@ -22,9 +22,9 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from app.config import get_settings
 from app.services import claude_sdk
 from app.services.claude_sdk import AgentEvent, AgentFailed, resolve_cli
+from app.services.llm import Choice
 
 __all__ = ["AgentEvent", "AgentFailed", "AgentRequest", "claude_agent", "resolve_cli"]
 
@@ -42,6 +42,8 @@ class AgentRequest:
     garmin: list[dict[str, Any]] = field(default_factory=list)
     # A turn Oscar does not see: fixing a file that did not parse.
     repair: bool = False
+    # The model it runs on, as chosen on Models (services/llm.py).
+    choice: Choice = Choice("claude", None, None, "")
 
 
 Agent = Callable[[AgentRequest], AsyncIterator[AgentEvent]]
@@ -206,7 +208,6 @@ async def claude_agent(request: AgentRequest) -> AsyncIterator[AgentEvent]:
     status for each tool call. Raises AgentFailed when the run fails."""
     from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
 
-    settings = get_settings()
     folder = request.folder
 
     async def confine(hook_input, tool_use_id, context):  # noqa: ANN001, ANN202, ARG001
@@ -221,9 +222,10 @@ async def claude_agent(request: AgentRequest) -> AsyncIterator[AgentEvent]:
 
     options = ClaudeAgentOptions(
         system_prompt=SYSTEM_PROMPT,
-        model=settings.nutrition.model,
+        model=request.choice.model,
+        effort=request.choice.effort,
         cwd=folder,
-        cli_path=resolve_cli(settings.claude.cli),
+        cli_path=resolve_cli(request.choice.cli),
         tools=TOOLS,
         allowed_tools=TOOLS,
         permission_mode="dontAsk",

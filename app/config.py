@@ -81,22 +81,9 @@ class BackupConfig(BaseModel):
     retain: int = 30
 
 
-class ClaudeConfig(BaseModel):
-    # The Claude Code executable the chats run (Nutrition, Spending). Empty:
-    # `claude` on PATH, or, when that is npm's claude.cmd (which the Agent
-    # SDK refuses to run), the native claude.exe npm installed beside it.
-    cli: str = ""
-
-
 class NutritionConfig(BaseModel):
     # The folder of Markdown files nutrition lives in: plan.md, meals/, log/.
     dir: str = "nutrition"
-    model: str = "claude-opus-5-5"
-
-
-class MoneyConfig(BaseModel):
-    # The model behind Spending's chat.
-    model: str = "claude-opus-5-5"
 
 
 class GarminConfig(BaseModel):
@@ -143,6 +130,9 @@ class Settings(BaseSettings):
         ),
         env_prefix="PC_",
         env_nested_delimiter="__",
+        # A key the app no longer reads (a machine's config.toml written for
+        # an older version) is passed over, not a reason to refuse to start.
+        extra="ignore",
     )
 
     server: ServerConfig = ServerConfig()
@@ -150,9 +140,7 @@ class Settings(BaseSettings):
     work_calendar: WorkCalendarConfig = WorkCalendarConfig()
     push: PushConfig = PushConfig()
     backup: BackupConfig = BackupConfig()
-    claude: ClaudeConfig = ClaudeConfig()
     nutrition: NutritionConfig = NutritionConfig()
-    money: MoneyConfig = MoneyConfig()
     garmin: GarminConfig = GarminConfig()
     github: GitHubConfig = GitHubConfig()
     install: InstallConfig = InstallConfig()

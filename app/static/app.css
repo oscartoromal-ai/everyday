@@ -1232,6 +1232,9 @@ dialog.settings-dialog:focus-visible { outline: none; box-shadow: var(--shadow-m
 .settings-version__open { margin-left: auto; font-size: var(--t-caption); font-weight: 500; color: var(--graphite); }
 .settings-version__open::after { content: " ›"; }
 .settings-version:hover .settings-version__open { color: var(--ink); }
+/* the model providers, each with its state, opening Models */
+.settings-models { flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); }
+.settings-models__provider { display: inline-flex; align-items: center; gap: var(--s-2); font-weight: 500; }
 /* the installed app's Check for updates (partials/update_check.html), under the version */
 .update-check {
   display: flex; align-items: center; gap: var(--s-3);
@@ -2383,6 +2386,42 @@ li.repo-row:hover { background: var(--glass-row-hover); }
 .github-busy, .htmx-request .github-idle { display: none; }
 .htmx-request .github-busy { display: inline; }
 .github-account button:disabled { cursor: progress; }
+
+/* ---------- Models (from Settings): the model providers on one ruled sheet ---------- */
+
+/* a provider's title row: its name, its state's chip, then the CLI it is
+   reached through at the right, in pewter */
+.llm-head { display: flex; align-items: baseline; gap: 0 var(--s-2); }
+.llm-head .chip { align-self: center; }
+.llm-program { margin-left: auto; font-size: var(--t-caption); font-weight: 500; color: var(--pewter); font-variant-numeric: tabular-nums; }
+.llm-account { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* where its CLI is, written on the line; a use's model, then its effort */
+.llm-cli .sheet-field > input { flex: 1 1 auto; field-sizing: fixed; width: 100%; }
+.llm-use .sheet-field { gap: 0 var(--s-4); }
+.models-sheet .me-label { width: 128px; }
+.llm-line { color: var(--graphite); overflow-wrap: anywhere; }
+.llm-line code, .llm-model__id { font-family: var(--font-code); font-size: 0.9em; }
+.llm-line code { color: var(--ink); }
+.llm-quiet { color: var(--pewter); }
+.llm-error { color: var(--err-fg); }
+/* a model: its name in ink, the provider's pick marked, what it is for in
+   graphite (wrapping under them), and its id at the right */
+.llm-models { margin: 0; padding: 0; list-style: none; }
+.llm-model { display: flex; align-items: flex-start; gap: 0 var(--s-4); }
+.llm-model:hover { background: var(--glass-row-hover); }
+.llm-model__main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s-2); }
+.llm-model__name { color: var(--ink); font-weight: 500; }
+.llm-model__main .chip { align-self: center; }
+.llm-model__description { color: var(--graphite); }
+.llm-model__id { flex: none; color: var(--pewter); white-space: nowrap; }
+.llm-checked .me-value { flex: 1; min-width: 0; }
+.llm-checked .plan-btn { flex: none; height: 24px; margin-top: calc(var(--pad-above) - 1px); }
+.llm-checked .plan-btn:disabled { cursor: progress; opacity: 0.5; }
+@media (max-width: 720px) {
+  .models-sheet { --pad-rows: 34px; --pad-gap: var(--s-2); }
+  .llm-model__id { display: none; }
+  .models-sheet .me-label { width: 96px; }
+}
 
 /* ---------- Finances: Spending (a month beside its chat, as Nutrition's
    day is), Accounts, Bills and Goals (ruled sheets, as Me's is) ---------- */

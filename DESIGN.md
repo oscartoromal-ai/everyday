@@ -393,6 +393,12 @@ The cursor, the range and a cell being written are the Gantt's: a 2px `--spark-d
 The page header says which version this is; under it a list card per version, newest first, 24px apart: its title row the version (with an ok "This version" badge on the running one, and "Unreleased" for changes not yet merged) and, at its right, its day in 12px pewter ("4 Oct 2026").
 Each change is a row of a 64px column with its kind in 12px/500 graphite (Major, Feature, Fix), then its words in 14px ink, and what more it says under them in 14px graphite on 1.5 lines; a Major's kind and words are ink 600.
 
+**Models** (`models.html`, `/models`, from Settings), a ruled sheet as Repositories' is, its fields' names 128px wide.
+Each provider is a group: its title row its name in 14px/600 ink, its state's badge (ok "Signed in", warn "Not signed in", neutral "Not installed" or "Not checked yet", err "Needs attention") and, at its right, its CLI and version in 12px/500 pewter.
+Then its account, where its CLI is, written on the line (its placeholder the command found on PATH, or "Where codex is"), and its models, a row each: the name in ink 500, a neutral "Default" badge on the provider's own pick, what it is for in graphite, and its id at the right in pewter code; or, in graphite, what to install or run to sign it in, its commands in ink code.
+"Used for" follows, a row a use: its model and its effort as two selects on the line; then "Checked", when, and a quiet Check again.
+In Settings, between Modules and Version, a row as Version's is: each provider's name in 500 and its badge, and "Set up ›" at its right.
+
 **A task's page** (`task.html`, the task sheet in its page mode).
 At the page's 800px: a header of a pewter "‹ Calendar" (where it was opened from) and, at its right, a 12px pewter "Saved" once a save lands ("Not saved" and a toast if one fails), nothing while the writing is unsaved, so the page stays still as it is written.
 Then the sheet with no row around it: the 18px box beside the title, the title as the page's heading (24px/600 display, 32px lines, wrapping), and under it, aligned with the title's words, every field on one line as the sheet's end line draws them (the four field icons, project, owner, status once it applies, History, and the bin at the line's right), above a hairline.

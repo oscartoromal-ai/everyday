@@ -21,6 +21,7 @@ from app.ui import fragments as ui_fragments
 from app.ui import gantt as ui_gantt
 from app.ui import garmin as ui_garmin
 from app.ui import me as ui_me
+from app.ui import models as ui_models
 from app.ui import money as ui_money
 from app.ui import nutrition as ui_nutrition
 from app.ui import pages as ui_pages
@@ -73,6 +74,7 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     app.include_router(ui_fragments.router, dependencies=ui)
     app.include_router(ui_gantt.router, dependencies=ui)
     app.include_router(ui_project.router, dependencies=ui)
+    app.include_router(ui_models.router, dependencies=ui)
     # The optional modules' pages, unless the machine was installed without them.
     for module, routers in OPTIONAL_ROUTERS.items():
         if settings.installed(module):

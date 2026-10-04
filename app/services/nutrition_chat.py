@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
 from app.models import ChatRole, NutritionMessage
-from app.services import agent_chat
+from app.services import agent_chat, llm
 from app.services import nutrition as nutrition_svc
 from app.services.agent_chat import Run
 from app.services.nutrition_agent import Agent, AgentRequest
@@ -52,7 +52,7 @@ def start(
     request = AgentRequest(
         day=day, now=now or datetime.now(), message=text,
         folder=get_settings().nutrition_dir, profile=profile, transcript=transcript,
-        garmin=garmin or [],
+        garmin=garmin or [], choice=llm.choice(db, "nutrition"),
     )
     # A session factory on the request's own database, for the thread.
     factory = sessionmaker(bind=db.get_bind(), expire_on_commit=False)
