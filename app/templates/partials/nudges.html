@@ -1,5 +1,5 @@
 {# The nudge center (pages.py): each nudge's words as of today, what it
-   names to open, and its dismissal. #}
+   names to open (a bill's page, a task's own page), and its dismissal. #}
 {% if nudges %}
 <section class="nudge-center" id="nudge-center" aria-label="Nudges">
   <ul class="nudge-list">
@@ -18,9 +18,7 @@
       {% if n.type == "bill_due" %}
       <a class="nudge-action" href="/bills">Open</a>
       {% elif n.task_id %}
-      <button type="button" class="nudge-action"
-              hx-get="/ui/tasks/{{ n.task_id }}/edit"
-              hx-target="#nudge-editor-slot" hx-swap="innerHTML">Open</button>
+      <a class="nudge-action" href="/tasks/{{ n.task_id }}">Open</a>
       {% endif %}
       <button type="button" class="nudge-dismiss" aria-label="Dismiss"
               hx-post="/ui/nudges/{{ n.id }}/dismiss"
@@ -30,6 +28,5 @@
     </li>
     {% endfor %}
   </ul>
-  <ul class="task-list" id="nudge-editor-slot"></ul>
 </section>
 {% endif %}

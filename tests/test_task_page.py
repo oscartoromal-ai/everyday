@@ -37,6 +37,14 @@ def test_back_is_one_of_the_apps_pages_named_else_projects() -> None:
     assert back_link("/plan") == {"href": "/plan", "label": "Plan"}
     assert back_link(f"/day/{TODAY.isoformat()}", TODAY) == {
         "href": f"/day/{TODAY.isoformat()}", "label": "Today"}
+    # Every page the command menu can open a task from: the sidebar's, by its
+    # names (a day or month of one too), a project's documents, and Settings'.
+    assert back_link("/garmin/2026-10-01") == {"href": "/garmin/2026-10-01", "label": "Garmin"}
+    assert back_link("/spending") == {"href": "/spending", "label": "Spending"}
+    assert back_link("/repositories") == {"href": "/repositories", "label": "Repositories"}
+    assert back_link("/projects/3/docs/7") == {"href": "/projects/3/docs/7", "label": "Document"}
+    assert back_link("/models") == {"href": "/models", "label": "Models"}
+    assert back_link("/projects/x") == {"href": "/projects", "label": "Projects"}
     # Another site, another task's page, or nothing: Projects.
     for url in ("https://elsewhere.example/x", "//evil.example/calendar", "/tasks/4", ""):
         assert back_link(url)["href"] in ("/projects", "/calendar")

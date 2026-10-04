@@ -1,8 +1,10 @@
-"""A task's own page in a real browser, opened from Calendar's sheet: its
-title there opens it, Ctrl+Enter writing one opens the task just written,
-and what is written on the page is saved as it is written, the page going
-back to the sheet. The `live`, `page` and `app_db` fixtures are
-conftest.py's."""
+"""A task's own page in a real browser, opened from wherever tasks are
+listed: Calendar's sheet (its title there, Ctrl+Enter writing one), a row on
+a task list (its Open, Ctrl+Enter on the cursor), the task being edited there
+(its Open, Ctrl+Shift+Enter, saved first) and a nudge. What is written on
+the page is saved as it is written, the page going back to where it was
+opened. Today's notes open it too (test_notepad_browser.py). The `live`, `page` and
+`app_db` fixtures are conftest.py's."""
 
 import time
 from datetime import date, timedelta
@@ -129,3 +131,65 @@ def test_its_description_is_read_drawn_and_its_mode_remembered(page, live, app_d
     modes.locator("button", has_text="Source").click()
     assert editor.locator(".cm-line").first.inner_text() == "## Packing"
     assert editor.get_attribute("contenteditable") == "true"
+
+
+def test_a_row_on_a_task_list_opens_its_page(page, live, app_db) -> None:
+    with app_db() as db:
+        task = tasks_svc.create_task(db, title="Renew the passport")
+        db.commit()
+    page.goto(f"{live}/plan")  # the open tasks without a day
+    row = page.locator(f"#task-{task.id}")
+    # Its Open, quiet until the row is hovered, as its bin is.
+    row.hover()
+    row.locator(".task-open").click()
+    page.wait_for_url(f"{live}/tasks/{task.id}")
+    page.locator(".page-back", has_text="Plan").click()
+    page.wait_for_url(f"{live}/plan")
+
+    # Ctrl+Enter on the cursor's row, as on the Gantt and Calendar's sheet.
+    row.focus()
+    page.keyboard.press("Control+Enter")
+    page.wait_for_url(f"{live}/tasks/{task.id}")
+
+
+def test_a_task_being_edited_opens_its_page_saved_first(page, live, app_db) -> None:
+    with app_db() as db:
+        task = tasks_svc.create_task(db, title="Book flights")
+        db.commit()
+    page.goto(f"{live}/plan")
+    page.locator(f"#task-{task.id} .task-title-btn").click()
+    sheet = page.locator(f"#task-{task.id} .task-sheet[data-sheet='edit']")
+    sheet.locator(".sheet-title").click()
+    page.keyboard.press("End")
+    page.keyboard.type(" to Tokyo")
+    # Its Open: written, then opened, the page showing what was written.
+    sheet.locator("[data-open-task]").click()
+    page.wait_for_url(f"{live}/tasks/{task.id}")
+    assert page.locator(".main .sheet-title").inner_text() == "Book flights to Tokyo"
+    assert stored(app_db, "Book flights to Tokyo").id == task.id
+
+    # Ctrl+Shift+Enter in it does the same, its trailing words taken as fields.
+    page.goto(f"{live}/plan")
+    page.locator(f"#task-{task.id} .task-title-btn").click()
+    sheet.locator(".sheet-title").click()
+    page.keyboard.press("End")
+    page.keyboard.type(" tomorrow")
+    page.keyboard.press("Control+Shift+Enter")
+    page.wait_for_url(f"{live}/tasks/{task.id}")
+    assert stored(app_db, "Book flights to Tokyo").planned_for == TODAY + timedelta(days=1)
+
+
+def test_a_nudge_opens_its_task_s_page(page, live, app_db) -> None:
+    from datetime import datetime
+
+    from app.services import nudges as nudges_svc
+
+    with app_db() as db:
+        task = tasks_svc.create_task(db, title="Pay the invoice", due=TODAY + timedelta(days=1))
+        nudges_svc.evaluate(db, datetime.now())
+        db.commit()
+    page.goto(f"{live}/today")
+    page.locator(".nudge-action", has_text="Open").click()
+    page.wait_for_url(f"{live}/tasks/{task.id}")
+    page.locator(".page-back", has_text="Today").click()
+    page.wait_for_url(f"{live}/today")

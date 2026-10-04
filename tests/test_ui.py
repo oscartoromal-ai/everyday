@@ -615,13 +615,15 @@ def test_nudge_banner_and_dismiss(client, db) -> None:
     from app.services import nudges as nudges_svc
 
     now = datetime.now()
-    tasks_svc.create_task(db, title="pay invoice", due=TODAY + timedelta(days=1))
+    task = tasks_svc.create_task(db, title="pay invoice", due=TODAY + timedelta(days=1))
     [nudge] = nudges_svc.evaluate(db, now)
 
     # The nudge center opens the day, on Today; a past day's page has none.
     page = client.get("/today").text
     assert "nudge-center" in page
     assert "“pay invoice” is due tomorrow." in page
+    # Its Open is the task's own page.
+    assert f'<a class="nudge-action" href="/tasks/{task.id}">Open</a>' in page
     assert "nudge-center" not in client.get(f"/day/{TODAY - timedelta(days=1)}").text
 
     assert client.post(f"/ui/nudges/{nudge.id}/dismiss").status_code == 200

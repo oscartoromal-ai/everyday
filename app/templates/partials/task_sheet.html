@@ -8,13 +8,15 @@
   - page: the task on its own page (task.html), from task_page_ctx().
   The title wraps like a line of a document and the do-date, due, repeat,
   estimate and priority icons trail its last word. The description follows. In edit mode the sheet
-  ends with Project › Workstream, owner (and status once it is Claude's), and
-  delete; it saves when focus leaves it. On a page the title is the page's
+  ends with Project › Workstream, owner (and status once it is Claude's), its
+  history, a way to its own page, and delete; it saves when focus leaves it.
+  On a page the title is the page's
   heading with every icon on one line under it, then the description at
   length; it saves as it is written, and its bin goes back to `back`.
   It is written on the line, as a row is (app.css, "inputs").
 #}
 {% from "partials/priority.html" import priority_icon %}
+{% from "partials/open_task.html" import open_icon %}
 {% set page = mode == "page" %}
 {% set editing = mode in ("edit", "page") %}
 {% set s = sheet if editing else {
@@ -74,6 +76,13 @@
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 10a6.5 6.5 0 1 0 1.9-4.6"/><path d="M3.5 3.5v3.25h3.25"/><path d="M10 6.5V10l2.5 1.75"/></svg>
           <span class="prop-value">History</span>
         </button>
+        {% if not page %}
+        {# The task on its own page, saved first (Ctrl+Shift+Enter, task-sheet.js). #}
+        <a class="prop" href="/tasks/{{ s.id }}" data-open-task title="{{ keys.title('Open the task on its page', 'writing.openPage') }}">
+          {{ open_icon() }}
+          <span class="prop-value">Open</span>
+        </a>
+        {% endif %}
         <span class="spacer"></span>
         {# On its page, deleted, it goes back to where it was opened from. #}
         <button type="button" class="task-delete" aria-label="Delete “{{ s.title }}”" title="Delete"

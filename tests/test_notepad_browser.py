@@ -1,7 +1,7 @@
-"""Today's notepad in a real browser: plain notes for the day, saved as they
-are written, and a question instead of an overwrite when another window
-saved first. notepad.js only runs in a browser; the `live` and `page`
-fixtures are conftest.py's."""
+"""Today's notepad in a real browser: notes for the day in Markdown, drawn
+as they read, saved as they are written, and a question instead of an
+overwrite when another window saved first. notepad.js only runs in a
+browser; the `live` and `page` fixtures are conftest.py's."""
 
 import time
 from datetime import date
@@ -809,9 +809,9 @@ def test_spelling_is_marked_only_in_the_row_being_written(page, live) -> None:
             arg=expected, timeout=3000,
         )
 
-    marked(["false", None])
+    marked(["false", "true"])
     page.keyboard.press("ArrowUp")
-    marked([None, "false"])
+    marked(["true", "false"])
     # Out of the notes, no row is.
     page.keyboard.press("Escape")
     marked(["false", "false"])
@@ -1039,3 +1039,132 @@ def test_a_task_row_left_while_a_save_is_on_its_way_is_added(
     assert stored(app_db) == [
         {"kind": "text", "text": "Groceries\n- [ ] Call the bank", "links": {"1": task.id}},
     ]
+
+
+def rows(page) -> list[str]:
+    """The notes' rows as they read on screen."""
+    return page.locator(".pad-editor .cm-line").all_inner_texts()
+
+
+def test_the_notes_are_markdown_drawn_as_they_read(page, live, app_db) -> None:
+    page.goto(f"{live}/today")
+    write_in(page)
+    page.keyboard.type("# Plan")
+    page.keyboard.press("Enter")
+    page.keyboard.type("Book **flights** and the `JR` pass")
+    page.keyboard.press("Enter")
+    page.keyboard.type("- [ ] Pack the **adapter**")
+    page.keyboard.press("Control+Enter")
+    page.locator(".cal-toast.show", has_text="Task added").wait_for()
+    notes = "# Plan\nBook **flights** and the `JR` pass\n- [ ] Pack the **adapter**\n"
+    assert text_of(page) == notes
+
+    # Out of the notes, everything reads as finished, its marks hidden.
+    page.keyboard.press("Escape")
+    lines = page.locator(".pad-editor .cm-line")
+    assert lines.nth(0).inner_text() == "Plan"
+    assert "cm-md-h1" in lines.nth(0).get_attribute("class")
+    assert lines.nth(1).inner_text() == "Book flights and the JR pass"
+    assert lines.nth(1).locator(".cm-md-strong").inner_text() == "flights"
+    assert lines.nth(1).locator(".cm-md-code").inner_text() == "JR"
+    # A task's row is the notepad's: its box and Task, no box of Markdown's
+    # beside its own, and its title the plain words it is everywhere else.
+    title = page.locator(".pad-editor .cm-line.pad-title")
+    assert title.locator(".pad-kind-name").inner_text() == "Task"
+    assert "Pack the **adapter**" in title.inner_text()
+    assert title.locator(".cm-md-strong").count() == 0
+    assert page.locator(".pad-editor .cm-md-box").count() == 0
+    # The caret on a mark's words shows its marks; the text is saved as written.
+    lines.nth(1).locator(".cm-md-strong").click()
+    assert "**flights**" in lines.nth(1).inner_text()
+    links = {"2": stored_task_id(app_db)}
+    saved_as(app_db, [{"kind": "text", "text": notes.rstrip("\n"), "links": links}])
+
+
+def stored_task_id(app_db) -> int:
+    from app.services import tasks as tasks_svc
+
+    with app_db() as db:
+        [task] = tasks_svc.list_tasks(db)
+        return task.id
+
+
+def test_a_markdown_list_goes_on_and_a_plain_row_stays_plain(page, live) -> None:
+    page.goto(f"{live}/today")
+    write_in(page)
+    # A list goes on with Enter, nests with Tab, and steps out on an empty item.
+    page.keyboard.type("- milk")
+    page.keyboard.press("Enter")
+    page.keyboard.type("oat")
+    page.keyboard.press("Tab")
+    assert text_of(page) == "- milk\n  - oat"
+    assert page.locator(".pad-editor .cm-md-bullet").count() == 2
+    page.keyboard.press("Enter")
+    page.keyboard.press("Enter")
+    page.keyboard.press("Enter")
+    assert text_of(page) == "- milk\n  - oat\n"
+
+    # A plain row right under a task's title is the notes' own: Enter on it
+    # starts a plain row, never a task as Markdown would have it.
+    page.keyboard.type("- [ ] Call mum")
+    page.keyboard.press("Control+Enter")
+    page.keyboard.type("then lunch")
+    page.keyboard.press("Enter")
+    page.keyboard.type("and a walk")
+    assert text_of(page) == "- milk\n  - oat\n- [ ] Call mum\nthen lunch\nand a walk"
+    assert page.locator(".pad-editor .cm-line.pad-title").count() == 1
+
+
+def test_the_notes_modes_are_switched_and_remembered(page, live) -> None:
+    page.goto(f"{live}/today")
+    write_in(page)
+    page.keyboard.type("## Errands")
+    page.keyboard.press("Enter")
+    page.keyboard.type("- [ ] Post the letter")
+    page.keyboard.press("Tab")
+    page.keyboard.type("the **blue** envelope")
+    page.keyboard.press("Control+Enter")
+    modes = page.locator(".today-page [data-md-modes]")
+    content = page.locator(".pad-editor .cm-content")
+    assert modes.locator('[aria-pressed="true"]').inner_text() == "Live"
+
+    # Source: the Markdown as written; the task stays the notepad's row.
+    modes.locator("button", has_text="Source").click()
+    assert rows(page)[0] == "## Errands"
+    assert "**blue**" in rows(page)[2]
+    assert page.locator(".pad-editor .cm-line.pad-title .pad-kind-name").inner_text() == "Task"
+
+    # Reading (Ctrl+E): drawn, not to be written; and so it opens again.
+    page.keyboard.press("Control+e")
+    assert modes.locator('[aria-pressed="true"]').inner_text() == "Reading"
+    assert content.get_attribute("contenteditable") == "false"
+    assert rows(page)[0] == "Errands"
+    # A task's description is Markdown, as on its page: drawn too.
+    assert "blue envelope" in rows(page)[2] and "**" not in rows(page)[2]
+    page.reload()
+    assert modes.locator('[aria-pressed="true"]').inner_text() == "Reading"
+    page.keyboard.press("Control+e")
+    assert modes.locator('[aria-pressed="true"]').inner_text() == "Live"
+
+
+def test_a_task_in_the_notes_opens_on_its_page(page, live, app_db) -> None:
+    page.goto(f"{live}/today")
+    write_in(page)
+    page.keyboard.type("- [ ] Renew the passport")
+    # Not added yet: no page to open, so no Open.
+    title = page.locator(".pad-editor .cm-line.pad-title")
+    assert title.locator("[data-open-task]").is_hidden()
+    # Ctrl+Shift+Enter adds it, and opens its page.
+    page.keyboard.press("Control+Shift+Enter")
+    page.wait_for_url(f"{live}/tasks/*")
+    task_id = stored_task_id(app_db)
+    assert page.url.endswith(f"/tasks/{task_id}")
+    page.locator(".page-back", has_text="Today").click()
+    page.wait_for_url(f"{live}/today")
+
+    # Added, its row has Open after its icons.
+    written = "- [ ] Renew the passport"
+    saved_as(app_db, [{"kind": "text", "text": written, "links": {"0": task_id}}])
+    page.reload()
+    title.locator("[data-open-task]").click()
+    page.wait_for_url(f"{live}/tasks/{task_id}")

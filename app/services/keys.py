@@ -263,6 +263,8 @@ SCOPES: tuple[Scope, ...] = (
     Scope("writing", "Writing a task", (
         Fixed("[Enter]", "From the title to the description"),
         Fixed("[Ctrl] [Enter]", "Add the task, or save it"),
+        Action("writing.openPage", "Editing one in its list: open it on its own page, saved "
+               "first (or its Open)", ("Ctrl+Shift+Enter",)),
         Fixed("[Esc]", "Back to the list (an edit saves)"),
         Fixed("[Tab]", "Through the fields; in the description, nests a sub-task"),
         Fixed("[-] [Space]", "In the description, at a line's start: a sub-task ([Shift] [Enter] "
@@ -273,7 +275,8 @@ SCOPES: tuple[Scope, ...] = (
         Action("editor.italic", "Italic", ("Ctrl+I",)),
         Action("editor.strike", "Struck through", ("Ctrl+Shift+X",)),
         Action("editor.code", "Code", ("Ctrl+`",)),
-        Action("editor.reading", "Read it, or write it again (a description, a document)",
+        Action("editor.reading", "Read it, or write it again (a description, a document, "
+               "Today's notes)",
                ("Ctrl+E",)),
         Action("editor.live", "Write it drawn as it reads (Live)", click="[data-md-mode=live]",
                menu=True, words="markdown mode live preview"),
@@ -304,6 +307,11 @@ SCOPES: tuple[Scope, ...] = (
         Fixed("[Ctrl] [Enter] or [Esc]", "Close the task (it is added), onto the next row or "
               "where it is"),
         Fixed("[Ctrl] [Enter]", "Close a reflection, onto the next row"),
+        Action("today.openTask", "In a task: open it on its own page, added first if it is not "
+               "yet (or its Open, after its icons)", ("Ctrl+Shift+Enter",)),
+        Fixed("Markdown", "The notes are Markdown, as a task's description is (# heading, "
+              "**bold**, `code`, [words](link), - list, > quote), shown as they read, their "
+              "marks where the caret is; Live, Source and Reading at the day's header"),
         Action("today.timeline", "Fold the timeline away, the notes taking its room, or back "
                "(in the notes too)", ("Ctrl+\\",), click=".timeline-toggle", menu=True,
                words="timeline fold calendar"),
