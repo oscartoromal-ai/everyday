@@ -1,5 +1,5 @@
 """A task's description in a real browser: Markdown written in its editor
-(notes-editor.js on markdown-editor.js) and shown as it reads, its marks
+(notes-editor.js on markdown-live.js) and shown as it reads, its marks
 showing only where the caret is, its "- " lines boxes that tick, and the
 text saved exactly as written. The `live`, `page` and `app_db` fixtures are
 conftest.py's."""

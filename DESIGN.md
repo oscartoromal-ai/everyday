@@ -57,7 +57,7 @@ Neon Signage uses one face, Inter variable, installed in `app/static/design/font
 Titles (page, card, week and dialog titles, and the wordmark) use `--font-display` and figures (times, counts, targets, busy hours) use `--font-num`; in Neon Signage both are Inter, so these hooks matter only when another system is installed.
 Every font size is a scale token: `--t-caption` 12px, `--t-body-sm` 14px (the default UI size), `--t-body` 16px (inputs, card titles), `--t-sub` 20px (project titles), `--t-h-sm` 24px (page titles).
 Dates, times, counts and busy hours are `tabular-nums`.
-Field names are 12px/500 graphite Inter, as the notes' "Task" label is: Inter is the only face.
+Field names are 12px/500 graphite Inter, as the notes' "Task" label is: Inter is the only face, but for code in Markdown (see the Markdown engine).
 
 ## Shape, space, elevation
 
@@ -392,7 +392,7 @@ Only one card floats at a time; a press outside closes it and does nothing else,
 Every mutation re-asks the server by firing `calendar:refresh`; the grid re-renders.
 A height-capped grid opens on the usual day, 06:00 at its top, or with now in view an hour and a half under the top as far as 22:00 allows, and keeps its scroll position across refreshes.
 
-**Writing tasks** (`app/static/task-sheet.js`, `app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`; the description on CodeMirror 6 and `markdown-editor.js`).
+**Writing tasks** (`app/static/task-sheet.js`, `app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`; the description on CodeMirror 6 and `markdown-live.js`).
 `task-sheet.js` runs the task sheet: the title line, its field icons and their menus, typed words becoming fields, adding, and saving an edit when focus leaves it.
 Every field is a hidden input the form posts, so the icons and menus only read and write those inputs; the menus live in the body, since list cards clip what overflows them.
 `tasks.js` runs the row disclosures, the folds, the cursor on Projects, and filing by drag; `shell.js` the keys that work on every page, 1 to 7 for the nav's pages and ? for the keys dialog, and Left and Right (outside a field) on a page of days, a day back or on, and on Calendar, the days it shows.
@@ -407,28 +407,36 @@ It writes the same plain text the server stores into a hidden `notes` textarea, 
 Ctrl+Enter is taken out of CodeMirror's keys: it belongs to the sheet (add, or save).
 The confirm dialog answers the row it was asked about even when a late list refresh swapped that row while it was open: focus goes back to the row's live twin, and a confirmed delete is sent from it rather than silently dropped with the detached one.
 
-**The Markdown engine** (`app/static/markdown-editor.js`, `window.MarkdownEditor.livePreview({checklist})`, on CodeMirror 6 and the Lezer Markdown parser).
-Markdown is written and shown as it reads while it is written, as Obsidian's Live Preview does: no preview pane, no mode to switch.
+**The Markdown engine** (`app/static/markdown-live.js`, `window.MarkdownLive.extensions({checklist, mode})`, on CodeMirror 6 and the Lezer Markdown parser).
+Markdown is written and shown as it reads while it is written, as Obsidian's Live Preview does (Obsidian is CodeMirror 6 too): no preview pane.
 The text is the record: every effect is a decoration over the characters, never a change to them, so what is saved, copied and undone is the Markdown as written, byte for byte, and Claude reads and writes the same text.
+It has Obsidian's three modes: Live Preview, Source (the Markdown as written, every mark showing in steel) and Reading (rendered, not editable, its boxes still ticking and its links still opening), switched with `MarkdownLive.setMode`, `toggleReading` and `toggleSource`; a page that offers them binds Ctrl+E to `toggleReading` itself, on a keydown the editor has not handled, since Reading cannot hear it.
+A task's description stays in Live Preview, with nothing to switch.
 It parses CommonMark with GitHub's tables, strikethrough, task boxes and bare links, incrementally, and draws only the window's lines.
 Indented lines nest instead of turning into code, "---" under a line is a rule rather than a heading, and HTML blocks stay text, since these are notes, not a typesetting source.
-A mark ("**", "*", "~~", "`", "[ ](url)", "\\") hides until the caret or a selection reaches the words it marks, then shows in steel; a heading's "# ", a quote's "> " and a rule's "---" show while the caret is on their line; a fenced block's fences fold to 6px edges until the caret is in the block.
+A mark ("**", "*", "~~", "`", "[ ](url)", "\\") hides until the caret or a selection reaches the words it marks, then shows in steel; a heading's "# ", a quote's "> " and a rule's "---" show while the caret is on their line; a fenced block's fences fold to 6px edges until the caret is in the block, its language at its top right.
 With the editor unfocused, nothing shows.
-Headings are 600 ink (h1 16px, 20px on a task's page; h4 to h6 graphite), inline and fenced code a tinted chip in Inter (`--ink-tint-tag`, Inter being the only face), a quote a 2px steel rule at its left, a rule a mist hairline.
-Only an http(s) address is a link (underlined ink, as every link).
-Ctrl+click (Cmd+click) opens it beside the app, and a plain click writes in it.
+Headings are 600 ink (h1 16px, 20px on a task's page; h4 to h6 graphite), a quote a 2px steel rule at its left, a rule a mist hairline.
+Code, inline as a tinted chip (`--ink-tint-tag`) and fenced as a tinted block, is the one text not in Inter: a system monospace at 0.9em (`--font-code`), since its columns must line up.
+A fenced block is highlighted in its language (Python, JavaScript, TypeScript, JSON, HTML, CSS, shell, PowerShell, YAML, TOML, SQL, diff) in the sign colours; the code's colours apply only inside a code block, so raw HTML in the text stays plain.
+A table is drawn as a table (its alignments, and its cells' emphasis, code and links, a hairline grid, its header on the faint tint); a click in a cell opens the table as its Markdown, in code's face, the caret at that cell's end.
+An image (`![words](url)`) is drawn as itself, only from a web or data address; with the caret in it, its Markdown shows.
+Only an http(s) address is a link (underlined ink, as every link); "[words]" alone stays as written.
+A rendered link opens beside the app on a click, as Obsidian's does; one showing its Markdown is written in, and opens on Ctrl+click (Cmd+click).
 An address pasted over words on one line makes them its link.
-Lists are read line by line, as `app/checklist.py` reads sub-tasks: a line's lead (its indentation, "- " and box) is one piece the caret never stands in, drawn as a 14px steel box (ink with a paper tick when done) or, outside a checklist, a bullet, the words hanging 22px a level beside it.
+Lists are read line by line, as `app/checklist.py` reads sub-tasks: a line's lead (its indentation, "- " and box) is one piece the caret never stands in, drawn as a 14px steel box (ink with a paper tick when done) or, outside a checklist, a bullet, the words hanging 22px a level beside it; a numbered list's numbers are graphite.
 As a checklist every "- " or "* " line is a box, exactly the lines the server counts; ticking writes the line as the server does ("- [x] ", or "- " open).
-Enter goes on to the next item ("[ ] " if the item had a box), at an item's first word puts an empty one above it, and on an empty item steps out a level, then out of the list.
+Enter goes on to the next item ("[ ] " if the item had a box), at an item's first word puts an empty one above it, and on an empty item steps out a level, then out of the list; it goes on with a numbered list and a quote too.
 Shift+Enter writes a note under an item.
 Enter on a note goes on to its item's next sibling.
 Backspace at an item's first word takes its box away, and on an indented line a level.
 Tab nests an item or note under the line above (at most a level deeper) and Shift+Tab takes it back; where nothing can nest Tab moves focus on.
 Ctrl+L makes a line an item, then ticks and unticks it.
-Ctrl+B and Ctrl+I wrap the selection in "**" and "*", or unwrap it.
+Ctrl+B, Ctrl+I, Ctrl+Shift+X and Ctrl+\` wrap the selection in "**", "*", "~~" and "\`", or unwrap it; Ctrl+K stays the command menu's and Ctrl+Enter the task sheet's.
 Spelling is marked only on the caret's line.
 A task row draws the same description through `app/markdown.py` `render_note` (headings, quotes, rules and inline Markdown; fenced blocks as code), so the row reads as the editor does with the caret elsewhere.
+On a 5,000-line document a keystroke redraws in about 2ms.
+Its browser tests run it on a task's page and, for what no page uses yet (the modes, tables, code), on a bare page of its own (`tests/fixtures/markdown_live.html`).
 
 **Notepad** (`app/static/notepad.js`, on CodeMirror 6).
 The editor is `app/static/vendor/codemirror.js` (window.CM, with the Lezer Markdown parser; every page loads it, for the task sheet's description), built from `scripts/vendor/codemirror` (`npm install`, `npm run build`) and committed, so the app itself has no build step; it takes the page's textarea's place, the textarea holding the notes as the server sends them.

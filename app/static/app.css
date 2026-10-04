@@ -864,24 +864,44 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   background: color-mix(in srgb, var(--spark) 22%, transparent);
 }
 
-/* ---------- Markdown as it reads, while it is written (markdown-editor.js) ---------- */
+/* ---------- Markdown as it reads, while it is written (markdown-live.js) ---------- */
 
+/* code is the one text not in Inter: its columns must line up */
+:root { --font-code: ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas, "SF Mono", Menlo, monospace; }
 .cm-md-h { font-weight: 600; color: var(--ink); }
 .cm-md-h1 { font-size: var(--t-body); }
 .cm-md-h4, .cm-md-h5, .cm-md-h6 { color: var(--graphite); }
 .cm-md-strong { font-weight: 600; }
 .cm-md-em { font-style: italic; }
 .cm-md-strike { text-decoration: line-through; text-decoration-thickness: 1px; }
-.cm-md-code { padding: 1px 4px; border-radius: 4px; background: var(--ink-tint-tag); font-size: 0.93em; color: var(--ink); }
+.cm-md-code { padding: 1px 4px; border-radius: 4px; background: var(--ink-tint-tag); font-family: var(--font-code); font-size: 0.9em; color: var(--ink); }
 .cm-md-link { color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.cm-md-link.cm-md-rendered, .cm-md-reading .cm-md-link { cursor: pointer; }
 /* the marks, where the caret has them showing */
 .cm-md-mark, .cm-md-mark .cm-md-link { color: var(--steel); text-decoration: none; }
 .cm-content .cm-line.cm-md-quote { padding-left: 12px; box-shadow: inset 2px 0 var(--steel); color: var(--graphite); }
 .cm-content .cm-line.cm-md-hr { background: linear-gradient(var(--mist), var(--mist)) center / 100% 1px no-repeat; }
-.cm-content .cm-line.cm-md-codeblock { padding-inline: 8px; background: var(--ink-tint-tag); font-size: 0.93em; color: var(--ink); }
-/* a fence, its caret elsewhere: only the block's top or bottom edge */
+.cm-content .cm-line.cm-md-codeblock { padding-inline: 8px; background: var(--ink-tint-tag); font-family: var(--font-code); font-size: 0.9em; color: var(--ink); }
+/* a fence, its caret elsewhere: only the block's top or bottom edge, the
+   block's language at its top right */
 .cm-content .cm-line.cm-md-fence-folded { font-size: 0; line-height: 6px; }
-.cm-content .cm-line.cm-md-fence { color: var(--steel); }
+.cm-content .cm-line.cm-md-fence { position: relative; color: var(--steel); }
+.cm-md-code-lang {
+  position: absolute; top: 6px; right: 8px;
+  font-family: var(--font-sans); font-size: var(--t-caption); line-height: 16px; color: var(--pewter);
+  pointer-events: none; user-select: none;
+}
+/* a code block's tokens, in the sign colours: only inside one */
+.cm-md-codeblock .cm-md-tok-keyword { color: var(--hue-2); }
+.cm-md-codeblock .cm-md-tok-string { color: var(--hue-4); }
+.cm-md-codeblock .cm-md-tok-number, .cm-md-codeblock .cm-md-tok-property { color: var(--hue-3); }
+.cm-md-codeblock .cm-md-tok-comment { color: var(--steel); font-style: italic; }
+.cm-md-codeblock .cm-md-tok-function { color: var(--hue-6); }
+.cm-md-codeblock .cm-md-tok-type { color: var(--hue-1); }
+.cm-md-codeblock .cm-md-tok-tag { color: var(--hue-5); }
+.cm-md-codeblock .cm-md-tok-meta { color: var(--pewter); }
+.cm-md-codeblock .cm-md-tok-inserted { color: var(--ok-fg); }
+.cm-md-codeblock .cm-md-tok-deleted { color: var(--err-fg); }
 
 /* a list item, its lead (indentation, "- ", box) one piece: a box or a
    bullet hanging in the item's first 22px, its words wrapping beside it */
@@ -905,6 +925,19 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   content: ""; display: inline-block; width: 5px; height: 5px; margin-left: 4px;
   border-radius: 50%; background: var(--graphite); vertical-align: 0.2em;
 }
+.cm-md-list-number { color: var(--graphite); font-variant-numeric: tabular-nums; }
+
+/* an image drawn as itself */
+.cm-md-image { display: inline-block; max-width: 100%; vertical-align: bottom; border-radius: var(--r-tag); }
+.cm-md-image.is-broken { min-width: 1em; min-height: 1em; color: var(--pewter); font-size: var(--t-caption); }
+
+/* a table drawn as a table; written, as its Markdown in code's face */
+.cm-content .cm-line.cm-md-table-src { font-family: var(--font-code); font-size: 0.9em; }
+.cm-md-table-wrap { overflow-x: auto; padding: 4px 0; }
+.cm-md-table { border-collapse: collapse; font-variant-numeric: tabular-nums; cursor: text; }
+.cm-md-table th, .cm-md-table td { padding: 4px 12px; border: 1px solid var(--hairline); text-align: left; vertical-align: top; }
+.cm-md-table th { font-weight: 600; color: var(--ink); background: var(--ink-tint-faint); }
+.cm-md-table code { padding: 1px 4px; border-radius: 4px; background: var(--ink-tint-tag); font-family: var(--font-code); font-size: 0.9em; }
 
 /* ---------- forms ---------- */
 

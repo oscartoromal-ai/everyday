@@ -10,7 +10,7 @@ from markdown_it import MarkdownIt
 from markdown_it.common.utils import escapeHtml
 
 _markdown = MarkdownIt("commonmark", {"html": False, "linkify": False}).enable("table")
-# A task's description reads as its editor shows it (markdown-editor.js,
+# A task's description reads as its editor shows it (markdown-live.js,
 # GitHub's flavour): ~~struck~~ words, and bare https:// and www. addresses
 # as links.
 _notes = MarkdownIt("commonmark", {"html": False, "linkify": True}).enable(
@@ -64,7 +64,7 @@ _RULE = re.compile(r"^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$")
 
 def render_note(text: str) -> str:
     """A line of a task's description, or a sub-task's words, as its row
-    shows them: as the editor does (markdown-editor.js) with the caret
+    shows them: as the editor does (markdown-live.js) with the caret
     elsewhere, its inline Markdown, and a heading's, quote's or rule's line
     drawn as one, its marks hidden."""
     if _RULE.match(text):
