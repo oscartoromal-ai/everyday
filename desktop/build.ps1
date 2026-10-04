@@ -28,11 +28,13 @@ if (-not $iscc) { throw "Inno Setup 6 is not installed: winget install JRSoftwar
 $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 if (-not (Test-Path $csc)) { throw "The .NET Framework 4 C# compiler is missing: $csc" }
 
-# The version: pyproject's, and the commit it was built from (with a + when
+# The version: the changelog's (app/changelog.py: the change files, in the
+# order master took them), and the commit it was built from (with a + when
 # the working tree had changes), as Windows' Installed apps shows it.
-$version = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+$version = "$(uv run python -m app.changelog --version)".Trim()
+if ($LASTEXITCODE -or -not $version) { throw "The changelog could not be read (uv run python -m app.changelog)" }
 $commit = (git rev-parse --short HEAD).Trim()
-if (git status --porcelain --untracked-files=no -- app migrations desktop config.toml pyproject.toml uv.lock) { $commit += "+" }
+if (git status --porcelain --untracked-files=no -- app migrations desktop config.toml pyproject.toml uv.lock changes) { $commit += "+" }
 $numeric = ($version -split '[^0-9]+' | Where-Object { $_ } | Select-Object -First 3) -join ','
 # The version's folder in the install, beside its launcher.
 $folder = "app-$commit"
@@ -59,6 +61,10 @@ VSVersionInfo(
 $repo = Split-Path -Parent (git rev-parse --path-format=absolute --git-common-dir).Trim()
 @{ sha = (git rev-parse HEAD).Trim(); commit = $commit; version = "$version ($commit)"; repo = $repo } |
     ConvertTo-Json | Out-File -Encoding utf8 build\build-info.json
+# Every version and what it changed, for its Changelog: the installed app
+# has no git history to read them from.
+uv run python -m app.changelog --json build\changelog.json
+if ($LASTEXITCODE) { throw "The changelog could not be written" }
 # The version the launcher starts, once installed.
 [IO.File]::WriteAllText("$root\build\current.txt", $folder)
 

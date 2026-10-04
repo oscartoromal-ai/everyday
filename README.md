@@ -89,6 +89,23 @@ Everything the app keeps lives under its home, `%LOCALAPPDATA%\Personal Calendar
 `PC_HOME` names another home, and run from the repo the home is the repo itself.
 On Oscar's machine the home's `config.toml` keeps Nutrition's files in the repo (`[nutrition].dir`), where git keeps their history.
 
+## Recording a change
+
+Every pull request that changes the app adds a file to `changes/`, named `YYYY-MM-DD-what.md`, saying what changed for Oscar, one item per change:
+
+```
+- Feature: Give tasks a priority, shown wherever tasks are
+  Lines indented under a change say more, in Markdown.
+- Fix: The Update button no longer fails at once
+```
+
+A change is a **Major** (a new area of the app, or one reshaped), a **Feature** (something new or changed in one) or a **Fix** (what was wrong, put right).
+Nobody writes a version number: each commit on master's line that brings change files is a version, numbered from the one before it by its largest change (a Major bumps the major number, a Feature the minor, a Fix the patch), so pull requests open at once never claim the same number or conflict.
+The Changelog, opened from Settings (or Ctrl+K), lists every version and what it changed, and Settings says which version is running; `uv run python -m app.changelog` prints the same.
+A change written after it shipped names its commit on master's line in front matter (`shipped: <commit>`), as the files for the versions before `changes/` existed do.
+A file is never renamed once merged: its version is the commit that added it.
+The tests read every file in `changes/`, and the build refuses one written wrong.
+
 ## Tests and lint
 
 ```

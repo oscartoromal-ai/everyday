@@ -1,5 +1,7 @@
 [project]
 name = "personal-calendar"
+# The package's, for packaging alone: the app's version is its changelog's
+# (changes/, app/changelog.py).
 version = "0.1.0"
 description = "Oscar's personal planner: calendar, todos, projects, and an MCP planner interface."
 requires-python = ">=3.12"

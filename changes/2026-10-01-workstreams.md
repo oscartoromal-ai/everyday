@@ -1,0 +1,11 @@
+---
+shipped: cef1cd6
+---
+- Feature: Replace milestones with workstreams, folded to their row on the Gantt
+- Feature: Drill a project's Gantt down to days, and drag rows between workstreams
+- Feature: Show done tasks in green on the Gantt, with thicker bars
+- Feature: Enter the Gantt's time from Due, where the row's work is
+- Feature: Open a project's Gantt from its name on its card, and fold a card to its header
+- Feature: Step the Calendar a week with Left and Right
+- Fix: The Gantt's Ctrl+arrows stop at the edges of what is drawn
+- Fix: The compact rows toggle no longer switches Day and Night

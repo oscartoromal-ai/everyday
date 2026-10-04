@@ -200,6 +200,16 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       <ul class="settings-modules" data-hidden-modules></ul>
       <p class="settings-empty">Every module is in the sidebar. Hide one with the eye beside it there.</p>
     </section>
+    {# The app's version, opening the Changelog (app/changelog.py). #}
+    {% set running = app_version() %}
+    <section class="settings-section" aria-labelledby="settings-version">
+      <h3 id="settings-version">Version</h3>
+      <a class="settings-version" href="/changelog">
+        <span class="settings-version__number">{{ running.version or "Unknown" }}</span>
+        {% if running.commit %}<span class="settings-version__commit">{{ "built from" if running.installed else "run from" }} {{ running.commit }}</span>{% endif %}
+        <span class="settings-version__open">Changelog</span>
+      </a>
+    </section>
   </form>
 </dialog>
 {# ? opens it anywhere (shell.js). #}

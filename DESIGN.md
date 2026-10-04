@@ -89,6 +89,7 @@ The foot starts with Search, its magnifier and name, and its key ("Ctrl K") in a
 Then Brasa's shipped light/dark toggle: the current mode's sun or moon, which rotates and fades into the other, beside the mode's name in 12px pewter.
 The names are the installed system's own, read from `design-language.json`: "Day" and "Night" for Neon Signage.
 Settings ends the foot, two sliders and its name; it opens the keys dialog's paper, 480px wide, whose Modules section lists the hidden pages, each its icon, its name, its section in pewter and a quiet Show, or says every page is in the sidebar.
+Its Version section, 24px under, is one 48px row between hairlines: the version in 14px/600 ink, "built from" (or "run from") its commit in 12px pewter, and "Changelog ›" in 12px/500 graphite at the right, ink on hover, the whole row the link.
 A panel icon beside the wordmark collapses the sidebar to a 64px icon rail (`data-rail="collapsed"` on `<html>`, saved as `pc-rail`, applied before paint).
 The shell animates its column width on `--ease` over 220ms.
 When collapsed, the wordmark and labels hide, each link keeps its name as a tooltip, group labels become hairlines, and the spark bar stays.
@@ -357,6 +358,10 @@ A task's line ends in a 14px steel trash bin at the cell's right, hidden until t
 A habit done fills its cell with `--hue-4` at 30%, the habits' green, with a 16px tick in it; skipped is a 10px steel box, missed a 10px steel dash, and the cell's tooltip says which, with the day's note.
 A habit's cells being painted fill (or empty) as the drag passes, before the sheet is drawn again.
 The cursor, the range and a cell being written are the Gantt's: a 2px `--spark-deep` ring (a 1px steel one while the sheet does not have focus), `--spark-tint`, the words 500 ink on the cell's line.
+
+**The Changelog** (`changelog.html`, `/changelog`, from Settings, at a list page's 800px).
+The page header says which version this is; under it a list card per version, newest first, 24px apart: its title row the version (with an ok "This version" badge on the running one, and "Unreleased" for changes not yet merged) and, at its right, its day in 12px pewter ("4 Oct 2026").
+Each change is a row of a 64px column with its kind in 12px/500 graphite (Major, Feature, Fix), then its words in 14px ink, and what more it says under them in 14px graphite on 1.5 lines; a Major's kind and words are ink 600.
 
 **A task's page** (`task.html`, the task sheet in its page mode).
 At the page's 800px: a header of a pewter "‹ Calendar" (where it was opened from) and, at its right, a 12px pewter "Saved" once a save lands ("Not saved" and a toast if one fails), nothing while the writing is unsaved, so the page stays still as it is written.

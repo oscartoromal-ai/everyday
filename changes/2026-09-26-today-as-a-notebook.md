@@ -1,0 +1,16 @@
+---
+shipped: 666523f
+---
+- Major: Make Today a notebook: a page per day that writes to the plan
+- Major: Switch to the Neon Signage design system
+- Feature: Write tasks as a document: one sheet for adding and editing, its words becoming its fields ("tomorrow", "due friday", "every week")
+- Feature: Work Tasks, Today and Projects from the keyboard alone, with every key behind ?
+- Feature: Shift+N writes a new task from any page
+- Feature: Triage by keyboard, file a task by dragging it onto a project, and tick sub-tasks from the calendar
+- Feature: Replan a missed task in one step; a nudge goes once what it said no longer holds
+- Feature: Log the always-on app to a file, saying why it stopped
+- Fix: A save answers only once it is saved, so a page drawn again on its answer shows it
+- Fix: Text and checkboxes too faint in the design-system audit, made readable
+- Fix: The dev server no longer runs the jobs a second time beside the app
+- Fix: A key pressed while a list is drawn again is no longer lost
+- Fix: Esc on the confirm dialog, then Delete at once, deletes

@@ -343,17 +343,30 @@ def test_shift_n_writes_a_new_task_from_any_page(page, live, app_db, tasks) -> N
 
 def test_an_add_racing_a_list_refresh_lands_once(page, live, app_db) -> None:
     """A refresh fetched just before an add lands just after it: the new task
-    still shows, and its words do not come back as a draft to add again."""
+    still shows, and its words do not come back as a draft to add again.
+    Held back on purpose, the refresh always lands after the add: the add's
+    own refresh replaces it, never queued behind it (and dropped once it
+    swaps the list out)."""
     page.goto(f"{live}/projects")
     press(page, "n")
     page.keyboard.type("Kilo")
+    refreshes = []
+
+    def first_refresh_late(route) -> None:
+        refreshes.append(route.request.url)
+        if len(refreshes) == 1:
+            page.wait_for_timeout(600)
+        route.continue_()
+
+    page.route(lambda url: url.endswith("/projects"), first_refresh_late)
     # The refresh goes out first, then the add, in one tick.
     page.evaluate("""() => {
       htmx.trigger(document.body, 'tasks:changed');
       document.querySelector('.capture .task-sheet').requestSubmit();
     }""")
     page.locator("#loose-list .task-row", has_text="Kilo").wait_for(timeout=5000)
-    page.wait_for_timeout(300)  # any second refresh has landed too
+    page.wait_for_timeout(1000)  # past the held-back refresh, had it landed
+    assert len(refreshes) == 2
     assert page.locator("#loose-list .task-row", has_text="Kilo").count() == 1
     assert page.locator(".capture .task-sheet .sheet-title").text_content() == ""
     with app_db() as db:

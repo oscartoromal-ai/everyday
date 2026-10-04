@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Changelog · Personal Calendar{% endblock %}
+{% block content %}
+{# The Changelog, from Settings: every version of the app, newest first, a
+   card each, and what it changed, each change its kind (Major, Feature,
+   Fix) and its words. The changes come from changes/ in the repo, the
+   versions from the order master took them in (app/changelog.py). #}
+<div class="changelog-page">
+  <header class="page-header">
+    <div>
+      <h1>Changelog</h1>
+      <p class="rest">
+        Every version of the app and what it changed.
+        {% if running.version %}This is {{ running.version }}{% if running.commit %}, {{ "built from" if running.installed else "run from" }} {{ running.commit }}{% endif %}.{% endif %}
+      </p>
+    </div>
+  </header>
+  {% for r in releases %}
+  <section class="list-section release" data-kind="{{ r.kind }}" aria-labelledby="release-{{ loop.index }}">
+    <h2 id="release-{{ loop.index }}">
+      <span class="release-version">{{ r.version or "Unreleased" }}</span>
+      {% if r.current %}<span class="chip ok">This version</span>{% endif %}
+      <span class="release-date">{{ r.released or "Not merged yet" }}</span>
+    </h2>
+    <ul class="release-changes">
+      {% for c in r.changes %}
+      <li class="release-change" data-kind="{{ c.kind }}">
+        <span class="release-kind">{{ c.label }}</span>
+        <div>
+          <p class="release-summary">{{ c.summary | safe }}</p>
+          {% if c.details %}<div class="release-details">{{ c.details | safe }}</div>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% else %}
+  <p class="empty">No versions to show: the changelog could not be read.</p>
+  {% endfor %}
+</div>
+{% endblock %}

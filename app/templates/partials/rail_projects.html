@@ -4,7 +4,7 @@
    (projects:changed). #}
 <ul class="nav-sub" id="rail-projects" aria-label="Projects"
     hx-get="/ui/rail/projects{% if current %}?current={{ current }}{% endif %}"
-    hx-trigger="projects:changed from:body" hx-swap="outerHTML">
+    hx-trigger="projects:changed from:body" hx-swap="outerHTML" hx-sync="this:replace" hx-disinherit="hx-sync">
   {%- for p in rail_projects(request) %}
   <li data-project-id="{{ p.id }}"><a href="/projects/{{ p.id }}" title="{{ p.name }}" draggable="false" style="--project: var(--hue-{{ p.color }})"
          {%- if current == p.id %} aria-current="page"{% endif %}>

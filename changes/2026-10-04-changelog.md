@@ -1,0 +1,1 @@
+- Feature: See every version and what it changed on the Changelog, from Settings, which says which version this is
