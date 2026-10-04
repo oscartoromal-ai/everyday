@@ -2248,20 +2248,24 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 .gantt-wk:focus, .gantt-wk:focus-visible { box-shadow: none; }
 .gantt-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .gantt-text.placeholder { color: var(--pewter); font-weight: 400; }
-/* a task's bin at its Task cell's end: quiet until the row is hovered (always on touch), err-tinted on hover */
-.gantt-delete {
+/* a task's way to its page, then its bin, at its Task cell's end: quiet until
+   the row is hovered (always on touch); the way inked on hover, the bin err-tinted */
+.gantt-open, .gantt-delete {
   flex: none; display: grid; place-content: center;
-  width: 20px; height: 20px; margin: 0 -4px 0 auto; padding: 0; border: none; background: none;
+  width: 20px; height: 20px; padding: 0; border: none; background: none;
   border-radius: var(--r-tag); color: var(--steel); cursor: pointer;
   opacity: 0;
   transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
-.gantt-delete svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.gantt-row:hover .gantt-delete { opacity: 1; }
+.gantt-open { margin: 0 2px 0 auto; }
+.gantt-delete { margin: 0 -4px 0 0; }
+.gantt-open svg, .gantt-delete svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.gantt-row:hover :is(.gantt-open, .gantt-delete) { opacity: 1; }
+.gantt-open:hover { color: var(--ink); background: var(--glass-hover); }
 .gantt-delete:hover { color: var(--err-fg); background: var(--err-bg); }
-.gantt-delete:focus-visible { box-shadow: none; }
-.gantt-sheet.is-moving-row .gantt-delete, .gantt-cell.is-editing .gantt-delete { display: none; }
-@media (hover: none) { .gantt-delete { opacity: 1; } }
+.gantt-open:focus-visible, .gantt-delete:focus-visible { box-shadow: none; }
+.gantt-sheet.is-moving-row :is(.gantt-open, .gantt-delete), .gantt-cell.is-editing :is(.gantt-open, .gantt-delete) { display: none; }
+@media (hover: none) { .gantt-open, .gantt-delete { opacity: 1; } }
 .gantt-row.indent .gantt-title { padding-left: calc(var(--s-3) + var(--s-6)); }
 .gantt-row.kind-workstream .gantt-title { font-weight: 600; }
 .gantt-cell.derived { color: var(--pewter); cursor: default; }

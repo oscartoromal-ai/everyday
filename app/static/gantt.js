@@ -5,7 +5,8 @@
    dragged by their number to another place or workstream, workstreams
    folded to their row, a task's status stepped on by its box or chosen
    from its menu, tasks shown by status, the time seen in weeks or drilled down to days,
-   tasks deleted (their bin, or Delete on Task), and undo.
+   tasks deleted (their bin, or Delete on Task), and undo. A task opens on
+   its page from the way at its Task cell's end, or Ctrl+Enter on its row.
 
    Every edit is one POST of ops (app.services.gantt.apply), answered with
    the sheet drawn again; the cursor, the range, the scroll and any cell
@@ -671,6 +672,12 @@
       if (k === "z" && !e.shiftKey) { handled(); undo(undos, redos, "undo"); return; }
       if (k === "y" || (k === "z" && e.shiftKey)) { handled(); undo(redos, undos, "redo"); return; }
       if (k === "c") { handled(); copy(); return; }
+      if (key === "Enter") {
+        // The cursor's task, on its page.
+        const link = row.querySelector("[data-open-task]");
+        if (link) { handled(); openPage(link); }
+        return;
+      }
       if (key === "-" || key === "Delete") { handled(); remove(); return; }
       if (key === "Home") { handled(); moveTo(rows()[0].dataset.key, TITLE, { extend: e.shiftKey }); return; }
       if (key === "End") { const all = rows(); handled(); moveTo(all[all.length - 1].dataset.key, colCount() - 1, { extend: e.shiftKey }); return; }
@@ -776,6 +783,9 @@
     if (e.target.closest("[data-gantt-resize]")) { startResize(e); return; }
     const grip = e.target.closest("[data-row-grip]");
     if (grip) { startRowDrag(e, grip.closest(".gantt-row")); return; }
+    // A task's way to its page: the words being written kept, then its
+    // click (below) goes there.
+    if (e.target.closest("[data-open-task]")) { if (editing) commit(); return; }
     // A task's bin: the cursor on its Task, and the task deleted after asking.
     const bin = e.target.closest("[data-delete-task]");
     if (bin) {
@@ -832,6 +842,16 @@
       grip: e.target.closest("[data-grip]")?.dataset.grip, toggles: cell.hasAttribute("data-toggle"),
     };
     sheet.setPointerCapture(e.pointerId);
+  });
+
+  // A task's page, once the edits sent before it are written, so leaving
+  // never drops one; with Ctrl or Shift, the browser's own (a new tab).
+  const openPage = (link) => chain.then(() => { window.location.href = link.href; });
+  sheet.addEventListener("click", (e) => {
+    const link = e.target.closest("[data-open-task]");
+    if (!link || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    e.preventDefault();
+    openPage(link);
   });
 
   sheet.addEventListener("pointermove", (e) => {
