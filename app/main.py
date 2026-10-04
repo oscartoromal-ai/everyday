@@ -13,10 +13,13 @@ from app.api import calendar as calendar_api
 from app.api import projects as projects_api
 from app.api import tasks as tasks_api
 from app.config import get_settings
+from app.db import get_session_factory
 from app.fresh import FreshPagesMiddleware
 from app.mcp.server import create_mcp
 from app.security import BrowserGuardMiddleware
 from app.services import DomainError
+from app.services import llm as llm_svc
+from app.ui import agent_window as ui_agent_window
 from app.ui import fragments as ui_fragments
 from app.ui import gantt as ui_gantt
 from app.ui import garmin as ui_garmin
@@ -52,6 +55,13 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
         scheduler = create_scheduler() if with_scheduler else None
         if scheduler:
             scheduler.start()
+            # The model providers as they stand, checked in the background
+            # when the last check is old: the agent window beside every page
+            # says from it whether each agent is here.
+            factory = get_session_factory()
+            with factory() as db:
+                if llm_svc.stale(db):
+                    llm_svc.checking.start(lambda: llm_svc.run_check(factory))
         async with mcp_app.lifespan(app):
             yield
         if scheduler:
@@ -75,6 +85,7 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     app.include_router(ui_gantt.router, dependencies=ui)
     app.include_router(ui_project.router, dependencies=ui)
     app.include_router(ui_models.router, dependencies=ui)
+    app.include_router(ui_agent_window.router, dependencies=ui)
     # The optional modules' pages, unless the machine was installed without them.
     for module, routers in OPTIONAL_ROUTERS.items():
         if settings.installed(module):

@@ -84,6 +84,15 @@
     },
     { kind: "Do", label: "Switch to the other theme", words: "dark light day night mode", run: press(".theme-toggle") },
     { kind: "Do", label: "Compact or roomy rows", words: "density", hint: "C", run: press(".density-toggle") },
+    ...(document.getElementById("agent-panel")
+      ? [{
+          kind: "Do",
+          label: document.documentElement.dataset.agent === "open" ? "Collapse the agent window" : "Open the agent window",
+          words: "agent chat ask claude codex ai assistant expand",
+          hint: "A",
+          run: press(".rail-button[data-agent-toggle]"),
+        }]
+      : []),
     ...(document.querySelector("button.update-button")
       ? [{
           kind: "Do",

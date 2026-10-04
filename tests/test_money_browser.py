@@ -107,11 +107,11 @@ def test_import_sort_and_ask_claude(browser, served) -> None:
     page.locator(".money-budget", has_text="Groceries").locator(".chip", has_text="Over").wait_for()
 
     # Claude's answer streams in; then the month is drawn again as it left it.
-    field = page.locator(".chat-field textarea")
+    field = page.locator("#chat-composer textarea")
     field.fill("Sort my coffees")
     field.press("Enter")
-    page.locator(".chat-message.from-oscar", has_text="Sort my coffees").wait_for()
-    page.locator(".chat-message.from-claude strong", has_text="2 coffees").wait_for()
+    page.locator("#chat-log .chat-message.from-oscar", has_text="Sort my coffees").wait_for()
+    page.locator("#chat-log .chat-message.from-agent strong", has_text="2 coffees").wait_for()
     page.wait_for_function(
         "document.querySelector('#money-totals').innerText.includes('2 transactions')"
     )

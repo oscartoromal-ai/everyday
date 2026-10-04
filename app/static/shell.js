@@ -1,5 +1,5 @@
 /* Shell chrome shared by every page: the light/dark toggle, the collapsible
-   sidebar and its folding projects, Back to the page before, the keys that work everywhere, the confirm dialog behind
+   sidebar and its folding projects, the agent window expanded and collapsed, Back to the page before, the keys that work everywhere, the confirm dialog behind
    hx-confirm, and the desktop app's title bar and taskbar count. The saved theme and sidebar state are first applied by the
    inline script in base.html's <head>, before paint; this file keeps them
    in step with the controls. */
@@ -63,6 +63,52 @@
     applyRail(collapsed);
   });
   applyRail(root.dataset.rail === "collapsed");
+
+  /* ---- the agent window: expanded at the page's side or collapsed away,
+     remembered per browser; the sidebar's Agent, its own Collapse and A
+     (below) switch it. Collapsed, it is inert, so neither Tab nor a screen
+     reader reaches into it. ---- */
+
+  const agentPanel = document.getElementById("agent-panel");
+  const applyAgent = (open) => {
+    if (open) root.dataset.agent = "open";
+    else delete root.dataset.agent;
+    if (!agentPanel) return;
+    agentPanel.inert = !open;
+    document.querySelectorAll("[data-agent-toggle]").forEach((button) => {
+      button.setAttribute("aria-expanded", String(open));
+    });
+  };
+  const toggleAgent = (open = root.dataset.agent !== "open") => {
+    if (!agentPanel) return;
+    const had = agentPanel.contains(document.activeElement);
+    store("pc-agent", open ? "open" : "closed");
+    applyAgent(open);
+    if (open) {
+      const log = document.getElementById("agent-log");
+      if (log) log.scrollTop = log.scrollHeight;
+      agentPanel.querySelector("textarea:not(:disabled)")?.focus();
+    } else if (had) {
+      // The focus was in the window going away: to the button that brings it back.
+      document.querySelector(".rail-button[data-agent-toggle]")?.focus();
+    }
+  };
+  document.addEventListener("click", (e) => {
+    if (e.target.closest?.("[data-agent-toggle]")) toggleAgent();
+  });
+  // Esc in the message steps out of it, so the page's keys (A among them) work again.
+  agentPanel?.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || e.isComposing || !e.target.matches("textarea")) return;
+    e.preventDefault();
+    e.target.blur();
+  });
+  // A new chat, or another agent, draws the window again: back at its message.
+  document.addEventListener("htmx:afterSwap", (e) => {
+    if (e.detail.target === agentPanel && root.dataset.agent === "open") {
+      agentPanel.querySelector("textarea:not(:disabled)")?.focus();
+    }
+  });
+  applyAgent(root.dataset.agent === "open");
 
   /* ---- the sidebar's projects, under Projects: folded away by its chevron, remembered ---- */
 
@@ -495,6 +541,11 @@
     if (e.key === "c" || e.key === "C") {
       e.preventDefault();
       toggleDensity();
+      return;
+    }
+    if ((e.key === "a" || e.key === "A") && agentPanel) {
+      e.preventDefault();
+      toggleAgent();
       return;
     }
     if (e.key === "?") {

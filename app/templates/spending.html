@@ -39,7 +39,7 @@
          hx-get="{{ chat.url }}" hx-trigger="money:changed from:body" hx-swap="innerHTML">
       {% include "partials/chat.html" %}
     </div>
-    <form class="chat-composer" id="chat-composer" data-changed="money:changed" action="{{ chat.url }}" method="post">
+    <form class="chat-composer" id="chat-composer" data-chat data-log="chat-log" data-changed="money:changed" action="{{ chat.url }}" method="post">
       {# Written on the line, as every input is. #}
       <span class="field-line chat-field">
         <textarea name="message" rows="1" maxlength="4000" autocomplete="off" required
@@ -50,5 +50,4 @@
     </form>
   </section>
 </div>
-<script src="{{ asset('chat.js') }}" defer></script>
 {% endblock %}

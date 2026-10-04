@@ -1,5 +1,5 @@
 """Claude through the Claude Agent SDK, for the app's chats (Nutrition,
-Spending).
+Spending, the agent window).
 
 The SDK runs Claude Code, the CLI already logged in on this machine, so no
 API key is needed. Each chat gives it its own system prompt, tools and

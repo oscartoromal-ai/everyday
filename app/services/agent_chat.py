@@ -1,8 +1,9 @@
-"""A chat with Claude, as Nutrition's and Spending's are: Oscar's message is
-saved, then Claude answers it on a thread of its own, so the run goes on
-(and its answer is saved) even when the page that asked is closed. The page
-follows a run's events as they come: the answer's words and what Claude is
-doing meanwhile. One run at a time per chat (a day's, a month's).
+"""A chat with an agent, as Nutrition's, Spending's and the agent window's
+are: Oscar's message is saved, then the agent answers it on a thread of its
+own, so the run goes on (and its answer is saved) even when the page that
+asked is closed. The page follows a run's events as they come: the answer's
+words and what the agent is doing meanwhile. One run at a time per chat (a
+day's, a month's, one of the agent window's).
 
 Each chat keeps its own messages; this module runs the answer.
 """
