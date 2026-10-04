@@ -1,0 +1,77 @@
+<!doctype html>
+<!-- The Markdown engine (app/static/markdown-live.js) on a bare page of its
+     own, for its browser tests: the app's stylesheets and CodeMirror, an
+     editor and the mode's buttons. {{BASE}} is the live server's address, {{SAMPLE}} the text as JSON. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <base href="{{BASE}}/">
+  <title>Markdown engine</title>
+  <link rel="stylesheet" href="static/design/design.css">
+  <link rel="stylesheet" href="static/app.css">
+  <style>
+    body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font-sans); }
+    main { max-width: 760px; margin: 0 auto; padding: 32px 40px; }
+    .modes { display: flex; gap: 8px; margin-bottom: 16px; }
+    .modes button { font: inherit; font-size: 13px; padding: 4px 12px; border: 1px solid var(--hairline); border-radius: 9999px; background: var(--glass-btn); color: var(--ink); cursor: pointer; }
+    .modes button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .sheet { background: var(--glass-card); border: 1px solid var(--glass-border); border-radius: 12px; padding: 24px 32px; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="modes">
+      <button type="button" data-mode="live">Live Preview</button>
+      <button type="button" data-mode="source">Source</button>
+      <button type="button" data-mode="reading">Reading</button>
+    </div>
+    <div class="sheet" id="editor"></div>
+  </main>
+  <script>window.SAMPLE = {{SAMPLE}};</script>
+  <script src="static/vendor/codemirror.js"></script>
+  <script src="static/markdown-live.js"></script>
+  <script>
+    const { EditorState, EditorView, drawSelection, history, historyKeymap, defaultKeymap, keymap } = window.CM;
+    const opened = [];
+    const theme = EditorView.theme({
+      "&": { fontSize: "15px", color: "var(--ink)" },
+      "&.cm-focused": { outline: "none" },
+      ".cm-scroller": { fontFamily: "inherit", lineHeight: "1.65" },
+      ".cm-content": { padding: "0", caretColor: "var(--ink)" },
+      ".cm-line": { padding: "0 2px" },
+      ".cm-cursor": { borderLeftColor: "var(--ink)", borderLeftWidth: "1.5px" },
+      ".cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
+        background: "color-mix(in srgb, var(--spark) 22%, transparent)",
+      },
+    });
+    const view = new EditorView({
+      parent: document.getElementById("editor"),
+      state: EditorState.create({
+        doc: window.SAMPLE || "",
+        extensions: [
+          history(),
+          drawSelection(),
+          EditorView.lineWrapping,
+          keymap.of([...defaultKeymap, ...historyKeymap]),
+          MarkdownLive.extensions({ openLink: (href) => opened.push(href) }),
+          theme,
+        ],
+      }),
+    });
+    const buttons = document.querySelectorAll("[data-mode]");
+    const showMode = () => buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === MarkdownLive.modeOf(view))));
+    buttons.forEach((b) => b.addEventListener("click", () => { MarkdownLive.setMode(view, b.dataset.mode); showMode(); }));
+    view.dom.addEventListener("click", showMode);
+    document.addEventListener("keydown", (e) => {
+      if (e.defaultPrevented) return;
+      if ((e.ctrlKey || e.metaKey) && e.key === "e") {
+        e.preventDefault();
+        MarkdownLive.toggleReading(view);
+      }
+      queueMicrotask(showMode);
+    });
+    showMode();
+    window.harness = { view, opened, text: () => view.state.doc.toString() };
+  </script>
+</body>
+</html>

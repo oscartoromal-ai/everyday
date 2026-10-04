@@ -1,5 +1,5 @@
 /* The description editor: a task's notes written as Markdown and shown as
-   they read (markdown-editor.js, on CodeMirror 6), its sub-tasks boxes.
+   they read (markdown-live.js, on CodeMirror 6), its sub-tasks boxes.
    The hidden textarea beside it stays the form field, holding the same
    plain text the server stores (app/checklist.py), so nothing outside this
    file knows the editor exists: every change is written into it at once,
@@ -20,7 +20,7 @@
   const stateFor = (root, text) => EditorState.create({
     doc: text,
     extensions: [
-      window.MarkdownEditor.livePreview({ checklist: true }),
+      window.MarkdownLive.extensions({ checklist: true }),
       history(),
       drawSelection(),
       placeholder(root.dataset.placeholder || ""),
