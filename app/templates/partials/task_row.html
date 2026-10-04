@@ -37,7 +37,9 @@
     <div class="task-notes" id="notes-{{ row.task.id }}"{% if not expanded %} hidden{% endif %}>
       {% for block in row.description %}
       {% if block.kind == "text" %}
-      <p>{{ block.lines | join("\n") }}</p>
+      <p>{% for line in block.lines %}{{ line | note }}{% if not loop.last %}{{ "\n" }}{% endif %}{% endfor %}</p>
+      {% elif block.kind == "code" %}
+      <pre class="md-code">{{ block.lines | join("\n") }}</pre>
       {% elif block.kind == "list" %}
       <ul class="subtasks">
         {% for entry in block.entries %}{% set item = entry.item %}
@@ -47,9 +49,9 @@
                    hx-post="/ui/tasks/{{ row.task.id }}/subtasks/{{ item.index }}/toggle"
                    hx-vals='{{ {"text": item.text} | tojson }}'
                    hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML">
-            <span>{{ item.text }}</span>
+            <span>{{ item.text | note }}</span>
           </label>
-          {% if entry.notes %}<p class="subtask-note">{{ entry.notes | join("\n") }}</p>{% endif %}
+          {% if entry.notes %}<p class="subtask-note">{% for line in entry.notes %}{{ line | note }}{% if not loop.last %}{{ "\n" }}{% endif %}{% endfor %}</p>{% endif %}
         </li>
         {% endfor %}
       </ul>

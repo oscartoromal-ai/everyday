@@ -533,6 +533,18 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .task-notes { margin-top: var(--s-2); font-size: var(--t-body-sm); line-height: 1.5; color: var(--graphite); }
 .task-notes p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .task-notes .gap { height: var(--s-2); }
+/* its Markdown, as its editor shows it with the caret elsewhere (app/markdown.py render_note) */
+.task-notes :is(strong, .md-h) { font-weight: 600; }
+.task-notes .md-h { color: var(--ink); }
+.task-notes :is(.md-h4, .md-h5, .md-h6) { color: var(--graphite); }
+.task-notes s { text-decoration-thickness: 1px; }
+.task-notes code { padding: 1px 4px; border-radius: 4px; background: var(--ink-tint-tag); font: inherit; font-size: 0.93em; color: var(--ink); }
+.task-notes .md-code {
+  margin: 0; padding: 6px 8px; background: var(--ink-tint-tag);
+  font: inherit; font-size: 0.93em; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.task-notes .md-quote { display: inline-block; padding-left: 12px; box-shadow: inset 2px 0 var(--steel); }
+.task-notes .md-hr { display: inline-block; width: 100%; height: 1px; vertical-align: middle; background: var(--mist); }
 .subtasks { list-style: none; margin: 0; padding: 0; }
 .subtask { padding-left: calc(var(--depth, 0) * 22px); }
 .subtask label { display: flex; align-items: flex-start; gap: var(--s-2); padding: 2px 0; cursor: pointer; }
@@ -761,7 +773,6 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .sheet-more { margin-top: var(--s-1); }
 .task-sheet[data-sheet="compose"]:not(.composing) .sheet-more { display: none; }
 .task-sheet .notes-editor { padding: 2px 0; max-height: 50vh; }
-.task-sheet .notes-editor:focus { outline: none; box-shadow: none; }
 .task-sheet[data-sheet="compose"] .notes-editor { min-height: calc(1lh + 4px); }
 .task-sheet[data-sheet="edit"] .notes-editor { min-height: calc(1lh + 4px); }
 .sheet-actions, .sheet-end { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); margin-top: var(--s-1); }
@@ -833,36 +844,67 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .task-page .sheet-history { margin-top: 0; padding-block: var(--s-3); border-top: none; border-bottom: 1px solid var(--hairline); }
 .task-page .sheet-more { margin-top: var(--s-4); }
 .task-page .notes-editor { max-height: none; min-height: 40vh; padding: 0; font-size: var(--t-body); line-height: 1.6; }
+.task-page .notes-editor .cm-md-h1 { font-size: var(--t-sub); }
 
-/* ---------- the description editor: one line per block (notes-editor.js) ---------- */
+/* ---------- the description editor: Markdown in CodeMirror (notes-editor.js) ---------- */
 
 .notes-editor {
   position: relative; overflow-y: auto;
   font-size: var(--t-body-sm); line-height: 1.5; color: var(--graphite);
-  white-space: pre-wrap; overflow-wrap: anywhere; cursor: text;
+  overflow-wrap: anywhere; cursor: text;
 }
-.notes-editor.is-empty::before {
-  content: attr(data-placeholder);
-  position: absolute; pointer-events: none; color: var(--pewter);
+.notes-editor .cm-editor, .notes-editor .cm-editor.cm-focused { outline: none; }
+.notes-editor .cm-scroller { font-family: inherit; line-height: inherit; overflow: visible; }
+.notes-editor .cm-content { padding: 0; caret-color: var(--ink); }
+.notes-editor .cm-content .cm-line { padding: 0; }
+.notes-editor .cm-placeholder { color: var(--pewter); }
+.notes-editor .cm-cursor, .notes-editor .cm-dropCursor { border-left: 1.5px solid var(--ink); }
+.notes-editor .cm-selectionBackground,
+.notes-editor .cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground {
+  background: color-mix(in srgb, var(--spark) 22%, transparent);
 }
-.notes-editor .ln { position: relative; padding-left: calc(var(--depth, 0) * 22px); }
-.notes-editor .ln[data-kind="item"] { padding-left: calc(var(--depth, 0) * 22px + 22px); color: var(--ink); }
-/* the box: the line's own ::before, ticked by notes-editor.js on click */
-.notes-editor .ln[data-kind="item"]::before {
-  content: ""; position: absolute; left: calc(var(--depth, 0) * 22px); top: calc(0.5lh - 7px);
-  width: 14px; height: 14px; box-sizing: border-box;
-  border: 1.5px solid var(--steel); border-radius: 0; background: transparent;
-  cursor: pointer;
+
+/* ---------- Markdown as it reads, while it is written (markdown-editor.js) ---------- */
+
+.cm-md-h { font-weight: 600; color: var(--ink); }
+.cm-md-h1 { font-size: var(--t-body); }
+.cm-md-h4, .cm-md-h5, .cm-md-h6 { color: var(--graphite); }
+.cm-md-strong { font-weight: 600; }
+.cm-md-em { font-style: italic; }
+.cm-md-strike { text-decoration: line-through; text-decoration-thickness: 1px; }
+.cm-md-code { padding: 1px 4px; border-radius: 4px; background: var(--ink-tint-tag); font-size: 0.93em; color: var(--ink); }
+.cm-md-link { color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+/* the marks, where the caret has them showing */
+.cm-md-mark, .cm-md-mark .cm-md-link { color: var(--steel); text-decoration: none; }
+.cm-content .cm-line.cm-md-quote { padding-left: 12px; box-shadow: inset 2px 0 var(--steel); color: var(--graphite); }
+.cm-content .cm-line.cm-md-hr { background: linear-gradient(var(--mist), var(--mist)) center / 100% 1px no-repeat; }
+.cm-content .cm-line.cm-md-codeblock { padding-inline: 8px; background: var(--ink-tint-tag); font-size: 0.93em; color: var(--ink); }
+/* a fence, its caret elsewhere: only the block's top or bottom edge */
+.cm-content .cm-line.cm-md-fence-folded { font-size: 0; line-height: 6px; }
+.cm-content .cm-line.cm-md-fence { color: var(--steel); }
+
+/* a list item, its lead (indentation, "- ", box) one piece: a box or a
+   bullet hanging in the item's first 22px, its words wrapping beside it */
+.cm-content .cm-line.cm-md-li { padding-left: calc((var(--md-depth, 0) + 1) * 22px); text-indent: -22px; color: var(--ink); }
+.cm-content .cm-line.cm-md-indented { padding-left: calc(var(--md-depth, 0) * 22px); }
+.cm-content .cm-line.cm-md-done { color: var(--pewter); text-decoration: line-through; text-decoration-thickness: 1px; }
+.cm-md-box {
+  display: inline-grid; place-content: center; width: 14px; height: 14px; margin: 0 8px 0 0; padding: 0;
+  box-sizing: border-box; vertical-align: -2px; text-indent: 0;
+  border: 1.5px solid var(--steel); border-radius: 0; background: transparent; cursor: pointer;
   transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.notes-editor .ln[data-checked]::before { background: var(--ink); border-color: var(--ink); }
-.notes-editor .ln[data-checked]::after {
-  content: ""; position: absolute; left: calc(var(--depth, 0) * 22px + 3px); top: calc(0.5lh - 4px);
-  width: 8px; height: 8px; background: var(--paper);
-  clip-path: polygon(14% 52%, 5% 65%, 38% 95%, 97% 18%, 85% 8%, 37% 71%);
-  pointer-events: none;
+.cm-md-box:hover { border-color: var(--graphite); }
+.cm-md-box[aria-checked="true"] { background: var(--ink); border-color: var(--ink); }
+.cm-md-box[aria-checked="true"]::after {
+  content: ""; width: 4px; height: 7px; margin-top: -2px;
+  border: solid var(--paper); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg);
 }
-.notes-editor .ln[data-checked] { color: var(--pewter); text-decoration: line-through; text-decoration-thickness: 1px; }
+.cm-md-bullet { display: inline-block; width: 22px; text-indent: 0; }
+.cm-md-bullet::before {
+  content: ""; display: inline-block; width: 5px; height: 5px; margin-left: 4px;
+  border-radius: 50%; background: var(--graphite); vertical-align: 0.2em;
+}
 
 /* ---------- forms ---------- */
 

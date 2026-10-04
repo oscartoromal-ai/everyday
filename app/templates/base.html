@@ -56,6 +56,8 @@
   </script>
   <script src="{{ asset('htmx.min.js') }}" defer></script>
   <script src="{{ asset('shell.js') }}" defer></script>
+  <script src="{{ asset('vendor/codemirror.js') }}" defer></script>
+  <script src="{{ asset('markdown-editor.js') }}" defer></script>
   <script src="{{ asset('notes-editor.js') }}" defer></script>
   <script src="{{ asset('task-sheet.js') }}" defer></script>
   <script src="{{ asset('tasks.js') }}" defer></script>
@@ -241,6 +243,10 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
           <dt><kbd>Ctrl</kbd> <kbd>Enter</kbd></dt><dd>Add the task, or save it</dd>
           <dt><kbd>Esc</kbd></dt><dd>Back to the list (an edit saves)</dd>
           <dt><kbd>Tab</kbd></dt><dd>Through the fields; in the description, nests a sub-task</dd>
+          <dt><kbd>-</kbd> <kbd>Space</kbd></dt><dd>In the description, at a line's start: a sub-task (<kbd>Shift</kbd> <kbd>Enter</kbd> writes a note under it)</dd>
+          <dt><kbd>Ctrl</kbd> <kbd>L</kbd></dt><dd>A line into a sub-task; a sub-task ticked, or unticked</dd>
+          <dt><kbd>Ctrl</kbd> <kbd>B</kbd> <kbd>I</kbd></dt><dd>Bold, italic: the description is Markdown (# heading, `code`, [words](link), &gt; quote), shown as it reads, its marks where the caret is</dd>
+          <dt><kbd>Ctrl</kbd> click</dt><dd>Opens a link in the description</dd>
           <dt>friday <kbd>Space</kbd></dt><dd>Words become fields: today, tomorrow, a weekday, next week; at 3pm, 15:00-16:30; due friday; every day, weekday, week or month; 45m, 1h30, 2 hours (the estimate); p1 to p4 (the priority, urgent to low)</dd>
           <dt><kbd>Backspace</kbd></dt><dd>Right after, turns them back into words</dd>
         </dl>

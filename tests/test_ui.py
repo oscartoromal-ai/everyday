@@ -344,6 +344,43 @@ def test_description_groups_context_subtasks_and_their_notes() -> None:
     ]
 
 
+def test_a_fenced_block_in_a_description_is_code() -> None:
+    from app.ui.views import description_blocks
+
+    blocks = description_blocks("Run:\n```sh\n- not a list\n  **x**\n```\n- ship")
+    assert [b["kind"] for b in blocks] == ["text", "code", "list"]
+    assert blocks[1]["lines"] == ["- not a list", "  **x**"]
+
+
+def test_a_description_line_reads_as_its_markdown() -> None:
+    from app.markdown import render_note
+
+    assert render_note("## Packing ##") == '<strong class="md-h md-h2">Packing</strong>'
+    assert render_note("> ask *Ana*") == '<span class="md-quote">ask <em>Ana</em></span>'
+    assert render_note("---") == '<span class="md-hr"></span>'
+    assert render_note("~~old~~ `new`") == "<s>old</s> <code>new</code>"
+    # Only a web address is a link, as in the editor; HTML is escaped.
+    assert render_note("see https://a.b/c") == (
+        'see <a href="https://a.b/c" target="_blank" rel="noopener noreferrer">https://a.b/c</a>'
+    )
+    assert render_note("www.a.b [x](javascript:alert(1)) [TBD]") == (
+        "www.a.b [x](javascript:alert(1)) [TBD]"
+    )
+    assert render_note("<b>hi</b>") == "&lt;b&gt;hi&lt;/b&gt;"
+
+
+def test_a_row_shows_its_description_as_markdown(client, db) -> None:
+    task = tasks_svc.create_task(
+        db, title="md", planned_for=TODAY, notes="# Plan\n- **bold** step\n  a [link](https://x.y)"
+    )
+    row = client.get(f"/ui/tasks/{task.id}/row").text
+    assert '<strong class="md-h md-h1">Plan</strong>' in row
+    assert "<span><strong>bold</strong> step</span>" in row
+    assert '<a href="https://x.y" target="_blank" rel="noopener noreferrer">link</a>' in row
+    # The box still posts the sub-task's words as written, for the toggle's check.
+    assert "**bold** step" in row
+
+
 def test_a_task_without_description_has_no_toggle(client, db) -> None:
     task = tasks_svc.create_task(db, title="bare", planned_for=TODAY)
     row = client.get(f"/ui/tasks/{task.id}/row").text

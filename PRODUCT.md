@@ -41,6 +41,7 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 ## Constraints
 
 - Server-rendered Jinja + HTMX; no build step; the only real client JS is a few small islands: the calendar's grid (Calendar's days and Today's timeline: drag, draw, an event's card and composer), Calendar's sheet of days, the command menu (Ctrl+K), the task composer and description editor, Today's notepad, a project's Gantt sheet, and the chats with Claude on Nutrition and Spending (the answer streamed as Claude writes it).
-  The notepad's editor is CodeMirror 6, one committed file (`app/static/vendor/codemirror.js`) built from `scripts/vendor/codemirror`, as htmx is one committed file; the app still builds nothing.
+  The notepad's, a project document's and a task description's editors are CodeMirror 6, one committed file (`app/static/vendor/codemirror.js`, with the Lezer Markdown parser) built from `scripts/vendor/codemirror`, as htmx is one committed file; the app still builds nothing.
+  A task's description is Markdown written and shown as it reads, as Obsidian's Live Preview does (`markdown-editor.js`, the engine the other editors can take up next).
 - Works on desktop and phone widths; phone gets the full UI, not a cut-down version.
 - No login screens, no marketing surfaces; the app opens straight into Today.
