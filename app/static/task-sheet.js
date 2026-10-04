@@ -914,7 +914,7 @@
     }
     if (inTitle && e.key !== "Shift") converted = e.key === "Backspace" ? converted : null;
 
-    if (isPage(form) && (SUBMIT(e) || e.key === "Escape" || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s"))) {
+    if (isPage(form) && (SUBMIT(e) || e.key === "Escape" || window.Keys.is(e, "save.now"))) {
       // Saved now; Esc also steps out of the writing, so the page's keys work again.
       e.preventDefault();
       pageSave(form, { now: true });

@@ -528,28 +528,31 @@
     const cell = cellAt(rowOf(cursor.day), cursor.col);
     const key = e.key;
     const handled = () => { e.preventDefault(); e.stopPropagation(); };
+    const keys = window.Keys;
+
+    // The sheet's actions, on the keys chosen for them (keys.py).
+    if (keys.is(e, "sheet.fillDown")) { handled(); fillDown(); return; }
+    if (keys.is(e, "task.openPage")) {
+      // A Plan cell's first task, on its page.
+      const link = cell.dataset.kind === "plan" && cell.querySelector(".ds-task a.ds-title");
+      if (link) { handled(); window.location.href = link.href; }
+      return;
+    }
+    const folding = keys.is(e, "sheet.fold");
+    if (folding || keys.is(e, "sheet.unfold")) {
+      // The range's days (or the cursor's) folded, or opened.
+      handled();
+      fold(rangeCells().rows.filter((r) => r.hasAttribute("data-foldable")), folding);
+      return;
+    }
 
     if ((e.ctrlKey || e.metaKey) && !e.altKey) {
-      if (key.toLowerCase() === "d") { handled(); fillDown(); return; }
       if (key.toLowerCase() === "c") { handled(); copy(); return; }
-      if (key === "Enter") {
-        // A Plan cell's first task, on its page.
-        const link = cell.dataset.kind === "plan" && cell.querySelector(".ds-task a.ds-title");
-        if (link) { handled(); window.location.href = link.href; }
-        return;
-      }
       if (key === "Home") { handled(); moveTo(rows()[0].dataset.day, 0, { extend: e.shiftKey }); return; }
       if (key === "End") { const all = rows(); handled(); moveTo(all[all.length - 1].dataset.day, colCount() - 1, { extend: e.shiftKey }); return; }
       return; // Ctrl+V comes as a paste event; other Ctrl keys stay the browser's
     }
-    if (e.altKey) {
-      if (key === "ArrowLeft" || key === "ArrowRight") {
-        // The range's days (or the cursor's) folded, or opened.
-        handled();
-        fold(rangeCells().rows.filter((r) => r.hasAttribute("data-foldable")), key === "ArrowLeft");
-      }
-      return;
-    }
+    if (e.altKey) return;
     const arrows = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
     if (arrows[key]) { handled(); step(...arrows[key], { extend: e.shiftKey }); return; }
     if (key === "PageUp" || key === "PageDown") { handled(); step(key === "PageUp" ? -7 : 7, 0, { extend: e.shiftKey }); return; }

@@ -43,7 +43,11 @@ STACK_MAX_DEPTH = 3
 # rows (day_sheet_view), not the time grid.
 VIEWS = {"day": 1, "3days": 3, "week": 7, "sheet": SHEET_DAYS}
 VIEW_LABELS = {"day": "Day", "3days": "3 days", "week": "Week", "sheet": "Sheet"}
-VIEW_KEYS = {"day": "D", "3days": "X", "week": "W", "sheet": "S"}
+# Each view's action, whose keys switch to it (app/services/keys.py).
+VIEW_ACTIONS = {
+    "day": "calendar.day", "3days": "calendar.threeDays", "week": "calendar.week",
+    "sheet": "calendar.sheet",
+}
 
 
 def _hour_label_centre(index: int) -> float:
@@ -340,7 +344,7 @@ def calendar_nav(view: str, first_day: date, today: date) -> dict[str, Any]:
             {
                 "key": key,
                 "label": VIEW_LABELS[key],
-                "shortcut": VIEW_KEYS[key],
+                "action": VIEW_ACTIONS[key],
                 "start": view_start(
                     key, home_anchor(key, today) if shows_today else anchor
                 ).isoformat(),

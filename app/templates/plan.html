@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/keys_hint.html" import part %}
 {% from "partials/project_flag.html" import project_flag %}
 {% block title %}Plan · Personal Calendar{% endblock %}
 {% block content %}
@@ -15,7 +16,7 @@
         {% if undated_count == 0 %}Every open task has a day{% elif undated_count == 1 %}1 open task without a day{% else %}{{ undated_count }} open tasks without a day{% endif %}
       </div>
       <p class="keys-hint">
-        <kbd>↑</kbd><kbd>↓</kbd> move · <kbd>T</kbd> today · <kbd>M</kbd> tomorrow · <kbd>D</kbd> pick a day · <kbd>N</kbd> new · <kbd>?</kbd> all keys
+        {{ part("move", "list.up", "list.down") }}{{ part("today", "task.today") }}{{ part("tomorrow", "task.tomorrow") }}{{ part("pick a day", "task.pickDay") }}{{ part("new", "task.new") }}{{ part("all keys", "app.keys") }}
       </p>
     </div>
   </header>

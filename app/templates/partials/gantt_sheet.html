@@ -40,7 +40,7 @@
   <span class="gantt-cell gantt-box" role="gridcell" data-col="0" data-toggle tabindex="-1"
         aria-label="{{ 'Done' if row.done else 'Not done' }}"><span class="gantt-check" aria-hidden="true"></span></span>
   <span class="gantt-cell gantt-title" role="rowheader" data-col="1" data-edit="name" tabindex="-1">
-    <button type="button" class="gantt-fold" data-fold tabindex="-1" aria-label="Fold {{ row.title }}" title="Fold or unfold (Alt+Left, Alt+Right)">
+    <button type="button" class="gantt-fold" data-fold tabindex="-1" aria-label="Fold {{ row.title }}" title="{{ keys.title('Fold', 'gantt.earlier') }}; {{ keys.title('unfold', 'gantt.later') }}">
       <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
     </button>
     <span class="gantt-text">{{ row.title }}</span><span class="gantt-count">{{ row.count_label }}</span>

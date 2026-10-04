@@ -7,6 +7,7 @@
    from its menu, tasks shown by status (Ctrl+Tab steps through the usual choices), the time seen in weeks or drilled down to days,
    tasks deleted (their bin, or Delete on Task), and undo. A task opens on
    its page from the way at its Task cell's end, or Ctrl+Enter on its row.
+   The keys named are the defaults: each action's are keys.py's.
 
    Every edit is one POST of ops (app.services.gantt.apply), answered with
    the sheet drawn again; the cursor, the range, the scroll and any cell
@@ -709,35 +710,40 @@
     const ctrl = e.ctrlKey || e.metaKey;
     const key = e.key;
     const handled = () => { e.preventDefault(); e.stopPropagation(); };
+    const keys = window.Keys;
+
+    // The sheet's actions, on the keys chosen for them (keys.py).
+    if (keys.is(e, "gantt.undo")) { handled(); undo(undos, redos, "undo"); return; }
+    if (keys.is(e, "gantt.redo")) { handled(); undo(redos, undos, "redo"); return; }
+    if (keys.is(e, "task.openPage")) {
+      // The cursor's task, on its page.
+      const link = row.querySelector("[data-open-task]");
+      if (link) { handled(); openPage(link); }
+      return;
+    }
+    if (keys.is(e, "gantt.delete")) { handled(); remove(); return; }
+    const by = keys.is(e, "gantt.earlier") || keys.is(e, "gantt.endEarlier") ? -1
+      : keys.is(e, "gantt.later") || keys.is(e, "gantt.endLater") ? 1 : 0;
+    if (by) {
+      handled();
+      // On a workstream's own row, as in a tree: earlier folds it, later opens it.
+      if (row.dataset.kind === "workstream" && !anchor) fold(row.closest(".gantt-group"), by < 0);
+      else nudge(by, keys.is(e, "gantt.endEarlier") || keys.is(e, "gantt.endLater"));
+      return;
+    }
+    const rowBy = keys.is(e, "gantt.rowUp") ? -1 : keys.is(e, "gantt.rowDown") ? 1 : 0;
+    if (rowBy) { handled(); moveRow(rowBy); return; }
 
     if (ctrl && !e.altKey) {
       const k = key.toLowerCase();
-      if (k === "z" && !e.shiftKey) { handled(); undo(undos, redos, "undo"); return; }
-      if (k === "y" || (k === "z" && e.shiftKey)) { handled(); undo(redos, undos, "redo"); return; }
       if (k === "c") { handled(); copy(); return; }
-      if (key === "Enter") {
-        // The cursor's task, on its page.
-        const link = row.querySelector("[data-open-task]");
-        if (link) { handled(); openPage(link); }
-        return;
-      }
-      if (key === "-" || key === "Delete") { handled(); remove(); return; }
       if (key === "Home") { handled(); moveTo(rows()[0].dataset.key, TITLE, { extend: e.shiftKey }); return; }
       if (key === "End") { const all = rows(); handled(); moveTo(all[all.length - 1].dataset.key, colCount() - 1, { extend: e.shiftKey }); return; }
       const to = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[key];
       if (to) { handled(); jump(...to, { extend: e.shiftKey }); }
       return; // Ctrl+V comes as a paste event; other Ctrl keys stay the browser's
     }
-    if (e.altKey) {
-      if (key === "ArrowLeft" || key === "ArrowRight") {
-        handled();
-        // On a workstream's own row, as in a tree: Left folds it, Right opens it.
-        if (row.dataset.kind === "workstream" && !anchor) fold(row.closest(".gantt-group"), key === "ArrowLeft");
-        else nudge(key === "ArrowLeft" ? -1 : 1, e.shiftKey);
-      }
-      if (key === "ArrowUp" || key === "ArrowDown") { handled(); moveRow(key === "ArrowUp" ? -1 : 1); }
-      return;
-    }
+    if (e.altKey) return;
     const arrows = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
     if (arrows[key]) { handled(); step(...arrows[key], { extend: e.shiftKey }); return; }
     if (key === "PageUp" || key === "PageDown") { handled(); step(key === "PageUp" ? -10 : 10, 0, { extend: e.shiftKey }); return; }
@@ -803,7 +809,8 @@
       });
     };
     if (key === "Enter") { done(e.shiftKey ? -1 : 1, 0); return; }
-    if (key === "Tab" && e.ctrlKey) return; // the tasks shown (Ctrl+Tab), what is written kept
+    // The tasks shown (Ctrl+Tab), what is written kept.
+    if (window.Keys.is(e, "gantt.shown") || window.Keys.is(e, "gantt.shownBack")) return;
     if (key === "Tab") { done(0, e.shiftKey ? -1 : 1); return; }
     if (key === "Escape") { e.preventDefault(); e.stopPropagation(); cancel(); return; }
     if (typed && (key === "ArrowUp" || key === "ArrowDown")) { done(key === "ArrowUp" ? -1 : 1, 0); return; }
@@ -1323,25 +1330,24 @@
     }
   }
 
-  // Ctrl+Tab steps through the usual choices (with Shift, back): all tasks,
-  // all but done, in progress, review; from a choice of its own, all tasks.
+  // Ctrl+Tab steps through the usual choices (with Shift, back; keys.js):
+  // all tasks, all but done, in progress, review; from a choice of its own,
+  // all tasks.
   const VIEWS = [[], ["done"], ["todo", "needs_review", "done"], ["todo", "in_progress", "done"]];
-  document.addEventListener("keydown", (e) => {
-    if (e.key !== "Tab" || !e.ctrlKey || e.altKey || e.metaKey || e.isComposing || e.defaultPrevented) return;
-    if (document.querySelector("dialog[open]")) return;
-    e.preventDefault();
+  const stepShown = (by) => {
     if (editing) commit();
     if (menu && menu.button !== showButton) closeMenu();
     const inSheet = sheet.contains(document.activeElement);
     const at = VIEWS.findIndex((view) => view.length === hiding.size && view.every((v) => hiding.has(v)));
-    const by = e.shiftKey ? -1 : 1;
     const to = at < 0 ? (by > 0 ? 0 : VIEWS.length - 1) : (at + by + VIEWS.length) % VIEWS.length;
     hiding.clear();
     for (const value of VIEWS[to]) hiding.add(value);
     shownChanged();
     // The cursor's row hidden, the focus goes with the cursor.
     if (inSheet && cursor) moveTo(cursor.key, cursor.col);
-  });
+  };
+  window.Keys.handle("gantt.shown", () => stepShown(1));
+  window.Keys.handle("gantt.shownBack", () => stepShown(-1));
 
   showButton?.addEventListener("click", () => {
     if (menu?.button === showButton) { closeMenu(false); return; }
@@ -1444,27 +1450,18 @@
     e.preventDefault();
     switchScale(link.dataset.ganttScale);
   });
-  // V, outside the sheet's cells (where letters are written) and fields.
-  document.addEventListener("keydown", (e) => {
-    if (e.key !== "v" && e.key !== "V") return;
-    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
-    if (e.target.closest?.("input, textarea, select, [contenteditable]") || document.querySelector("dialog[open]")) return;
-    if (sheet.contains(e.target)) return;
-    e.preventDefault();
-    switchScale(scale() === "weeks" ? "days" : "weeks");
-  });
+  // V, outside the sheet's cells (where letters are written; keys.js keeps
+  // single keys out of fields, the cells keep them to themselves).
+  window.Keys.handle("gantt.scale", () => switchScale(scale() === "weeks" ? "days" : "weeks"));
 
-  // Alt+W, anywhere on the page but a field: a workstream to name, on the
-  // row that adds one.
-  document.addEventListener("keydown", (e) => {
-    if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing || e.defaultPrevented) return;
-    if (e.code !== "KeyW") return;
-    if (e.target.closest?.("input, textarea, select, [contenteditable]") || document.querySelector("dialog[open]")) return;
+  // Alt+W, anywhere on the page: a workstream to name, on the row that adds one.
+  window.Keys.handle("gantt.workstream", () => {
     const row = rowOf("add-workstream");
-    if (!row) return;
-    e.preventDefault();
+    if (!row) return false;
+    if (editing) commit();
     moveTo(row.dataset.key, TITLE);
     edit(cellAt(row, TITLE));
+    return true;
   });
 
   document.querySelector("[data-gantt-this-week]")?.addEventListener("click", () => {

@@ -899,6 +899,8 @@
 
   // The engine's keys, then lang-markdown's (Enter going on with a quote or
   // a numbered list, Backspace taking their marks away).
+  const bound = (action, otherwise, run) =>
+    (window.Keys ? window.Keys.cm(action) : [otherwise]).map((key) => ({ key, run, preventDefault: true }));
   const writingKeys = (checklist) => {
     const c = commands(checklist);
     return Prec.high(keymap.of([
@@ -906,11 +908,12 @@
       { key: "Shift-Enter", run: c.softEnter },
       { key: "Backspace", run: c.backspace },
       { key: "Tab", run: c.nest(1), shift: c.nest(-1) },
-      { key: "Mod-l", run: c.cycle, preventDefault: true },
-      { key: "Mod-b", run: wrap("**"), preventDefault: true },
-      { key: "Mod-i", run: wrap("*"), preventDefault: true },
-      { key: "Mod-Shift-x", run: wrap("~~"), preventDefault: true },
-      { key: "Mod-`", run: wrap("`"), preventDefault: true },
+      // The marks' keys: the app's (keys.py, keys.js), else these.
+      ...bound("editor.checklist", "Mod-l", c.cycle),
+      ...bound("editor.bold", "Mod-b", wrap("**")),
+      ...bound("editor.italic", "Mod-i", wrap("*")),
+      ...bound("editor.strike", "Mod-Shift-x", wrap("~~")),
+      ...bound("editor.code", "Mod-`", wrap("`")),
       ...markdownKeymap,
     ]));
   };
@@ -1058,7 +1061,11 @@
       switched(view);
     });
     document.addEventListener("keydown", (e) => {
-      if (e.key.toLowerCase() !== "e" || !(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.isComposing) return;
+      // Its key: the app's (keys.py, keys.js), else Ctrl+E.
+      const reading = window.Keys
+        ? window.Keys.is(e, "editor.reading")
+        : e.key.toLowerCase() === "e" && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
+      if (!reading || e.isComposing) return;
       const view = viewOf();
       if (!view || document.querySelector("dialog[open]")) return;
       e.preventDefault();

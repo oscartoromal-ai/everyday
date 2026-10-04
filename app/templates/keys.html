@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Keyboard · Personal Calendar{% endblock %}
+{% block content %}
+{# Keyboard, from Settings (or Ctrl+K): every action a key does, by where it
+   works, each with its keys: + records a new one, × takes one away, Default
+   puts them back (keys-page.js). What is chosen is kept in keys.toml in the
+   app's home, which can be written by hand as well (app/services/keys.py);
+   the keys that stay as they are are listed too, faint, so a new key can
+   keep clear of them. #}
+<div class="keys-page">
+  <header class="page-header">
+    <div>
+      <h1>Keyboard</h1>
+      <p class="rest">
+        Every action a key does, and its keys. <strong>+</strong> takes the next key you press, <strong>×</strong> takes one away.
+        The keys you choose are kept in <code class="keys-file">{{ listing.file }}</code>, which you can write in by hand too; the app takes it up as it changes.
+      </p>
+    </div>
+    <form class="repos-find keys-find" role="search" onsubmit="return false">
+      <span class="field-line">
+        <input type="search" data-keys-find placeholder="Find an action or a key…" aria-label="Find an action or a key"
+               autocomplete="off" spellcheck="false">
+      </span>
+    </form>
+  </header>
+  <div id="keys-list" aria-live="polite">
+    {% include "partials/keys_list.html" %}
+  </div>
+</div>
+<script src="{{ asset('keys-page.js') }}" defer></script>
+{% endblock %}
