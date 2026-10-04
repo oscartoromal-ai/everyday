@@ -349,6 +349,59 @@ def test_a_row_is_dragged_into_a_workstream(page, live, project) -> None:
     page.locator('.gantt-group[data-group="other"] .gantt-row[data-title="Loose end"]').wait_for()
 
 
+def test_a_workstream_is_moved_among_the_others(page, live, app_db, project) -> None:
+    with app_db() as db:
+        for name in ("Build", "Docs"):
+            projects_svc.create_workstream(db, project_id=project, name=name)
+        db.commit()
+    page.goto(f"{live}/projects/{project}/gantt")
+
+    def lanes() -> list[str]:
+        return page.locator(".gantt-row.kind-workstream").evaluate_all(
+            "rows => rows.map((r) => r.dataset.title)"
+        )
+
+    def until(names: list[str]) -> None:
+        page.wait_for_function(
+            "names => JSON.stringify([...document.querySelectorAll('.gantt-row.kind-workstream')]"
+            ".map((r) => r.dataset.title)) === JSON.stringify(names)",
+            arg=names,
+        )
+
+    assert lanes() == ["Launch", "Build", "Docs"]
+    # Alt+Down on its row: its lane past the next, the cursor going with it.
+    _row(page, "Launch").locator(".gantt-title .gantt-text").click()
+    page.keyboard.press("Alt+ArrowDown")
+    until(["Build", "Launch", "Docs"])
+    page.keyboard.press("Alt+ArrowDown")
+    until(["Build", "Docs", "Launch"])
+    assert page.evaluate("document.activeElement.closest('.gantt-row').dataset.title") == "Launch"
+    # The last goes no further, and leaves nothing to undo.
+    page.keyboard.press("Alt+ArrowDown")
+    page.keyboard.press("Control+z")
+    until(["Build", "Launch", "Docs"])
+
+    # Dragged by its number, over the top half of the first lane: first.
+    grip = _row(page, "Docs").locator("[data-row-grip]").bounding_box()
+    target = page.locator('.gantt-group[data-group^="w"]').first.bounding_box()
+    page.mouse.move(grip["x"] + grip["width"] / 2, grip["y"] + grip["height"] / 2)
+    page.mouse.down()
+    page.mouse.move(grip["x"] + grip["width"] / 2, target["y"] + 4, steps=8)
+    page.locator(".gantt-drop-line").wait_for()
+    assert "is-lifted" in page.locator('.gantt-group:has(> [data-title="Docs"])').get_attribute(
+        "class"
+    )
+    page.mouse.up()
+    until(["Docs", "Build", "Launch"])
+    # Undone back where it was, last; redone; and kept.
+    page.keyboard.press("Control+z")
+    until(["Build", "Launch", "Docs"])
+    page.keyboard.press("Control+y")
+    until(["Docs", "Build", "Launch"])
+    page.reload()
+    assert lanes() == ["Docs", "Build", "Launch"]
+
+
 def test_a_workstream_folds_to_its_row(page, live, project) -> None:
     page.goto(f"{live}/projects/{project}/gantt")
     lane = page.locator(".gantt-row.kind-workstream")

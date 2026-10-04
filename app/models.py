@@ -113,7 +113,9 @@ class Project(Base):
     position: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
-    workstreams: Mapped[list[Workstream]] = relationship(back_populates="project")
+    workstreams: Mapped[list[Workstream]] = relationship(
+        back_populates="project", order_by=lambda: [Workstream.position, Workstream.id]
+    )
     tasks: Mapped[list[Task]] = relationship(back_populates="project")
     repos: Mapped[list[ProjectRepo]] = relationship(
         back_populates="project", order_by="ProjectRepo.id", cascade="all, delete-orphan"
@@ -173,6 +175,9 @@ class Workstream(Base):
     status: Mapped[WorkstreamStatus] = mapped_column(
         _enum(WorkstreamStatus), default=WorkstreamStatus.open
     )
+    # Its place among its project's workstreams (the Gantt's lanes, the
+    # Projects page): a new one last, moved on the Gantt.
+    position: Mapped[int] = mapped_column(Integer, default=0)
 
     project: Mapped[Project] = relationship(back_populates="workstreams")
     tasks: Mapped[list[Task]] = relationship(back_populates="workstream")

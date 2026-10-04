@@ -133,13 +133,36 @@ def _renumber(db: Session) -> None:
 
 
 def create_workstream(db: Session, *, project_id: int, name: str) -> Workstream:
-    get_project(db, project_id)
+    project = get_project(db, project_id)
     if not name.strip():
         raise DomainError("Workstream name must not be empty")
-    workstream = Workstream(project_id=project_id, name=name.strip())
+    last = db.scalar(
+        select(func.max(Workstream.position)).where(Workstream.project_id == project_id)
+    )
+    workstream = Workstream(
+        project_id=project_id, name=name.strip(), position=0 if last is None else last + 1
+    )
     db.add(workstream)
     db.flush()
+    # Its project's list is read again, with it.
+    db.expire(project, ["workstreams"])
     return workstream
+
+
+def place_workstream(db: Session, workstream_id: int, before_id: int | None) -> None:
+    """A workstream moved among its project's: before another of them, or
+    last (before_id None). Its project's are numbered again from 0."""
+    workstream = get_workstream(db, workstream_id)
+    project = workstream.project
+    order = [m for m in project.workstreams if m.id != workstream.id]
+    before = next((m for m in order if m.id == before_id), None) if before_id else None
+    if before_id and before is None:
+        raise DomainError(f"Workstream {before_id} is not in {project.name}")
+    order.insert(order.index(before) if before else len(order), workstream)
+    for position, m in enumerate(order):
+        m.position = position
+    db.flush()
+    db.expire(project, ["workstreams"])
 
 
 def update_workstream(
