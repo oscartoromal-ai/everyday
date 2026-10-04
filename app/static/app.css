@@ -100,6 +100,13 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 }
 .rail-collapse:hover { color: var(--ink); background: var(--glass-hover); }
 .rail-collapse svg { stroke: currentColor; }
+/* Back, under the head: a foot button's row, naming the page it goes back
+   to (shell.js); faint while there is none */
+.rail-head:has(+ .rail-back) { margin-bottom: var(--s-3); }
+.rail-back { flex: none; margin-bottom: var(--s-6); }
+.rail-back__icon { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.rail-back .rail-button__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rail-back:disabled { color: var(--mist); background: none; cursor: default; }
 
 .nav { display: flex; flex-direction: column; gap: var(--s-6); }
 /* a desktop rail too short for every page and project: the nav scrolls between
@@ -286,7 +293,8 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 .main { width: 100%; max-width: 800px; margin-inline: auto; padding: var(--s-8); }
 
 /* phone: the rail becomes a bottom tab bar; the mode toggle ends it as an icon,
-   past a hairline, and the collapse control stays on desktop */
+   past a hairline, and the collapse control and Back stay on desktop (the
+   phone's browser has its own Back) */
 @media (max-width: 720px) {
   .shell, :root[data-rail="collapsed"] .shell { grid-template-columns: minmax(0, 1fr); }
   .rail {
@@ -296,7 +304,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
     background: var(--glass-tab-bar);
     border-right: none; border-top: 1px solid var(--chrome-flank-border);
   }
-  .rail-head, .nav-group-label, .nav-fold, .nav-hide, .nav-sub { display: none; }
+  .rail-head, .rail-back, .nav-group-label, .nav-fold, .nav-hide, .nav-sub { display: none; }
   .nav-item { display: contents; }
   .rail-foot { display: flex; align-self: center; margin: 0; padding: 0 0 0 var(--s-1); border-top: none; border-left: 1px solid var(--chrome-flank-border); }
   .rail-button { width: 44px; height: 44px; padding: 0; justify-content: center; }

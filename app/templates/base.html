@@ -97,6 +97,11 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3.5" width="14" height="13" rx="2.5"/><path d="M8 3.5v13"/></svg>
       </button>
     </div>
+    {# Back to the page before, named, as it was left (shell.js); faint with none. #}
+    <button type="button" class="rail-button rail-back" data-back disabled title="Nothing to go back to" aria-keyshortcuts="Alt+ArrowLeft">
+      <svg class="rail-back__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+      <span class="rail-button__label" data-back-label>Back</span>
+    </button>
     <nav class="nav" id="main-nav" aria-label="Main">
       {% for placed in rail_layout(request) %}{% set section = placed.section %}
       <div class="nav-group" data-section="{{ section.key }}"{% if section.label %} role="group" aria-labelledby="nav-{{ section.key }}"{% endif %}>
@@ -233,6 +238,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
           {% set keyed = rail_keys() %}
           <dt>{% for first, last in rail_key_runs(keyed) %}{% if not loop.first %}, {% endif %}<kbd>{{ first }}</kbd>{% if last != first %}–<kbd>{{ last }}</kbd>{% endif %}{% endfor %}</dt><dd>{{ keyed | map(attribute="label") | join(", ") }}</dd>
           <dt><kbd>N</kbd> <span class="or">or</span> <kbd>Shift</kbd> <kbd>N</kbd></dt><dd>New task</dd>
+          <dt><kbd>Alt</kbd> <kbd>←</kbd></dt><dd>Back to the page before, as you left it (or the mouse's back button; on a sheet's cell, Alt ← is the sheet's)</dd>
           <dt><kbd>?</kbd></dt><dd>These keys</dd>
           <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Search tasks, projects, events and notes; go to a page or a day ("friday", "12 oct"); or do (new task or event, theme)</dd>
           <dt><kbd>C</kbd></dt><dd>Compact rows, or roomy again (Projects, Today's notes)</dd>

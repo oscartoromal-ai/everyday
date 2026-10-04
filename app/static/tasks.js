@@ -282,6 +282,9 @@
     }
   })();
   if (carried) document.addEventListener("DOMContentLoaded", () => focusStop(byId(carried)));
+  // Back here, the cursor on the row it was on (shell.js).
+  window.keepPlace?.("task-cursor", () => (document.activeElement?.matches(STOPS) ? document.activeElement.id : null),
+    (id) => document.addEventListener("DOMContentLoaded", () => focusStop(byId(id))));
 
   /* ---- project cards: folded to their header, kept on the project ---- */
 
