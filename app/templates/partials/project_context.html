@@ -84,6 +84,8 @@
   {# Where its files are, the master copy: an editor or an agent writes them there too. #}
   {% if files_folder %}
   <div class="ov-item ov-folder">
+    {#- The tree's chevron column, empty, so its icon stands over theirs. #}
+    <span class="ctx-chevron" aria-hidden="true"></span>
     <span class="ov-icon">{{ folder_icon() }}</span>
     <span class="ov-text">
       <span class="item-name">Files</span>

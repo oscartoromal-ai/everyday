@@ -108,16 +108,38 @@ def folder_of(db: Session, project: Project) -> Path:
     when it is gone."""
     path = folder_path(project)
     if path is None:
-        taken = {p.name for p in _folders()} | {
-            f for f in db.scalars(select(Project.folder).where(Project.folder.is_not(None)))
-        }
-        project.folder = everyday.folder_name(project.name, taken)
+        kept = set(db.scalars(select(Project.folder).where(Project.folder.is_not(None))))
+        own = everyday.folder_name(project.name, set())
+        if own not in kept and _unclaimed(db, project, everyday.projects_dir() / own):
+            # A folder named after it, made by hand and no other project's: its own,
+            # what it has going in beside what is there.
+            project.folder = own
+            db.flush()
+            path = folder_path(project)
+            assert path is not None
+            _write_missing(db, project, path)
+            write_manifest(project, path)
+            return path
+        project.folder = everyday.folder_name(project.name, {p.name for p in _folders()} | kept)
         db.flush()
         path = folder_path(project)
     assert path is not None
     if not path.is_dir():
         _write_whole(db, project, path)
     return path
+
+
+def _unclaimed(db: Session, project: Project, path: Path) -> bool:
+    """A folder there, whose project.toml names no other project."""
+    if not path.is_dir():
+        return False
+    try:
+        manifest = everyday.read_manifest(path)
+    except everyday.UnreadableManifest:
+        return False
+    if manifest is None or manifest.id in (None, project.id):
+        return True
+    return db.get(Project, manifest.id) is None
 
 
 def _write_whole(db: Session, project: Project, path: Path) -> None:

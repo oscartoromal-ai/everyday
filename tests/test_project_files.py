@@ -395,3 +395,15 @@ def test_folders_from_before_get_their_folders_on_disk(db) -> None:
     project_files.sync_all(db)
     assert plans.name == "Plans- Q4"
     assert (folder("old-one") / "Plans- Q4" / "Launch.md").read_text(encoding="utf-8") == "Soon."
+
+
+def test_a_folder_made_by_hand_for_a_new_project_is_its_own(db) -> None:
+    (folder() / "decisions").mkdir(parents=True)
+    (folder() / "decisions" / "0001.md").write_text("Use files.", encoding="utf-8")
+    project = projects_svc.create_project(db, name="Note-app")
+    assert project.folder == "note-app"
+    project_files.refresh(db, project)
+    assert [d.path for d in projects_svc.docs_of(project)] == [AGENTS_DOC, "decisions/0001.md"]
+    assert manifest()["id"] == project.id
+    # One that is another project's stays its: the next is numbered on.
+    assert projects_svc.create_project(db, name="note app").folder == "note-app-2"
