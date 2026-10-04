@@ -8,14 +8,15 @@ from datetime import date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from app.db import DbSession
 from app.models import ProjectDocFolder, ProjectStatus
-from app.services import DomainError
+from app.services import DomainError, everyday, project_files
 from app.services import projects as projects_svc
 from app.ui.project_view import (
     context_ctx,
+    doc_file,
     doc_page_ctx,
     glance_ctx,
     head_ctx,
@@ -38,6 +39,7 @@ def _project(db: DbSession, project_id: int):  # noqa: ANN202
 @router.get("/projects/{project_id}")
 def project_page(request: Request, db: DbSession, project_id: int):
     project = _project(db, project_id)
+    project_files.refresh(db, project)
     return templates.TemplateResponse(
         request,
         "project.html",
@@ -272,14 +274,24 @@ def place_doc(
     return _context(request, db, doc.project_id)
 
 
-@router.get("/projects/{project_id}/docs/{doc_id}")
-def doc_page(request: Request, db: DbSession, project_id: int, doc_id: int):
+def _doc(db: DbSession, doc_id: int, project_id: int | None = None):  # noqa: ANN202
+    """The document, read again from its file first: 404 when there is no
+    such document, or its file was deleted."""
     try:
         doc = projects_svc.get_doc(db, doc_id)
     except DomainError:
         doc = None
-    if doc is None or doc.project_id != project_id:
-        raise HTTPException(404, "No such document: it may have been deleted")
+    if doc is not None and (project_id is None or doc.project_id == project_id):
+        project = doc.project
+        project_files.refresh(db, project)
+        if doc in project.docs:
+            return doc
+    raise HTTPException(404, "No such document: it may have been deleted")
+
+
+@router.get("/projects/{project_id}/docs/{doc_id}")
+def doc_page(request: Request, db: DbSession, project_id: int, doc_id: int):
+    doc = _doc(db, doc_id, project_id)
     return templates.TemplateResponse(
         request,
         "project_doc.html",
@@ -292,26 +304,44 @@ def doc_page(request: Request, db: DbSession, project_id: int, doc_id: int):
     )
 
 
-@router.post("/ui/docs/{doc_id}", status_code=204)
+@router.post("/ui/docs/{doc_id}")
 def save_doc(
     db: DbSession,
     doc_id: int,
     body: Annotated[str | None, Form()] = None,
     name: Annotated[str | None, Form()] = None,
     folder: Annotated[str | None, Form()] = None,
-) -> None:
-    """A document saved as it is written (doc-editor.js), or moved into
-    another folder from its page."""
-    doc = projects_svc.update_doc(
-        db,
-        doc_id,
-        name=name,
-        body=None if body is None else body.replace("\r\n", "\n"),
-        folder_id=_folder(folder),
-    )
+    base: Annotated[str | None, Form()] = None,
+) -> JSONResponse:
+    """A document saved as it is written (doc-editor.js), its words written
+    over the copy of version `base`, or moved into another folder from its
+    page: answered with its version and name now, or 409 with its file's
+    version when that was written elsewhere since."""
+    try:
+        doc = projects_svc.update_doc(
+            db,
+            doc_id,
+            name=name,
+            body=None if body is None else everyday.plain(body),
+            folder_id=_folder(folder),
+            base=base,
+        )
+    except projects_svc.DocChanged as exc:
+        return JSONResponse({"detail": str(exc), "version": exc.version}, status_code=409)
     if folder is not None:
         _unfold(doc.folder)
     db.commit()
+    return JSONResponse(
+        {"version": everyday.version(doc.body), "name": doc.name, "file": doc_file(doc)}
+    )
+
+
+@router.get("/ui/docs/{doc_id}/latest")
+def latest_doc(db: DbSession, doc_id: int) -> JSONResponse:
+    """The document as its file has it now, for its page to show a version
+    written elsewhere (doc-editor.js)."""
+    doc = _doc(db, doc_id)
+    return JSONResponse({"version": everyday.version(doc.body), "name": doc.name, "body": doc.body})
 
 
 @router.post("/ui/docs/{doc_id}/delete")

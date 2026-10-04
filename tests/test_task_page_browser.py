@@ -6,6 +6,7 @@ the page is saved as it is written, the page going back to where it was
 opened. Today's notes open it too (test_notepad_browser.py). The `live`, `page` and
 `app_db` fixtures are conftest.py's."""
 
+import re
 import time
 from datetime import date, timedelta
 
@@ -15,6 +16,9 @@ from app.models import Task
 from app.services import tasks as tasks_svc
 
 pytest.importorskip("playwright.sync_api")
+
+# "Saved" alone, not "Not saved".
+SAVED = re.compile("^Saved$")
 
 TODAY = date.today()
 
@@ -38,7 +42,7 @@ def test_a_task_written_on_the_sheet_opens_to_be_written_out(page, live, app_db)
     editor = page.locator(".main [data-notes-editor]")
     assert editor.evaluate("el => el.contains(document.activeElement)")
     page.keyboard.type("Flights first, then the rail pass.")
-    page.locator("[data-page-state]", has_text="Saved").wait_for()
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
     assert stored(app_db, "Plan the trip").notes == "Flights first, then the rail pass."
 
     # The title is the page's heading, and its trailing words its fields.
@@ -90,7 +94,7 @@ def test_its_box_steps_it_through_progress_and_review_to_done(page, live, app_db
     box = page.locator("[data-sheet-check]")
     for status in ["in_progress", "needs_review", "done", "todo"]:
         box.click()
-        page.locator("[data-page-state]", has_text="Saved").wait_for()
+        page.locator("[data-page-state]", has_text=SAVED).wait_for()
         deadline = time.monotonic() + 5
         while True:
             with app_db() as db:
@@ -122,7 +126,7 @@ def test_its_description_is_read_drawn_and_its_mode_remembered(page, live, app_d
     assert modes.locator('[aria-pressed="true"]').inner_text() == "Reading"
     assert editor.get_attribute("contenteditable") == "false"
     editor.locator(".cm-md-box").first.click()
-    page.locator("[data-page-state]", has_text="Saved").wait_for()
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
     assert stored(app_db, "Trip").notes == "## Packing\n- [x] passport\n- adapter"
 
     # Opened again, it is read; Source shows its Markdown as written.

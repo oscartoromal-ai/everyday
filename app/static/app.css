@@ -3364,6 +3364,12 @@ a.doc-row:hover .item-name { text-decoration: underline; text-underline-offset: 
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .doc-summary.is-empty { color: var(--pewter); }
+/* A folder's path cut at its start, so its own name stays in sight. */
+.doc-summary.folder-path { direction: rtl; text-align: left; }
+/* the folder is where the files are, not a link: it stays still under the pointer */
+.ov-folder:hover { background: none; }
+.ov-folder:hover .item-icon { stroke: var(--steel); }
+.ov-folder .folder-open { display: none; }
 .doc-meta {
   flex: none; font-size: var(--t-caption); color: var(--pewter);
   font-family: var(--font-num); font-variant-numeric: tabular-nums;
@@ -3587,3 +3593,5 @@ a.doc-row:hover .item-name { text-decoration: underline; text-underline-offset: 
 .doc-folder select option { color: var(--ink); background: var(--paper); }
 .doc-body { flex: 1 0 auto; padding-bottom: var(--s-8); font-size: var(--t-body); line-height: 1.6; }
 .doc-body .cm-md-h1 { font-size: var(--t-sub); }
+.doc-rest .doc-file { overflow-wrap: anywhere; }
+.doc-stale { margin: 0 0 var(--s-3); }

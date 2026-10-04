@@ -4,6 +4,7 @@ showing only where the caret is, its "- " lines boxes that tick, and the
 text saved exactly as written. The `live`, `page` and `app_db` fixtures are
 conftest.py's."""
 
+import re
 from datetime import date
 
 import pytest
@@ -12,6 +13,9 @@ from app.models import Task
 from app.services import tasks as tasks_svc
 
 pytest.importorskip("playwright.sync_api")
+
+# "Saved" alone, not "Not saved".
+SAVED = re.compile("^Saved$")
 
 NOTES = (
     "# Plan\n"
@@ -43,7 +47,7 @@ def field(page) -> str:
 
 
 def saved(page, app_db, task_id: int) -> str:
-    page.locator("[data-page-state]", has_text="Saved").wait_for()
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
     with app_db() as db:
         return db.get(Task, task_id).notes
 

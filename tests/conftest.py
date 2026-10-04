@@ -27,6 +27,17 @@ def keys_file(tmp_path, monkeypatch):
     return path
 
 
+@pytest.fixture(autouse=True)
+def everyday_files(tmp_path, monkeypatch):  # noqa: ANN201
+    """The everyday files (projects' context, as files) in a throwaway folder,
+    never the machine's own."""
+    from app.services import everyday
+
+    root = tmp_path / "everyday-files"
+    monkeypatch.setattr(everyday, "root", lambda: root)
+    return root
+
+
 @pytest.fixture
 def db(tmp_path) -> Generator[Session, None, None]:
     engine = make_engine(f"sqlite:///{tmp_path / 'test.db'}")

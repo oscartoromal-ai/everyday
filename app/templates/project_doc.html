@@ -7,8 +7,11 @@
    project, whether it is saved and the Markdown's modes at the header's
    right, its name as the heading (AGENTS.md's fixed, any other's written in
    place, with its bin), then its Markdown, drawn as it reads while it is
-   written and saved as it is written (doc-editor.js). #}
-<div class="doc-page" data-doc="{{ doc.id }}">
+   written and saved as it is written (doc-editor.js). Its file in the
+   project's folder is the master copy: a save names the version it was
+   written over, and one the file has moved on from (an editor, an agent)
+   asks which to keep. #}
+<div class="doc-page" data-doc="{{ doc.id }}" data-version="{{ version }}">
   <header class="task-page-header">
     <a class="page-back" href="/projects/{{ project.id }}">{{ project.name }}</a>
     <div class="page-header-end">
@@ -43,7 +46,13 @@
       </select>
     </span>
     {%- endif %}
-    {%- if doc.body %}<span> · edited {{ edited }}</span>{% endif %}</p>
+    {%- if doc.body %}<span> · edited {{ edited }}</span>{% endif %}
+    {%- if file %}<span> · <span class="doc-file" data-doc-file>{{ file }}</span></span>{% endif %}</p>
+  <div class="pad-stale doc-stale" data-doc-stale role="alert" hidden>
+    <span>This document was changed elsewhere, in its file.</span>
+    <button type="button" class="btn quiet" data-doc-reload>Show that version</button>
+    <button type="button" class="btn quiet" data-doc-keep>Keep mine</button>
+  </div>
 
   <div class="doc-body notes-editor" data-doc-editor>
     <textarea class="doc-source" data-doc-body aria-label="{{ doc.name }}" data-placeholder="{{ placeholder }}" hidden>{{ doc.body }}</textarea>

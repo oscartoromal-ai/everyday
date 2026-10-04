@@ -113,6 +113,10 @@ class Project(Base):
     # Its place among the projects (Projects, the sidebar): a new one last,
     # moved by dragging it in the sidebar.
     position: Mapped[int] = mapped_column(Integer, default=0)
+    # Its folder in the everyday files' projects/ (app.services.project_files):
+    # its context's files, named after it when it was made. None until the
+    # folder is first written.
+    folder: Mapped[str | None] = mapped_column(String(200), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     workstreams: Mapped[list[Workstream]] = relationship(
@@ -132,7 +136,7 @@ class Project(Base):
 
 class ProjectRepo(Base):
     """A repository the project's work lives in: where it is, a local path
-    or a URL, as written."""
+    or a URL, as written. A copy of its project.toml's `repos`."""
 
     __tablename__ = "project_repos"
 
@@ -149,8 +153,9 @@ AGENTS_DOC = "AGENTS.md"
 
 
 class ProjectDocFolder(Base):
-    """A folder of the project's context, as a folder on disk: its documents
-    and its subfolders, named once among what sits beside it."""
+    """A folder of the project's context, a folder on disk in the project's
+    folder of the everyday files (its master copy): its documents and its
+    subfolders, named once among what sits beside it."""
 
     __tablename__ = "project_doc_folders"
 
@@ -183,7 +188,8 @@ class ProjectDocFolder(Base):
 class ProjectDoc(Base):
     """A document of the project's context, in Markdown, for Oscar and the
     agents working on it: its AGENTS.md, and any others he writes, at the
-    context's top or in a folder."""
+    context's top or in a folder. A copy of its file in the project's folder
+    of the everyday files, the master copy; its name is the file's."""
 
     __tablename__ = "project_docs"
 
@@ -198,6 +204,12 @@ class ProjectDoc(Base):
 
     project: Mapped[Project] = relationship(back_populates="docs")
     folder: Mapped[ProjectDocFolder | None] = relationship(back_populates="docs")
+    revisions: Mapped[list[ProjectDocRevision]] = relationship(
+        back_populates="doc",
+        order_by="ProjectDocRevision.id",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     @property
     def is_agents(self) -> bool:
@@ -207,6 +219,24 @@ class ProjectDoc(Base):
     def path(self) -> str:
         """Where it is in the context, as a path: "decisions/adr/0001.md"."""
         return f"{self.folder.path}/{self.name}" if self.folder else self.name
+
+
+class ProjectDocRevision(Base):
+    """One step in a document's history: its words after a change, when, and
+    by whom: oscar, claude, or file (its file written outside the app, by an
+    editor or an agent). app.services.project_files writes them; edits in a
+    row by the same hand fold into one step."""
+
+    __tablename__ = "project_doc_revisions"
+    __table_args__ = (Index("ix_project_doc_revisions_doc", "doc_id", "at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    doc_id: Mapped[int] = mapped_column(ForeignKey("project_docs.id", ondelete="CASCADE"))
+    at: Mapped[datetime] = mapped_column(DateTime)
+    actor: Mapped[str] = mapped_column(String(20))  # oscar / claude / file / system
+    body: Mapped[str] = mapped_column(Text)
+
+    doc: Mapped[ProjectDoc] = relationship(back_populates="revisions")
 
 
 class Workstream(Base):

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.dates import short_date, upper_first
 from app.models import AGENTS_DOC, Project, ProjectDoc, ProjectDocFolder, Task, TaskStatus
+from app.services import everyday, project_files
 from app.services import github as github_svc
 from app.services import projects as projects_svc
 from app.ui.repositories_view import repo_row
@@ -139,7 +140,13 @@ def context_tree(project: Project, today: date) -> list[dict[str, Any]]:
 
 
 def context_ctx(project: Project, today: date) -> dict[str, Any]:
-    return {"project": project, "tree": context_tree(project, today)}
+    folder = project_files.folder_path(project)
+    return {
+        "project": project,
+        "tree": context_tree(project, today),
+        # Where its context's files are, the master copy.
+        "files_folder": str(folder) if folder else None,
+    }
 
 
 def repos_ctx(project: Project) -> dict[str, Any]:
@@ -180,6 +187,14 @@ def repo_options_ctx(db: Session, project: Project, query: str, now: datetime) -
     }
 
 
+def doc_file(doc: ProjectDoc) -> str | None:
+    """Where its file is, from the everyday files' folder:
+    projects/app/decisions/0001.md."""
+    if not doc.project.folder:
+        return None
+    return str(project_files.on_disk(doc.project, doc.path).relative_to(everyday.root()))
+
+
 def doc_page_ctx(doc: ProjectDoc, today: date) -> dict[str, Any]:
     project = doc.project
     return {
@@ -188,6 +203,9 @@ def doc_page_ctx(doc: ProjectDoc, today: date) -> dict[str, Any]:
         # Every folder it could be moved to, in the tree's order.
         "folders": projects_svc.folders_of(project),
         "edited": edited(doc, today),
+        "version": everyday.version(doc.body),
+        # Where its file is, from the everyday files' folder: projects/app/AGENTS.md.
+        "file": doc_file(doc),
         "placeholder": (
             f"What an agent should know before working on {project.name}: how to build, "
             "run and test it, its conventions, and what to leave alone."

@@ -22,7 +22,7 @@ from app.api.schemas import EventOut, ProjectOut, WorkstreamOut
 from app.api.tasks import task_out
 from app.db import session_scope
 from app.models import ProjectStatus, TaskOwner, TaskPriority, TaskStatus
-from app.services import DomainError
+from app.services import DomainError, project_files
 from app.services import events as events_svc
 from app.services import habits as habits_svc
 from app.services import history as history_svc
@@ -33,9 +33,10 @@ from app.services import tasks as tasks_svc
 INSTRUCTIONS = (
     "Oscar's personal planner: projects, tasks and calendar events. "
     "The app database is canonical for cross-project plan state. "
-    "Each project has its context on its page: its repositories, and documents "
-    "for the agents working on it, AGENTS.md first; read them with "
-    "get_project_context before working on a project. "
+    "Each project has its context: its repositories, and documents for the agents "
+    "working on it, AGENTS.md first; read them with get_project_context before "
+    "working on a project. They are files in the project's folder (its folder in "
+    "the context), the master copy: to change them, write the files. "
     "Dates are calendar dates (YYYY-MM-DD); datetimes are naive local wall time. "
     "A task's notes are its free-form description: lines starting with '- ' are "
     "its sub-tasks ('- [x] ' once done), and other lines are context around them. "
@@ -143,10 +144,11 @@ def upsert_project(
 @tool
 def get_project_context(project_id: int | None = None, name: str | None = None) -> dict[str, Any]:
     """A project's context, for working on it: the project (name, status,
-    notes), its repositories (each a local path or a URL), and its documents
-    in full, written in Markdown on its page in the app: AGENTS.md first,
-    what an agent should know before working on it, then the others. Oscar
-    files documents in folders: each document has its path among them
+    notes), its folder (where the context's files are, the master copy: write
+    them there to change it), its repositories (each a local path or a URL),
+    and its documents in full, in Markdown: AGENTS.md first, what an agent
+    should know before working on it, then the others. Oscar files documents
+    in folders, folders on disk: each document has its path among them
     ("decisions/0001.md"), and folders lists every folder's path, empty ones
     too. Give project_id, or its exact name."""
     with session_scope("claude") as db:
@@ -158,6 +160,7 @@ def get_project_context(project_id: int | None = None, name: str | None = None) 
                 raise DomainError(f"No project is named {name!r}")
         else:
             project = projects_svc.get_project(db, project_id)
+        project_files.refresh(db, project)
         return projects_svc.project_context(project)
 
 

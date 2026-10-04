@@ -140,6 +140,12 @@ begin
     Result := '';
 end;
 
+// The everyday files (SPEC.md, Agent runs): the folder for agentic work,
+// asked on a page of its own after the modules, the system drive's
+// everyday-files to start with, remembered for the next install.
+var
+  EverydayPage: TInputDirWizardPage;
+
 // The modules page lists the modules alone: every module is the same files,
 // so there is no size to show, and no preset to choose.
 procedure InitializeWizard();
@@ -147,13 +153,50 @@ begin
   WizardForm.TypesCombo.Visible := False;
   WizardForm.ComponentsDiskSpaceLabel.Visible := False;
   WizardForm.ComponentsList.Top := WizardForm.TypesCombo.Top;
+
+  EverydayPage := CreateInputDirPage(wpSelectComponents,
+    'Everyday files', 'Where should the files for agentic work go?',
+    'Setup makes this folder, with three folders in it: repos, each repository''s main clone; ' +
+    'projects, each project''s context; and work, the folders agents work in.' + #13#10#13#10 +
+    'A short path at the root of a drive keeps deep worktrees under Windows'' path length limit. ' +
+    'Uninstalling keeps it.',
+    False, '');
+  EverydayPage.Add('');
+  EverydayPage.Values[0] := GetPreviousData('EverydayFiles', ExpandConstant('{sd}\everyday-files'));
 end;
 
-// The modules unticked, for the app to leave out: install.toml in its home
-// (app/config.py's [install]), written whole on every install.
-procedure WriteModules();
+procedure RegisterPreviousData(PreviousDataKey: Integer);
+begin
+  SetPreviousData(PreviousDataKey, 'EverydayFiles', EverydayPage.Values[0]);
+end;
+
+// The everyday files' folders, made where missing. False when they cannot be.
+function MakeEverydayFiles(): Boolean;
 var
-  Home, Without: String;
+  Dir: String;
+begin
+  Dir := RemoveBackslashUnlessRoot(EverydayPage.Values[0]);
+  Result := ForceDirectories(Dir + '\repos') and ForceDirectories(Dir + '\projects') and
+    ForceDirectories(Dir + '\work');
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if (CurPageID = EverydayPage.ID) and not MakeEverydayFiles() then
+  begin
+    MsgBox('Setup could not make ' + EverydayPage.Values[0] + '. Choose a folder you can write to.',
+      mbError, MB_OK);
+    Result := False;
+  end;
+end;
+
+// The modules unticked, for the app to leave out, and the everyday files'
+// folder: install.toml in its home (app/config.py's [install] and
+// [everyday_files]), written whole on every install.
+procedure WriteInstallToml();
+var
+  Home, Without, Everyday: String;
   Modules: TArrayOfString;
   I: Integer;
 begin
@@ -169,19 +212,30 @@ begin
         Without := Without + ', ';
       Without := Without + '"' + Modules[I] + '"';
     end;
+  // A TOML string: its backslashes and quotes escaped.
+  Everyday := RemoveBackslashUnlessRoot(EverydayPage.Values[0]);
+  StringChangeEx(Everyday, '\', '\\', True);
+  StringChangeEx(Everyday, '"', '\"', True);
   ForceDirectories(Home);
   if not SaveStringToFile(Home + '\install.toml',
-    '# The modules unticked in Setup, which the app leaves out. Written by Setup:' + #13#10 +
-    '# run it again to change them.' + #13#10 +
+    '# The modules unticked in Setup, which the app leaves out, and the folder for' + #13#10 +
+    '# agentic work. Written by Setup: run it again to change them.' + #13#10 +
     '[install]' + #13#10 +
-    'without = [' + Without + ']' + #13#10, False) then
+    'without = [' + Without + ']' + #13#10 + #13#10 +
+    '[everyday_files]' + #13#10 +
+    'dir = "' + Everyday + '"' + #13#10, False) then
     RaiseException('Could not write ' + Home + '\install.toml');
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
-    WriteModules();
+  begin
+    WriteInstallToml();
+    // A silent install has no page to ask on; the app makes them as it starts.
+    if not MakeEverydayFiles() then
+      Log('Could not make the everyday files in ' + EverydayPage.Values[0]);
+  end;
 end;
 
 function InitializeUninstall(): Boolean;

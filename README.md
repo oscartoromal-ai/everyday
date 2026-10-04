@@ -64,7 +64,8 @@ PyInstaller freezes the app with its own Python (`desktop/personal-calendar.spec
 Python and the libraries are frozen; the app's own code and files (`app/`, and the ones `desktop/app-files.txt` lists) go in as they are, so that an update can put them in a copy of the running version (`build.ps1 -Reuse`).
 Every build then checks itself (`--self-check`, `app/selfcheck.py`): it compiles the app's code, imports all of it, and makes sure every module it imports anywhere is in the build.
 Its first page, Modules, ticks the modules the machine should have: Health, Finances and Code can be left out (Planner and Projects are always in), and the app then has nothing of them, neither pages nor Claude's tools for them.
-Setup writes the choice to `install.toml` in the app's home and remembers it for the next install, a silent one included; run Setup again to change it.
+Its next page, Everyday files, chooses the folder for agentic work, `C:\everyday-files` to start with (see [Where the data lives](#where-the-data-lives)), and makes it.
+Setup writes both choices to `install.toml` in the app's home and remembers them for the next install, a silent one included; run Setup again to change them.
 The installer puts the app in `%LOCALAPPDATA%\Programs\Personal Calendar`, adds it to the Start menu, and, unless unticked, starts it in the tray when Oscar signs in (the `Personal Calendar` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).
 That folder holds the launcher, `Personal Calendar.exe`, which the shortcuts start, and each version in a folder of its own, `app-<commit>`; the launcher starts the one `current.txt` names.
 An update stages the next version in a folder beside the running one, and the new version rewrites `current.txt` once its window is up; the version before it goes at the next update.
@@ -92,10 +93,18 @@ Everything the app keeps lives under its home, `%LOCALAPPDATA%\Personal Calendar
 - `backups/`: the daily snapshots (see [Backups and restore](#backups-and-restore)).
 - `local/`: the machine's secrets (work-calendar feed, ntfy, Garmin's token, a GitHub token if one was pasted), git-ignored in a repo checkout.
 - `config.toml`: this machine's settings, over the defaults in the repo's `config.toml` that the app is built with, key by key; relative paths in either resolve against the home.
-- `install.toml`: the modules this machine was installed without (`[install] without`), written by Setup on every install, over both.
+- `install.toml`: the modules this machine was installed without (`[install] without`) and the everyday files' folder (`[everyday_files] dir`), written by Setup on every install, over both.
 - `keys.toml`: the keys chosen over the defaults (see [Keys](#keys)), git-ignored in a repo checkout.
 
 `PC_HOME` names another home, and run from the repo the home is the repo itself.
+
+The everyday files live outside the home, in `C:\everyday-files` unless another folder was chosen on Setup's Everyday files page (SPEC.md, Agent runs):
+
+- `repos/`: each repository's main clone, once.
+- `projects/`: a folder for each project, its context: its documents as Markdown files (AGENTS.md first) and `project.toml` (its id and repositories). These files are the master copy: the app reads them into the database as it starts, as a project's page opens, and as they change while it runs, so an editor or an agent may write them; a folder made there is a new project.
+- `work/`: the folders agents work in.
+
+Run from the repo, the app keeps its own `everyday-files/` in it (git-ignored), never the real one.
 On Oscar's machine the home's `config.toml` keeps Nutrition's files in the repo (`[nutrition].dir`), where git keeps their history.
 
 ## Keys

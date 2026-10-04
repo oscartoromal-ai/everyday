@@ -11,7 +11,13 @@
    flight following it with what is newest. The header says "Saved" once
    one lands, nothing while there is writing still to save, and "Not saved"
    (with a toast) if one fails. A click in the room under the text writes
-   at its end. */
+   at its end.
+
+   Its file in the project's folder is the master copy, which an editor or
+   an agent may write too. A save names the version its words were written
+   over; one refused because the file has moved on since stops the saving
+   and asks which to keep, as Today's notes do. Coming back to the tab shows
+   the file as it is now, when nothing here is still to save. */
 
 (() => {
   const { EditorState, EditorView, drawSelection, keymap, placeholder, defaultKeymap, history, historyKeymap } = window.CM;
@@ -33,6 +39,12 @@
   let deleted = false;
   let savedName = nameInput ? nameInput.value : null;
   let savedBody = source.value;
+  // The file's version this copy was read at; and, once a save was refused,
+  // the file's since (stale until Oscar chooses which to keep).
+  let version = page.dataset.version;
+  let stale = false;
+  let theirs = null;
+  const staleBar = page.querySelector("[data-doc-stale]");
 
   const body = () => view.state.doc.toString();
   const name = () => (nameInput ? nameInput.value.trim().replace(/\s+/g, " ") : null);
@@ -53,9 +65,10 @@
 
   function save({ leaving = false } = {}) {
     clearTimeout(timer);
-    if (deleted) return;
+    if (deleted || stale) return;
     const changes = pending();
     if (!Object.keys(changes).length) return;
+    if ("body" in changes) changes.base = version;
     if (sending && !leaving) {
       again = true;
       return;
@@ -68,15 +81,18 @@
       keepalive: leaving,
     });
     request.then(async (res) => {
-      if (!res.ok) {
-        const answer = await res.json().catch(() => ({}));
-        throw new Error(typeof answer.detail === "string" ? answer.detail : "");
+      const answer = await res.json().catch(() => ({}));
+      if (res.status === 409) {
+        stale = true;
+        theirs = answer.version;
+        staleBar.hidden = false;
+        sayState("Not saved");
+        return;
       }
+      if (!res.ok) throw new Error(typeof answer.detail === "string" ? answer.detail : "");
+      version = answer.version;
       if ("body" in changes) savedBody = changes.body;
-      if ("name" in changes) {
-        savedName = changes.name;
-        document.title = document.title.replace(/^[^·]*·/, `${savedName} ·`);
-      }
+      if ("name" in changes) named(answer.name, changes.name);
       if (!Object.keys(pending()).length) sayState("Saved");
     }).catch((err) => {
       sayState("Not saved");
@@ -89,6 +105,59 @@
       }
     });
   }
+
+  // Its name as the file has it: the one written, made a file's ("Notes" is
+  // Notes.md), in the heading unless more has been written there since.
+  function named(fileName, written = savedName) {
+    if (nameInput && name() === written) nameInput.value = fileName;
+    savedName = fileName;
+    document.title = document.title.replace(/^[^·]*·/, `${fileName} ·`);
+    const file = page.querySelector("[data-doc-file]");
+    if (file) file.textContent = file.textContent.replace(/[^\\/]*$/, fileName);
+  }
+
+  // The file as it is now, in place of what is here: its words, its name and
+  // its version.
+  async function showLatest() {
+    const res = await fetch(`/ui/docs/${page.dataset.doc}/latest`).catch(() => null);
+    if (res?.status === 404) {
+      location.reload();
+      return;
+    }
+    const answer = res?.ok ? await res.json() : null;
+    if (!answer) return;
+    savedBody = answer.body;
+    version = answer.version;
+    if (answer.name !== savedName) named(answer.name);
+    if (body() !== answer.body) {
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: answer.body } });
+      clearTimeout(timer);
+    }
+    stale = false;
+    staleBar.hidden = true;
+    sayState("");
+  }
+
+  // Moved to another folder from the line under its name: its file's path
+  // says where it went.
+  document.addEventListener("htmx:afterRequest", (e) => {
+    if (!e.detail.successful || !e.detail.elt.matches?.('.doc-rest select[name="folder"]')) return;
+    let answer = {};
+    try { answer = JSON.parse(e.detail.xhr.responseText); } catch { return; }
+    const file = page.querySelector("[data-doc-file]");
+    if (file && answer.file) file.textContent = answer.file;
+  });
+
+  staleBar.addEventListener("click", (e) => {
+    if (e.target.closest("[data-doc-reload]")) {
+      showLatest();
+    } else if (e.target.closest("[data-doc-keep]")) {
+      stale = false;
+      version = theirs;
+      staleBar.hidden = true;
+      save();
+    }
+  });
 
   /* ---- the editor ---- */
 
@@ -161,8 +230,11 @@
   window.addEventListener("pagehide", () => save({ leaving: true }));
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") save({ leaving: true });
+    // Back to the tab: the file as an editor or agent left it, unless there
+    // is writing here still to save.
+    else if (!stale && !sending && !Object.keys(pending()).length) showLatest();
   });
 
   // For the page's tests: the document as written.
-  window.DocEditor = { get view() { return view; }, text: body };
+  window.DocEditor = { get view() { return view; }, text: body, showLatest };
 })();

@@ -3,12 +3,18 @@ repository added on it, its AGENTS.md written on a page of its own and
 saved as it is written, and another document added, renamed and deleted.
 The `live`, `page` and `app_db` fixtures are conftest.py's."""
 
+import re
+
 import pytest
 
 from app.models import Project, ProjectDoc
+from app.services import everyday
 from app.services import projects as projects_svc
 
 pytest.importorskip("playwright.sync_api")
+
+# "Saved" alone, not "Not saved".
+SAVED = re.compile("^Saved$")
 
 
 def docs(app_db, project: str) -> dict[str, str]:
@@ -36,7 +42,7 @@ def test_a_project_page_holds_its_repos_and_its_context(page, live, app_db) -> N
     page.locator("a.doc-row", has_text="AGENTS.md").click()
     page.wait_for_url(f"{live}/projects/{project_id}/docs/*")
     page.keyboard.type("# Note-app\nRun uv sync first.")
-    page.locator("[data-page-state]", has_text="Saved").wait_for()
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
     assert docs(app_db, "Note-app")["AGENTS.md"] == "# Note-app\nRun uv sync first."
     page.locator(".page-back", has_text="Note-app").click()
     page.wait_for_url(f"{live}/projects/{project_id}")
@@ -47,13 +53,15 @@ def test_a_project_page_holds_its_repos_and_its_context(page, live, app_db) -> N
     page.press("#doc-new", "Enter")
     page.wait_for_url(f"{live}/projects/{project_id}/docs/*")
     page.keyboard.type("How the pieces fit.")
-    page.locator(".doc-name").click()
-    page.keyboard.press("End")
-    page.keyboard.type(".md")
-    page.keyboard.press("Enter")
-    page.wait_for_function("() => document.title.startsWith('Architecture.md ·')")
-    page.locator("[data-page-state]", has_text="Saved").wait_for()
-    assert docs(app_db, "Note-app")["Architecture.md"] == "How the pieces fit."
+    assert page.input_value(".doc-name") == "Architecture.md"
+    # Renamed, its name is made a file's: .md added.
+    page.fill(".doc-name", "Design")
+    page.press(".doc-name", "Enter")
+    page.wait_for_function("() => document.title.startsWith('Design.md ·')")
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
+    assert page.input_value(".doc-name") == "Design.md"
+    assert page.inner_text("[data-doc-file]").endswith("Design.md")
+    assert docs(app_db, "Note-app")["Design.md"] == "How the pieces fit."
 
     # Deleted, it goes back to the project.
     page.locator(".doc-title .task-delete").click()
@@ -61,7 +69,55 @@ def test_a_project_page_holds_its_repos_and_its_context(page, live, app_db) -> N
     page.wait_for_url(f"{live}/projects/{project_id}")
     assert page.locator("a.doc-row").all_inner_texts()[0].startswith("AGENTS.md")
     with app_db() as db:
-        assert db.query(ProjectDoc).filter_by(name="Architecture.md").count() == 0
+        assert db.query(ProjectDoc).filter_by(name="Design.md").count() == 0
+
+
+def test_a_document_written_elsewhere_is_never_overwritten(page, live, app_db) -> None:
+    with app_db() as db:
+        project = projects_svc.create_project(db, name="Note-app")
+        db.commit()
+        project_id, doc_id = project.id, project.docs[0].id
+    file = everyday.projects_dir() / "note-app" / "AGENTS.md"
+    page.goto(f"{live}/projects/{project_id}/docs/{doc_id}")
+    page.locator(".doc-body .cm-content").wait_for()
+
+    # An agent writes the file; what is written here then is not saved over it.
+    file.write_text("An agent's words.", encoding="utf-8")
+    page.locator(".doc-body .cm-content").click()
+    page.keyboard.type("Mine")
+    page.locator("[data-doc-stale]").wait_for(state="visible")
+    assert page.inner_text("[data-page-state]") == "Not saved"
+    assert file.read_text(encoding="utf-8") == "An agent's words."
+
+    # Shown, the agent's version is the one written on.
+    page.locator("[data-doc-reload]").click()
+    page.locator("[data-doc-stale]").wait_for(state="hidden")
+    assert page.evaluate("window.DocEditor.text()") == "An agent's words."
+    page.locator(".doc-body .cm-content").click()
+    page.keyboard.press("Control+End")
+    page.keyboard.type(" And mine.")
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
+    assert file.read_text(encoding="utf-8") == "An agent's words. And mine."
+
+    # Or kept: written over the agent's.
+    file.write_text("The agent again.", encoding="utf-8")
+    page.keyboard.type(" Still mine.")
+    page.locator("[data-doc-stale]").wait_for(state="visible")
+    page.locator("[data-doc-keep]").click()
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
+    assert file.read_text(encoding="utf-8") == "An agent's words. And mine. Still mine."
+
+    # Back to the tab, the file is shown as it is now.
+    file.write_text("Rewritten while away.", encoding="utf-8")
+    page.evaluate(
+        """() => {
+            Object.defineProperty(
+                document, "visibilityState", { value: "visible", configurable: true }
+            );
+            document.dispatchEvent(new Event("visibilitychange"));
+        }"""
+    )
+    page.wait_for_function("() => window.DocEditor.text() === 'Rewritten while away.'")
 
 
 def paths(app_db, project: str) -> list[str]:
@@ -155,7 +211,12 @@ def test_the_gantt_is_the_projects_next_tab(page, live, app_db) -> None:
 def test_a_document_is_drawn_as_it_reads_and_opens_in_its_last_mode(page, live, app_db) -> None:
     with app_db() as db:
         project = projects_svc.create_project(db, name="Note-app")
-        project.docs[0].body = "# Note-app\n- Run `uv sync` first\n- [ ] Write the deploy steps"
+        # Written as the app writes it: its file first, the master copy.
+        projects_svc.update_doc(
+            db,
+            project.docs[0].id,
+            body="# Note-app\n- Run `uv sync` first\n- [ ] Write the deploy steps",
+        )
         db.commit()
         url = f"{live}/projects/{project.id}/docs/{project.docs[0].id}"
     page.goto(url)
@@ -174,7 +235,7 @@ def test_a_document_is_drawn_as_it_reads_and_opens_in_its_last_mode(page, live, 
     page.keyboard.press("Enter")
     page.keyboard.press("Enter")  # out of the list
     page.keyboard.type("## Tests")
-    page.locator("[data-page-state]", has_text="Saved").wait_for()
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
     assert docs(app_db, "Note-app")["AGENTS.md"].endswith("\n## Tests")
 
     # Reading (Ctrl+E), and opened again in it; Ctrl+E goes back to Source.

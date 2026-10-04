@@ -3,6 +3,8 @@ the task filed into a project and workstream from its foot or with "#", a
 project's pages starting it in that project. The `live`, `page` and `app_db`
 fixtures are conftest.py's."""
 
+import re
+
 import pytest
 
 from app.services import history as history_svc
@@ -10,6 +12,9 @@ from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
 pytest.importorskip("playwright.sync_api")
+
+# "Saved" alone, not "Not saved".
+SAVED = re.compile("^Saved$")
 
 WINDOW = "#capture-dialog"
 CHIP = f"{WINDOW} .file-into .prop-value"
@@ -140,7 +145,7 @@ def test_a_hash_files_a_task_on_its_own_page(page, live, app_db, places) -> None
     page.keyboard.type(" #gard")
     page.locator(".sheet-menu.inline").wait_for()
     page.keyboard.press("Enter")
-    page.locator("[data-page-state]", has_text="Saved").wait_for()
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
     # Saved filed, and under its own words only.
     with app_db() as db:
         task = tasks_svc.get_task(db, task_id)

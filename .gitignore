@@ -33,3 +33,6 @@ node_modules/
 # The keys chosen over the defaults (app/services/keys.py), in the home: the
 # repo itself when the app runs from it.
 /keys.toml
+
+# The everyday files of a run from the repo (repos/, projects/, work/; app/config.py).
+/everyday-files/
