@@ -349,6 +349,10 @@ class NotebookPage(Base):
     blocks: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
     # Bumped by every save; a save made from an older copy is refused.
     version: Mapped[int] = mapped_column(Integer, default=0)
+    # The window whose save it was ("" for any other writer) and that save's
+    # number: a window's later save stands over its own earlier one.
+    writer: Mapped[str] = mapped_column(String(40), default="")
+    writer_seq: Mapped[int] = mapped_column(Integer, default=0)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
 

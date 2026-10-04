@@ -1003,3 +1003,39 @@ def test_on_a_phone_the_timeline_scrolls_in_its_own_window_opened_on_now(page, l
         assert scroll["top"] <= now_at <= scroll["top"] + scroll["height"]
     else:
         assert scroll["top"] > 0
+
+
+def test_a_task_row_left_while_a_save_is_on_its_way_is_added(
+    page, live, app_db, monkeypatch
+) -> None:
+    """The page left while its last save is still on its way: the leaving
+    save, which adds the task rows written since, follows it, and is not
+    turned away as a stale copy of the page."""
+    from app.services import tasks as tasks_svc
+
+    real_save = notebook_svc.save_page
+    slow = [True]
+
+    def save_page(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        if slow.pop() if slow else False:
+            time.sleep(1)  # the first save is slow to land
+        return real_save(*args, **kwargs)
+
+    monkeypatch.setattr(notebook_svc, "save_page", save_page)
+    page.goto(f"{live}/today")
+    write_in(page)
+    with page.expect_request(lambda r: r.method == "POST" and "/ui/notebook/" in r.url):
+        page.keyboard.type("Groceries")
+    page.keyboard.press("Enter")
+    page.keyboard.type("- [ ] Call the bank")
+    page.goto(f"{live}/projects")  # left with the first save still on its way
+
+    end = time.monotonic() + 5
+    while time.monotonic() < end and not any("links" in b for b in stored(app_db)):
+        time.sleep(0.1)
+    with app_db() as db:
+        [task] = tasks_svc.list_tasks(db)
+    assert task.title == "Call the bank"
+    assert stored(app_db) == [
+        {"kind": "text", "text": "Groceries\n- [ ] Call the bank", "links": {"1": task.id}},
+    ]
