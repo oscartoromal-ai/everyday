@@ -1,0 +1,69 @@
+{# The GitHub account: connected, who and how, and how the last sync went,
+   polled while a sync runs; or the ways to connect: in one click as the
+   GitHub CLI here is signed in (asked for once the page is up), or with a
+   token, which GitHub fills in for the app. Each answer draws this again
+   in place. #}
+{% if connected %}
+<section class="sheet-group github-account" id="github-account" aria-labelledby="github-account-title"
+         {% if running %}hx-get="/ui/github/account" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <h2 class="sheet-row sheet-head" id="github-account-title">GitHub</h2>
+  <div class="sheet-row me-row">
+    <span class="me-label">Account</span>
+    <span class="me-value github-who">
+      <a href="https://github.com/{{ link.login }}" target="_blank" rel="noopener noreferrer">{{ link.login }}</a>
+      {% if link.name %}<span class="github-quiet">{{ link.name }}</span>{% endif %}
+    </span>
+  </div>
+  <div class="sheet-row me-row">
+    <span class="me-label">Signed in</span>
+    <span class="me-value github-how">{% if link.source == "cli" %}Through the GitHub CLI on this computer{% else %}With a token kept on this computer{% endif %}</span>
+  </div>
+  <div class="sheet-row me-row github-synced">
+    <span class="me-label">Synced</span>
+    <span class="me-value">
+      {% if running %}<span class="me-unset">Syncing…</span>
+      {% elif synced %}{{ synced }}{% if link.sync_error %} <span class="chip blocked">Last sync failed</span>{% endif %}
+      {% elif link.sync_error %}<span class="chip blocked">Failed</span>
+      {% else %}<span class="me-unset">Not yet</span>{% endif %}
+    </span>
+    <button type="button" class="plan-btn" hx-post="/ui/github/sync" hx-target="#github-account" hx-swap="outerHTML"
+            {% if running %}disabled{% endif %}>Sync now</button>
+  </div>
+  {% if link.sync_error and not running %}
+  <p class="sheet-row github-line" role="alert">{{ link.sync_error }}</p>
+  {% endif %}
+  <div class="sheet-row me-row github-synced">
+    <span class="me-label"></span>
+    <span class="github-line github-quiet">Syncs on its own every hour while the app runs.</span>
+    <button type="button" class="plan-btn" hx-post="/ui/github/disconnect" hx-swap="none"
+            hx-confirm="Disconnect GitHub?"
+            data-confirm-title="Disconnect GitHub?"
+            data-confirm-name="{{ link.login }}"
+            data-confirm-detail="stops syncing, and the list of repositories goes from the app.{% if link.source == 'token' %} Its token is deleted from this computer.{% else %} The GitHub CLI stays signed in.{% endif %} Nothing changes on GitHub."
+            data-confirm-action="Disconnect">Disconnect</button>
+  </div>
+</section>
+{% else %}
+<section class="sheet-group github-account" id="github-account" aria-labelledby="github-account-title">
+  <h2 class="sheet-row sheet-head" id="github-account-title">Connect GitHub</h2>
+  {% if signed_out %}
+  <p class="sheet-row github-line" role="status">{{ link.sync_error or "GitHub stopped accepting the app's sign-in." }} Syncing stopped until it is connected again.</p>
+  {% endif %}
+  <div class="sheet-row me-row github-cli" id="github-cli" hx-get="/ui/github/cli" hx-trigger="load" hx-swap="outerHTML">
+    <span class="me-label">GitHub CLI</span>
+    <span class="me-value me-unset">Looking for its sign-in…</span>
+  </div>
+  <form class="github-form" hx-post="/ui/github/connect/token" hx-target="#github-account" hx-swap="outerHTML" hx-disabled-elt="find button">
+    <div class="sheet-row me-row github-token">
+      <label class="me-label" for="github-token">Or a token</label>
+      <span class="sheet-field"><input type="password" id="github-token" name="token" autocomplete="off" spellcheck="false" required placeholder="Paste a GitHub token"></span>
+      <button type="submit" class="plan-btn"><span class="github-idle">Connect</span><span class="github-busy">Connecting…</span></button>
+    </div>
+    <p class="sheet-row me-row">
+      <span class="me-label"></span>
+      <span class="github-line github-quiet"><a href="{{ new_token_url }}" target="_blank" rel="noopener noreferrer">Make one on GitHub</a>, filled in for the app to read your repositories' names and nothing else. Choose All repositories, then Generate token, and paste it here.</span>
+    </p>
+  </form>
+  {% if error %}<p class="sheet-row github-line github-error" role="alert">{{ error }}</p>{% endif %}
+</section>
+{% endif %}

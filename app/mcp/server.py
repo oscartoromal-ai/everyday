@@ -42,7 +42,9 @@ mcp = FastMCP(
         "get_health_profile. What his Garmin watch measured day by day (steps, energy "
         "burned, sleep, resting heart rate, HRV, stress, body battery, readiness, "
         "activities): get_garmin. His money (a month's spending against budgets, "
-        "accounts and net worth, bills, savings goals): get_finances."
+        "accounts and net worth, bills, savings goals): get_finances. The GitHub "
+        "repositories he can reach (what each is, its language, when last pushed): "
+        "list_repositories."
     ),
 )
 
@@ -318,6 +320,35 @@ def get_finances(month: str | None = None) -> dict[str, Any]:
             **money_tools.get_accounts(db, {}),
             **money_tools.get_bills(db, {}),
             **money_tools.get_goals(db, {}),
+        }
+
+
+@mcp.tool
+def list_repositories(query: str = "", include_archived: bool = False) -> dict[str, Any]:
+    """The GitHub repositories Oscar can reach (his own, those he
+    collaborates on, and his organizations'), as GitHub had them at the
+    last sync, last pushed first: each one's full_name (owner/name),
+    description, main language, whether it is private, a fork or archived,
+    its default branch, its url, its open issues and pull requests together,
+    and when it was last pushed to (local time). `query` keeps those holding
+    every one of its words in their name, description or language; archived
+    ones are left out unless `include_archived`. `connected` is false when
+    he has not connected GitHub on Repositories, or GitHub signed the app
+    out; `account` is his GitHub login, `synced_at` the last sync. Read-only."""
+    from app.services import github as github_svc
+
+    with session_scope("claude") as db:
+        link = github_svc.link(db)
+        archived = None if include_archived else False
+        return {
+            "connected": link is not None and not link.signed_out,
+            "account": link.login if link else None,
+            "synced_at": link.synced_at.isoformat(timespec="minutes")
+            if link and link.synced_at else None,
+            "repositories": [
+                github_svc.repository_dict(r)
+                for r in github_svc.repositories(db, query, archived=archived)
+            ],
         }
 
 

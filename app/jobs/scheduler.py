@@ -17,6 +17,7 @@ from app.config import get_settings
 from app.db import get_session_factory, session_scope
 from app.services import backup as backup_svc
 from app.services import garmin as garmin_svc
+from app.services import github as github_svc
 from app.services import nudges as nudges_svc
 from app.services import push as push_svc
 from app.services import recurrence as recurrence_svc
@@ -77,6 +78,13 @@ def run_garmin_sync() -> None:
     )
 
 
+def run_github_sync() -> None:
+    """Fetch the repositories from GitHub, while connected."""
+    from app.sources.github import account
+
+    github_svc.syncing.run_here(lambda: github_svc.run_sync(get_session_factory(), account()))
+
+
 def create_scheduler() -> BackgroundScheduler:
     scheduler = BackgroundScheduler()
     scheduler.add_job(
@@ -109,6 +117,12 @@ def create_scheduler() -> BackgroundScheduler:
         IntervalTrigger(minutes=get_settings().garmin.sync_minutes),
         id="garmin_sync",
         next_run_time=datetime.now() + timedelta(seconds=45),  # catch up at startup too
+    )
+    scheduler.add_job(
+        run_github_sync,
+        IntervalTrigger(minutes=get_settings().github.sync_minutes),
+        id="github_sync",
+        next_run_time=datetime.now() + timedelta(seconds=60),  # catch up at startup too
     )
     scheduler.add_job(
         run_daily_backup,

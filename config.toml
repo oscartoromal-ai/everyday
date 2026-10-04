@@ -46,3 +46,11 @@ model = "claude-opus-5-5"
 token_dir = "local/garmin"
 sync_minutes = 30
 backfill_days = 30
+
+[github]
+# GitHub, connected from Repositories: through the GitHub CLI's own sign-in
+# (the app keeps no copy), or a token pasted there, kept in token_file
+# (git-ignored). cli is gh's path; empty finds it.
+token_file = "local/github-token.txt"
+cli = ""
+sync_minutes = 60

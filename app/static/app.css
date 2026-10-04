@@ -2002,6 +2002,72 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 }
 @media (max-width: 540px) { .garmin-label { width: 88px; } }
 
+/* ---------- Code > Repositories: a row a repository on one ruled sheet ---------- */
+
+/* finding: a field on its line at the header's right, outside the sheet,
+   so the list drawn again under it keeps the words */
+.repos-find { flex: none; margin-top: var(--s-1); }
+.repos-find .field-line { width: 240px; }
+.repos-find input::-webkit-search-cancel-button { display: none; }
+@media (max-width: 720px) {
+  .repos-page .page-header { flex-wrap: wrap; }
+  .repos-find { flex: 1 1 100%; }
+  .repos-find .field-line { width: auto; }
+}
+
+/* a repository: its name in ink (another's with its owner), its badges,
+   then what it is in graphite, wrapping under them when it does not fit;
+   then its open issues, language and last push, in columns */
+.repos-rows { margin: 0; padding: 0; list-style: none; }
+.repo-row { display: flex; align-items: flex-start; gap: 0 var(--s-4); }
+li.repo-row:hover { background: var(--glass-row-hover); }
+.repo-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s-2); }
+.repo-name { color: var(--ink); font-weight: 500; text-decoration: none; overflow-wrap: anywhere; }
+.repo-name:hover { text-decoration: underline; text-underline-offset: 3px; }
+.repo-owner { color: var(--graphite); font-weight: 400; }
+.repo-main .chip { align-self: center; }
+.repo-description { color: var(--graphite); overflow-wrap: anywhere; }
+.repo-cell { flex: none; color: var(--graphite); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.repo-issues { width: 40px; text-align: right; }
+.repo-language { width: 96px; overflow: hidden; text-overflow: ellipsis; }
+.repo-pushed { width: 72px; text-align: right; }
+.sheet-head .repo-cell { font-size: var(--t-caption); font-weight: 500; color: var(--pewter); }
+.sheet-head .repo-main { font-weight: 600; color: var(--ink); }
+/* archived ones, folded under their title row, its chevron turning */
+.repos-fold > summary { list-style: none; cursor: pointer; user-select: none; }
+.repos-fold > summary::-webkit-details-marker { display: none; }
+.repos-fold > summary:hover { background: var(--glass-row-hover); }
+.repos-fold > summary:focus-visible { outline: none; background: var(--glass-row-hover); }
+.repos-fold > summary svg { flex: none; align-self: center; stroke: currentColor; transition: transform var(--dur) var(--ease); }
+.repos-fold[open] > summary svg { transform: rotate(90deg); }
+.repos-line { color: var(--graphite); overflow-wrap: anywhere; }
+.repos-quiet { color: var(--pewter); }
+@media (max-width: 720px) {
+  .repos-sheet { --pad-rows: 34px; --pad-gap: var(--s-2); }
+  .repo-row { gap: 0 var(--s-3); }
+  .repo-issues, .repo-language { display: none; }
+}
+
+/* the account, as Garmin's is: its figures in ink, a button at the row's end */
+.github-who a { color: inherit; text-decoration: none; }
+.github-who a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.github-who .github-quiet { margin-left: var(--s-2); font-weight: 400; }
+.github-line { color: var(--graphite); overflow-wrap: anywhere; }
+.github-line a { color: var(--ink); text-underline-offset: 3px; }
+.github-line code { font-size: 0.93em; color: var(--ink); }
+.github-quiet { color: var(--pewter); }
+.github-error { color: var(--err-fg); }
+:is(.github-synced, .github-cli, .github-account p.me-row) :is(.me-value, .github-line) { flex: 1; min-width: 0; }
+:is(.github-synced, .github-cli, .github-account p.me-row) .github-line { padding: var(--pad-above) 0 var(--pad-below); }
+:is(.github-synced, .github-cli, .github-token) .plan-btn { flex: none; height: 24px; margin-top: calc(var(--pad-above) - 1px); }
+.github-synced .chip { margin-left: var(--s-2); vertical-align: 1px; }
+.github-cli { align-items: center; }
+.github-cli .btn { flex: none; height: 28px; margin-block: 3px; padding: 0 var(--s-4); }
+.github-cli .plan-btn { margin-top: 0; }
+.github-busy, .htmx-request .github-idle { display: none; }
+.htmx-request .github-busy { display: inline; }
+.github-account button:disabled { cursor: progress; }
+
 /* ---------- Finances: Spending (a month beside its chat, as Nutrition's
    day is), Accounts, Bills and Goals (ruled sheets, as Me's is) ---------- */
 

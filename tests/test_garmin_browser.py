@@ -36,7 +36,7 @@ def test_connect_with_a_code_then_read_the_days(page, live, app_db, fake) -> Non
 
     page.get_by_label("Password").fill(PASSWORD)
     page.get_by_label("Password").press("Enter")
-    code = page.get_by_label("Code")
+    code = page.get_by_role("textbox", name="Code")
     code.wait_for()
     assert code.evaluate("el => el === document.activeElement")
     code.fill("123456")

@@ -23,6 +23,7 @@ Per [v1 phasing](tracker/tickets/002-v1-phasing.md):
 - **Health** (Oscar's call on 2026-09-28): a module beside the planner, its own group in the nav, starting with Nutrition (see [Nutrition chat](#nutrition-chat), Oscar's call on 2026-09-30) and Me, the context health advice needs: height, birth date, sex, activity level, goal and target weight, dietary pattern, allergies and intolerances, foods avoided and health notes, saved as they change, and weight as a log of weigh-ins, one a day; from them, age, BMI and an estimated daily energy to keep his weight (Mifflin-St Jeor times the activity's factor). Claude reads it through `get_health_profile`.
   Then Garmin (Oscar's call on 2026-09-30, see [Garmin](#garmin)): what his watch measures, day by day, synced from Garmin Connect.
 - **Finances** (Oscar's call on 2026-09-30, see [Finances](#finances)): a module of its own in the nav, beside Health: Spending (a month against its budgets, beside a chat with Claude), Accounts (net worth, balances, his banks' exports), Bills and Goals.
+- **Code** (Oscar's call on 2026-10-04, see [Repositories](#repositories)): a group of its own in the nav, starting with Repositories, the GitHub repositories he can reach, synced from GitHub.
 
 Review flows are deliberately unspecified here; they sharpen as their phase nears (see the map's Not yet specified section).
 
@@ -300,6 +301,24 @@ Oscar's call on 2026-09-30: the app keeps his money, fed by his banks' CSV expor
   The chat is the month's (`money_messages`); a run goes on after its page closes, one at a time per month.
 - **Read by Claude elsewhere** through `get_finances(month)` over MCP.
 
+### Repositories
+
+Oscar's call on 2026-10-04: a Repositories page, connected to GitHub to pull his repositories, with connecting made as easy as it can be.
+
+- **Connecting is one click through the GitHub CLI** (`app/sources/github.py`), after how GitHub Desktop, VS Code and other tools sign in.
+  The CLI on the machine is usually signed in already (`gh auth login`, GitHub's own device flow); the page says as whom, and Connect uses it.
+  The app asks `gh auth token` for the token at each sync and never copies it, so signing gh out, or into another account, is followed.
+  A registered OAuth app of the app's own was set aside: its device flow is the CLI's, with a registration to keep.
+- **Or a pasted token**, for a machine without the CLI: a link opens GitHub's form for a fine-grained token already filled in (read-only, repositories' metadata only), and the token is checked with GitHub before it is kept, in `[github].token_file` (git-ignored `local/`).
+- **One client for GitHub.** Every request goes through `GitHub` in `app/sources/github.py`: the API version header, paging by the Link header, and GitHub's refusals in words (signed out, rate-limited until when, unreachable); a later GitHub feature is a method there.
+- **Kept in the database.** `github_link` holds who is signed in, how (`cli` or `token`) and how the last sync went; `repositories` every repository he can reach (his own, those he collaborates on, his organizations'), as GitHub had them at the last sync: name, owner, description, visibility, fork, archived, language, default branch, open issues and pull requests, and the last push in local time.
+  A sync adds the new, updates the changed and deletes the gone; disconnecting deletes the list with the link.
+  When GitHub stops accepting the sign-in, the link says so and the page asks to connect again, the list staying in sight.
+- **The page** is a ruled sheet: the repositories last pushed first, each name opening it on GitHub, another's with its owner, a public one or a fork marked; then its open issues, language and last push in columns; the archived ones folded under their own row; and the account at the foot.
+  A field at the header's right finds them by every word written, in their name, description or language.
+- **Synced by the scheduler** every `[github].sync_minutes` (60) and on demand.
+- **Read by Claude** through `list_repositories(query, include_archived)` over MCP.
+
 ### Plan truth
 
 - The app database is canonical for cross-project plan state.
@@ -355,6 +374,7 @@ APScheduler inside the FastAPI process; jobs share app code and database session
 - Nudge trigger evaluation and morning digest.
 - Daily backup snapshot.
 - Garmin sync, every half hour while connected.
+- GitHub sync, every hour while connected.
 
 ### Deployment and backups
 

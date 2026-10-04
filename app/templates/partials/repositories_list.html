@@ -1,0 +1,62 @@
+{# The repositories holding the words written above, last pushed first:
+   the active ones, then the archived ones folded away. Each name opens
+   the repository on GitHub. Drawn again as the words change and when a
+   sync ends (github:synced), the words carried along. #}
+{% macro repo_rows(rows) %}
+<ul class="repos-rows">
+  {% for r in rows %}
+  <li class="sheet-row repo-row">
+    <span class="repo-main">
+      <a class="repo-name" href="{{ r.url }}" target="_blank" rel="noopener noreferrer" title="Open {{ r.full_name }} on GitHub">{% if r.owner %}<span class="repo-owner">{{ r.owner }}/</span>{% endif %}{{ r.name }}</a>
+      {% if r.public %}<span class="chip neutral">Public</span>{% endif %}
+      {% if r.fork %}<span class="chip neutral">Fork</span>{% endif %}
+      {% if r.description %}<span class="repo-description">{{ r.description }}</span>{% endif %}
+    </span>
+    <span class="repo-cell repo-issues"{% if r.open_issues %} title="{{ r.open_issues }} open issue{{ 's' if r.open_issues != 1 }} and pull request{{ 's' if r.open_issues != 1 }}"{% endif %}>{{ r.open_issues or "" }}</span>
+    <span class="repo-cell repo-language">{{ r.language }}</span>
+    <span class="repo-cell repo-pushed" title="{{ r.pushed_full }}">{{ r.pushed }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% endmacro %}
+<div class="repos-list" id="repos-list"
+     hx-get="/ui/repositories/list" hx-trigger="github:synced from:body" hx-include=".repos-find input" hx-swap="outerHTML">
+{% if repos or archived %}
+  {% if repos %}
+  <section class="sheet-group" aria-labelledby="repos-active">
+    <h2 class="sheet-row sheet-head repo-row" id="repos-active">
+      <span class="repo-main">{% if query %}Found{% else %}Repositories{% endif %} <span class="count">{{ repos | length }}</span></span>
+      <span class="repo-cell repo-issues" title="Open issues and pull requests">Open</span>
+      <span class="repo-cell repo-language">Language</span>
+      <span class="repo-cell repo-pushed">Pushed</span>
+    </h2>
+    {{ repo_rows(repos) }}
+  </section>
+  {% endif %}
+  {% if archived %}
+  {# Folded unless they are all there is to show, or words were written. #}
+  <details class="sheet-group repos-fold"{% if query or not repos %} open{% endif %}>
+    <summary class="sheet-row sheet-head repo-row">
+      <span class="repo-main">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>
+        Archived <span class="count">{{ archived | length }}</span>
+      </span>
+    </summary>
+    {{ repo_rows(archived) }}
+  </details>
+  {% endif %}
+{% elif query %}
+  <section class="sheet-group" aria-labelledby="repos-none">
+    <h2 class="sheet-row sheet-head" id="repos-none">Nothing found</h2>
+    <p class="sheet-row repos-line">No repository holds “{{ query }}” in its name, description or language.</p>
+  </section>
+{% elif link and not link.signed_out %}
+  <section class="sheet-group" aria-labelledby="repos-none">
+    <h2 class="sheet-row sheet-head" id="repos-none">Repositories</h2>
+    <p class="sheet-row repos-line repos-quiet">
+      {% if running or not link.synced_at %}Fetching your repositories from GitHub…
+      {% else %}GitHub has no repositories for {{ link.login }} yet.{% endif %}
+    </p>
+  </section>
+{% endif %}
+</div>
