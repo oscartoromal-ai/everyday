@@ -1051,6 +1051,42 @@ dialog.settings-dialog:focus-visible { outline: none; box-shadow: var(--shadow-m
 .settings-module__name { font-weight: 500; }
 .settings-module__section { flex: 1; font-size: var(--t-caption); color: var(--pewter); }
 .settings-module .btn { padding: 4px 12px; font-size: var(--t-caption); }
+.settings-section + .settings-section { margin-top: var(--s-6); }
+/* the version: its number, what it was built from, and the Changelog it opens */
+.settings-version {
+  display: flex; align-items: baseline; gap: var(--s-2);
+  min-height: 48px; margin-top: var(--s-3); padding: 14px 0;
+  border-block: 1px solid var(--hairline);
+  font-size: var(--t-body-sm); color: var(--ink); text-decoration: none;
+}
+.settings-version__number { font-weight: 600; font-variant-numeric: tabular-nums; }
+.settings-version__commit { flex: 1; font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums; }
+.settings-version__open { margin-left: auto; font-size: var(--t-caption); font-weight: 500; color: var(--graphite); }
+.settings-version__open::after { content: " ›"; }
+.settings-version:hover .settings-version__open { color: var(--ink); }
+
+/* ---------- the Changelog (changelog.html): a card per version, newest first ---------- */
+
+.changelog-page .page-header { margin-bottom: var(--s-4); }
+.release-version { font-variant-numeric: tabular-nums; }
+.release > h2 .chip { align-self: center; }
+.release-date {
+  margin-left: auto; font-size: var(--t-caption); font-weight: 500; color: var(--pewter);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.release-changes { margin: 0; padding: 0; list-style: none; }
+/* a change: its kind in a column of its own, then its words; a Major in ink */
+.release-change {
+  display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+}
+.release-change + .release-change { border-top: 1px solid var(--hairline-on-glass); }
+.release-kind { font-size: var(--t-caption); font-weight: 500; line-height: 20px; color: var(--graphite); }
+.release-summary { margin: 0; font-size: var(--t-body-sm); line-height: 20px; color: var(--ink); }
+.release-change[data-kind="major"] :is(.release-kind, .release-summary) { color: var(--ink); font-weight: 600; }
+.release-details { margin-top: var(--s-1); font-size: var(--t-body-sm); line-height: 1.5; color: var(--graphite); }
+.release-details :is(p, ul, ol) { margin: 0; }
+.release-details > * + * { margin-top: var(--s-1); }
 
 /* every key, behind ? (shell.js): the confirm dialog's paper, two columns of pairs */
 dialog.keys-dialog {

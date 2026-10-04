@@ -59,6 +59,8 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   A page never moves to another section.
   Each page has a hide eye beside it, and a section goes once all its pages are hidden; Settings, at the sidebar's foot, lists the hidden pages to bring back.
   The layout is kept in the database, so it holds on every device; a hidden page keeps its key and is still found by the command menu.
+- **Every version says what it changed** (Oscar's call on 2026-10-04: "Create changelog & features/bugs applied per version"): Settings names the running version and the commit it was built from, and opens the Changelog, a page listing every version, newest first, with its changes, each a Major, a Feature or a Fix.
+  Each pull request adds its changes as a file in `changes/`; versions are numbered from the order master took them in, never by hand (README, Recording a change).
 - **Filing by drag**: on Projects a task is dragged onto a workstream, another project, or No project to file it there.
 - **Today is a notepad beside the day's timeline** (Oscar's call on 2026-09-27, "for now"): the whole left column is one plain notepad for the day, the right the day's timeline.
   The notes are plain text, saved as they are written.

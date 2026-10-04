@@ -69,6 +69,8 @@
       hint: a.getAttribute("aria-keyshortcuts") || "",
       run: go(a.getAttribute("href")),
     })),
+    // Settings' Changelog, which no nav item opens.
+    { kind: "Page", label: "Changelog", words: "go to version release what's new history", run: go("/changelog") },
     {
       kind: "Do", label: "New task", words: "add write capture", hint: "N",
       // As N would: the page's own list, or the capture window.

@@ -13,7 +13,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import checklist
+from app import changelog, checklist
 from app.dates import duration_label, human_date, monday, short_date, upper_first, week_label
 from app.db import DbSession
 from app.models import (
@@ -78,6 +78,8 @@ templates.env.globals["design"] = design_system
 # The installed app's Update button (app/desktop/update.py), which sets its
 # own; a run from the repo has nothing to update.
 templates.env.globals["app_update"] = lambda: None
+# The app's version, in Settings (app/changelog.py).
+templates.env.globals["app_version"] = lambda: changelog.running()
 
 
 def keep_db(request: Request, db: DbSession) -> None:

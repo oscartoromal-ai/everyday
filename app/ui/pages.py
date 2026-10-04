@@ -10,6 +10,7 @@ from fastapi.responses import RedirectResponse
 
 from app.db import DbSession
 from app.models import Task
+from app.ui import changelog_view
 from app.ui.calendar_view import (
     VIEWS,
     calendar_nav,
@@ -98,6 +99,15 @@ def me_page(request: Request, db: DbSession):
     ctx = me_ctx(db, date.today())
     db.commit()  # the profile, begun empty the first time
     return templates.TemplateResponse(request, "me.html", {**_base(request, "me"), **ctx})
+
+
+@router.get("/changelog")
+def changelog_page(request: Request):
+    # Every version and what it changed, from Settings.
+    ctx = changelog_view.page_ctx(date.today())
+    return templates.TemplateResponse(
+        request, "changelog.html", {**_base(request, "changelog"), **ctx}
+    )
 
 
 CALENDAR_VIEW_COOKIE = "calendar_view"
