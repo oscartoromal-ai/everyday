@@ -12,6 +12,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.config import get_settings
 from app.dates import short_date
 from app.models import MoneyBill, Nudge, NudgeType, Task, TaskStatus
 from app.services import events as events_svc
@@ -78,9 +79,7 @@ def evaluate(db: Session, now: datetime) -> list[Nudge]:
             if nudge:
                 created.append(nudge)
     # 3. Bills of Finances coming due, not yet seen paid.
-    for day, bill in money_svc.upcoming(db, today, DUE_LOOKAHEAD_DAYS + 1):
-        if money_svc.payment(db, bill, day) is not None:
-            continue
+    for day, bill in _bills_due(db, today):
         nudge = _raise_nudge(
             db,
             type_=NudgeType.bill_due,
@@ -90,6 +89,17 @@ def evaluate(db: Session, now: datetime) -> list[Nudge]:
         if nudge:
             created.append(nudge)
     return created
+
+
+def _bills_due(db: Session, today: date) -> list[tuple[date, MoneyBill]]:
+    """The bills coming due, not yet seen paid; none on a machine installed
+    without Finances."""
+    if not get_settings().installed("finances"):
+        return []
+    return [
+        (day, bill) for day, bill in money_svc.upcoming(db, today, DUE_LOOKAHEAD_DAYS + 1)
+        if money_svc.payment(db, bill, day) is None
+    ]
 
 
 def _due_words(title: str, due: date, today: date) -> str:
@@ -121,7 +131,10 @@ def wording(db: Session, nudge: Nudge, today: date) -> str:
 
 
 def _bill_still_due(db: Session, nudge: Nudge) -> bool:
-    """A bill's nudge asks until the bill is paid, changed or gone."""
+    """A bill's nudge asks until the bill is paid, changed or gone, and not
+    on a machine installed without Finances."""
+    if not get_settings().installed("finances"):
+        return False
     _, bill_id, day = nudge.dedup_key.split(":")
     bill = db.get(MoneyBill, int(bill_id))
     due = date.fromisoformat(day)
@@ -194,10 +207,7 @@ def build_morning_digest(db: Session, now: datetime) -> str:
         )
     if review:
         lines.append(f"{len(review)} task(s) waiting for review.")
-    bills = [
-        (day, bill) for day, bill in money_svc.upcoming(db, today, DUE_LOOKAHEAD_DAYS + 1)
-        if money_svc.payment(db, bill, day) is None
-    ]
+    bills = _bills_due(db, today)
     if bills:
         lines.append(
             "Bills due: "

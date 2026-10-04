@@ -1,7 +1,8 @@
 """The sidebar's layout: its sections (Planner, Projects, Health, Finances,
 Code) and the modules (pages) in each, in the order Oscar dragged them, and
 the modules he hid. Kept as the "rail" setting, so it holds on every device;
-a module or section the code adds later joins at its section's end."""
+a module or section the code adds later joins at its section's end. A section
+the machine was installed without (Health, Finances, Code) is left out."""
 
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.models import Setting
 from app.services import DomainError
 
@@ -89,15 +91,42 @@ def _ordered(keys: list[str], known: list[str]) -> list[str]:
     return given + [k for k in known if k not in given]
 
 
+def not_installed() -> list[Section]:
+    """The sections this machine was installed without, as the code lists them."""
+    settings = get_settings()
+    return [s for s in SECTIONS if not settings.installed(s.key)]
+
+
+def keyed() -> list[Module]:
+    """The installed modules with a key, by their key."""
+    settings = get_settings()
+    modules = [m for s in SECTIONS if settings.installed(s.key) for m in s.modules]
+    return sorted((m for m in modules if m.shortcut), key=lambda m: m.shortcut)
+
+
+def key_runs(modules: list[Module]) -> list[tuple[str, str]]:
+    """Their keys as runs, first and last: 1 to 6 and 8 without Spending's 7."""
+    runs: list[list[str]] = []
+    for m in modules:
+        if runs and int(m.shortcut) == int(runs[-1][1]) + 1:
+            runs[-1][1] = m.shortcut
+        else:
+            runs.append([m.shortcut, m.shortcut])
+    return [(first, last) for first, last in runs]
+
+
 def layout(db: Session | None) -> list[PlacedSection]:
-    """The sections in their order, each with its modules in theirs; as the
-    code lists them with no session to read the setting from."""
+    """The sections installed in their order, each with its modules in
+    theirs; as the code lists them with no session to read the setting from."""
     setting = None if db is None else db.get(Setting, SETTING)
     saved = setting.value if setting and isinstance(setting.value, dict) else {}
     hidden = set(saved.get("hidden", []))
     modules = saved.get("modules", {})
+    settings = get_settings()
     placed = []
     for section_key in _ordered(saved.get("sections", []), list(_SECTIONS)):
+        if not settings.installed(section_key):
+            continue
         section = _SECTIONS[section_key]
         by_key = {m.key: m for m in section.modules}
         order = _ordered(modules.get(section_key, []), list(by_key))

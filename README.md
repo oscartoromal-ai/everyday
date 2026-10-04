@@ -60,6 +60,8 @@ Requires [Inno Setup 6](https://jrsoftware.org/isinfo.php) besides the dev setup
 
 This is how the app is first installed, and how to try uncommitted changes in it (the version then carries a `+` after its commit).
 PyInstaller freezes the app with its own Python (`desktop/personal-calendar.spec`), the C# compiler that comes with Windows builds its launcher (`desktop/launcher.cs`), and Inno Setup wraps both into a per-user installer (`desktop/installer.iss`) that needs no admin rights.
+Its first page, Modules, ticks the modules the machine should have: Health, Finances and Code can be left out (Planner and Projects are always in), and the app then has nothing of them, neither pages nor Claude's tools for them.
+Setup writes the choice to `install.toml` in the app's home and remembers it for the next install, a silent one included; run Setup again to change it.
 The installer puts the app in `%LOCALAPPDATA%\Programs\Personal Calendar`, adds it to the Start menu, and, unless unticked, starts it in the tray when Oscar signs in (the `Personal Calendar` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).
 That folder holds the launcher, `Personal Calendar.exe`, which the shortcuts start, and each version in a folder of its own, `app-<commit>`; the launcher starts the one `current.txt` names.
 An update stages the next version in a folder beside the running one, and the new version rewrites `current.txt` once its window is up; the version before it goes at the next update.
@@ -72,6 +74,7 @@ Uninstalling it (Installed apps) removes the program and its sign-in entry and k
 `build\Personal-Calendar-Setup.exe`, left in the repo by every build and every update, is the whole app: copy it to another Windows 10 or 11 machine and run it, with nothing else to install (WebView2 comes with Windows).
 Windows warns about it first, since it is not signed (More info, then Run anyway).
 That machine starts with an empty database of its own, and has no Update button unless the repo is checked out at the same path.
+For work, untick Finances (or Health) on Setup's Modules page.
 
 After changing `app/static/favicon.svg`, redraw the icons with `uv run python scripts/make_icons.py`.
 
@@ -85,6 +88,7 @@ Everything the app keeps lives under its home, `%LOCALAPPDATA%\Personal Calendar
 - `backups/`: the daily snapshots (see [Backups and restore](#backups-and-restore)).
 - `local/`: the machine's secrets (work-calendar feed, ntfy, Garmin's token, a GitHub token if one was pasted), git-ignored in a repo checkout.
 - `config.toml`: this machine's settings, over the defaults in the repo's `config.toml` that the app is built with, key by key; relative paths in either resolve against the home.
+- `install.toml`: the modules this machine was installed without (`[install] without`), written by Setup on every install, over both.
 
 `PC_HOME` names another home, and run from the repo the home is the repo itself.
 On Oscar's machine the home's `config.toml` keeps Nutrition's files in the repo (`[nutrition].dir`), where git keeps their history.

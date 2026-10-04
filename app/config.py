@@ -9,7 +9,8 @@ Everything the app keeps (the database, its logs and backups, local/, the
 nutrition files) lives under its home: the installed desktop app's is
 %LOCALAPPDATA%\Personal Calendar, a run from the repo's is the repo itself,
 and PC_HOME names another. Relative paths in the config resolve against it,
-and a config.toml there overrides the defaults key by key.
+and a config.toml there overrides the defaults key by key. So does the
+install.toml the installer writes there: the modules ticked (InstallConfig).
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ import os
 import sys
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel
 from pydantic_settings import (
@@ -116,12 +118,29 @@ class GitHubConfig(BaseModel):
     sync_minutes: int = 60
 
 
+# The modules an install can leave out, each a section of the sidebar
+# (app/services/rail.py); Planner and Projects are always in.
+OptionalModule = Literal["health", "finances", "code"]
+
+
+class InstallConfig(BaseModel):
+    # The modules this machine is installed without, e.g. ["finances"]: their
+    # pages, Claude's tools for them and their jobs are left out of the app.
+    # The installer writes it to install.toml in the home, from the modules
+    # left unticked.
+    without: list[OptionalModule] = []
+
+
 class Settings(BaseSettings):
     # Env vars override config.toml, e.g. PC_STORAGE__DB_PATH=...; the home's
     # config.toml overrides the defaults beside the code (the same file when
-    # run from the repo).
+    # run from the repo), and the installer's install.toml overrides both.
     model_config = SettingsConfigDict(
-        toml_file=list(dict.fromkeys([REPO_ROOT / "config.toml", HOME / "config.toml"])),
+        toml_file=list(
+            dict.fromkeys(
+                [REPO_ROOT / "config.toml", HOME / "config.toml", HOME / "install.toml"]
+            )
+        ),
         env_prefix="PC_",
         env_nested_delimiter="__",
     )
@@ -136,6 +155,7 @@ class Settings(BaseSettings):
     money: MoneyConfig = MoneyConfig()
     garmin: GarminConfig = GarminConfig()
     github: GitHubConfig = GitHubConfig()
+    install: InstallConfig = InstallConfig()
 
     @classmethod
     def settings_customise_sources(
@@ -148,6 +168,11 @@ class Settings(BaseSettings):
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         toml = TomlConfigSettingsSource(settings_cls, deep_merge=True)
         return (init_settings, env_settings, toml)
+
+    def installed(self, module: str) -> bool:
+        """Whether this machine has a module: Planner and Projects always, an
+        optional one unless it was installed without it."""
+        return module not in self.install.without
 
     @staticmethod
     def resolve(path: str) -> Path:

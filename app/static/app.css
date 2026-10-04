@@ -1079,7 +1079,8 @@ dialog.settings-dialog:focus-visible { outline: none; box-shadow: var(--shadow-m
 .settings-dialog h2 { font-size: var(--t-sub); }
 .settings-dialog header .btn { padding: 4px 10px; font-size: var(--t-caption); }
 .settings-section h3 { margin: 0; font-size: var(--t-caption); font-weight: 600; color: var(--pewter); }
-.settings-hint, .settings-empty { margin: var(--s-1) 0 0; font-size: var(--t-body-sm); line-height: 1.5; color: var(--graphite); }
+.settings-hint, .settings-empty, .settings-install { margin: var(--s-1) 0 0; font-size: var(--t-body-sm); line-height: 1.5; color: var(--graphite); }
+.settings-install { margin-top: var(--s-3); }
 .settings-dialog:not([data-empty]) .settings-empty,
 .settings-dialog[data-empty] :is(.settings-hint, .settings-modules) { display: none; }
 .settings-modules { margin: var(--s-3) 0 0; padding: 0; list-style: none; border-top: 1px solid var(--hairline); }

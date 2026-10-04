@@ -4,6 +4,12 @@
 host = "127.0.0.1"
 port = 8377
 
+[install]
+# The modules this machine leaves out, of "health", "finances" and "code"
+# (Planner and Projects are always in). The installer writes it to
+# install.toml in the app's home, from the modules left unticked.
+without = []
+
 [storage]
 db_path = "data/personal-calendar.db"
 

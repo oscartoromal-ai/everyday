@@ -89,6 +89,8 @@ The foot starts with Search, its magnifier and name, and its key ("Ctrl K") in a
 Then Brasa's shipped light/dark toggle: the current mode's sun or moon, which rotates and fades into the other, beside the mode's name in 12px pewter.
 The names are the installed system's own, read from `design-language.json`: "Day" and "Night" for Neon Signage.
 Settings ends the foot, two sliders and its name; it opens the keys dialog's paper, 480px wide, whose Modules section lists the hidden pages, each its icon, its name, its section in pewter and a quiet Show, or says every page is in the sidebar.
+On a machine installed without some modules, a line in 14px graphite, as the hint's, 12px under the list, names them and says the installer adds them back ("Not installed on this machine: Finances. Run the installer again to add it.").
+Such a module's section is not in the sidebar at all, and the keys dialog lists the number keys left as runs ("1–6, 8").
 Its Version section, 24px under, is one 48px row between hairlines: the version in 14px/600 ink, "built from" (or "run from") its commit in 12px pewter, and "Changelog ›" in 12px/500 graphite at the right, ink on hover, the whole row the link.
 A panel icon beside the wordmark collapses the sidebar to a 64px icon rail (`data-rail="collapsed"` on `<html>`, saved as `pc-rail`, applied before paint).
 The shell animates its column width on `--ease` over 220ms.

@@ -51,6 +51,22 @@ ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=no
 RestartApplications=no
 
+[Messages]
+WizardSelectComponents=Modules
+SelectComponentsDesc=Which modules should this machine have?
+SelectComponentsLabel2=Untick the modules you do not want here. Planner and Projects are always in. Run Setup again to change them.
+
+; The modules, ticked or not on a page of their own: the app leaves out the
+; ones unticked (WriteModules below). Setup remembers them for the next install.
+[Types]
+Name: "custom"; Description: "Custom"; Flags: iscustom
+
+[Components]
+Name: "planner"; Description: "Planner and Projects: Today, Calendar, Projects"; Types: custom; Flags: fixed
+Name: "health"; Description: "Health: Nutrition, Me, Garmin"; Types: custom
+Name: "finances"; Description: "Finances: Spending, Accounts, Bills, Goals"; Types: custom
+Name: "code"; Description: "Code: Repositories"; Types: custom
+
 [Tasks]
 Name: "autostart"; Description: "Start {#AppName} when I sign in, in the tray (Claude, reminders and the phone need it running)"
 Name: "desktopicon"; Description: "A desktop shortcut"; Flags: unchecked
@@ -122,6 +138,50 @@ begin
     Result := '{#AppName} is still running. Quit it from its tray icon, then try again.'
   else
     Result := '';
+end;
+
+// The modules page lists the modules alone: every module is the same files,
+// so there is no size to show, and no preset to choose.
+procedure InitializeWizard();
+begin
+  WizardForm.TypesCombo.Visible := False;
+  WizardForm.ComponentsDiskSpaceLabel.Visible := False;
+  WizardForm.ComponentsList.Top := WizardForm.TypesCombo.Top;
+end;
+
+// The modules unticked, for the app to leave out: install.toml in its home
+// (app/config.py's [install]), written whole on every install.
+procedure WriteModules();
+var
+  Home, Without: String;
+  Modules: TArrayOfString;
+  I: Integer;
+begin
+  Home := GetEnv('PC_HOME');
+  if Home = '' then
+    Home := ExpandConstant('{localappdata}\{#AppName}');
+  Modules := ['health', 'finances', 'code'];
+  Without := '';
+  for I := 0 to GetArrayLength(Modules) - 1 do
+    if not WizardIsComponentSelected(Modules[I]) then
+    begin
+      if Without <> '' then
+        Without := Without + ', ';
+      Without := Without + '"' + Modules[I] + '"';
+    end;
+  ForceDirectories(Home);
+  if not SaveStringToFile(Home + '\install.toml',
+    '# The modules unticked in Setup, which the app leaves out. Written by Setup:' + #13#10 +
+    '# run it again to change them.' + #13#10 +
+    '[install]' + #13#10 +
+    'without = [' + Without + ']' + #13#10, False) then
+    RaiseException('Could not write ' + Home + '\install.toml');
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    WriteModules();
 end;
 
 function InitializeUninstall(): Boolean;

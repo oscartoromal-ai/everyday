@@ -13,12 +13,13 @@ from app.api import calendar as calendar_api
 from app.api import projects as projects_api
 from app.api import tasks as tasks_api
 from app.config import get_settings
-from app.mcp.server import mcp
+from app.mcp.server import create_mcp
 from app.security import BrowserGuardMiddleware
 from app.services import DomainError
 from app.ui import fragments as ui_fragments
 from app.ui import gantt as ui_gantt
 from app.ui import garmin as ui_garmin
+from app.ui import me as ui_me
 from app.ui import money as ui_money
 from app.ui import nutrition as ui_nutrition
 from app.ui import pages as ui_pages
@@ -28,10 +29,19 @@ from app.ui.views import keep_db
 
 APP_DIR = Path(__file__).resolve().parent
 
+# Each optional module's routes (config.py's OptionalModule).
+OPTIONAL_ROUTERS = {
+    "health": (ui_nutrition.router, ui_me.router, ui_garmin.router),
+    "finances": (ui_money.router,),
+    "code": (ui_repositories.router,),
+}
+
 
 def create_app(*, with_scheduler: bool = False) -> FastAPI:
-    # Streamable HTTP MCP endpoint at /mcp, sharing the process and database.
-    mcp_app = mcp.http_app(path="/", stateless_http=True)
+    settings = get_settings()
+    # Streamable HTTP MCP endpoint at /mcp, sharing the process and database,
+    # with the tools of the modules installed.
+    mcp_app = create_mcp(settings.install.without).http_app(path="/", stateless_http=True)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -60,18 +70,18 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     ui = [Depends(keep_db)]
     app.include_router(ui_pages.router, dependencies=ui)
     app.include_router(ui_fragments.router, dependencies=ui)
-    app.include_router(ui_nutrition.router, dependencies=ui)
-    app.include_router(ui_garmin.router, dependencies=ui)
-    app.include_router(ui_money.router, dependencies=ui)
-    app.include_router(ui_repositories.router, dependencies=ui)
     app.include_router(ui_gantt.router, dependencies=ui)
     app.include_router(ui_project.router, dependencies=ui)
+    # The optional modules' pages, unless the machine was installed without them.
+    for module, routers in OPTIONAL_ROUTERS.items():
+        if settings.installed(module):
+            for router in routers:
+                app.include_router(router, dependencies=ui)
 
     @app.exception_handler(DomainError)
     def domain_error(request: Request, exc: DomainError) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": str(exc)})
 
-    settings = get_settings()
     allowed_hosts = {"127.0.0.1", "localhost", *settings.server.extra_hosts}
     app.add_middleware(BrowserGuardMiddleware, allowed_hosts=allowed_hosts)
 

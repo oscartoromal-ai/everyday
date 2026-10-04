@@ -201,6 +201,11 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       <p class="settings-hint">Hidden from the sidebar. Their pages are still a search away (Ctrl+K).</p>
       <ul class="settings-modules" data-hidden-modules></ul>
       <p class="settings-empty">Every module is in the sidebar. Hide one with the eye beside it there.</p>
+      {# The modules this machine was installed without (config.toml's [install]). #}
+      {% set names = not_installed() | map(attribute="label") | list %}
+      {% if names %}
+      <p class="settings-install">Not installed on this machine: {{ names[:-1] | join(", ") }}{% if names | length > 1 %} and {% endif %}{{ names[-1] }}. Run the installer again to add {{ "them" if names | length > 1 else "it" }}.</p>
+      {% endif %}
     </section>
     {# The app's version, opening the Changelog (app/changelog.py). #}
     {% set running = app_version() %}
@@ -225,7 +230,8 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       <section>
         <h3>Anywhere</h3>
         <dl>
-          <dt><kbd>1</kbd>–<kbd>8</kbd></dt><dd>Today, Calendar, Projects, Nutrition, Me, Garmin, Spending, Repositories</dd>
+          {% set keyed = rail_keys() %}
+          <dt>{% for first, last in rail_key_runs(keyed) %}{% if not loop.first %}, {% endif %}<kbd>{{ first }}</kbd>{% if last != first %}–<kbd>{{ last }}</kbd>{% endif %}{% endfor %}</dt><dd>{{ keyed | map(attribute="label") | join(", ") }}</dd>
           <dt><kbd>N</kbd> <span class="or">or</span> <kbd>Shift</kbd> <kbd>N</kbd></dt><dd>New task</dd>
           <dt><kbd>?</kbd></dt><dd>These keys</dd>
           <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Search tasks, projects, events and notes; go to a page or a day ("friday", "12 oct"); or do (new task or event, theme)</dd>
@@ -293,12 +299,14 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
           <dt><kbd>Ctrl</kbd> <kbd>S</kbd> <span class="or">or</span> <kbd>Ctrl</kbd> <kbd>Enter</kbd></dt><dd>Save now</dd>
           <dt><kbd>Esc</kbd></dt><dd>Save, and step out of the writing</dd>
         </dl>
+        {% if installed("health") %}
         <h3>Nutrition</h3>
         <dl>
           <dt><kbd>Enter</kbd></dt><dd>Send the message to Claude</dd>
           <dt><kbd>Shift</kbd> <kbd>Enter</kbd></dt><dd>A new line in the message</dd>
           <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>The day before or after (outside the message)</dd>
         </dl>
+        {% endif %}
       </section>
       <section>
         <h3>Projects' list</h3>
