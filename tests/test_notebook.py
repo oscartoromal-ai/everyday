@@ -152,3 +152,28 @@ def test_the_tasks_still_open_from_the_last_page_with_tasks(db) -> None:
     assert notebook.still_open(db, TODAY) == (friday, [overdue, undated, for_today])
     # The first page ever has nothing to bring.
     assert notebook.still_open(db, friday - timedelta(days=1)) == (None, [])
+
+
+def test_a_windows_later_save_stands_over_its_earlier_one(db) -> None:
+    def save(text: str, version: int, writer: str = "", seq: int = 0):  # noqa: ANN202
+        blocks = [{"kind": "text", "text": text}]
+        return notebook.save_page(db, TODAY, blocks, version=version, writer=writer, seq=seq)
+
+    def text() -> str:
+        return notebook.get_page(db, TODAY).blocks[0]["text"]
+
+    save("Groceries", 0, "a", 1)
+    # Its next save, from the copy before the first landed: it stands.
+    save("Groceries, bank", 0, "a", 2)
+    assert (text(), notebook.version_of(db, TODAY)) == ("Groceries, bank", 2)
+    # An earlier save of its own landing late is stood over.
+    with pytest.raises(notebook.SupersededSave):
+        save("Groceries", 1, "a", 1)
+    # Another window's copy from before is refused, as is the same window's
+    # once anyone else (another window, the sheet) has saved since.
+    with pytest.raises(notebook.StalePage):
+        save("Gym", 1, "b", 1)
+    save("Gym", 2, "", 0)
+    with pytest.raises(notebook.StalePage):
+        save("Groceries, bank, post", 2, "a", 3)
+    assert text() == "Gym"

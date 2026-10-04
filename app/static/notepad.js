@@ -1046,6 +1046,12 @@
   let again = false;
   let stale = false;
   let theirs = 0;
+  // This window, and its saves numbered: the server lets a later save of
+  // this window stand over an earlier one still on its way (a page being
+  // left saves while its last save has not landed), never the other way.
+  const writer = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  let seq = 0;
+  let left = false; // the page is being left: its last save has gone
   const loading = Annotation.define(); // the notes being taken up, not written
 
   // A task row not added yet, as its add would write it: null when there is
@@ -1126,6 +1132,7 @@
 
   async function flush({ leaving = false } = {}) {
     clearTimeout(timer);
+    if (left && !leaving) return;
     if (!view || stale || !(pending() || (leaving && blocks().some(toAdd)))) return;
     if (inflight && !leaving) {
       again = true;
@@ -1136,7 +1143,7 @@
     const request = fetch(`/ui/notebook/${day}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-CSRF": window.csrfToken() },
-      body: JSON.stringify({ version, blocks: page }),
+      body: JSON.stringify({ version, blocks: page, writer, seq: ++seq }),
       keepalive: leaving,
     });
     if (leaving) return;
@@ -1146,7 +1153,8 @@
       const answer = await res.json().catch(() => ({}));
       if (res.ok) {
         version = answer.version;
-        saved = state;
+        // Stood over by a later save of this window: that one is the saved.
+        if (!answer.superseded) saved = state;
       } else if (res.status === 409) {
         stale = true;
         theirs = answer.version;
@@ -1399,6 +1407,13 @@
     if (!view) return;
     for (const block of blocks()) if (block.m.id) saveTask(block, { leaving: true });
     flush({ leaving: true });
+    // The page hidden as it goes saves nothing after this one, which adds
+    // the task rows: a later save would stand over it without them.
+    left = true;
+  });
+  // Back from the browser's cache: written in again.
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) left = false;
   });
 
   /* ---- the day's stay, under the date ---- */

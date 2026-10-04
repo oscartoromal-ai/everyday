@@ -62,6 +62,30 @@ def test_a_nudge_stays_only_while_its_fact_holds(db) -> None:
     assert [n.task_id for n in nudges_svc.active_nudges(db)] == [due.id]
 
 
+def test_a_nudge_goes_when_its_task_moves_off_that_fact(db) -> None:
+    task = tasks_svc.create_task(db, title="invoice", due=TODAY + timedelta(days=1))
+    [due] = nudges_svc.evaluate(db, NOW)
+    # Its due day moved on a month: not due tomorrow any more.
+    tasks_svc.update_task(db, task.id, due=TODAY + timedelta(days=30))
+    assert nudges_svc.active_nudges(db) == []
+    # Moved back near, it is the fact again, and the nudge says so.
+    tasks_svc.update_task(db, task.id, due=TODAY + timedelta(days=1))
+    assert nudges_svc.active_nudges(db) == [due]
+
+    # A review that ended and began again is a new fact: the old one's
+    # nudge goes as the new one's comes.
+    review = tasks_svc.create_task(db, title="review me")
+    tasks_svc.set_status(db, review.id, TaskStatus.needs_review)
+    review.status_changed_at = NOW - timedelta(hours=72)
+    [first] = [n for n in nudges_svc.evaluate(db, NOW) if n.type == NudgeType.needs_review]
+    tasks_svc.set_status(db, review.id, TaskStatus.in_progress)
+    tasks_svc.set_status(db, review.id, TaskStatus.needs_review)
+    review.status_changed_at = NOW - timedelta(hours=50)
+    [second] = [n for n in nudges_svc.evaluate(db, NOW) if n.type == NudgeType.needs_review]
+    assert [n for n in nudges_svc.active_nudges(db) if n.task_id == review.id] == [second]
+    assert first is not second
+
+
 def test_needs_review_nudge_after_threshold(db) -> None:
     fresh = tasks_svc.create_task(db, title="fresh review")
     tasks_svc.set_status(db, fresh.id, TaskStatus.needs_review)

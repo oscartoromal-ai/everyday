@@ -230,21 +230,31 @@ def sync(
 ) -> tuple[date, date]:
     """Fetch the window's days and activities and keep them; the link notes
     how it went. Returns the window. A Garmin error is recorded on the link
-    (and raised), what was kept before it staying kept."""
+    (and raised), the days fetched before it kept.
+
+    Everything is fetched before anything is written: a write holds SQLite's
+    one write lock until the commit, and the app's other writers must not
+    wait on Garmin's answers (a first sync asks for 30 days)."""
     now = now or datetime.now()
     start, end = window(db, today, backfill_days)
     row = link(db)
+    fetched: list[tuple[date, dict[str, Any]]] = []
     try:
         day = start
         while day <= end:
-            keep_day(db, day, source.fetch_day(day), now)
+            fetched.append((day, source.fetch_day(day)))
             day += timedelta(days=1)
-        keep_activities(db, start, end, source.fetch_activities(start, end))
+        found = source.fetch_activities(start, end)
     except GarminError as exc:
+        for day, raw in fetched:
+            keep_day(db, day, raw, now)
         if row is not None:
             row.sync_error = str(exc)
             db.flush()
         raise
+    for day, raw in fetched:
+        keep_day(db, day, raw, now)
+    keep_activities(db, start, end, found)
     if row is not None:
         row.synced_at, row.sync_error = now, ""
         db.flush()
@@ -257,7 +267,7 @@ syncing = Syncing("garmin-sync")
 def run_sync(
     factory: Callable[[], Session], source: GarminSource, today: date, backfill_days: int
 ) -> None:
-    """A whole sync in its own session, committed as it went: for a thread."""
+    """A whole sync in its own session, committed at its end: for a thread."""
     with factory() as db:
         if link(db) is None:
             return

@@ -205,7 +205,7 @@
      open what is clicked, draw a new event's time on the empty grid ---- */
 
   let gesture = null;
-  // move/resize: {kind, el, url, date, startMin, endMin, grabMin, originY, moved, target}
+  // move/resize: {kind, el, url, date, startMin, endMin, grabMin, originY, moved, height, target}
   // draw: {kind: "draw", col, anchorMin, originY, touch, moved, startMin, endMin}
 
   document.addEventListener("pointerdown", (e) => {
@@ -225,6 +225,7 @@
         grabMin: minutesAt(col, e.clientY) - startMin,
         originY: e.clientY,
         moved: false,
+        height: item.style.height,
       };
       item.setPointerCapture(e.pointerId);
       e.preventDefault();
@@ -296,8 +297,13 @@
     }
     clearPreview();
     g.el.style.opacity = "";
+    if (e.type === "pointercancel") {
+      // Taken over by the browser (a finger that scrolls): put back, unsent.
+      g.el.style.height = g.height;
+      return;
+    }
     if (!g.moved) {
-      if (e.type === "pointerup") openEventCard(g.el);
+      openEventCard(g.el);
       return;
     }
     if (!g.target) return;

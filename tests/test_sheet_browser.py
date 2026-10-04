@@ -107,6 +107,37 @@ def test_editing_saves_when_focus_leaves_the_sheet(page, live, app_db) -> None:
         assert task.notes == "- oil"
 
 
+@pytest.mark.parametrize("leave", ["Alt+1", "Control+k"])
+def test_an_edit_goes_with_a_page_chosen_from_the_keys(page, live, app_db, leave) -> None:
+    """Left by a key (Alt+1 to Today, or Ctrl+K and Calendar chosen there)
+    with a task's sheet still open: what is written is saved as it goes."""
+    import time
+
+    with app_db() as db:
+        task_id = tasks_svc.create_task(db, title="Mow", planned_for=date.today()).id
+        db.commit()
+    page.goto(f"{live}/projects")
+    page.locator(".task-title-btn", has_text="Mow").click()
+    page.locator(".task-sheet[data-sheet=edit][data-ready]").wait_for()
+    page.keyboard.type(" the lawn")
+    page.keyboard.press(leave)
+    if leave == "Control+k":
+        page.locator("#command-dialog").wait_for()
+        page.keyboard.type("Calendar")
+        page.keyboard.press("Enter")
+    page.wait_for_url(lambda url: "/projects" not in url)
+
+    end = time.monotonic() + 5
+    while time.monotonic() < end:
+        with app_db() as db:
+            if tasks_svc.get_task(db, task_id).title == "Mow the lawn":
+                return
+        time.sleep(0.1)
+    with app_db() as db:
+        assert tasks_svc.get_task(db, task_id).title == "Mow the lawn"
+
+
+
 def test_spelling_is_marked_only_in_the_line_being_written(page, live) -> None:
     page.goto(f"{live}/projects")
     sheet = page.locator(".main .task-sheet[data-sheet=compose]")

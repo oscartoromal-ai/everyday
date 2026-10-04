@@ -1109,6 +1109,24 @@
     if (form && isEdit(form) && outside(form, e.relatedTarget)) save(form);
   });
 
+  // The page left with a sheet open (Alt and a number, Ctrl+K, Back): no
+  // focus leaves it, so what is written goes as the page does, the request
+  // outliving it.
+  window.addEventListener("pagehide", () => {
+    document.querySelectorAll(".task-sheet[data-sheet='edit']").forEach((form) => {
+      convertTrailing(form);
+      if (!titleText(form)) setTitle(form, titleOf(form).dataset.original);
+      const body = snapshot(form);
+      if (body === form._initial) return;
+      fetch(form.getAttribute("hx-post"), {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRF": window.csrfToken() },
+        body,
+        keepalive: true,
+      });
+    });
+  });
+
   // Tab past a sheet's last control leaves it, even where nothing on the
   // page comes after it to take the focus (it would go to the browser).
   const TABBABLE = "button:not([hidden]), input:not([type='hidden']), [contenteditable], [tabindex='0']";

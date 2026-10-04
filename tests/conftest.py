@@ -105,3 +105,24 @@ def page(live) -> Generator:
         yield page
         browser.close()
         assert errors == []
+
+
+@pytest.fixture
+def phone(live) -> Generator:
+    """A Chromium page as a phone's: its width, touched by a finger (skipped
+    without one); any page error fails the test."""
+    sync_api = pytest.importorskip("playwright.sync_api")
+    with sync_api.sync_playwright() as p:
+        try:
+            browser = p.chromium.launch()
+        except Exception as exc:  # noqa: BLE001
+            pytest.skip(f"no Chromium for Playwright: {exc}")
+        context = browser.new_context(
+            viewport={"width": 390, "height": 844}, has_touch=True, is_mobile=True
+        )
+        page = context.new_page()
+        errors: list[str] = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        yield page
+        browser.close()
+        assert errors == []

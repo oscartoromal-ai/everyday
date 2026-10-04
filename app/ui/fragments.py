@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Body, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from app.db import DbSession
 from app.models import (
     ProjectStatus,
     RecurrenceKind,
+    Task,
     TaskOwner,
     TaskPriority,
     TaskStatus,
@@ -587,7 +589,9 @@ def toggle_workstream(request: Request, db: DbSession, workstream_id: int):
 
 
 @router.post("/notebook/{day}")
-async def save_notebook(request: Request, db: DbSession, day: date):
+# A plain def, run on a worker thread: its writes may wait on SQLite's lock,
+# and the server's loop must not wait with them (tests/test_server_waits.py).
+def save_notebook(db: DbSession, day: date, body: Annotated[Any, Body()]):
     """Save a day's page (notepad.js): {"version": the copy's version,
     "blocks": [...]}. A text block's `new`, {row: task as written}, names
     task rows not yet added (the page was being left): each is added here
@@ -597,26 +601,27 @@ async def save_notebook(request: Request, db: DbSession, day: date):
     adds nothing)."""
     from app.services import notebook as notebook_svc
 
-    body = await request.json()
     if not isinstance(body, dict):
         raise DomainError("Expected a page")
     version = int(body.get("version", -1))
     blocks = body.get("blocks")
-    if version != notebook_svc.version_of(db, day):
-        return JSONResponse(
-            {"detail": "This page was changed in another window.",
-             "version": notebook_svc.version_of(db, day)},
-            status_code=409,
-        )
-    if isinstance(blocks, list):
-        blocks = [_add_new_rows(db, b) for b in blocks]
-    try:
-        page = notebook_svc.save_page(db, day, blocks, version=version)
-    except notebook_svc.StalePage as exc:
-        return JSONResponse(
-            {"detail": str(exc), "version": notebook_svc.version_of(db, day)}, status_code=409
-        )
-    db.commit()
+    # The window saving (notepad.js) and the number of this save of its.
+    saver = {"writer": str(body.get("writer") or "")[:40], "seq": int(body.get("seq") or 0)}
+    with notebook_svc.saving:
+        try:
+            # Checked before any task is added: a refused save adds nothing.
+            notebook_svc.check_save(db, day, version=version, **saver)
+            if isinstance(blocks, list):
+                blocks = [_add_new_rows(db, b) for b in blocks]
+            page = notebook_svc.save_page(db, day, blocks, version=version, **saver)
+        except notebook_svc.SupersededSave:
+            # Its window's later save is in, from a newer copy: nothing to do.
+            return JSONResponse({"version": notebook_svc.version_of(db, day), "superseded": True})
+        except notebook_svc.StalePage as exc:
+            return JSONResponse(
+                {"detail": str(exc), "version": notebook_svc.version_of(db, day)}, status_code=409
+            )
+        db.commit()
     return JSONResponse({"version": page.version})
 
 
@@ -674,7 +679,11 @@ def set_habit_days(db: DbSession, slug: str, days: Annotated[str, Form()] = ""):
 
 
 @router.post("/day-sheet")
-async def day_sheet_edit(request: Request, db: DbSession, start: date):
+# A plain def, run on a worker thread: its writes may wait on SQLite's lock,
+# and the server's loop must not wait with them (tests/test_server_waits.py).
+def day_sheet_edit(
+    request: Request, db: DbSession, start: date, body: Annotated[Any, Body()]
+):
     """Calendar's sheet, written in (day_sheet.js): {"ops": [...]}, each
     one of
         {"op": "habit", "day", "slug", "done"}    a habit done that day, or not
@@ -690,10 +699,28 @@ async def day_sheet_edit(request: Request, db: DbSession, start: date):
     from app.services import notebook as notebook_svc
     from app.ui.day_sheet_view import day_sheet_ctx
 
-    body = await request.json()
     ops = body.get("ops") if isinstance(body, dict) else None
     if not isinstance(ops, list):
         raise DomainError("Expected a list of ops")
+    # Its habits and stays are writes to the days' pages (notebook_svc.saving).
+    with notebook_svc.saving:
+        created = _apply_sheet_ops(db, ops)
+        db.commit()
+    response = templates.TemplateResponse(
+        request,
+        "partials/day_sheet.html",
+        {"request": request, "sheet": day_sheet_ctx(db, start, date.today())},
+    )
+    if created is not None:
+        response.headers["X-Task-Created"] = str(created.id)
+    return response
+
+
+def _apply_sheet_ops(db: Session, ops: list) -> Task | None:
+    """Calendar's sheet's ops applied in order (day_sheet_edit); the last
+    task written, if any."""
+    from app.services import notebook as notebook_svc
+
     created = None
     for op in ops:
         if not isinstance(op, dict):
@@ -733,15 +760,7 @@ async def day_sheet_edit(request: Request, db: DbSession, start: date):
                 created = tasks_svc.create_task(db, title=title, planned_for=day)
         else:
             raise DomainError(f"Unknown op: {kind!r}")
-    db.commit()
-    response = templates.TemplateResponse(
-        request,
-        "partials/day_sheet.html",
-        {"request": request, "sheet": day_sheet_ctx(db, start, date.today())},
-    )
-    if created is not None:
-        response.headers["X-Task-Created"] = str(created.id)
-    return response
+    return created
 
 
 @router.get("/tasks/{task_id}/history")

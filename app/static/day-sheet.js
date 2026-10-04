@@ -604,7 +604,10 @@
     cell.classList.toggle("is-unpainted", !paint.done);
   };
 
-  sheet.addEventListener("pointerdown", (e) => {
+  // A press: a mouse's or a pen's as it goes down, a finger's as its click
+  // (below), since a finger that goes on to scroll is the page's, and must
+  // tick, toggle or delete nothing.
+  const press = (e) => {
     if (e.button !== 0 || editing?.input === e.target) return;
     const cell = e.target.closest(".ds-cell");
     if (!cell) return;
@@ -650,7 +653,19 @@
     } else {
       selecting = true;
     }
-    sheet.setPointerCapture?.(e.pointerId);
+    if (e.type === "pointerdown") sheet.setPointerCapture?.(e.pointerId);
+  };
+
+  let touched = false;
+  sheet.addEventListener("pointerdown", (e) => {
+    touched = e.pointerType === "touch";
+    if (!touched) press(e);
+  });
+  sheet.addEventListener("click", (e) => {
+    if (!touched) return;
+    touched = false;
+    press(e);
+    endPointer();
   });
 
   sheet.addEventListener("pointermove", (e) => {
@@ -681,7 +696,12 @@
     else cells.forEach((c) => c.classList.remove("is-painted", "is-unpainted"));
   };
   sheet.addEventListener("pointerup", endPointer);
-  sheet.addEventListener("pointercancel", endPointer);
+  // Taken over by the browser (a pen that scrolls): nothing painted is sent.
+  sheet.addEventListener("pointercancel", () => {
+    paint?.cells.forEach((c) => c.classList.remove("is-painted", "is-unpainted"));
+    paint = null;
+    selecting = false;
+  });
 
   sheet.addEventListener("dblclick", (e) => {
     const cell = e.target.closest(".ds-cell");

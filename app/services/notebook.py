@@ -21,6 +21,7 @@ on it, after what was written.
 from __future__ import annotations
 
 import re
+import threading
 from datetime import date, datetime
 from typing import Any
 
@@ -35,6 +36,15 @@ from app.services import tasks as tasks_svc
 
 class StalePage(DomainError):
     """The page was saved elsewhere since this copy was read."""
+
+
+class SupersededSave(DomainError):
+    """A window's save that its own later save has already stood over."""
+
+
+# Held by every route that writes a page, from its check to its commit: two
+# saves of one page never pass the check together. The app is one process.
+saving = threading.Lock()
 
 
 KINDS = ("text", "task", "reflection", "habit", "stay")
@@ -174,15 +184,30 @@ def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
     return out
 
 
+def check_save(db: Session, day: date, *, version: int, writer: str = "", seq: int = 0) -> None:
+    """Whether a save of the day's page, made from the copy at `version`, may
+    stand: refused (StalePage) when the page was saved elsewhere since. A
+    window's save (`writer`, numbering its saves `seq`) stands over its own
+    earlier one, whose copy is older, even when that one landed first (a
+    page being left saves while its last save is on its way); an earlier
+    one landing after it is SupersededSave."""
+    page = get_page(db, day)
+    mine = bool(writer) and page is not None and page.writer == writer
+    if mine and seq <= page.writer_seq:
+        raise SupersededSave("This window has saved the page since.")
+    if version != (page.version if page else 0) and not mine:
+        raise StalePage("This page was changed in another window.")
+
+
 def save_page(
-    db: Session, day: date, blocks: Any, *, version: int
+    db: Session, day: date, blocks: Any, *, version: int, writer: str = "", seq: int = 0
 ) -> NotebookPage:
     """Replace the day's page with `blocks`, if `version` is the page's
-    current one (0 for a page not yet written)."""
+    current one (0 for a page not yet written), or this is the later save
+    of the window that saved it last (check_save)."""
+    check_save(db, day, version=version, writer=writer, seq=seq)
     page = get_page(db, day)
     current = page.version if page else 0
-    if version != current:
-        raise StalePage("This page was changed in another window.")
     if page is None:
         page = NotebookPage(day=day, blocks=[], version=0)
         db.add(page)
@@ -193,6 +218,7 @@ def save_page(
         {**b, "habit": ids[b["habit"]]} if b["kind"] == "habit" else b for b in blocks
     ]
     page.version = current + 1
+    page.writer, page.writer_seq = writer, seq
     page.updated_at = datetime.now()
     db.flush()
     return page
