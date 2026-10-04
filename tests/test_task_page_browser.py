@@ -78,3 +78,25 @@ def test_a_title_on_the_sheet_opens_its_page(page, live, app_db) -> None:
             break
         time.sleep(0.05)
     assert notes == "- receipts\n- payslips"
+
+
+def test_its_box_steps_it_through_progress_and_review_to_done(page, live, app_db) -> None:
+    with app_db() as db:
+        task = tasks_svc.create_task(db, title="Ship the release", planned_for=TODAY)
+        db.commit()
+    page.goto(f"{live}/tasks/{task.id}")
+    box = page.locator("[data-sheet-check]")
+    for status in ["in_progress", "needs_review", "done", "todo"]:
+        box.click()
+        page.locator("[data-page-state]", has_text="Saved").wait_for()
+        deadline = time.monotonic() + 5
+        while True:
+            with app_db() as db:
+                stored_status = db.get(Task, task.id).status
+            if stored_status == status or time.monotonic() > deadline:
+                break
+            time.sleep(0.05)
+        assert stored_status == status
+        assert box.get_attribute("data-status") == status
+        assert box.is_checked() == (status == "done")
+        assert box.evaluate("el => el.indeterminate") == (status in ("in_progress", "needs_review"))

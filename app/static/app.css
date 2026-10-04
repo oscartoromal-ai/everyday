@@ -452,6 +452,15 @@ label.me-row:hover, .weight-log .me-row:hover { background: var(--glass-row-hove
 }
 .task-check:checked { background: var(--ink); border-color: var(--ink); }
 .task-check:checked::before { visibility: visible; }
+/* a sheet's box steps its task on (task-sheet.js): in progress, as on Gantt,
+   edged in blue and filled inside, a paper gap between; in review the same
+   in amber; blocked, edged in red */
+.task-sheet .task-check:indeterminate::before { visibility: visible; clip-path: inset(10%); }
+.task-sheet .task-check:indeterminate[data-status="in_progress"] { border-color: var(--hue-6); }
+.task-sheet .task-check:indeterminate[data-status="in_progress"]::before { background: var(--hue-6); }
+.task-sheet .task-check:indeterminate[data-status="needs_review"] { border-color: var(--warn-fg); }
+.task-sheet .task-check:indeterminate[data-status="needs_review"]::before { background: var(--warn-fg); }
+.task-sheet .task-check:not(:checked)[data-status="blocked"] { border-color: var(--err-fg); }
 /* the box just ticked (tasks.js marks it): one beat, if the system has one */
 .task-row.just-done .task-check { animation: var(--check-pulse); }
 
