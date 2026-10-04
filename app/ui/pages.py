@@ -23,6 +23,7 @@ from app.ui.day_sheet_view import day_sheet_ctx
 from app.ui.views import (
     day_glance_ctx,
     day_page_ctx,
+    plan_page_ctx,
     projects_page_ctx,
     task_page_ctx,
     templates,
@@ -88,8 +89,8 @@ def _day_page(request: Request, db: DbSession, day: date):
 
 @router.get("/backlog")
 def backlog_page():
-    # The backlog is Projects' tasks without a day.
-    return RedirectResponse("/projects", status_code=301)
+    # The backlog is the tasks without a day: Plan's.
+    return RedirectResponse("/plan", status_code=301)
 
 
 @router.get("/changelog")
@@ -177,11 +178,21 @@ def calendar_sheet(request: Request, db: DbSession, start: date | None = None):
 
 @router.get("/projects")
 def projects_page(request: Request, db: DbSession):
-    # Every open task, filed under its project, for giving tasks days.
+    # The projects at a glance, over the weeks they share.
     return templates.TemplateResponse(
         request,
         "projects.html",
         {**_base(request, "projects"), **projects_page_ctx(db, datetime.now())},
+    )
+
+
+@router.get("/plan")
+def plan_page(request: Request, db: DbSession):
+    # Every open task without a day, filed under its project, for giving them days.
+    return templates.TemplateResponse(
+        request,
+        "plan.html",
+        {**_base(request, "projects"), **plan_page_ctx(db, datetime.now())},
     )
 
 

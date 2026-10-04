@@ -11,7 +11,6 @@ from pydantic import BaseModel
 
 from app.db import DbSession
 from app.models import (
-    ProjectStatus,
     RecurrenceKind,
     TaskOwner,
     TaskPriority,
@@ -27,11 +26,9 @@ from app.services import tasks as tasks_svc
 from app.ui.calendar_view import event_card_ctx
 from app.ui.views import (
     back_link,
-    project_card_ctx,
     row_ctx,
     sheet_ctx,
     templates,
-    workstream_ctx,
 )
 
 router = APIRouter(prefix="/ui", include_in_schema=False)
@@ -458,16 +455,11 @@ def work_sync(db: DbSession):
 
 
 def _projects_changed() -> HTMLResponse:
-    """Projects' list re-renders from the server (projects.html)."""
+    """The lists that show projects draw themselves again from the server:
+    Projects' timeline, a project's Tasks, Plan, and the sidebar's projects."""
     response = HTMLResponse("")
     response.headers["HX-Trigger"] = "tasks:changed, projects:changed"
     return response
-
-
-def _project_partial(request: Request, db, project_id: int, template: str) -> HTMLResponse:  # noqa: ANN001
-    project = projects_svc.get_project(db, project_id)
-    card = project_card_ctx(db, project, datetime.now())
-    return templates.TemplateResponse(request, template, {"request": request, "card": card})
 
 
 @router.post("/projects")
@@ -512,78 +504,40 @@ def order_projects(db: DbSession, order: ProjectOrder) -> None:
     db.commit()
 
 
-@router.post("/projects/{project_id}/status")
-def set_project_status(db: DbSession, project_id: int, status: Annotated[ProjectStatus, Form()]):
-    projects_svc.update_project(db, project_id, status=status)
-    db.commit()
-    # Status moves the card between the active projects and the shelves.
-    return _projects_changed()
-
-
 @router.post("/projects/{project_id}/fold", status_code=204)
 def fold_project(db: DbSession, project_id: int, folded: Annotated[bool, Form()]) -> None:
-    """A card folded to its header, or open again: tasks.js folds it on the
-    page at once, and this keeps it so through the lists' next render."""
+    """A project on Projects' timeline folded to its row, its workstreams
+    out of sight, or open again: tasks.js folds it on the page at once, and
+    this keeps it so through the timeline's next render."""
     projects_svc.update_project(db, project_id, folded=folded)
     db.commit()
 
 
-@router.get("/projects/{project_id}/edit")
-def edit_project(request: Request, db: DbSession, project_id: int):
-    return _project_partial(request, db, project_id, "partials/project_editor.html")
-
-
-@router.get("/projects/{project_id}/card")
-def project_card(request: Request, db: DbSession, project_id: int):
-    return _project_partial(request, db, project_id, "partials/project_card.html")
-
-
-@router.post("/projects/{project_id}")
-def save_project(
-    request: Request,
-    db: DbSession,
-    project_id: int,
-    name: Annotated[str, Form()],
-    notes: Annotated[str, Form()] = "",
-    color: Annotated[int | None, Form()] = None,
-):
-    projects_svc.update_project(db, project_id, name=name, notes=notes.strip(), color=color)
-    db.commit()
-    response = _project_partial(request, db, project_id, "partials/project_card.html")
-    # Its name and colour are on the page's overview, and in the sidebar, too.
-    response.headers["HX-Trigger"] = "tasks:changed, projects:changed"
-    return response
-
-
 @router.post("/projects/{project_id}/workstreams")
-def add_workstream(
-    request: Request,
-    db: DbSession,
-    project_id: int,
-    name: str = Form(...),
-):
-    workstream = projects_svc.create_workstream(db, project_id=project_id, name=name)
+def add_workstream(db: DbSession, project_id: int, name: str = Form(...)):
+    """A workstream added on the project's Tasks: its list, and the
+    timeline and Gantt, draw it from the server."""
+    projects_svc.create_workstream(db, project_id=project_id, name=name)
     db.commit()
-    group = {"m": workstream_ctx(db, workstream), "rows": []}
-    return templates.TemplateResponse(
-        request, "partials/workstream_group.html", {"request": request, "group": group}
-    )
+    return _tasks_changed()
 
 
 @router.post("/workstreams/{workstream_id}/toggle")
-def toggle_workstream(request: Request, db: DbSession, workstream_id: int):
-    """A workstream done, or open again."""
+def toggle_workstream(db: DbSession, workstream_id: int):
+    """A workstream done, folding to the finished ones' line, or open again."""
     workstream = projects_svc.get_workstream(db, workstream_id)
     done = workstream.status == WorkstreamStatus.done
     projects_svc.update_workstream(
         db, workstream_id, status=WorkstreamStatus.open if done else WorkstreamStatus.done
     )
     db.commit()
-    return templates.TemplateResponse(
-        request,
-        "partials/workstream_row.html",
-        {"request": request, "m": workstream_ctx(db, workstream)},
-    )
+    return _tasks_changed()
+
+
+def _tasks_changed() -> HTMLResponse:
+    response = HTMLResponse("")
+    response.headers["HX-Trigger"] = "tasks:changed"
+    return response
 
 
 @router.post("/notebook/{day}")

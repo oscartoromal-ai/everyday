@@ -42,7 +42,7 @@ def test_pages_are_never_cached(client) -> None:
 
 
 def test_back_names_the_page_before_and_goes_back_as_it_was_left(page, live, project) -> None:
-    page.goto(f"{live}/projects")
+    page.goto(f"{live}/projects/{project}/tasks")
     # The window's first page: nothing to go back to, Back faint in its place.
     assert _back(page).is_disabled()
     assert _back(page).inner_text() == "Back"
@@ -53,11 +53,11 @@ def test_back_names_the_page_before_and_goes_back_as_it_was_left(page, live, pro
     page.locator("#rail-projects a", has_text="Beta").click()
     page.wait_for_url(f"{live}/projects/{project}")
     assert _back(page).is_enabled()
-    assert _back(page).inner_text() == "Back to Projects"
-    assert _back(page).get_attribute("title") == "Back to Projects (Alt+←)"
+    assert _back(page).inner_text() == "Back to Beta · Tasks"
+    assert _back(page).get_attribute("title") == "Back to Beta · Tasks (Alt+←)"
 
     _back(page).click()
-    page.wait_for_url(f"{live}/projects")
+    page.wait_for_url(f"{live}/projects/{project}/tasks")
     page.wait_for_function("() => scrollY === 900")
     assert _back(page).is_disabled()
 

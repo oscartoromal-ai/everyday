@@ -1,8 +1,8 @@
 {#
   One sheet for writing a task, in three modes (task-sheet.js):
   - compose: the last row of a list card. Context comes from the include:
-    target (the list a new row joins), planned_for, project_id, placeholder;
-    and file_into, in the New task window: the projects and workstreams to
+    target (the list a new row joins), planned_for, project_id, workstream_id,
+    placeholder; and file_into, in the New task window: the projects and workstreams to
     file it into, chosen at its foot (Project › Workstream) or with #.
   - edit: the task in place of its row, from sheet_ctx() (views.py).
   - page: the task on its own page (task.html), from task_page_ctx().
@@ -21,7 +21,7 @@
   "title": "", "notes": "", "status": "todo", "owner": "oscar", "repeat": "none",
   "planned_for": planned_for.isoformat() if planned_for else "", "due": "",
   "estimate": "", "estimate_label": "", "priority": "", "priority_label": "",
-  "project_id": project_id or "", "workstream_id": "",
+  "project_id": project_id or "", "workstream_id": workstream_id or "",
   "planned_label": planned_for | short_date if planned_for else "", "due_label": "",
 } %}
 
@@ -105,8 +105,8 @@
   {% endfor %}
   {% if editing %}
   <input type="hidden" name="workstream_id" value="{{ s.workstream_id }}">
-  {% elif file_into %}
-  <input type="hidden" name="workstream_id" value="" data-default="">
+  {% elif file_into or workstream_id %}
+  <input type="hidden" name="workstream_id" value="{{ s.workstream_id }}" data-default="{{ s.workstream_id }}">
   {% endif %}
   {% if not editing and planned_for %}
   {# The list's own day: a task dated elsewhere regroups the page instead of joining it. #}

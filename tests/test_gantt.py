@@ -410,9 +410,8 @@ def test_the_gantt_page_draws_the_plan(client, db) -> None:
     assert 'class="gantt-bar"' in page and "--n: 1.7143" in page
     # A workstream's lane: its tasks' summary, its Due their last due, no dates of its own.
     assert 'class="gantt-summary"' in page and 'data-key="w' in page
-    # The Projects card's bars icon opens it.
-    projects = client.get("/projects").text
-    assert f'<a class="card-edit-btn" href="/projects/{project.id}/gantt"' in projects
+    # It is the project's last tab.
+    assert f'<a href="/projects/{project.id}/gantt" aria-current="page">Gantt</a>' in page
 
 
 def test_the_sheet_is_edited_through_one_request(client, db) -> None:

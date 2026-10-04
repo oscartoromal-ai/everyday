@@ -1,13 +1,13 @@
-"""Projects' list from the keyboard alone, in a real browser: the cursor,
-every key that acts on it, writing and coming back, and the keys that work
-anywhere.
+"""The task lists (a project's Tasks, Plan) from the keyboard alone, in a
+real browser: the cursor, every key that acts on it, writing and coming
+back, and the keys that work anywhere; and Projects' timeline folding.
 The `live` and `page` fixtures are conftest.py's."""
 
 from datetime import date, timedelta
 
 import pytest
 
-from app.models import ProjectStatus, TaskStatus
+from app.models import TaskStatus
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
@@ -15,15 +15,11 @@ pytest.importorskip("playwright.sync_api")
 
 TODAY = date.today()
 
-# Where the cursor is: the focused row's title, a fold's name for its header
-# ("Done", or a shelf's "Paused").
+# Where the cursor is: the focused row's title, or "Done" for Done's header.
 CURSOR = """(() => {
   const a = document.activeElement;
   if (a?.matches('.task-row')) return a.dataset.taskTitle;
   if (a?.matches('.done-fold > summary')) return a.textContent.trim().split(/\\s/)[0];
-  if (a?.matches('[data-project-fold]')) {
-    return a.closest('.project-card').querySelector('.project-name').textContent;
-  }
   return null;
 })()"""
 
@@ -31,13 +27,9 @@ CURSOR = """(() => {
 STOPS = """[...document.querySelectorAll([
     '[data-cursor] .task-row[tabindex]',
     '[data-cursor] .done-fold > summary',
-    '[data-cursor] .project-card.folded [data-project-fold]',
   ].join(', '))]
   .filter((e) => e.checkVisibility())
-  .map((e) => e.dataset.taskTitle
-    || (e.matches('[data-project-fold]')
-      && e.closest('.project-card').querySelector('.project-name').textContent)
-    || e.textContent.trim().split(/\\s/)[0])"""
+  .map((e) => e.dataset.taskTitle || e.textContent.trim().split(/\\s/)[0])"""
 
 # The task rows alone, in the cursor's order.
 ROWS = """[...document.querySelectorAll('[data-cursor] .task-row[tabindex]')]
@@ -46,20 +38,25 @@ ROWS = """[...document.querySelectorAll('[data-cursor] .task-row[tabindex]')]
 
 @pytest.fixture
 def tasks(app_db) -> dict[str, int]:
+    """Home's tasks, on its Tasks tab (`tasks["url"]`): an empty Garden
+    workstream, then Charlie, Delta, Alpha and Bravo in none, and Echo done."""
     with app_db() as db:
         home = projects_svc.create_project(db, name="Home")
         projects_svc.create_workstream(db, project_id=home.id, name="Garden")
+
+        def task(title: str, **fields):  # noqa: ANN202
+            return tasks_svc.create_task(db, title=title, project_id=home.id, **fields)
+
         made = {
-            "a": tasks_svc.create_task(db, title="Alpha"),
-            "b": tasks_svc.create_task(db, title="Bravo"),
-            "c": tasks_svc.create_task(db, title="Charlie", planned_for=TODAY),
-            "d": tasks_svc.create_task(db, title="Delta", planned_for=TODAY + timedelta(days=1)),
-            "e": tasks_svc.create_task(db, title="Echo", planned_for=TODAY),
+            "a": task("Alpha"),
+            "b": task("Bravo"),
+            "c": task("Charlie", planned_for=TODAY),
+            "d": task("Delta", planned_for=TODAY + timedelta(days=1)),
+            "e": task("Echo", planned_for=TODAY),
         }
         tasks_svc.set_status(db, made["e"].id, TaskStatus.done)
         db.commit()
-        return {k: t.id for k, t in made.items()}
-
+        return {**{k: t.id for k, t in made.items()}, "url": f"/projects/{home.id}/tasks"}
 
 def press(page, *keys: str) -> None:
     for key in keys:
@@ -88,16 +85,16 @@ def following(page) -> str:
 
 
 def test_the_cursor_moves_by_row_and_by_group(page, live, tasks) -> None:
-    page.goto(f"{live}/projects")
-    # No project's rows, soonest first (Home has none), then Done.
+    page.goto(f"{live}{tasks['url']}")
+    # No workstream's rows, soonest first (Garden has none), then Done.
     assert page.evaluate(STOPS) == ["Charlie", "Delta", "Alpha", "Bravo", "Done"]
     press(page, "j")
     cursor_on(page, "Charlie")
     press(page, "j")
     cursor_on(page, "Delta")
-    press(page, "Shift+J")  # No project -> Done
+    press(page, "Shift+J")  # No workstream -> Done
     cursor_on(page, "Done")
-    press(page, "Shift+K")  # back to No project's first row
+    press(page, "Shift+K")  # back to No workstream's first row
     cursor_on(page, "Charlie")
     press(page, "End")
     cursor_on(page, "Done")
@@ -108,7 +105,7 @@ def test_the_cursor_moves_by_row_and_by_group(page, live, tasks) -> None:
 
 
 def test_keys_act_on_the_row_and_the_cursor_moves_on(page, live, app_db, tasks) -> None:
-    page.goto(f"{live}/projects")
+    page.goto(f"{live}{tasks['url']}")
     page.locator('.task-row[data-task-title="Alpha"]').focus()  # an undated one
     cursor_on(page, "Alpha")
 
@@ -123,9 +120,9 @@ def test_keys_act_on_the_row_and_the_cursor_moves_on(page, live, app_db, tasks) 
     cursor_on(page, after)
 
     filed, after = cursor(page), following(page)
-    press(page, "p")  # No project, Home, Garden
+    press(page, "p")  # No project, Home (its own, ticked), Garden
     page.locator(".sheet-menu").wait_for()
-    press(page, "ArrowDown", "ArrowDown", "Enter")
+    press(page, "ArrowDown", "Enter")
     cursor_on(page, after)
 
     finished, after = cursor(page), following(page)
@@ -141,8 +138,8 @@ def test_keys_act_on_the_row_and_the_cursor_moves_on(page, live, app_db, tasks) 
 
 
 def test_writing_and_coming_back_to_the_list(page, live, app_db, tasks) -> None:
-    page.goto(f"{live}/projects")
-    # N: a new task; Esc lands the cursor on it.
+    page.goto(f"{live}{tasks['url']}")
+    # N: a new task, in the cursor's list; Esc lands the cursor on it.
     press(page, "j", "n")
     page.keyboard.type("Foxtrot")
     press(page, "Control+Enter")
@@ -209,61 +206,59 @@ def test_today_from_the_keyboard(page, live, app_db) -> None:
     page.wait_for_url("**/today")
 
 
-def test_projects_from_the_keyboard(page, live, app_db) -> None:
+def test_plan_from_the_keyboard(page, live, app_db) -> None:
     with app_db() as db:
         health = projects_svc.create_project(db, name="Health")
         home = projects_svc.create_project(db, name="Home")
-        shelved = projects_svc.create_project(db, name="Japanese")
-        tasks_svc.create_task(db, title="Kilo", project_id=health.id)
-        tasks_svc.create_task(db, title="Lima", project_id=home.id)
-        tasks_svc.create_task(db, title="Mike", project_id=shelved.id)
-        shelved.status = ProjectStatus.paused
+        tasks_svc.create_task(db, title="Kilo")
+        tasks_svc.create_task(db, title="Lima", project_id=health.id)
+        tasks_svc.create_task(db, title="Mike", project_id=home.id)
+        tasks_svc.create_task(db, title="Oscar", project_id=home.id)
         db.commit()
-        home_id = home.id
-    page.goto(f"{live}/projects")
+    page.goto(f"{live}/plan")
 
     press(page, "j")
     cursor_on(page, "Kilo")
-    press(page, "Shift+J")  # the next project
+    press(page, "Shift+J")  # the next project's list
     cursor_on(page, "Lima")
-
-    # N writes into the cursor's project.
-    press(page, "n")
-    page.keyboard.type("November")
-    press(page, "Control+Enter")
-    page.locator(f"#project-{home_id} .task-row", has_text="November").wait_for()
-    press(page, "Escape")
-    cursor_on(page, "November")
-
-    # The Paused shelf is a stop; Space opens it and its tasks join the path.
-    press(page, "End")
-    cursor_on(page, "Paused")
-    press(page, "Space", "j")
+    press(page, "Shift+J")
     cursor_on(page, "Mike")
+
+    # T gives it today: it leaves Plan, and the cursor moves on once the
+    # list has redrawn around the change.
     after = following(page)
     press(page, "t")
-    # The cursor moves on once the list has refreshed around the change, and
-    # the shelf it was in stays open through that refresh.
     cursor_on(page, after)
-    assert page.evaluate("document.querySelector('#shelf-paused').open")
+    assert "Mike" not in page.evaluate(ROWS)
     with app_db() as db:
         mike = next(t for t in tasks_svc.list_tasks(db) if t.title == "Mike")
         assert mike.planned_for == TODAY
 
+    # N writes into the page's own list, No project's.
+    press(page, "n")
+    page.keyboard.type("November")
+    press(page, "Control+Enter")
+    page.locator("#loose-list .task-row", has_text="November").wait_for()
 
-def test_folding_projects(page, live, app_db) -> None:
-    """A project folds to its header, by its chevron or by Left on one of its
-    rows; it stays folded through a refresh and a reload; Right unfolds it."""
+
+def test_folding_projects_on_the_timeline(page, live, app_db) -> None:
+    """A project folds to its row on Projects' timeline, its workstreams out
+    of sight; it stays folded through a redraw and a reload; Alt+click folds
+    or unfolds every project."""
     with app_db() as db:
         health = projects_svc.create_project(db, name="Health")
         home = projects_svc.create_project(db, name="Home")
-        tasks_svc.create_task(db, title="Kilo", project_id=health.id)
-        tasks_svc.create_task(db, title="Lima", project_id=home.id)
-        tasks_svc.create_task(db, title="Mike", project_id=home.id)
+        for project, name in ((health, "Sleep"), (home, "Garden")):
+            lane = projects_svc.create_workstream(db, project_id=project.id, name=name)
+            tasks_svc.create_task(
+                db, title=f"{name} task", project_id=project.id, workstream_id=lane.id
+            )
         db.commit()
         health_id, home_id = health.id, home.id
     page.goto(f"{live}/projects")
-    folded = "(id) => document.querySelector(`#project-${id}`).classList.contains('folded')"
+    folded = "(id) => document.querySelector(`#timeline-${id}`).classList.contains('folded')"
+    lanes = """[...document.querySelectorAll('.tl-stream a')].filter((e) => e.checkVisibility())
+      .map((e) => e.textContent)"""
 
     def saved(project_id: int, shut: bool) -> None:
         """The fold reached the project (it is saved behind the page's own)."""
@@ -274,48 +269,39 @@ def test_folding_projects(page, live, app_db) -> None:
             page.wait_for_timeout(20)
         raise AssertionError(f"project {project_id} not saved folded={shut}")
 
-    # The chevron folds Health: its rows leave the cursor's path.
-    page.click(f"#project-{health_id} [data-project-fold]")
+    # The chevron folds Health: its workstreams go.
+    assert page.evaluate(lanes) == ["Sleep", "Garden"]
+    page.click(f"#timeline-{health_id} [data-project-fold]")
     assert page.evaluate(folded, health_id)
-    assert page.evaluate(ROWS) == ["Lima", "Mike"]
+    assert page.evaluate(lanes) == ["Garden"]
+    chevron = page.locator(f"#timeline-{health_id} [data-project-fold]")
+    assert chevron.get_attribute("aria-expanded") == "false"
+    assert chevron.get_attribute("aria-label") == "Show the workstreams of Health"
     saved(health_id, True)
 
-    # Left on a Home row folds Home, the cursor on its header; a list
-    # refresh and a reload keep both folded.
-    press(page, "Home")
-    cursor_on(page, "Health")
-    press(page, "j")
-    cursor_on(page, "Lima")
-    press(page, "ArrowLeft")
-    cursor_on(page, "Home")
-    assert page.evaluate(folded, home_id)
-    saved(home_id, True)
+    # A redraw and a reload keep it folded.
     page.evaluate("htmx.trigger(document.body, 'tasks:changed')")
-    page.wait_for_function(f"!{BUSY}")
-    assert page.evaluate(folded, home_id) and page.evaluate(folded, health_id)
+    page.wait_for_function("!document.querySelector('#projects-body.htmx-request')")
+    assert page.evaluate(folded, health_id)
     page.reload()
-    assert page.evaluate(folded, home_id) and page.evaluate(folded, health_id)
-    assert page.evaluate(STOPS) == ["Health", "Home"]
+    assert page.evaluate(folded, health_id) and not page.evaluate(folded, home_id)
 
-    # Right unfolds Home onto its first row; Alt+click unfolds every project.
-    press(page, "End")
-    cursor_on(page, "Home")
-    press(page, "ArrowRight")
-    cursor_on(page, "Lima")
-    assert not page.evaluate(folded, home_id)
-    page.click(f"#project-{home_id} [data-project-fold]", modifiers=["Alt"])
+    # Alt+click: every project the same way.
+    page.click(f"#timeline-{home_id} [data-project-fold]", modifiers=["Alt"])
     assert page.evaluate(folded, home_id) and page.evaluate(folded, health_id)
-    page.click(f"#project-{home_id} [data-project-fold]", modifiers=["Alt"])
-    assert page.evaluate(ROWS) == ["Kilo", "Lima", "Mike"]
+    page.click(f"#timeline-{home_id} [data-project-fold]", modifiers=["Alt"])
+    assert page.evaluate(lanes) == ["Sleep", "Garden"]
     saved(health_id, False)
     saved(home_id, False)
 
 
 def test_shift_n_writes_a_new_task_from_any_page(page, live, app_db, tasks) -> None:
-    # On Projects, into the page's own composer.
-    page.goto(f"{live}/projects")
+    # On a task list, into the page's own composer.
+    page.goto(f"{live}/plan")
     press(page, "Shift+N")
-    page.wait_for_function("document.activeElement.matches('.capture .sheet-title')", timeout=5000)
+    page.wait_for_function(
+        "document.activeElement.matches('#group-loose .sheet-title')", timeout=5000
+    )
     press(page, "Escape")
 
     # On Today, a window: typed words work, the page says where each task
@@ -350,7 +336,7 @@ def test_an_add_racing_a_list_refresh_lands_once(page, live, app_db) -> None:
     Held back on purpose, the refresh always lands after the add: the add's
     own refresh replaces it, never queued behind it (and dropped once it
     swaps the list out)."""
-    page.goto(f"{live}/projects")
+    page.goto(f"{live}/plan")
     press(page, "n")
     page.keyboard.type("Kilo")
     refreshes = []
@@ -361,17 +347,17 @@ def test_an_add_racing_a_list_refresh_lands_once(page, live, app_db) -> None:
             page.wait_for_timeout(600)
         route.continue_()
 
-    page.route(lambda url: url.endswith("/projects"), first_refresh_late)
+    page.route(lambda url: url.endswith("/plan"), first_refresh_late)
     # The refresh goes out first, then the add, in one tick.
     page.evaluate("""() => {
       htmx.trigger(document.body, 'tasks:changed');
-      document.querySelector('.capture .task-sheet').requestSubmit();
+      document.querySelector('#group-loose .task-sheet').requestSubmit();
     }""")
     page.locator("#loose-list .task-row", has_text="Kilo").wait_for(timeout=5000)
     page.wait_for_timeout(1000)  # past the held-back refresh, had it landed
     assert len(refreshes) == 2
     assert page.locator("#loose-list .task-row", has_text="Kilo").count() == 1
-    assert page.locator(".capture .task-sheet .sheet-title").text_content() == ""
+    assert page.locator("#group-loose .task-sheet .sheet-title").text_content() == ""
     with app_db() as db:
         assert [t.title for t in tasks_svc.list_tasks(db)].count("Kilo") == 1
 
@@ -381,7 +367,7 @@ def test_a_key_racing_a_list_refresh_still_opens_its_row(page, live, app_db, tas
     P opens the row's sheet on its project menu, in the list as it is once
     the refresh lands, and the choice is saved. Held back on purpose, the
     refresh is always in flight when the key is pressed."""
-    page.goto(f"{live}/projects")
+    page.goto(f"{live}{tasks['url']}")
     press(page, "j")
     cursor_on(page, page.evaluate(STOPS)[0])
     on = cursor(page)
@@ -394,12 +380,12 @@ def test_a_key_racing_a_list_refresh_still_opens_its_row(page, live, app_db, tas
 
         return handle
 
-    page.route(lambda url: url.endswith("/projects"), later(300))
+    page.route(lambda url: url.endswith("/tasks"), later(300))
     page.route("**/ui/tasks/*/edit", later(600))
     page.evaluate("htmx.trigger(document.body, 'tasks:changed')")
-    press(page, "p")  # No project, Home, Garden
+    press(page, "p")  # No project, Home (its own, ticked), Garden
     page.locator(".task-sheet[data-sheet=edit]").wait_for()
-    press(page, "ArrowDown", "ArrowDown", "Enter")
+    press(page, "ArrowDown", "Enter")
     page.locator(".task-sheet[data-sheet=edit]").wait_for(state="detached")
     with app_db() as db:
         task = next(t for t in tasks_svc.list_tasks(db) if t.title == on)

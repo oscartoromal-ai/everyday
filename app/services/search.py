@@ -11,7 +11,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.dates import short_date, upper_first
-from app.models import Event, NotebookPage, Project, Task, TaskStatus
+from app.models import Event, NotebookPage, Project, Task, TaskOwner, TaskStatus
 
 TASK_LIMIT = 8
 PROJECT_LIMIT = 4
@@ -46,6 +46,18 @@ def _snippet(text: str, query: str) -> str:
         start = space + 1 if space >= 0 else start
     end = min(len(flat), at + len(query) + SNIPPET_AFTER)
     return ("…" if start else "") + flat[start:end] + ("…" if end < len(flat) else "")
+
+
+def _task_place(task: Task) -> dict[str, Any]:
+    """Where a task found opens: the list it is planned in, the cursor on
+    it (its project's Tasks; Plan, for Oscar's in no project and without a
+    day), while it is open; else its own page."""
+    if task.status not in (TaskStatus.done, TaskStatus.cancelled):
+        if task.project_id is not None:
+            return {"href": f"/projects/{task.project_id}/tasks", "cursor": True}
+        if task.owner == TaskOwner.oscar and task.planned_for is None:
+            return {"href": "/plan", "cursor": True}
+    return {"href": f"/tasks/{task.id}", "cursor": False}
 
 
 def _task_meta(task: Task, today: date) -> str:
@@ -111,7 +123,7 @@ def search(db: Session, query: str, now: datetime) -> dict[str, list[dict[str, A
     return {
         "tasks": [
             {"id": t.id, "title": t.title, "meta": _task_meta(t, today),
-             "done": t.status == TaskStatus.done}
+             "done": t.status == TaskStatus.done, **_task_place(t)}
             for t in tasks
         ],
         "projects": [

@@ -16,34 +16,28 @@
     }
   });
 
-  /* ---- the keyboard cursor: Projects' list ---- */
+  /* ---- the keyboard cursor: the task lists (a project's Tasks, Plan) ---- */
 
-  // The list works from the keyboard alone; it marks its area with
-  // data-cursor. The cursor is the focused row (or a fold's header: Done, or
-  // a shelf, which Enter or Space opens; or a folded project's, which Right,
-  // Enter or Space unfolds, and Left on one of its rows folds), drawn as the
-  // nav's spark bar. Up/Down or J/K move it, Shift jumps a project, Home/End
-  // go to the ends; Enter or E edits, N writes a new task (into the cursor's
-  // project where there is one), X done, T today, M tomorrow, D picks a day
-  // and P a project (the task sheet's menus), Space opens the description,
-  // Delete deletes after asking, Esc leaves. The list re-renders from the
-  // server after every change, and the cursor lands where it belongs: on the
-  // row that followed one acted on, and on the same task after an edit.
+  // A list works from the keyboard alone; it marks its area with
+  // data-cursor. The cursor is the focused row (or Done's header, which
+  // Enter or Space opens), drawn as the nav's spark bar. Up/Down or J/K move
+  // it, Shift jumps a list, Home/End go to the ends; Enter or E edits, N
+  // writes a new task (into the cursor's list), X done, T today, M tomorrow,
+  // D picks a day and P a project (the task sheet's menus), Space opens the
+  // description, Delete deletes after asking, Esc leaves. The lists re-render
+  // from the server after every change, and the cursor lands where it
+  // belongs: on the row that followed one acted on, and on the same task
+  // after an edit.
   const TYPING = "input, textarea, select, [contenteditable]";
   const STOPS = [
     "[data-cursor] .task-row[tabindex]",
     "[data-cursor] .done-fold > summary",
-    "[data-cursor] .project-shelf > summary",
-    // A folded project's header; and one just unfolded with no rows to go
-    // to, while the cursor is still on it.
-    "[data-cursor] .project-card.folded [data-project-fold]",
-    "[data-cursor] [data-project-fold]:focus",
   ].join(", ");
   const CURSOR_KEY = "pc-task-cursor"; // a task found in the command menu, to land on
   const onCursorPage = () => !!document.querySelector("[data-cursor]");
   const shown = (el) => (el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null);
   const stops = () => [...document.querySelectorAll(STOPS)].filter(shown);
-  const groupOf = (stop) => stop.closest(".list-section, .project-card, .project-shelf");
+  const groupOf = (stop) => stop.closest(".list-section");
   const isoDay = (offset) => {
     const d = new Date();
     d.setDate(d.getDate() + offset);
@@ -141,39 +135,14 @@
     }
     if (key === "n") {
       e.preventDefault();
-      // Into the cursor's project where it has one; else the page's own
-      // composer (the sheet's first row), else the first project's.
-      const card = stop?.closest(".project-card");
-      if (card?.classList.contains("folded")) fold(card, false);
-      const composers = [...document.querySelectorAll(".task-sheet[data-composer]")];
-      const composer = card?.querySelector(".task-sheet[data-composer]")
-        || composers.find((form) => !form.closest(".project-card, dialog"))
-        || composers.find((form) => !form.closest("dialog"));
+      // Into the cursor's list where it has a composer; else the page's first.
+      const composer = (stop && groupOf(stop)?.querySelector(".task-sheet[data-composer]"))
+        || [...document.querySelectorAll(".task-sheet[data-composer]")].find((form) => !form.closest("dialog"));
       window.TaskSheet.compose(composer);
       return;
     }
     if (key === "Escape" && stop) {
       stop.blur();
-      return;
-    }
-    // As in a tree: Left on a project's row folds the project, the cursor on
-    // its header; Right (or Enter, Space) there unfolds it, onto its first row.
-    const header = stop?.matches("[data-project-fold]") ? stop : null;
-    if (key === "ArrowLeft" && row && !e.shiftKey) {
-      const card = row.closest(".project-card");
-      const chevron = card?.querySelector(":scope > header [data-project-fold]");
-      if (!chevron) return;
-      e.preventDefault();
-      fold(card, true);
-      focusStop(chevron);
-      return;
-    }
-    if (header && (key === "ArrowRight" || key === "Enter" || key === " ")) {
-      e.preventDefault();
-      const card = header.closest(".project-card");
-      if (!card.classList.contains("folded")) return;
-      fold(card, false);
-      focusStop(stops().find((s) => s !== header && card.contains(s)) || header);
       return;
     }
     if (!row) return;
@@ -286,21 +255,23 @@
   window.keepPlace?.("task-cursor", () => (document.activeElement?.matches(STOPS) ? document.activeElement.id : null),
     (id) => document.addEventListener("DOMContentLoaded", () => focusStop(byId(id))));
 
-  /* ---- project cards: folded to their header, kept on the project ---- */
+  /* ---- Projects' timeline: a project folded to its row, kept on the project ---- */
 
-  // A fold shows at once and is saved behind it, a project's saves one after
-  // another, so the last one is what stays. A list re-rendered before a save
-  // lands would bring the card back as it was, so a fold still saving is put
-  // back on the fresh card.
+  // A project folded hides its workstreams (data-fold-card, its chevron
+  // data-project-fold, its name data-fold-name). A fold shows at once and is
+  // saved behind it, a project's saves one after another, so the last one is
+  // what stays. The timeline redrawn before a save lands would bring the
+  // project back as it was, so a fold still saving is put back on the fresh one.
   const saving = new Map(); // project id -> {shut}, its last fold, while that is saving
   const queues = new Map(); // project id -> its last save
+  const foldCard = (id) => document.querySelector(`[data-project-fold="${id}"]`)?.closest("[data-fold-card]");
 
   const showFold = (card, shut) => {
     card.classList.toggle("folded", shut);
-    const chevron = card.querySelector(":scope > header [data-project-fold]");
-    const name = card.querySelector(":scope > header .project-name")?.textContent ?? "";
+    const chevron = card.querySelector("[data-project-fold]");
+    const name = card.querySelector("[data-fold-name]")?.textContent ?? "";
     chevron.setAttribute("aria-expanded", String(!shut));
-    chevron.setAttribute("aria-label", `${shut ? "Unfold" : "Fold"} ${name}`);
+    chevron.setAttribute("aria-label", `${shut ? "Show" : "Hide"} the workstreams of ${name}`);
   };
 
   const save = async (id, shut) => {
@@ -317,7 +288,7 @@
   };
 
   function fold(card, shut) {
-    const chevron = card.querySelector(":scope > header [data-project-fold]");
+    const chevron = card.querySelector("[data-project-fold]");
     if (!chevron || card.classList.contains("folded") === shut) return;
     const id = chevron.dataset.projectFold;
     showFold(card, shut);
@@ -326,12 +297,12 @@
     const saved = (queues.get(id) || Promise.resolve()).then(() => save(id, shut));
     queues.set(id, saved);
     saved.then((ok) => {
-      if (saving.get(id) !== mine) return; // a later fold of the same card owns it now
+      if (saving.get(id) !== mine) return; // a later fold of the same project owns it now
       saving.delete(id);
       queues.delete(id);
       if (ok) return;
       window.toast("Could not keep that fold. Try again?");
-      const now = document.querySelector(`[data-project-fold="${id}"]`)?.closest(".project-card");
+      const now = foldCard(id);
       if (now) showFold(now, !shut);
     });
   }
@@ -340,25 +311,25 @@
   document.addEventListener("click", (e) => {
     const chevron = e.target.closest?.("[data-project-fold]");
     if (!chevron) return;
-    const card = chevron.closest(".project-card");
+    const card = chevron.closest("[data-fold-card]");
     const shut = !card.classList.contains("folded");
     const cards = e.altKey
-      ? [...document.querySelectorAll(".project-card:has(> header [data-project-fold])")]
+      ? [...document.querySelectorAll("[data-fold-card]:has([data-project-fold])")]
       : [card];
     cards.forEach((c) => fold(c, shut));
   });
 
   document.addEventListener("htmx:load", (e) => {
     saving.forEach(({ shut }, id) => {
-      const card = e.detail.elt.querySelector?.(`[data-project-fold="${id}"]`)?.closest(".project-card");
+      const card = e.detail.elt.querySelector?.(`[data-project-fold="${id}"]`)?.closest("[data-fold-card]");
       if (card) showFold(card, shut);
     });
   });
 
-  /* ---- project cards: drag a task onto a workstream, another project, or No project ---- */
+  /* ---- task lists: drag a task onto a workstream, another project, or No project ---- */
 
-  // A card files into its project with no workstream; a workstream group into
-  // that workstream; the No project card clears both. The server validates
+  // A project's list files into the project with no workstream; a
+  // workstream's into that workstream; the No project list clears both. The server validates
   // (a workstream must belong to the task's project) and the lists re-render.
   const fileTarget = (el) => el?.closest?.("[data-file-workstream], [data-file-project]");
   const filing = (target) => {

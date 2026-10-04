@@ -1,5 +1,6 @@
-{# A project's pages, a tab each: the project itself, and its Gantt. #}
+{# A project's pages, a tab each: the project itself, its tasks, and its Gantt. #}
 <nav class="project-tabs" aria-label="{{ project.name }}">
   <a href="/projects/{{ project.id }}"{% if tab == "overview" %} aria-current="page"{% endif %}>Overview</a>
+  <a href="/projects/{{ project.id }}/tasks"{% if tab == "tasks" %} aria-current="page"{% endif %}>Tasks</a>
   <a href="/projects/{{ project.id }}/gantt"{% if tab == "gantt" %} aria-current="page"{% endif %}>Gantt</a>
 </nav>

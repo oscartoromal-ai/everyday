@@ -30,7 +30,7 @@ def priority_of(app_db, title: str, expected: TaskPriority | None, timeout: floa
 
 
 def test_the_sheet_takes_it_as_words_or_from_its_menu(page, live, app_db) -> None:
-    page.goto(f"{live}/projects")
+    page.goto(f"{live}/plan")
     sheet = page.locator(".main .task-sheet[data-sheet=compose]")
     title = sheet.locator(".sheet-title")
     prop = sheet.locator(".prop[data-prop=priority]")
@@ -78,7 +78,7 @@ def test_bang_gives_a_row_its_priority_and_the_cursor_stays(page, live, app_db) 
         tasks_svc.create_task(db, title="Alpha")
         tasks_svc.create_task(db, title="Bravo")
         db.commit()
-    page.goto(f"{live}/projects")
+    page.goto(f"{live}/plan")
     page.locator('.task-row[data-task-title="Alpha"]').focus()
     page.keyboard.press("!")
     page.locator(".sheet-menu").wait_for()

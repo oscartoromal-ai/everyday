@@ -293,7 +293,7 @@
     send(ops);
   };
 
-  // Tasks deleted, after asking (their bins, as Projects' rows'); the
+  // Tasks deleted, after asking (their bins, as the task lists' rows'); the
   // cursor back on its cell after.
   const deleteTasks = async (bins) => {
     const tasks = new Map(bins.map((b) => [b.dataset.deleteTask, b.dataset.title]));

@@ -1,10 +1,15 @@
-<div class="workstream-group" data-file-workstream="{{ group.m.workstream.id }}">
+{# A workstream on its project's Tasks: its row, its open tasks, and a
+   composer that files into it. A task dragged onto it joins it (tasks.js). #}
+{% set w = group.m.workstream %}
+<section class="list-section workstream-group" id="workstream-group-{{ w.id }}" data-file-workstream="{{ w.id }}" aria-label="{{ w.name }}">
   <ul class="workstreams">
     {% with m = group.m %}{% include "partials/workstream_row.html" %}{% endwith %}
   </ul>
-  {% if group.rows %}
-  <ul class="task-list workstream-tasks">
+  <ul class="task-list workstream-tasks" id="workstream-tasks-{{ w.id }}">
     {% for row in group.rows %}{% include "partials/task_row.html" %}{% endfor %}
   </ul>
-  {% endif %}
-</div>
+  {% with mode = "compose", target = "workstream-tasks-" ~ w.id, planned_for = None, project_id = w.project_id,
+          workstream_id = w.id, placeholder = "Add a task to " ~ w.name ~ "…" %}
+    {% include "partials/task_sheet.html" %}
+  {% endwith %}
+</section>

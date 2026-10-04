@@ -3,7 +3,7 @@ and the days' notes whose words hold what was typed."""
 
 from datetime import date, datetime, time, timedelta
 
-from app.models import Event, EventSource, TaskStatus
+from app.models import Event, EventSource, TaskOwner, TaskStatus
 from app.services import notebook as notebook_svc
 from app.services import projects as projects_svc
 from app.services import search as search_svc
@@ -27,9 +27,28 @@ def test_tasks_open_first_and_by_their_words_or_description(db) -> None:
     tasks_svc.set_status(db, gone.id, TaskStatus.cancelled)
     found = search_svc.search(db, "tax", NOW)["tasks"]
     assert {t["id"] for t in found[:2]} == {open_task.id, noted.id}
-    assert found[-1] == {"id": done.id, "title": "Plan my taxes", "meta": "done", "done": True}
+    assert found[-1] == {
+        "id": done.id, "title": "Plan my taxes", "meta": "done", "done": True,
+        "href": f"/tasks/{done.id}", "cursor": False,
+    }
     assert gone.id not in [t["id"] for t in found]
     assert next(t for t in found if t["id"] == open_task.id)["meta"].startswith("due ")
+
+
+def test_a_task_found_opens_in_the_list_it_is_planned_in(db) -> None:
+    home = projects_svc.create_project(db, name="Home")
+    in_project = tasks_svc.create_task(db, title="Tax return", project_id=home.id)
+    undated = tasks_svc.create_task(db, title="Tax letter")
+    dated = tasks_svc.create_task(db, title="Tax call", planned_for=TODAY)
+    claude = tasks_svc.create_task(db, title="Tax summary", owner=TaskOwner.claude)
+    found = {t["id"]: t for t in search_svc.search(db, "tax", NOW)["tasks"]}
+    # Its project's Tasks, or Plan, with the cursor on it.
+    in_tasks = found[in_project.id]
+    assert in_tasks["href"] == f"/projects/{home.id}/tasks" and in_tasks["cursor"]
+    assert found[undated.id]["href"] == "/plan" and found[undated.id]["cursor"]
+    # A task on no list of the kind: its own page.
+    for task in (dated, claude):
+        assert (found[task.id]["href"], found[task.id]["cursor"]) == (f"/tasks/{task.id}", False)
 
 
 def test_a_percent_or_underscore_is_only_itself(db) -> None:

@@ -33,6 +33,8 @@ def test_back_is_one_of_the_apps_pages_named_else_projects() -> None:
     assert back_link("/today") == {"href": "/today", "label": "Today"}
     assert back_link("/projects/3") == {"href": "/projects/3", "label": "Project"}
     assert back_link("/projects/3/gantt") == {"href": "/projects/3/gantt", "label": "Gantt"}
+    assert back_link("/projects/3/tasks") == {"href": "/projects/3/tasks", "label": "Tasks"}
+    assert back_link("/plan") == {"href": "/plan", "label": "Plan"}
     assert back_link(f"/day/{TODAY.isoformat()}", TODAY) == {
         "href": f"/day/{TODAY.isoformat()}", "label": "Today"}
     # Another site, another task's page, or nothing: Projects.

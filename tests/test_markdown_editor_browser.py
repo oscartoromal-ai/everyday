@@ -156,7 +156,7 @@ def test_ctrl_b_and_a_pasted_address_write_markdown(page, live, app_db) -> None:
 
 
 def test_ctrl_enter_in_the_description_adds_the_task(page, live, app_db) -> None:
-    page.goto(f"{live}/projects")
+    page.goto(f"{live}/plan")
     sheet = page.locator(".main .task-sheet[data-sheet=compose]").first
     sheet.locator(".sheet-line").click()
     page.keyboard.type("Pack")

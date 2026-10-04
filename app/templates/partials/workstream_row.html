@@ -1,7 +1,6 @@
 <li class="workstream{% if m.done %} done{% endif %}" id="workstream-{{ m.workstream.id }}">
   <button type="button" aria-label="Mark “{{ m.workstream.name }}” {% if m.done %}open{% else %}done{% endif %}"
-          hx-post="/ui/workstreams/{{ m.workstream.id }}/toggle"
-          hx-target="#workstream-{{ m.workstream.id }}" hx-swap="outerHTML">
+          hx-post="/ui/workstreams/{{ m.workstream.id }}/toggle" hx-swap="none">
     <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       {% if m.done %}
       <circle cx="10" cy="10" r="7"/><path d="M6.8 10.2l2.2 2.2 4.2-5"/>

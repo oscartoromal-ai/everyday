@@ -136,10 +136,13 @@
   const foundItems = (found) => [
     ...found.tasks.map((t) => ({
       kind: "Task", label: t.title, meta: t.meta, done: t.done,
-      // Projects opens with the cursor on it (tasks.js lands it there).
+      // The list it is planned in opens with the cursor on it (tasks.js
+      // lands it there); a task in none, on its own page.
       run: () => {
-        try { sessionStorage.setItem("pc-task-cursor", `task-${t.id}`); } catch { /* blocked */ }
-        go("/projects")();
+        if (t.cursor) {
+          try { sessionStorage.setItem("pc-task-cursor", `task-${t.id}`); } catch { /* blocked */ }
+        }
+        go(t.href)();
       },
     })),
     ...found.projects.map((p) => ({ kind: "Project", label: p.name, color: p.color, run: go(`/projects/${p.id}`) })),

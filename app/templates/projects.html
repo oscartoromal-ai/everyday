@@ -1,24 +1,22 @@
 {% extends "base.html" %}
+{% from "partials/project_flag.html" import project_flag %}
 {% block title %}Projects · Personal Calendar{% endblock %}
 {% block content %}
-{# The projects at a glance, then every open task, filed under its project,
-   for giving them days: on one sheet ruled as Today's notepad is, the
-   composer first, then the tasks in
-   no project, each active project, the paused and done ones shelved, and
-   the last two weeks' finished work. #}
+{# The projects at a glance: what needs attention, then the active projects
+   over the weeks they share, each with its workstreams under it, then the
+   paused and done ones. Their tasks are planned on each project's Tasks
+   tab, and those without a day on Plan. #}
 <div class="projects-page">
   <header class="page-header">
     <div>
       <h1>Projects</h1>
       <div class="rest" id="projects-rest">
+        {{ active_count }} active ·
         {% if open_count == 0 %}nothing open{% elif open_count == 1 %}1 task open{% else %}{{ open_count }} tasks open{% endif %}
         {% if undated_count %}· {{ undated_count }} without a day{% endif %}
       </div>
-      <p class="keys-hint">
-        <kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> edit · <kbd>N</kbd> new · <kbd>X</kbd> done · <kbd>T</kbd> today · <kbd>?</kbd> all keys
-      </p>
     </div>
-    {# Outside the sheet, so a list re-rendered mid-word keeps the name. #}
+    {# Outside the redrawn part, so a name being written survives a redraw. #}
     <form class="new-project" hx-post="/ui/projects" hx-swap="none"
           hx-on::after-request="if (event.detail.successful) this.reset()">
       <span class="field-line"><input name="name" placeholder="New project…" aria-label="New project" autocomplete="off" required></span>
@@ -26,75 +24,135 @@
     </form>
   </header>
 
-  {% include "partials/projects_overview.html" %}
-
-  <div class="tasks-sheet ruled-sheet">
-  <section class="capture" aria-label="Add a task">
-    {% with mode = "compose", target = "loose-list", planned_for = None, placeholder = "Add a task…" %}
-      {% include "partials/task_sheet.html" %}
-    {% endwith %}
-  </section>
-
-  {# Re-renders whenever a task or a project changes; task-sheet.js carries
-     any half-written composer across the swap. A newer refresh replaces one
-     in flight: queued behind it, it would be dropped once the older one swaps
-     this element out, and a task added meanwhile would vanish until the next.
-     So does every list here that redraws itself whole. #}
-  <div id="task-groups" class="tasks-groups" data-cursor
-       hx-get="/projects" hx-select="#task-groups" hx-select-oob="#projects-rest,#projects-overview" hx-swap="outerHTML"
-       hx-trigger="task:added from:body, tasks:changed from:body, calendar:refresh from:body"
+  {# Drawn again whenever a task or a project changes. A newer redraw
+     replaces one in flight, as every list that redraws itself whole does. #}
+  <div id="projects-body" class="projects-body"
+       hx-get="/projects" hx-select="#projects-body" hx-select-oob="#projects-rest" hx-swap="outerHTML"
+       hx-trigger="task:added from:body, tasks:changed from:body, projects:changed from:body, calendar:refresh from:body"
        hx-sync="this:replace" hx-disinherit="hx-get hx-select hx-select-oob hx-swap hx-trigger hx-sync">
-    {# Styled as a project card, so it reads as a sibling of the ones below. #}
-    <section class="project-card" id="group-loose" data-file-project="">
-      <header>
-        <span class="project-fold slot" aria-hidden="true"></span>{# nothing to fold; keeps the name in line #}
-        <h2>No project</h2>
-        <span class="open-count">{% if loose_rows | length == 1 %}1 open{% elif loose_rows %}{{ loose_rows | length }} open{% endif %}</span>
-        {# Nothing to set, open or edit: unseen stand-ins keep the counts in line. #}
-        <select class="status-select slot" aria-hidden="true" tabindex="-1" disabled>
-          {% for label in ["Active", "Paused", "Done"] %}<option>{{ label }}</option>{% endfor %}
-        </select>
-        <span class="card-edit-btn slot" aria-hidden="true"></span><span class="card-edit-btn slot" aria-hidden="true"></span>
-      </header>
-      <ul class="task-list" id="loose-list">
-        {% for row in loose_rows %}{% include "partials/task_row.html" %}{% endfor %}
+
+    {% if attention or undated_count %}
+    <section class="list-section attention" aria-labelledby="attention-head">
+      <h2 id="attention-head">Needs attention{% if attention %} <span class="count">{{ attention | length }}</span>{% endif %}</h2>
+      <ul class="attention-list">
+        {% for row in attention %}
+        {% set t = row.task %}
+        <li class="attention-row">
+          <span class="attention-chip"><span class="chip {{ row.chip[1] }}">{{ row.chip[0] }}</span></span>
+          <a class="attention-title" href="/tasks/{{ t.id }}">{{ t.title }}</a>
+          <span class="attention-project">
+            {%- if t.project %}{{ project_flag(t.project) }}<span>{{ t.project.name }}</span>{% else %}<span class="is-none">No project</span>{% endif -%}
+          </span>
+          <span class="attention-day">{{ row.day }}</span>
+        </li>
+        {% endfor %}
+        {% if undated_count %}
+        <li class="attention-row">
+          <span class="attention-chip"><span class="chip neutral">No day</span></span>
+          <span class="attention-title is-plain">{% if undated_count == 1 %}1 open task has no day{% else %}{{ undated_count }} open tasks have no day{% endif %}</span>
+          <span class="attention-project"></span>
+          <a class="attention-day attention-link" href="/plan">Plan them ›</a>
+        </li>
+        {% endif %}
       </ul>
-      {% if not loose_rows %}
-      <p class="empty">Every open task belongs to a project.</p>
-      {% endif %}
     </section>
+    {% endif %}
 
-    {% for card in active_cards %}{% include "partials/project_card.html" %}{% endfor %}
-    {% if not active_cards %}
+    {% set tl = timeline %}
+    {% if tl %}
+    <section class="list-section projects-timeline" aria-labelledby="timeline-head" style="--weeks: {{ tl.count }}">
+      <div class="tl-row tl-head">
+        <h2 class="tl-label" id="timeline-head">Project</h2>
+        <span class="tl-progress">Progress</span>
+        <span class="tl-track" aria-hidden="true">
+          {% for w in tl.weeks %}
+          <span class="tl-week" style="left: {{ w.left }}%">{% if w.month %}<b>{{ w.month }}</b> {% endif %}{{ w.day }}</span>
+          {% endfor %}
+        </span>
+      </div>
+      {% for row in tl.rows %}
+      {% set p = row.project %}
+      {# Folded, the project is its row alone, its workstreams out of sight (tasks.js). #}
+      <div class="tl-group{% if p.folded %} folded{% endif %}" id="timeline-{{ p.id }}" data-fold-card style="--project: var(--hue-{{ p.color }})">
+        <div class="tl-row tl-project">
+          <span class="tl-label">
+            {% if row.streams %}
+            <button type="button" class="project-fold" data-project-fold="{{ p.id }}"
+                    aria-expanded="{{ 'false' if p.folded else 'true' }}" aria-controls="timeline-{{ p.id }}-streams"
+                    aria-label="{{ 'Show' if p.folded else 'Hide' }} the workstreams of {{ p.name }}" title="Fold or unfold (Alt: every project)">
+              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+            </button>
+            {% else %}<span class="project-fold slot" aria-hidden="true"></span>{% endif %}
+            {{ project_flag(p) }}
+            <a class="tl-name" data-fold-name href="/projects/{{ p.id }}" title="Open {{ p.name }}">{{ p.name }}</a>
+            <span class="chip {{ row.health_class }}">{{ row.health }}</span>
+          </span>
+          <span class="tl-progress" title="{{ row.done }} of {{ row.total }} tasks done">
+            <b>{{ row.percent }}%</b> <span>{{ row.done }}/{{ row.total }}</span>
+          </span>
+          <span class="tl-track">
+            <span class="visually-hidden">{{ row.span_label }}{% if row.next %}; next due {{ row.next_label }}, {{ row.next.title }}{% endif %}</span>
+            {% if row.bar %}
+            <span class="tl-bar" style="left: {{ row.bar.left }}%; width: {{ row.bar.width }}%" title="{{ row.span_label }}" aria-hidden="true">
+              <span class="tl-bar-done" style="width: {{ row.percent }}%"></span>
+            </span>
+            {% elif not row.first %}<span class="tl-undated" aria-hidden="true">No dates yet</span>{% endif %}
+            {% for mark in row.marks %}
+            <span class="tl-due{% if mark.overdue %} overdue{% endif %}" style="left: {{ mark.left }}%" title="{{ mark.label }}" aria-hidden="true"></span>
+            {% endfor %}
+            <span class="tl-now" style="left: {{ tl.now }}%" aria-hidden="true"></span>
+          </span>
+        </div>
+        {% if row.streams or row.finished %}
+        <div class="tl-streams" id="timeline-{{ p.id }}-streams">
+          {% for s in row.streams %}
+          <div class="tl-row tl-stream">
+            <span class="tl-label"><a href="/projects/{{ p.id }}/tasks#workstream-group-{{ s.workstream.id }}">{{ s.workstream.name }}</a></span>
+            <span class="tl-progress"><span>{{ s.done }}/{{ s.total }}</span></span>
+            <span class="tl-track">
+              <span class="visually-hidden">{{ s.span_label }}</span>
+              {% if s.bar %}
+              <span class="tl-bar thin" style="left: {{ s.bar.left }}%; width: {{ s.bar.width }}%" title="{{ s.workstream.name }}: {{ s.span_label }}" aria-hidden="true">
+                <span class="tl-bar-done" style="width: {{ s.percent }}%"></span>
+              </span>
+              {% elif s.span_label == "No dates yet" %}<span class="tl-undated" aria-hidden="true">No dates yet</span>{% endif %}
+              <span class="tl-now" style="left: {{ tl.now }}%" aria-hidden="true"></span>
+            </span>
+          </div>
+          {% endfor %}
+          {% if row.finished %}
+          <div class="tl-row tl-stream tl-finished">
+            <span class="tl-label">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6.5 5 9l4.5-6"/></svg>
+              {{ row.finished }} finished
+            </span>
+            <span class="tl-progress"></span>
+            <span class="tl-track"><span class="tl-now" style="left: {{ tl.now }}%" aria-hidden="true"></span></span>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </section>
+    {% else %}
     <section class="list-section">
-      <p class="empty">No active projects. Add one above; workstreams and tasks hang off it.</p>
+      <p class="empty">No active projects. Add one above; its workstreams and tasks hang off it.</p>
     </section>
     {% endif %}
 
-    {% for shelf in shelves %}
-    {# Open shelves stay open through the list's refreshes (tasks.js, pc-open-folds). #}
-    <section class="list-section project-shelf">
-      <details class="done-fold" id="shelf-{{ shelf.key }}" data-remember>
-        <summary>
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>
-          {{ shelf.label }} <span class="count">{{ shelf.cards | length }}</span>
-        </summary>
-        {% for card in shelf.cards %}{% include "partials/project_card.html" %}{% endfor %}
-      </details>
-    </section>
-    {% endfor %}
-
-    {% if done_rows %}
-    <section class="list-section done-section">
-      {% with fold_id = "tasks-done", fold_note = "last " ~ done_days ~ " days" %}
-        {% include "partials/done_fold.html" %}
-      {% endwith %}
-    </section>
+    {% if paused or done_projects %}
+    <nav class="projects-shelf" aria-label="Paused and done projects">
+      {% for label, shelf in [("Paused", paused), ("Done", done_projects)] if shelf %}
+      <div class="shelf-line">
+        <span class="shelf-label">{{ label }}</span>
+        {% for p in shelf %}
+        <a class="shelf-project" href="/projects/{{ p.id }}">{{ project_flag(p) }}<span>{{ p.name }}</span></a>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </nav>
     {% endif %}
-
-    {# The empty rows under the last, numbered on, to the sheet's foot. #}
-    <div class="sheet-filler" aria-hidden="true"><ol>{% for _ in range(60) %}<li></li>{% endfor %}</ol></div>
-  </div>
   </div>
 </div>
 {% endblock %}
