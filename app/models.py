@@ -910,3 +910,21 @@ class Setting(Base):
 
     key: Mapped[str] = mapped_column(String(80), primary_key=True)
     value: Mapped[Any] = mapped_column(JSON)
+
+
+class RouteUse(Base):
+    """How much one of the app's routes was used on a day, and how it fared:
+    its requests, those that failed (a 5xx), and how long its responses took
+    to start. Kept by route ("GET /projects/{project_id}"), never by the
+    address asked for, so it says which pages and actions are used without
+    keeping what was looked at (app/usage.py)."""
+
+    __tablename__ = "route_use"
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    route: Mapped[str] = mapped_column(String(300), primary_key=True)
+    requests: Mapped[int] = mapped_column(Integer, default=0)
+    failures: Mapped[int] = mapped_column(Integer, default=0)
+    # Milliseconds to the response's start, summed over its requests, and the slowest.
+    total_ms: Mapped[int] = mapped_column(Integer, default=0)
+    slowest_ms: Mapped[int] = mapped_column(Integer, default=0)

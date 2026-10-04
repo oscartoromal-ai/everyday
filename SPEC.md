@@ -470,6 +470,10 @@ APScheduler inside the FastAPI process; jobs share app code and database session
 - Daily backup snapshot.
 - Garmin sync, every half hour while connected.
 - GitHub sync, every hour while connected.
+- The app's use (requests by route and day, their failures and time to answer), counted in memory and written every minute.
+- The daily improvement scan (decided 2026-10-04): once a day, after 02:30 or as soon as the app is next up and awake, master's `improve/` scan runs in a checkout of its own over the app's log and use, master's tests, lint and dependencies, and the tasks Oscar gave Claude on the app's project.
+  Its ledger remembers each finding across days, and it writes the day's report and a brief for the most pressing one.
+  Everything up to the fix is scripted; an agent fixes the brief's finding and opens a pull request, which Oscar reviews (daily, his call on 2026-10-04: nothing merges on its own).
 
 ### Deployment and backups
 

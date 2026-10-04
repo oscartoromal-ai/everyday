@@ -106,6 +106,17 @@ class GitHubConfig(BaseModel):
     sync_minutes: int = 60
 
 
+class ImproveConfig(BaseModel):
+    # The daily scan for what to improve in the app (improve/ in the repo),
+    # started by the installed app from its repo (app/jobs/improve.py).
+    enabled: bool = True
+    # The day's scan starts after this time, or as soon as the app is up and
+    # awake after it.
+    after: str = "02:30"
+    # The project the app's work is planned on, when no project lists its repo.
+    project: str = ""
+
+
 # The modules an install can leave out, each a section of the sidebar
 # (app/services/rail.py); Planner and Projects are always in.
 OptionalModule = Literal["health", "finances", "code"]
@@ -144,6 +155,7 @@ class Settings(BaseSettings):
     nutrition: NutritionConfig = NutritionConfig()
     garmin: GarminConfig = GarminConfig()
     github: GitHubConfig = GitHubConfig()
+    improve: ImproveConfig = ImproveConfig()
     install: InstallConfig = InstallConfig()
 
     @classmethod

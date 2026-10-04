@@ -85,6 +85,7 @@ Everything the app keeps lives under its home, `%LOCALAPPDATA%\Personal Calendar
 - `data/personal-calendar.db`: the database, created and migrated by the app as it starts; an app older than its database refuses to start rather than touch it.
 - `data/logs/personal-calendar.log`: what the app logs, rotated at 5 MB, five kept, including why it stopped.
 - `data/desktop.json` and `data/webview/`: the window's place and the window's own browser storage (theme, sidebar, compact rows).
+- `data/improve/`: the daily improvement scan's reports, ledger and brief, and its checkout of master (see [Improving itself](#improving-itself)).
 - `backups/`: the daily snapshots (see [Backups and restore](#backups-and-restore)).
 - `local/`: the machine's secrets (work-calendar feed, ntfy, Garmin's token, a GitHub token if one was pasted), git-ignored in a repo checkout.
 - `config.toml`: this machine's settings, over the defaults in the repo's `config.toml` that the app is built with, key by key; relative paths in either resolve against the home.
@@ -136,6 +137,32 @@ uv run ruff check .
 
 Both must stay green.
 Fix lint errors, test failures, and flaky tests on sight, even ones unrelated to what you're changing (SPEC.md section 10).
+
+## Improving itself
+
+Every day the app scans itself for what could be better (`improve/`).
+After 02:30, or as soon as it is next up and awake, the installed app fetches origin's master into a checkout of its own (`data\improve\checkout`, a worktree of the repo) and runs `python -m improve.scan` there, at low priority.
+The scan reads the live app's log and database, never writing to them, and runs master's tests, lint and dependency checks.
+
+What it looks for, the most pressing first: tests failing on master, errors in the app's log, routes answering with server errors, vulnerable dependencies, flaky tests, lint, tasks on the app's project whose owner is Claude, slow routes, a slow test suite, outdated dependencies.
+The tasks are the project's that lists the repo on its page; `[improve] project` in the home's `config.toml` names one otherwise.
+
+Each finding goes into a ledger, `data\improve\ledger.json`, which remembers it across days: open, picked (being fixed), done (its fix merged; it opens again should it come back) or ignored.
+The day's report is `data\improve\reports\<day>.md`, and the most pressing open finding is written up in `data\improve\brief.md`, a brief for an agent to fix it.
+
+For the routes, the app counts its own use (`app/usage.py`): each request by the route that answered it and the day, with whether it failed and how long its response took to start.
+It keeps routes only (`GET /projects/{project_id}`), never what was looked at.
+
+By hand, from a checkout:
+
+```
+uv run python -m improve.scan                 # over the live app's data; --only tests,lint for some sources
+uv run python -m improve.ledger list
+uv run python -m improve.ledger mark <fingerprint> ignored --note "why"
+uv run python -m improve.check                # the gate a fix passes: lint and tests (--build builds the app too)
+```
+
+`[improve] enabled = false` in the home's `config.toml` turns the daily scan off.
 
 ## Connecting Claude Code to the MCP server
 
