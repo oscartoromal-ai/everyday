@@ -239,6 +239,7 @@ class Shell:
 
         serve.configure_logging(serve.log_path().with_name("standby.log"))
         self._load_server_code()
+        self._warm()
         self.window.events.loaded.wait()
         log.info("Standing by")
         handover = self.waiting.wait_for_go()
@@ -258,6 +259,18 @@ class Shell:
         """The server's code imported: most of the time a start takes."""
         from app import migrate, serve  # noqa: F401
         from app.ui import views  # noqa: F401
+
+    def _warm(self) -> None:
+        """What its first page would do as it draws, done as it stands by:
+        the templates compiled, and master's latest commit looked up for the
+        Update button."""
+        from app.ui.views import templates
+
+        for name in templates.env.list_templates(extensions=["html"]):
+            templates.env.get_template(name)
+        self.updater = Updater.for_installed_app(get_settings().db_path.parent / "update.json")
+        if self.updater:
+            self.updater.latest()
 
     def _serve(self) -> bool:
         """Whether the app is serving: its database migrated, its routes and
@@ -279,8 +292,9 @@ class Shell:
         self._load_server_code()
         app = serve.prepare()
         app.include_router(control_router(self))
-        settings = get_settings()
-        self.updater = Updater.for_installed_app(settings.db_path.parent / "update.json")
+        if self.updater is None:
+            path = get_settings().db_path.parent / "update.json"
+            self.updater = Updater.for_installed_app(path)
         if self.updater:
             from app.ui.views import templates
 

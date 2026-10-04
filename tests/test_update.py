@@ -87,6 +87,16 @@ def test_a_commit_merged_later_is_seen_once_fetched(origin, repo, tmp_path) -> N
     assert updater.state() == UpdateState("ready", installed[:7], latest[:7])
 
 
+def test_drawing_the_button_runs_no_git_once_master_is_looked_up(
+    origin, repo, tmp_path, monkeypatch
+) -> None:
+    installed = commit(origin, "a")
+    latest = commit(origin, "b")
+    updater = updater_at(repo, installed, tmp_path)
+    monkeypatch.setattr(updater, "_git", lambda *args, **kwargs: pytest.fail("ran git"))
+    assert updater.state() == UpdateState("ready", installed[:7], latest[:7])
+
+
 def test_the_repos_checkout_is_not_what_it_updates_to(origin, repo, tmp_path) -> None:
     # The checkout's master is stale, with commits of its own that reached
     # origin rebased: updating to it would go back, with an older script.

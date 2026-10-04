@@ -198,8 +198,7 @@ class Updater:
                 lines = why.splitlines()
                 fatal = [line for line in lines if line.startswith("fatal:")]
                 return (fatal or lines or [f"git fetch exited {out.returncode}"])[0]
-            with self._lock:
-                self._checked = float("-inf")
+            self.look_up()
             return None
 
     def check(self) -> tuple[UpdateState | None, str | None]:
@@ -211,21 +210,33 @@ class Updater:
 
     def tick(self) -> None:
         """The watch's step (every WATCH_SECONDS): a fetch when one is due,
-        then the update started should master be past what is installed, or
-        what is staged."""
+        else master looked up again every CHECK_SECONDS (fetched by hand in
+        the repo, say), then the update started should master be past what is
+        installed, or what is staged."""
         if time.monotonic() - self._fetched >= FETCH_SECONDS:
             self.fetch()
+        elif time.monotonic() - self._checked > CHECK_SECONDS:
+            self.look_up()
         self.start(automatic=True)
 
     def latest(self) -> str | None:
         """The commit to be at: the remote's master as last fetched (tick()),
-        looked up at most every CHECK_SECONDS; the installed one while master
-        is not past it."""
+        as last looked up; the installed one while master is not past it.
+        Looked up here only the first time: a page drawing the Update button
+        runs no git."""
         with self._lock:
-            if time.monotonic() - self._checked > CHECK_SECONDS:
-                self._checked = time.monotonic()
-                self._head = self._look_up()
+            if self._checked == float("-inf"):
+                self._look_up_locked()
             return self._head
+
+    def look_up(self) -> None:
+        """Master's latest commit read again, from the repo as fetched."""
+        with self._lock:
+            self._look_up_locked()
+
+    def _look_up_locked(self) -> None:
+        self._checked = time.monotonic()
+        self._head = self._look_up()
 
     def _look_up(self) -> str | None:
         try:
