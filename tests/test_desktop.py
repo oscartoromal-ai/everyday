@@ -1,5 +1,10 @@
 import json
+import os
+import subprocess
+import sys
+import threading
 import time
+import uuid
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -13,6 +18,8 @@ class FakeShell:
     def __init__(self) -> None:
         self.opened: list[str | None] = []
         self.quit_reason: str | None = None
+        self.ready = threading.Event()
+        self.ready.set()
 
     def open(self, path: str | None = None) -> None:
         self.opened.append(path)
@@ -33,6 +40,13 @@ def test_another_launch_brings_the_window_forward_at_its_page() -> None:
     assert c.post("/desktop/open", json={"path": "/calendar"}).status_code == 200
     assert c.post("/desktop/open", json={"path": None}).status_code == 200
     assert shell.opened == ["/calendar", None]
+
+
+def test_a_launch_while_the_window_is_still_coming_up_is_asked_to_wait() -> None:
+    shell = FakeShell()
+    shell.ready.clear()
+    assert client(shell).post("/desktop/open", json={"path": None}).status_code == 503
+    assert shell.opened == []
 
 
 def test_only_a_page_of_the_app_opens() -> None:
@@ -75,6 +89,32 @@ def test_the_tray_icon_takes_a_dot_and_keeps_its_drawing() -> None:
     assert dotted.size == base.size
     assert dotted.getpixel((18, 6))[:3] == win32.SPARK  # the dot's middle
     assert dotted.getpixel((2, 20)) == base.getpixel((2, 20))
+
+
+def test_the_handoff_signal_is_seen_by_the_app_waiting_on_it() -> None:
+    name = f"Local\\PersonalCalendarTest.{uuid.uuid4()}"
+    waiting, setting = win32.Signal(name), win32.Signal(name)
+    try:
+        assert not waiting.wait_unless_exited(os.getpid(), timeout=0.05)
+        threading.Timer(0.1, setting.set).start()
+        assert waiting.wait_unless_exited(os.getpid(), timeout=5)
+        waiting.reset()
+        assert not waiting.wait_unless_exited(os.getpid(), timeout=0.05)
+    finally:
+        waiting.close()
+        setting.close()
+
+
+def test_the_handoff_wait_ends_when_the_new_app_exits_without_signalling() -> None:
+    signal = win32.Signal(f"Local\\PersonalCalendarTest.{uuid.uuid4()}")
+    process = subprocess.Popen([sys.executable, "-c", "pass"])
+    try:
+        started = time.monotonic()
+        assert not signal.wait_unless_exited(process.pid, timeout=30)
+        assert time.monotonic() - started < 15
+    finally:
+        process.wait()
+        signal.close()
 
 
 def test_title_bar_colours_are_windows_colorrefs() -> None:

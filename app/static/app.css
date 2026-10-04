@@ -190,17 +190,19 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 /* the installed app's Update (partials/update_button.html): a spark dot while
    a newer commit waits, its arrow turning while it builds */
 .update-button__icon { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.update-button[data-update="ready"] { color: var(--ink); }
+.update-button:is([data-update="ready"], [data-update="staged"]) { color: var(--ink); }
 .update-button { position: relative; }
 .update-button__dot { flex: none; width: 6px; height: 6px; margin-left: auto; border-radius: 50%; background: var(--spark); box-shadow: var(--spark-glow); }
 /* labels hidden (the collapsed rail, the phone's bar): the dot on the arrow's shoulder */
 :root[data-rail="collapsed"] .update-button__dot { position: absolute; top: calc(50% - 9px); left: calc(50% + 4px); margin: 0; }
-.update-button[data-update="updating"] { cursor: default; }
-.update-button[data-update="updating"]:hover { color: var(--pewter); background: none; }
-.update-button[data-update="updating"] .update-button__icon { animation: update-turn 1.4s linear infinite; }
+.update-button:is([data-update="updating"], [data-update="restarting"]) { cursor: default; }
+.update-button:is([data-update="updating"], [data-update="restarting"]):hover { color: var(--pewter); background: none; }
+.update-button:is([data-update="updating"], [data-update="restarting"]) .update-button__icon { animation: update-turn 1.4s linear infinite; }
 @keyframes update-turn { to { transform: rotate(360deg); } }
 .update-button[data-update="failed"] { color: var(--warn-fg); }
 .update-button__retry { color: inherit; }
+/* the app restarting on its update: the page stays as it is, its input closed, until the new window takes its place */
+:root[data-restarting], :root[data-restarting] * { cursor: progress !important; }
 .theme-toggle__icon-stack { position: relative; flex: none; width: 16px; height: 16px; }
 .theme-toggle__icon {
   position: absolute; inset: 0; width: 16px; height: 16px;
@@ -519,7 +521,7 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .chip.in_progress { color: var(--ok-fg); background: var(--badge-ok-glass); }
 
 @media (prefers-reduced-motion: reduce) {
-  .update-button[data-update="updating"] .update-button__icon { animation: none; }
+  .update-button:is([data-update="updating"], [data-update="restarting"]) .update-button__icon { animation: none; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;

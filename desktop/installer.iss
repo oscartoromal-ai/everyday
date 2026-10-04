@@ -1,14 +1,22 @@
 ; The desktop app's installer (Inno Setup 6), built by desktop/build.ps1 from
-; PyInstaller's folder. Per user, no admin: the app goes to
+; PyInstaller's folder and the launcher. Per user, no admin: the app goes to
 ; %LOCALAPPDATA%\Programs\Personal Calendar; its data, in
 ; %LOCALAPPDATA%\Personal Calendar, is the app's own (app/config.py) and is
 ; kept through upgrades and uninstalls.
+;
+; The launcher, Personal Calendar.exe, is what the shortcuts start; it starts
+; the version current.txt names, each in a folder of its own beside it
+; (app-<commit>), so an update can stage the next one while the app runs
+; (desktop/launcher.cs, app/desktop/update.py).
 
 #ifndef AppVersion
   #error Pass /DAppVersion=... (build.ps1 does)
 #endif
-#ifndef SourceDir
-  #error Pass /DSourceDir=... (build.ps1 does)
+#ifndef AppFolder
+  #error Pass /DAppFolder=app-... (build.ps1 does)
+#endif
+#ifndef BuildDir
+  #error Pass /DBuildDir=... (build.ps1 does)
 #endif
 
 #define AppName "Personal Calendar"
@@ -18,6 +26,7 @@
 #define Port "8377"
 
 [Setup]
+; app/desktop/update.py sets the version in Installed apps by it.
 AppId={{6C1B0E5A-3F4B-4E8C-9C1D-2B7A5E9F4D21}
 AppName={#AppName}
 AppVersion={#AppVersion}
@@ -47,11 +56,20 @@ Name: "autostart"; Description: "Start {#AppName} when I sign in, in the tray (C
 Name: "desktopicon"; Description: "A desktop shortcut"; Flags: unchecked
 
 [Files]
-Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#BuildDir}\launcher\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BuildDir}\dist\{#AppName}\*"; DestDir: "{app}\{#AppFolder}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#BuildDir}\current.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [InstallDelete]
-; An upgrade's files replace the last version's whole, so nothing stale lingers.
+; An upgrade replaces every version before it whole, and the layout from
+; before versions had folders, so nothing stale lingers.
+Type: filesandordirs; Name: "{app}\app-*"
 Type: filesandordirs; Name: "{app}\_internal"
+
+[UninstallDelete]
+; The versions updates staged beside the installed one.
+Type: filesandordirs; Name: "{app}\app-*"
+Type: files; Name: "{app}\current.tmp"
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "{#AppUserModelID}"

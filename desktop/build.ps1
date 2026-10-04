@@ -5,10 +5,11 @@
         .\desktop\build.ps1 -Install   # build it and install it over the running app
 
     PyInstaller freezes the app (desktop\personal-calendar.spec) into
-    build\dist\Personal Calendar; Inno Setup (desktop\installer.iss, its
-    compiler found where winget installs it) wraps that into the installer.
-    Installing quits the running app, replaces it, and opens the new one; its
-    database migrates as it starts.
+    build\dist\Personal Calendar; the C# compiler that comes with Windows
+    builds its launcher (desktop\launcher.cs) into build\launcher; Inno Setup
+    (desktop\installer.iss, its compiler found where winget installs it) wraps
+    both into the installer. Installing quits the running app, replaces it,
+    and opens the new one; its database migrates as it starts.
 #>
 
 param([switch]$Install)
@@ -24,6 +25,8 @@ $iscc = @(
     "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { throw "Inno Setup 6 is not installed: winget install JRSoftware.InnoSetup --scope user" }
+$csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+if (-not (Test-Path $csc)) { throw "The .NET Framework 4 C# compiler is missing: $csc" }
 
 # The version: pyproject's, and the commit it was built from (with a + when
 # the working tree had changes), as Windows' Installed apps shows it.
@@ -31,6 +34,8 @@ $version = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Mat
 $commit = (git rev-parse --short HEAD).Trim()
 if (git status --porcelain --untracked-files=no -- app migrations desktop config.toml pyproject.toml uv.lock) { $commit += "+" }
 $numeric = ($version -split '[^0-9]+' | Where-Object { $_ } | Select-Object -First 3) -join ','
+# The version's folder in the install, beside its launcher.
+$folder = "app-$commit"
 
 New-Item -ItemType Directory -Force build | Out-Null
 @"
@@ -49,15 +54,22 @@ VSVersionInfo(
 "@ | Out-File -Encoding utf8 build\version.txt
 
 # What the app was built from, for its Update button (app/desktop/update.py):
-# the commit, and the repo itself even when this is a worktree of it.
+# the commit, the version Installed apps lists, and the repo itself even when
+# this is a worktree of it.
 $repo = Split-Path -Parent (git rev-parse --path-format=absolute --git-common-dir).Trim()
-@{ sha = (git rev-parse HEAD).Trim(); commit = $commit; repo = $repo } |
+@{ sha = (git rev-parse HEAD).Trim(); commit = $commit; version = "$version ($commit)"; repo = $repo } |
     ConvertTo-Json | Out-File -Encoding utf8 build\build-info.json
+# The version the launcher starts, once installed.
+[IO.File]::WriteAllText("$root\build\current.txt", $folder)
 
 uv run pyinstaller desktop\personal-calendar.spec --noconfirm --clean --distpath build\dist --workpath build\work
 if ($LASTEXITCODE) { throw "PyInstaller failed" }
 
-& $iscc /Q "/DAppVersion=$version ($commit)" "/DSourceDir=$root\build\dist\Personal Calendar" "/O$root\build" desktop\installer.iss
+New-Item -ItemType Directory -Force build\launcher | Out-Null
+& $csc /nologo /target:winexe /optimize+ /win32icon:app\static\icons\app.ico "/out:build\launcher\Personal Calendar.exe" desktop\launcher.cs
+if ($LASTEXITCODE) { throw "The launcher did not compile" }
+
+& $iscc /Q "/DAppVersion=$version ($commit)" "/DAppFolder=$folder" "/DBuildDir=$root\build" "/O$root\build" desktop\installer.iss
 if ($LASTEXITCODE) { throw "Inno Setup failed" }
 $setup = Join-Path $root "build\Personal-Calendar-Setup.exe"
 Write-Host "Built $setup ($version, $commit)"
