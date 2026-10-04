@@ -43,7 +43,10 @@
    Its keys: Enter, Shift+Enter, Backspace, Tab and Shift+Tab for lists,
    Ctrl+L an item's box, Ctrl+B, Ctrl+I, Ctrl+Shift+X and Ctrl+` the marks.
    Ctrl+E (toggleReading) is the page's to bind: reading is not editable, so
-   the editor cannot hear the key back out of it. */
+   the editor cannot hear the key back out of it. bindSwitch binds it, with
+   a page's Live Preview, Source and Reading buttons (partials/md_modes.html),
+   and remembers the mode for the kind of page, opened again in
+   rememberedMode(key). */
 
 (() => {
   const {
@@ -1019,5 +1022,52 @@
 
   const toggleSource = (view) => setMode(view, modeOf(view) === "source" ? "live" : "source");
 
-  window.MarkdownLive = { extensions, setMode, modeOf, toggleReading, toggleSource };
+  /* ---- a page's switch between the modes ---- */
+
+  const storeKey = (key) => `pc-md-mode-${key}`;
+
+  // The mode a kind of page ("doc", "task") was last left in, to open in.
+  function rememberedMode(key) {
+    try {
+      const mode = localStorage.getItem(storeKey(key));
+      return MODES.includes(mode) ? mode : "live";
+    } catch {
+      return "live";
+    }
+  }
+
+  // A page's [data-md-modes] switch, its [data-md-mode] buttons each a
+  // mode, for the editor viewOf() returns as it is pressed (the page may
+  // have made it anew), and Ctrl+E (Cmd+E) in and out of reading. The mode
+  // chosen is remembered for the kind of page, `key`.
+  function bindSwitch(el, viewOf, key) {
+    const show = () => {
+      const view = viewOf();
+      const mode = view ? modeOf(view) : null;
+      el.querySelectorAll("[data-md-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mdMode === mode)));
+    };
+    const switched = (view) => {
+      try { localStorage.setItem(storeKey(key), modeOf(view)); } catch { /* private mode: this page only */ }
+      show();
+    };
+    el.addEventListener("click", (e) => {
+      const button = e.target.closest("[data-md-mode]");
+      const view = viewOf();
+      if (!button || !view) return;
+      setMode(view, button.dataset.mdMode);
+      switched(view);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key.toLowerCase() !== "e" || !(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.isComposing) return;
+      const view = viewOf();
+      if (!view || document.querySelector("dialog[open]")) return;
+      e.preventDefault();
+      toggleReading(view);
+      switched(view);
+    });
+    show();
+    return { show };
+  }
+
+  window.MarkdownLive = { extensions, setMode, modeOf, toggleReading, toggleSource, rememberedMode, bindSwitch };
 })();

@@ -1,0 +1,10 @@
+{# The Markdown's modes, as Obsidian's, at a page header's right: written
+   and drawn as it reads, written as its Markdown, or only read (Ctrl+E).
+   MarkdownLive.bindSwitch presses the one in use. #}
+{% macro md_modes() %}
+<div class="segmented md-modes" role="group" aria-label="View" data-md-modes>
+  <button type="button" data-md-mode="live" aria-pressed="false" title="Write it, drawn as it reads">Live</button>
+  <button type="button" data-md-mode="source" aria-pressed="false" title="Write its Markdown">Source</button>
+  <button type="button" data-md-mode="reading" aria-pressed="false" title="Read it (Ctrl+E)">Reading</button>
+</div>
+{% endmacro %}

@@ -1,14 +1,19 @@
 {% extends "base.html" %}
+{% from "partials/md_modes.html" import md_modes %}
 {% block title %}{{ sheet.title }} · Personal Calendar{% endblock %}
 {% block content %}
 {# A task on its own page (views.task_page_ctx), for one too long for its
    row: a way back to where it was opened, then its sheet as a document
    (partials/task_sheet.html, mode "page"), saved as it is written
-   (task-sheet.js), what it last did said at the header's right. #}
+   (task-sheet.js), what it last did said at the header's right, beside
+   its description's Markdown modes (notes-editor.js). #}
 <div class="task-page">
   <header class="task-page-header">
     <a class="page-back" href="{{ back.href }}">{{ back.label }}</a>
-    <span class="task-page-state" data-page-state role="status" aria-live="polite"></span>
+    <div class="page-header-end">
+      <span class="task-page-state" data-page-state role="status" aria-live="polite"></span>
+      {{ md_modes() }}
+    </div>
   </header>
   {% with mode = "page" %}{% include "partials/task_sheet.html" %}{% endwith %}
 </div>

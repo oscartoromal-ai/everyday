@@ -897,7 +897,12 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   margin-bottom: var(--s-4);
 }
 .task-page-header .page-back { margin-bottom: 0; }
+.page-header-end { display: flex; align-self: center; align-items: center; gap: var(--s-3); }
 .task-page-state { font-size: var(--t-caption); color: var(--pewter); }
+/* the Markdown's modes (partials/md_modes.html): a small segmented control,
+   standing out of the header's line rather than making it taller */
+.segmented.md-modes { margin: -6px 0; padding: 2px; }
+.segmented.md-modes button { padding: 2px var(--s-3); font-size: var(--t-caption); line-height: 18px; }
 .task-page .task-sheet { padding: 0; gap: var(--s-3); line-height: inherit; }
 .task-page .task-check { margin-top: 7px; }
 .task-page .sheet-line { font-family: var(--font-display); font-size: var(--t-h-sm); line-height: 32px; letter-spacing: -0.015em; }
@@ -2121,13 +2126,13 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 
 /* Brasa's: a pill track, the active option carbon */
 .segmented { display: inline-flex; gap: 2px; margin-right: var(--s-2); padding: 3px; border: 1px solid var(--hairline); border-radius: var(--r-pill); background: var(--glass-btn); }
-.segmented a {
-  padding: 5px var(--s-4); border-radius: var(--r-pill);
-  font-size: var(--t-body-sm); font-weight: 500; color: var(--graphite); text-decoration: none;
+.segmented :is(a, button) {
+  padding: 5px var(--s-4); border: none; border-radius: var(--r-pill); background: none; cursor: pointer;
+  font: inherit; font-size: var(--t-body-sm); font-weight: 500; color: var(--graphite); text-decoration: none;
   transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
-.segmented a:hover { color: var(--ink); }
-.segmented a[aria-current] { background: var(--carbon); color: var(--on-carbon); }
+.segmented :is(a, button):hover { color: var(--ink); }
+.segmented :is(a[aria-current], button[aria-pressed="true"]) { background: var(--carbon); color: var(--on-carbon); }
 
 /* ---------- The chat pages (Nutrition, Spending): a sheet beside a chat with Claude ---------- */
 
@@ -3219,8 +3224,9 @@ a.doc-row:hover .item-name { text-decoration: underline; text-underline-offset: 
 
 /* A document's page, at a task page's width: its name as the heading (in
    place, on no line, for one that can be renamed; its bin at the right),
-   the project it is context for, then its Markdown on a ruled, numbered
-   sheet to the window's foot, the page scrolling as it grows. */
+   the project it is context for, then its Markdown at reading size, as a
+   task's description is, to the window's foot, the page scrolling as it
+   grows. */
 .doc-title { display: flex; align-items: center; gap: var(--s-2); }
 .doc-title h1 {
   flex: 1; min-width: 0;
@@ -3233,8 +3239,5 @@ a.doc-row:hover .item-name { text-decoration: underline; text-underline-offset: 
 .doc-name:focus-visible { box-shadow: none; }
 .doc-title .task-delete { opacity: 1; margin: 0 -6px 0 0; }
 .doc-rest { display: flex; align-items: center; gap: var(--s-2); margin: var(--s-1) 0 var(--s-4); }
-.doc-sheet { padding-top: 0; }
-.doc-sheet .doc-source { display: none; }
-.doc-sheet .cm-editor { flex: none; }
-.doc-sheet .sheet-filler { min-height: calc(3 * var(--pad-line)); cursor: text; }
-.doc-sheet .cm-content:is(:focus, :focus-visible) { outline: none; box-shadow: none; }
+.doc-body { flex: 1 0 auto; padding-bottom: var(--s-8); font-size: var(--t-body); line-height: 1.6; }
+.doc-body .cm-md-h1 { font-size: var(--t-sub); }

@@ -1,22 +1,20 @@
 /* A document of a project's context on its own page (project_doc.html):
-   its Markdown written on a ruled, numbered sheet, as Today's notes are,
-   in CodeMirror 6 (window.CM), its headings in 600 ink; and its name, any
-   but AGENTS.md's, written in the heading.
+   its Markdown written and drawn as it reads (markdown-live.js, on
+   CodeMirror 6), bullets as bullets, "- [ ] " as boxes, in the mode last
+   chosen for a document from the header's switch (Live, Source, Reading;
+   Ctrl+E in and out of reading); and its name, any but AGENTS.md's,
+   written in the heading.
 
    Both are saved as they are written: a moment after the writing pauses,
    at once on Ctrl+S or Enter in the name, and as the page is left or its
    tab hidden. Saves go one at a time, a save asked for while one is in
    flight following it with what is newest. The header says "Saved" once
    one lands, nothing while there is writing still to save, and "Not saved"
-   (with a toast) if one fails. The empty rows under the text, numbered on
-   from its last, are the sheet's to its foot; a click there writes at the
-   end. */
+   (with a toast) if one fails. A click in the room under the text writes
+   at its end. */
 
 (() => {
-  const {
-    EditorState, EditorView, Decoration, ViewPlugin, RangeSetBuilder, drawSelection, keymap,
-    lineNumbers, placeholder, defaultKeymap, history, historyKeymap,
-  } = window.CM;
+  const { EditorState, EditorView, drawSelection, keymap, placeholder, defaultKeymap, history, historyKeymap } = window.CM;
 
   const page = document.querySelector(".doc-page[data-doc]");
   const source = page?.querySelector("[data-doc-body]");
@@ -24,7 +22,7 @@
 
   const PAUSE_MS = 900;
   const nameInput = page.querySelector("[data-doc-name]");
-  const filler = page.querySelector("[data-doc-filler]");
+  const room = page.querySelector("[data-doc-editor]");
   const stateEl = page.querySelector("[data-page-state]");
   const sayState = (text) => { stateEl.textContent = text; };
 
@@ -94,92 +92,35 @@
 
   /* ---- the editor ---- */
 
-  // A Markdown heading's line ("# Build", "## Tests") in 600 ink.
-  const headLine = Decoration.line({ class: "cm-md-head" });
-  const headings = ViewPlugin.fromClass(class {
-    constructor(v) { this.decorations = this.build(v); }
-    update(u) { if (u.docChanged || u.viewportChanged) this.decorations = this.build(u.view); }
-    build(v) {
-      const marks = new RangeSetBuilder();
-      for (const { from, to } of v.visibleRanges) {
-        for (let pos = from; pos <= to;) {
-          const line = v.state.doc.lineAt(pos);
-          if (/^#{1,6}\s/.test(line.text)) marks.add(line.from, line.from, headLine);
-          pos = line.to + 1;
-        }
-      }
-      return marks.finish();
-    }
-  }, { decorations: (p) => p.decorations });
-
-  // The filler's rows number on from the text's last line.
-  const numberFiller = () => {
-    filler?.firstElementChild?.style.setProperty("counter-reset", `sheet-row ${view.state.doc.lines}`);
-  };
-
-  const theme = EditorView.theme({
-    "&": { fontSize: "var(--t-body-sm)", letterSpacing: "-0.01em" },
-    "&.cm-focused": { outline: "none" },
-    ".cm-scroller": { fontFamily: "inherit", lineHeight: "var(--pad-text)", overflow: "visible" },
-    ".cm-content": { padding: "0", caretColor: "var(--ink)" },
-    ".cm-line": {
-      padding: "var(--pad-above) var(--s-4) var(--pad-below) var(--pad-gap)",
-      borderBottom: "1px solid var(--hairline)",
-      color: "var(--ink)",
-    },
-    ".cm-line.cm-md-head": { fontWeight: "600" },
-    ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--ink)", borderLeftWidth: "1.5px" },
-    "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
-      background: "color-mix(in srgb, var(--spark) 22%, transparent)",
-    },
-    // The sheet draws the numbers' fog and its edge; the gutter is as wide.
-    ".cm-gutters": { backgroundColor: "transparent", color: "var(--pewter)", border: "none" },
-    ".cm-lineNumbers .cm-gutterElement": {
-      boxSizing: "border-box",
-      minWidth: "var(--pad-rows)",
-      padding: "0 var(--s-2) 0 0",
-      lineHeight: "calc(var(--pad-line) - 1px)",
-      background: "linear-gradient(to top, var(--hairline) 1px, transparent 1px)",
-      fontFamily: "var(--font-num)",
-      fontSize: "var(--t-caption)",
-      fontVariantNumeric: "tabular-nums",
-      letterSpacing: "normal",
-    },
-    ".cm-activeLineGutter": { backgroundColor: "transparent" },
-    ".cm-placeholder": { color: "var(--pewter)" },
-  });
+  // An empty document opens to be written, whatever it was last left in.
+  const mode = source.value ? window.MarkdownLive.rememberedMode("doc") : "live";
 
   view = new EditorView({
     state: EditorState.create({
       doc: source.value,
       extensions: [
-        lineNumbers(),
+        window.MarkdownLive.extensions({ mode }),
         history(),
         drawSelection(),
-        EditorView.lineWrapping,
         placeholder(source.dataset.placeholder || ""),
-        EditorView.contentAttributes.of({ "aria-label": source.getAttribute("aria-label") || "Document", spellcheck: "true" }),
+        EditorView.contentAttributes.of({ "aria-label": source.getAttribute("aria-label") || "Document" }),
         keymap.of([
           { key: "Mod-s", preventDefault: true, run: () => { save(); return true; } },
           ...defaultKeymap,
           ...historyKeymap,
         ]),
-        headings,
         EditorView.updateListener.of((u) => {
-          if (!u.docChanged) return;
-          numberFiller();
-          schedule();
+          if (u.docChanged) schedule();
         }),
-        theme,
       ],
     }),
   });
   source.after(view.dom);
-  source.hidden = true;
-  numberFiller();
+  window.MarkdownLive.bindSwitch(page.querySelector("[data-md-modes]"), () => view, "doc");
 
-  // A click under the text writes at its end.
-  filler?.addEventListener("mousedown", (e) => {
+  // A click in the room under the text writes at its end.
+  room.addEventListener("mousedown", (e) => {
+    if (e.target !== room || e.button !== 0 || window.MarkdownLive.modeOf(view) === "reading") return;
     e.preventDefault();
     view.focus();
     view.dispatch({ selection: { anchor: view.state.doc.length }, scrollIntoView: true });

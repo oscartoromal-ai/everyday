@@ -1,16 +1,20 @@
 {% extends "base.html" %}
 {% from "partials/project_flag.html" import project_flag %}
+{% from "partials/md_modes.html" import md_modes %}
 {% block title %}{{ doc.name }} · {{ project.name }} · Personal Calendar{% endblock %}
 {% block content %}
 {# A document of a project's context on a page of its own: back to the
-   project, whether it is saved at the header's right, its name as the
-   heading (AGENTS.md's fixed, any other's written in place, with its bin),
-   then its Markdown on a ruled, numbered sheet as Today's notes are, saved
-   as it is written (doc-editor.js). #}
+   project, whether it is saved and the Markdown's modes at the header's
+   right, its name as the heading (AGENTS.md's fixed, any other's written in
+   place, with its bin), then its Markdown, drawn as it reads while it is
+   written and saved as it is written (doc-editor.js). #}
 <div class="doc-page" data-doc="{{ doc.id }}">
   <header class="task-page-header">
     <a class="page-back" href="/projects/{{ project.id }}">{{ project.name }}</a>
-    <span class="task-page-state" data-page-state role="status" aria-live="polite"></span>
+    <div class="page-header-end">
+      <span class="task-page-state" data-page-state role="status" aria-live="polite"></span>
+      {{ md_modes() }}
+    </div>
   </header>
   <div class="doc-title">
     {% if doc.is_agents %}
@@ -30,9 +34,8 @@
   </div>
   <p class="rest doc-rest">{{ project_flag(project) }}<span>{{ project.name }}'s context{% if doc.body %} · edited {{ edited }}{% endif %}</span></p>
 
-  <div class="doc-sheet ruled-sheet">
-    <textarea class="doc-source" data-doc-body aria-label="{{ doc.name }}" data-placeholder="{{ placeholder }}">{{ doc.body }}</textarea>
-    <div class="sheet-filler" aria-hidden="true" data-doc-filler><ol>{% for _ in range(40) %}<li></li>{% endfor %}</ol></div>
+  <div class="doc-body notes-editor" data-doc-editor>
+    <textarea class="doc-source" data-doc-body aria-label="{{ doc.name }}" data-placeholder="{{ placeholder }}" hidden>{{ doc.body }}</textarea>
   </div>
 </div>
 <script src="{{ asset('doc-editor.js') }}" defer></script>

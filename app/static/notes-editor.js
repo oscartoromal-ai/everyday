@@ -6,21 +6,32 @@
    with an input event, as typing in it would.
 
    Each [data-notes-editor] in a [data-notes-field] gets its editor as htmx
-   loads it, and loses it as htmx takes it away. */
+   loads it, and loses it as htmx takes it away. On a task's page, the
+   header's switch (Live, Source, Reading; Ctrl+E) sets its mode. */
 
 (() => {
   const { EditorState, EditorView, keymap, placeholder, drawSelection, defaultKeymap, history, historyKeymap } = window.CM;
 
   const views = new WeakMap(); // [data-notes-editor] -> EditorView
+  const switches = new WeakMap(); // [data-md-modes] -> MarkdownLive.bindSwitch's
   const field = (root) => root.closest("[data-notes-field]").querySelector("textarea");
 
   // Ctrl+Enter belongs to the task sheet (add, or save), not to a blank line.
   const keys = defaultKeymap.filter((b) => b.key !== "Mod-Enter");
 
+  // A task's page has the description's modes at its header's right; it
+  // opens in the one last chosen there, or to be written when empty.
+  const switchOf = (root) => root.closest(".task-page")?.querySelector("[data-md-modes]");
+  const modeFor = (root, text) => {
+    const view = views.get(root);
+    if (view) return window.MarkdownLive.modeOf(view);
+    return switchOf(root) && text ? window.MarkdownLive.rememberedMode("task") : "live";
+  };
+
   const stateFor = (root, text) => EditorState.create({
     doc: text,
     extensions: [
-      window.MarkdownLive.extensions({ checklist: true }),
+      window.MarkdownLive.extensions({ checklist: true, mode: modeFor(root, text) }),
       history(),
       drawSelection(),
       placeholder(root.dataset.placeholder || ""),
@@ -39,6 +50,12 @@
     if (views.has(root)) return;
     const view = new EditorView({ state: stateFor(root, field(root).value), parent: root });
     views.set(root, view);
+    const modes = switchOf(root);
+    if (modes && !switches.has(modes)) {
+      const page = root.closest(".task-page");
+      switches.set(modes, window.MarkdownLive.bindSwitch(modes, () => views.get(page.querySelector("[data-notes-editor]")), "task"));
+    }
+    switches.get(modes)?.show();
   };
 
   // The editor's text set from the field, with a fresh history: after a
@@ -71,7 +88,7 @@
   document.addEventListener("mousedown", (e) => {
     const root = e.target.closest?.("[data-notes-editor]");
     const view = root && views.get(root);
-    if (!view || e.target !== root || e.button !== 0) return;
+    if (!view || e.target !== root || e.button !== 0 || window.MarkdownLive.modeOf(view) === "reading") return;
     e.preventDefault();
     window.NotesEditor.focusEnd(root);
   });

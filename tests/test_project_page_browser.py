@@ -76,3 +76,37 @@ def test_the_gantt_is_the_projects_next_tab(page, live, app_db) -> None:
     assert page.locator(".project-tabs a[aria-current]").inner_text() == "Gantt"
     page.locator(".project-tabs a", has_text="Overview").click()
     page.wait_for_url(f"{live}/projects/{project_id}")
+
+
+def test_a_document_is_drawn_as_it_reads_and_opens_in_its_last_mode(page, live, app_db) -> None:
+    with app_db() as db:
+        project = projects_svc.create_project(db, name="Note-app")
+        project.docs[0].body = "# Note-app\n- Run `uv sync` first\n- [ ] Write the deploy steps"
+        db.commit()
+        url = f"{live}/projects/{project.id}/docs/{project.docs[0].id}"
+    page.goto(url)
+    editor = page.locator(".doc-body .cm-content")
+    modes = page.locator("[data-md-modes]")
+    # Live: the heading drawn without its "#", a bullet and a box drawn.
+    assert modes.locator('[aria-pressed="true"]').inner_text() == "Live"
+    assert editor.locator(".cm-line.cm-md-h1").inner_text() == "Note-app"
+    assert editor.locator(".cm-md-bullet").count() == 1
+    assert editor.locator(".cm-md-box").count() == 1
+
+    # Source: its Markdown as written, and written there.
+    modes.locator("button", has_text="Source").click()
+    assert editor.locator(".cm-line").first.inner_text() == "# Note-app"
+    page.keyboard.press("Control+End")
+    page.keyboard.press("Enter")
+    page.keyboard.press("Enter")  # out of the list
+    page.keyboard.type("## Tests")
+    page.locator("[data-page-state]", has_text="Saved").wait_for()
+    assert docs(app_db, "Note-app")["AGENTS.md"].endswith("\n## Tests")
+
+    # Reading (Ctrl+E), and opened again in it; Ctrl+E goes back to Source.
+    page.keyboard.press("Control+e")
+    assert editor.get_attribute("contenteditable") == "false"
+    page.reload()
+    assert modes.locator('[aria-pressed="true"]').inner_text() == "Reading"
+    page.keyboard.press("Control+e")
+    assert modes.locator('[aria-pressed="true"]').inner_text() == "Live"
