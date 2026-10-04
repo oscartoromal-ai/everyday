@@ -1,7 +1,8 @@
 <#
-    Updates the installed desktop app to a commit of its repo. Started by the
-    app's Update button (app/desktop/update.py), in the background, with
-    no window.
+    Updates the installed desktop app to a commit of its repo (-Repo). Started
+    by the app's Update button (app/desktop/update.py), in the background, with
+    no window, from the copy bundled with the app: what it takes is always
+    what that app passes, whatever the repo has checked out.
 
     The commit is built in a worktree of its own, so whatever is uncommitted
     in the repo stays out (desktop\build.ps1), then staged: its version's
@@ -18,13 +19,15 @@
 param(
     [Parameter(Mandatory)][string]$Status,
     [Parameter(Mandatory)][string]$Sha,
-    [string]$Install
+    [string]$Install,
+    # The repo this script is in, for an app from before the script was
+    # bundled with it, which runs the repo's copy and passes no -Repo.
+    [string]$Repo = (Split-Path -Parent $PSScriptRoot)
 )
 
 # Failures are read from exit codes and exceptions: Windows PowerShell would
 # take the native tools' progress on stderr for errors.
 $ErrorActionPreference = "Continue"
-$repo = Split-Path -Parent $PSScriptRoot
 $log = Join-Path (Split-Path -Parent $Status) "logs\update.log"
 # A worktree of the app's own, by its status file: two apps (homes of their
 # own) can update at once, and one app never runs two updates.

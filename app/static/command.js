@@ -84,7 +84,7 @@
       ? [{
           kind: "Do",
           label: {
-            ready: "Update the app to your latest commit",
+            ready: "Update the app to master's latest commit",
             staged: "Restart the app on its update",
             failed: "Retry the app's update",
           }[document.querySelector("button.update-button").dataset.update],

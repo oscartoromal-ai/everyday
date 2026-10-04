@@ -1,11 +1,14 @@
 """The installed app updating itself from its repo.
 
 The installed app knows the commit it was built from and the repo it came
-from (build-info.json, written by desktop/build.ps1). When the repo's latest
-commit is another, an update is ready: the Update button (the rail's foot,
-partials/update_button.html) starts desktop/update.ps1 from the repo, which
-builds that commit in the background and stages it, while the app carries
-on. Uncommitted work is never part of an update.
+from (build-info.json, written by desktop/build.ps1). Changes reach master
+through pull requests merged on GitHub, so the commit to be at is the repo's
+origin/master, fetched in the background, not whatever the repo has checked
+out. When it is past the installed one, an update is ready: the Update
+button (the rail's foot, partials/update_button.html) starts the app's own
+copy of desktop/update.ps1 (bundled with it, so it always takes what the app
+passes it), which builds that commit in the background and stages it, while
+the app carries on. Uncommitted work is never part of an update.
 
 The install's folder (desktop/installer.iss) holds a launcher, the
 `Personal Calendar.exe` its shortcuts start, and each version in a folder of
@@ -40,6 +43,11 @@ from app.desktop import win32
 log = logging.getLogger(__name__)
 
 BUILD_INFO = REPO_ROOT / "build-info.json"
+# Bundled with the app (desktop/personal-calendar.spec); the repo's, run from it.
+SCRIPT = REPO_ROOT / "desktop" / "update.ps1"
+# Where the commits to update to come from.
+REMOTE = "origin"
+BRANCH = "master"
 # What the install's folder holds besides its versions (desktop/installer.iss).
 LAUNCHER = "Personal Calendar.exe"
 CURRENT = "current.txt"
@@ -49,8 +57,10 @@ UNINSTALL_KEY = (
     r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
     r"\{6C1B0E5A-3F4B-4E8C-9C1D-2B7A5E9F4D21}_is1"
 )
-# How long the repo's latest commit is taken as known, between looks.
+# How long master's latest commit is taken as known, between looks.
 CHECK_SECONDS = 20
+# How often the remote is fetched, in the background, while the app is used.
+FETCH_SECONDS = 300
 CREATE_NEW_PROCESS_GROUP = 0x00000200
 
 
@@ -128,6 +138,7 @@ class Updater:
         self.install = install
         self._head: str | None = None
         self._checked = float("-inf")
+        self._fetched = float("-inf")
         self._lock = threading.Lock()
 
     @classmethod
@@ -136,27 +147,62 @@ class Updater:
         latest code), or when its repo or git is not on this machine."""
         info = build_info()
         git = shutil.which("git")
-        if not info or not git or not (Path(info["repo"]) / "desktop" / "update.ps1").exists():
+        if not info or not git or not SCRIPT.exists() or not (Path(info["repo"]) / ".git").exists():
             return None
         return cls(
             info["sha"], Path(info["repo"]), status_path, git, install_root(Path(sys.executable))
         )
 
+    def _git(self, *args: str, timeout: float = 10) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [self.git, "-C", str(self.repo), *args],
+            capture_output=True, text=True, timeout=timeout,
+            # Never a prompt for credentials: there is no one to answer it.
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"},
+        )
+
+    def fetch(self) -> None:
+        """The remote's master fetched into the repo, for latest()."""
+        self._fetched = time.monotonic()
+        try:
+            out = self._git("fetch", "--quiet", REMOTE, BRANCH, timeout=120)
+        except (OSError, subprocess.SubprocessError):
+            log.warning("Could not fetch %s %s", REMOTE, BRANCH, exc_info=True)
+            return
+        if out.returncode:
+            log.warning("Could not fetch %s %s: %s", REMOTE, BRANCH, out.stderr.strip())
+            return
+        with self._lock:
+            self._checked = float("-inf")
+
     def latest(self) -> str | None:
-        """The repo's latest commit, looked up at most every CHECK_SECONDS."""
+        """The commit to be at: the remote's master as last fetched (fetched
+        again every FETCH_SECONDS, in the background), looked up at most every
+        CHECK_SECONDS; the installed one while master is not past it."""
+        if time.monotonic() - self._fetched > FETCH_SECONDS:
+            self._fetched = time.monotonic()
+            threading.Thread(target=self.fetch, name="fetch updates", daemon=True).start()
         with self._lock:
             if time.monotonic() - self._checked > CHECK_SECONDS:
                 self._checked = time.monotonic()
-                try:
-                    out = subprocess.run(
-                        [self.git, "-C", str(self.repo), "rev-parse", "HEAD"],
-                        capture_output=True, text=True, timeout=10, check=True,
-                    )
-                    self._head = out.stdout.strip()
-                except (OSError, subprocess.SubprocessError):
-                    log.warning("Could not read the repo's latest commit", exc_info=True)
-                    self._head = None
+                self._head = self._look_up()
             return self._head
+
+    def _look_up(self) -> str | None:
+        try:
+            out = self._git("rev-parse", "--verify", "--quiet", f"refs/remotes/{REMOTE}/{BRANCH}")
+            if out.returncode:
+                log.warning("The repo has no %s/%s to update to", REMOTE, BRANCH)
+                return None
+            head = out.stdout.strip()
+            # Never back: master behind the installed commit (one installed by
+            # hand from a branch ahead of it) is nothing to update to.
+            if self._git("merge-base", "--is-ancestor", head, self.sha).returncode == 0:
+                return self.sha
+            return head
+        except (OSError, subprocess.SubprocessError):
+            log.warning("Could not read master's latest commit", exc_info=True)
+            return None
 
     def status(self) -> dict | None:
         return _read_json(self.status_path)
@@ -185,7 +231,7 @@ class Updater:
             elif latest != self.sha:
                 # Failed, or its script gone without a word.
                 return UpdateState("failed", self.sha[:7], sha[:7], status.get("log"))
-            # Failed, but the repo is back at what is installed; or staged,
+            # Failed, but master is no longer past what is installed; or staged,
             # but its folder gone.
             self.clear()
         if latest is None or latest == self.sha:
@@ -193,7 +239,7 @@ class Updater:
         return UpdateState("ready", self.sha[:7], latest[:7])
 
     def start(self) -> UpdateState | None:
-        """The update to the repo's latest commit started, unless one runs."""
+        """The update to master's latest commit started, unless one runs."""
         current = self.state()
         if current is None or current.state in ("updating", "staged"):
             return current
@@ -202,27 +248,34 @@ class Updater:
         if sha is None or sha == self.sha:
             self.clear()
             return None
-        script = self.repo / "desktop" / "update.ps1"
-        self._write_status({"state": "updating", "sha": sha})
+        # What the script says outside its own log (update.log), such as why
+        # PowerShell would not run it at all: the button points here should
+        # it end without a word.
+        console = self.status_path.parent / "logs" / "update-console.log"
+        console.parent.mkdir(parents=True, exist_ok=True)
+        starting = {"state": "updating", "sha": sha, "log": str(console)}
+        self._write_status(starting)
         args = [
             "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
-            "-File", str(script), "-Status", str(self.status_path), "-Sha", sha,
+            "-File", str(SCRIPT), "-Repo", str(self.repo),
+            "-Status", str(self.status_path), "-Sha", sha,
         ]
         if self.install:
             args += ["-Install", str(self.install)]
-        process = subprocess.Popen(
-            args,
-            cwd=self.repo,
-            # Its own process group, so it outlives this app; no window
-            # (win32.no_console_windows).
-            creationflags=CREATE_NEW_PROCESS_GROUP,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+        with console.open("wb") as output:
+            process = subprocess.Popen(
+                args,
+                cwd=self.repo,
+                # Its own process group, so it outlives this app; no window
+                # (win32.no_console_windows).
+                creationflags=CREATE_NEW_PROCESS_GROUP,
+                stdin=subprocess.DEVNULL,
+                stdout=output,
+                stderr=subprocess.STDOUT,
+            )
         # Unless the script has already written that it staged or failed.
-        if self.status() == {"state": "updating", "sha": sha}:
-            self._write_status({"state": "updating", "sha": sha, "pid": process.pid})
+        if self.status() == starting:
+            self._write_status({**starting, "pid": process.pid})
         log.info("Updating to %s (update.ps1, pid %s)", sha, process.pid)
         return self.state()
 
