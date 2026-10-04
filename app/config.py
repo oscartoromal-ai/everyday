@@ -106,6 +106,16 @@ class GarminConfig(BaseModel):
     backfill_days: int = 30
 
 
+class GitHubConfig(BaseModel):
+    # A token pasted on Repositories is kept here (git-ignored); connected
+    # through the GitHub CLI, the app keeps none and asks gh each time.
+    token_file: str = "local/github-token.txt"
+    # The GitHub CLI. Empty: `gh` on PATH, else where its installer puts it.
+    cli: str = ""
+    # How often the repositories are fetched again while connected.
+    sync_minutes: int = 60
+
+
 class Settings(BaseSettings):
     # Env vars override config.toml, e.g. PC_STORAGE__DB_PATH=...; the home's
     # config.toml overrides the defaults beside the code (the same file when
@@ -125,6 +135,7 @@ class Settings(BaseSettings):
     nutrition: NutritionConfig = NutritionConfig()
     money: MoneyConfig = MoneyConfig()
     garmin: GarminConfig = GarminConfig()
+    github: GitHubConfig = GitHubConfig()
 
     @classmethod
     def settings_customise_sources(
@@ -158,6 +169,10 @@ class Settings(BaseSettings):
     @property
     def garmin_token_dir(self) -> Path:
         return self.resolve(self.garmin.token_dir)
+
+    @property
+    def github_token_file(self) -> Path:
+        return self.resolve(self.github.token_file)
 
     @property
     def ics_url(self) -> str | None:

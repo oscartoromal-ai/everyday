@@ -472,6 +472,61 @@ class GarminActivity(Base):
     max_hr: Mapped[int | None] = mapped_column(Integer, default=None)
 
 
+# ---- Repositories (SPEC.md, GitHub) ----
+
+
+class GitHubSource(enum.StrEnum):
+    # The GitHub CLI's own sign-in, asked for at each sync and never copied.
+    cli = "cli"
+    # A token pasted on Repositories, kept in local/ ([github].token_file).
+    token = "token"
+
+
+class GitHubLink(Base):
+    """The link to Oscar's GitHub account (Repositories): who is signed in,
+    how, and how the last sync went. One row while connected. No token is
+    here: the CLI keeps its own, and a pasted one is in local/."""
+
+    __tablename__ = "github_link"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source: Mapped[GitHubSource] = mapped_column(_enum(GitHubSource))
+    login: Mapped[str] = mapped_column(String(64), default="")
+    name: Mapped[str] = mapped_column(Text, default="")
+    connected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    # The last sync that finished, and why the last one failed ("" when it did not).
+    synced_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    sync_error: Mapped[str] = mapped_column(Text, default="")
+    # GitHub stopped accepting the sign-in (or gh signed out): connect again.
+    signed_out: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class Repository(Base):
+    """A GitHub repository Oscar can reach, as GitHub has it at the last
+    sync: his own, those he collaborates on, and his organizations'."""
+
+    __tablename__ = "repositories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    github_id: Mapped[int] = mapped_column(Integer, unique=True)
+    # owner/name, as GitHub writes it; its page is html_url.
+    full_name: Mapped[str] = mapped_column(String(200))
+    owner: Mapped[str] = mapped_column(String(100))
+    name: Mapped[str] = mapped_column(String(100))
+    description: Mapped[str] = mapped_column(Text, default="")
+    private: Mapped[bool] = mapped_column(Boolean, default=True)
+    fork: Mapped[bool] = mapped_column(Boolean, default=False)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Its main language, as GitHub detects it ("" when none).
+    language: Mapped[str] = mapped_column(String(64), default="")
+    default_branch: Mapped[str] = mapped_column(String(255), default="")
+    html_url: Mapped[str] = mapped_column(Text, default="")
+    # Open issues and pull requests together, as GitHub counts them.
+    open_issues: Mapped[int] = mapped_column(Integer, default=0)
+    # The last push to any branch, local time; None for one never pushed to.
+    pushed_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+
 # ---- Finances (SPEC.md, Finances): money in whole cents, Australian dollars ----
 
 

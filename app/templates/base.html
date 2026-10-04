@@ -115,6 +115,10 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         {% call nav_link("/bills", "bills", "Bills", "") %}<path d="M5 2.5h10v15l-1.7-1.2-1.6 1.2-1.7-1.2-1.7 1.2-1.6-1.2L5 17.5z"/><path d="M7.5 6.5h5"/><path d="M7.5 9.5h5"/><path d="M7.5 12.5h3"/>{% endcall %}
         {% call nav_link("/goals", "goals", "Goals", "") %}<circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="3.75"/><circle cx="10" cy="10" r="1.1" fill="currentColor" stroke="none"/>{% endcall %}
       </div>
+      <div class="nav-group" role="group" aria-labelledby="nav-code">
+        <div class="nav-group-label" id="nav-code">Code</div>
+        {% call nav_link("/repositories", "repositories", "Repositories", "8") %}<path d="M4.5 16V4.5A1.5 1.5 0 0 1 6 3h9.5v11.5H6a1.5 1.5 0 0 0 0 3h1.5"/><path d="M15.5 14.5v3H14"/><path d="M9.5 14.5V18l1.5-1 1.5 1v-3.5"/>{% endcall %}
+      </div>
     </nav>
     <div class="rail-foot">
       {% with update = app_update() %}{% include "partials/update_button.html" %}{% endwith %}
@@ -186,7 +190,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       <section>
         <h3>Anywhere</h3>
         <dl>
-          <dt><kbd>1</kbd>–<kbd>7</kbd></dt><dd>Today, Calendar, Projects, Nutrition, Me, Garmin, Spending</dd>
+          <dt><kbd>1</kbd>–<kbd>8</kbd></dt><dd>Today, Calendar, Projects, Nutrition, Me, Garmin, Spending, Repositories</dd>
           <dt><kbd>N</kbd> <span class="or">or</span> <kbd>Shift</kbd> <kbd>N</kbd></dt><dd>New task</dd>
           <dt><kbd>?</kbd></dt><dd>These keys</dd>
           <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Search tasks, projects, events and notes; go to a page or a day ("friday", "12 oct"); or do (new task or event, theme)</dd>

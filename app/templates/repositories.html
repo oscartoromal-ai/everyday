@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Repositories · Personal Calendar{% endblock %}
+{% block content %}
+{# Repositories: the GitHub repositories Oscar can reach, last pushed
+   first, synced from GitHub. Before it is connected, the page is the ways
+   to connect. The list is drawn again as its words are written (the field
+   outside it keeps them) and when a sync ends. #}
+<div class="me-page repos-page">
+  <header class="page-header">
+    <div>
+      <h1>Repositories</h1>
+      <p class="rest">Your GitHub repositories, synced from GitHub. Claude reads them too.</p>
+    </div>
+    {% if has_repos or connected %}
+    <form class="repos-find" role="search" hx-on:submit="event.preventDefault()">
+      <span class="field-line">
+        <input type="search" name="q" value="{{ query }}" placeholder="Find a repository…" aria-label="Find a repository"
+               autocomplete="off" spellcheck="false"
+               hx-get="/ui/repositories/list" hx-trigger="input changed delay:120ms, search" hx-target="#repos-list" hx-swap="outerHTML">
+      </span>
+    </form>
+    {% endif %}
+  </header>
+  <div class="ruled-sheet repos-sheet">
+    {% if not connected %}{% include "partials/github_account.html" %}{% endif %}
+    {% include "partials/repositories_list.html" %}
+    {% if connected %}{% include "partials/github_account.html" %}{% endif %}
+    {# The empty rows under the last group, numbered on, to the sheet's foot. #}
+    <div class="sheet-filler" aria-hidden="true"><ol>{% for _ in range(30) %}<li></li>{% endfor %}</ol></div>
+  </div>
+</div>
+{% endblock %}

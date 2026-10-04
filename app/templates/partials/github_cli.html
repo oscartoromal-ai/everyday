@@ -1,0 +1,18 @@
+{# The GitHub CLI on this computer, as Connect GitHub offers it: signed in,
+   one click connects as it; signed out, or not installed, what to do. #}
+<div class="sheet-row me-row github-cli" id="github-cli">
+  <span class="me-label">GitHub CLI</span>
+  {% if user %}
+  <span class="me-value github-who">Signed in as {{ user.login }}</span>
+  <button type="button" class="btn primary github-connect" hx-post="/ui/github/connect/cli" hx-target="#github-account" hx-swap="outerHTML"
+          hx-disabled-elt="this"><span class="github-idle">Connect</span><span class="github-busy">Connecting…</span></button>
+  {% elif error %}
+  <span class="github-line">{{ error }}</span>
+  <button type="button" class="plan-btn" hx-get="/ui/github/cli" hx-target="#github-cli" hx-swap="outerHTML">Check again</button>
+  {% elif installed %}
+  <span class="github-line">Not signed in. Run <code>gh auth login</code> in a terminal, then check again.</span>
+  <button type="button" class="plan-btn" hx-get="/ui/github/cli" hx-target="#github-cli" hx-swap="outerHTML">Check again</button>
+  {% else %}
+  <span class="github-line">Not on this computer. With it installed (<code>winget install GitHub.cli</code>) and signed in, connecting is one click.</span>
+  {% endif %}
+</div>
