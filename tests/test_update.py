@@ -161,6 +161,44 @@ def test_starting_runs_the_apps_own_script_on_the_latest_commit(
     assert len(scripts_started) == 1
 
 
+def test_checking_fetches_now_and_starts_the_update(
+    origin, repo, tmp_path, scripts_started
+) -> None:
+    installed = commit(origin, "a")
+    updater = updater_at(repo, installed, tmp_path)
+    assert updater.state() is None
+    # Merged since the last fetch, and looked up moments ago.
+    latest = commit(origin, "b")
+    assert updater.state() is None
+
+    state, why = updater.check()
+
+    assert why is None
+    assert state == UpdateState("updating", installed[:7], latest[:7])
+    (args,) = scripts_started
+    assert args[args.index("-Sha") + 1] == latest
+
+
+def test_checking_when_up_to_date_starts_nothing(origin, repo, tmp_path, scripts_started) -> None:
+    installed = commit(origin, "a")
+    assert updater_at(repo, installed, tmp_path).check() == (None, None)
+    assert scripts_started == []
+
+
+def test_checking_says_why_the_remote_is_out_of_reach(
+    origin, repo, tmp_path, scripts_started
+) -> None:
+    installed = commit(origin, "a")
+    updater = updater_at(repo, installed, tmp_path)
+    git(repo, "remote", "set-url", "origin", str(tmp_path / "nowhere"))
+
+    state, why = updater.check()
+
+    assert state is None
+    assert why and "nowhere" in why
+    assert scripts_started == []
+
+
 def test_a_script_powershell_would_not_run_points_at_why(
     origin, repo, tmp_path, monkeypatch
 ) -> None:
@@ -438,3 +476,66 @@ def test_a_failed_update_offers_a_retry_and_its_log() -> None:
 def test_no_button_when_there_is_nothing_to_update() -> None:
     html, _, _ = button(None)
     assert html.strip() == ""
+
+
+class CheckingUpdater(FakeUpdater):
+    """Its check finds `found` on the remote, or cannot reach it (`why`)."""
+
+    def __init__(self, state, found=None, why=None) -> None:  # noqa: ANN001
+        super().__init__(state)
+        self.found, self.why = found, why
+
+    def check(self):  # noqa: ANN201
+        if self.why:
+            return self._state, self.why
+        self._state = self.found
+        return self._state, None
+
+
+def check(updater, method="post"):  # noqa: ANN001, ANN201
+    app = FastAPI()
+    app.include_router(update_router(updater, FakeShell()))
+    response = getattr(TestClient(app), method)("/ui/desktop/update/check")
+    assert response.status_code == 200
+    return response.text
+
+
+def test_settings_offers_to_check_for_updates() -> None:
+    html = check(CheckingUpdater(None), method="get")
+    assert 'id="update-check"' in html and "Check for updates" in html
+    assert 'hx-post="/ui/desktop/update/check"' in html
+    # Shown with the page, the rail's button is already there.
+    assert "hx-swap-oob" not in html
+
+
+def test_checking_says_when_it_is_up_to_date() -> None:
+    html = check(CheckingUpdater(None))
+    assert 'data-update="current"' in html and "Up to date" in html
+    assert 'id="rail-update"' in html and "hx-swap-oob" in html
+
+
+def test_checking_starts_downloading_a_newer_version_and_watches_it() -> None:
+    html = check(CheckingUpdater(None, found=UpdateState("updating", "1111111", "2222222")))
+    assert 'data-update="updating"' in html and "Downloading and building 2222222" in html
+    assert 'hx-get="/ui/desktop/update/check"' in html and "every 4s" in html
+    # The rail's button comes along: Updating… there too.
+    assert 'id="rail-update"' in html and "Updating…" in html
+
+
+def test_checking_says_why_github_is_out_of_reach() -> None:
+    html = check(CheckingUpdater(None, why="fatal: unable to access 'https://github.com/'"))
+    assert 'data-update="unreachable"' in html
+    assert "Could not reach GitHub: fatal: unable to access" in html and "Try again" in html
+
+
+def test_out_of_reach_still_shows_an_update_under_way() -> None:
+    updating = UpdateState("updating", "1111111", "2222222")
+    html = check(CheckingUpdater(updating, why="fatal: no network"))
+    assert 'data-update="updating"' in html and "no network" not in html
+
+
+def test_settings_offers_restart_once_staged() -> None:
+    html = check(CheckingUpdater(UpdateState("staged", "1111111", "2222222")), method="get")
+    assert "2222222 is downloaded and ready" in html and "Restart to update" in html
+    assert 'hx-post="/ui/desktop/restart"' in html and 'hx-target="#rail-update"' in html
+    assert "every 4s" not in html

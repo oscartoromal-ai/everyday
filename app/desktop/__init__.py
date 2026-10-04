@@ -380,6 +380,25 @@ def update_router(updater: Updater, shell: Shell) -> APIRouter:
     def start(request: Request) -> HTMLResponse:
         return button(request, updater.start())
 
+    def check_panel(
+        request: Request, state, checked: bool = False, why: str | None = None  # noqa: ANN001
+    ) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request, "partials/update_check.html",
+            {"update": state, "checked": checked, "why": why, "oob": checked},
+        )
+
+    @router.get("/update/check", response_class=HTMLResponse)
+    def show_check(request: Request) -> HTMLResponse:
+        return check_panel(request, updater.state())
+
+    # Settings' Check for updates: the remote fetched now and a newer master's
+    # update started; the rail's button (swapped out of band) follows it.
+    @router.post("/update/check", response_class=HTMLResponse)
+    def check(request: Request) -> HTMLResponse:
+        state, why = updater.check()
+        return check_panel(request, state, checked=True, why=why)
+
     @router.post("/restart", response_class=HTMLResponse)
     def restart(request: Request) -> HTMLResponse:
         state = updater.state()
@@ -484,6 +503,7 @@ def main() -> None:
 
         updater.settle()
         templates.env.globals["app_update"] = updater.state
+        templates.env.globals["app_updatable"] = lambda: True
         app.include_router(update_router(updater, shell))
     servers = shell.servers = serve.Servers(app)
     servers.start()

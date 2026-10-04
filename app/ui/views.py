@@ -83,6 +83,8 @@ templates.env.globals["design"] = design_system
 # The installed app's Update button (app/desktop/update.py), which sets its
 # own; a run from the repo has nothing to update.
 templates.env.globals["app_update"] = lambda: None
+# Whether Settings offers Check for updates: only the installed app updates.
+templates.env.globals["app_updatable"] = lambda: False
 # The app's version, in Settings (app/changelog.py).
 templates.env.globals["app_version"] = lambda: changelog.running()
 

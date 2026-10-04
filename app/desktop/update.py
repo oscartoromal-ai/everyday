@@ -8,7 +8,10 @@ out. When it is past the installed one, an update is ready: the Update
 button (the rail's foot, partials/update_button.html) starts the app's own
 copy of desktop/update.ps1 (bundled with it, so it always takes what the app
 passes it), which builds that commit in the background and stages it, while
-the app carries on. Uncommitted work is never part of an update.
+the app carries on. Uncommitted work is never part of an update. Settings'
+Check for updates (partials/update_check.html) does both at once: it
+fetches now rather than at the next background fetch, and starts the update
+when master is past the installed commit.
 
 The install's folder (desktop/installer.iss) holds a launcher, the
 `Personal Calendar.exe` its shortcuts start, and each version in a folder of
@@ -140,6 +143,7 @@ class Updater:
         self._checked = float("-inf")
         self._fetched = float("-inf")
         self._lock = threading.Lock()
+        self._fetching = threading.Lock()
 
     @classmethod
     def for_installed_app(cls, status_path: Path) -> Updater | None:
@@ -161,19 +165,35 @@ class Updater:
             env={**os.environ, "GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"},
         )
 
-    def fetch(self) -> None:
-        """The remote's master fetched into the repo, for latest()."""
-        self._fetched = time.monotonic()
-        try:
-            out = self._git("fetch", "--quiet", REMOTE, BRANCH, timeout=120)
-        except (OSError, subprocess.SubprocessError):
-            log.warning("Could not fetch %s %s", REMOTE, BRANCH, exc_info=True)
-            return
-        if out.returncode:
-            log.warning("Could not fetch %s %s: %s", REMOTE, BRANCH, out.stderr.strip())
-            return
-        with self._lock:
-            self._checked = float("-inf")
+    def fetch(self) -> str | None:
+        """The remote's master fetched into the repo, for latest(); why not,
+        should it fail. One fetch at a time: a check waits for the background
+        one, then fetches again."""
+        with self._fetching:
+            self._fetched = time.monotonic()
+            try:
+                out = self._git("fetch", "--quiet", REMOTE, BRANCH, timeout=120)
+            except (OSError, subprocess.SubprocessError) as exc:
+                log.warning("Could not fetch %s %s", REMOTE, BRANCH, exc_info=True)
+                return str(exc) or type(exc).__name__
+            if out.returncode:
+                why = out.stderr.strip()
+                log.warning("Could not fetch %s %s: %s", REMOTE, BRANCH, why)
+                # Git's first fatal line says it ("fatal: unable to access ...");
+                # advice follows it.
+                lines = why.splitlines()
+                fatal = [line for line in lines if line.startswith("fatal:")]
+                return (fatal or lines or [f"git fetch exited {out.returncode}"])[0]
+            with self._lock:
+                self._checked = float("-inf")
+            return None
+
+    def check(self) -> tuple[UpdateState | None, str | None]:
+        """Check for updates (Settings): the remote looked at now, not at the
+        next background fetch, and the update to a newer master started at
+        once. What there is then, and why the remote could not be reached."""
+        why = self.fetch()
+        return (self.state() if why else self.start()), why
 
     def latest(self) -> str | None:
         """The commit to be at: the remote's master as last fetched (fetched

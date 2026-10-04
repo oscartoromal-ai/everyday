@@ -134,7 +134,8 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       {% endfor %}
     </nav>
     <div class="rail-foot">
-      {% with update = app_update() %}{% include "partials/update_button.html" %}{% endwith %}
+      {# Its own box, for Settings' Check for updates to swap (out of band). #}
+      <div id="rail-update" class="rail-update">{% with update = app_update() %}{% include "partials/update_button.html" %}{% endwith %}</div>
       {# The command menu (Ctrl+K): search, go to a page or a day, or do (command.js). #}
       <button type="button" class="rail-button command-open" data-command-open title="Search, go or do (Ctrl+K)">
         <svg class="command-open__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>
@@ -224,6 +225,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         {% if running.commit %}<span class="settings-version__commit">{{ "built from" if running.installed else "run from" }} {{ running.commit }}</span>{% endif %}
         <span class="settings-version__open">Changelog</span>
       </a>
+      {% if app_updatable() %}{% with update = app_update(), checked = False, why = None, oob = False %}{% include "partials/update_check.html" %}{% endwith %}{% endif %}
     </section>
   </form>
 </dialog>
