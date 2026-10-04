@@ -55,6 +55,10 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **A task's project is its colour** (Oscar's call on 2026-09-28, chosen from a prototype of four): each project has a colour, set in its editor on Projects, and a task in it shows the project as its flag filled in that colour, the name only on hover, wherever tasks are listed.
   In Today's notes the task's rules take the colour too, and on Projects its row's rule.
 - **Seeing more** (Oscar's call on 2026-09-28; the browser's zoom stays the browser's): compact rows (C, or the rail's toggle) fit more of Projects and Today's notes on screen at the same text size; Today and Calendar widen with the window; and on Today, Ctrl+\ (or the day header's icon) folds the timeline away for the notes. All three are remembered.
+- **The sidebar is Oscar's to lay out** (Oscar's call on 2026-10-04: "I want to be able to move modules. And hide them."): its sections (Planner, Projects, Health, Finances, Code) and the pages in each are dragged into his order, and the projects under Projects into theirs, which is Projects' order too.
+  A page never moves to another section.
+  Each page has a hide eye beside it, and a section goes once all its pages are hidden; Settings, at the sidebar's foot, lists the hidden pages to bring back.
+  The layout is kept in the database, so it holds on every device; a hidden page keeps its key and is still found by the command menu.
 - **Filing by drag**: on Projects a task is dragged onto a workstream, another project, or No project to file it there.
 - **Today is a notepad beside the day's timeline** (Oscar's call on 2026-09-27, "for now"): the whole left column is one plain notepad for the day, the right the day's timeline.
   The notes are plain text, saved as they are written.

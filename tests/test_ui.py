@@ -730,7 +730,7 @@ def test_sidebar_lists_the_active_projects_under_projects(client, db) -> None:
 def test_health_is_its_own_nav_group_with_nutrition(client) -> None:
     page = client.get("/nutrition").text
     group = page.split('aria-labelledby="nav-health"')[1].split("</nav>")[0]
-    assert '<div class="nav-group-label" id="nav-health">Health</div>' in group
+    assert 'id="nav-health" title="Drag to move Health">Health</div>' in group
     link = group.split('href="/nutrition"')[1].split("</a>")[0]
     assert 'aria-keyshortcuts="4"' in link and 'aria-current="page"' in link
     # The day's log beside the day's chat with Claude (test_nutrition.py has the rest).

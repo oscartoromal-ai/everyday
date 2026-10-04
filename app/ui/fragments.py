@@ -7,6 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel
 
 from app.db import DbSession
 from app.models import (
@@ -21,6 +22,7 @@ from app.services import DomainError
 from app.services import events as events_svc
 from app.services import health as health_svc
 from app.services import projects as projects_svc
+from app.services import rail as rail_svc
 from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
 from app.ui.calendar_view import event_card_ctx
@@ -482,6 +484,33 @@ def rail_projects(request: Request, current: int | None = None):
     return templates.TemplateResponse(
         request, "partials/rail_projects.html", {"request": request, "current": current}
     )
+
+
+class RailLayout(BaseModel):
+    sections: list[str]
+    modules: dict[str, list[str]]
+    hidden: list[str]
+
+
+@router.put("/rail", status_code=204)
+def save_rail(db: DbSession, layout: RailLayout) -> None:
+    """The sidebar as it now stands, a section or module dragged, hidden or
+    brought back: shell.js has it so on the page already, and this keeps it."""
+    rail_svc.save_layout(
+        db, sections=layout.sections, modules=layout.modules, hidden=layout.hidden
+    )
+    db.commit()
+
+
+class ProjectOrder(BaseModel):
+    ids: list[int]
+
+
+@router.put("/projects/order", status_code=204)
+def order_projects(db: DbSession, order: ProjectOrder) -> None:
+    """The active projects in the order they were dragged to in the sidebar."""
+    projects_svc.reorder_projects(db, order.ids)
+    db.commit()
 
 
 @router.post("/projects/{project_id}/status")

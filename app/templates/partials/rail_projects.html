@@ -1,12 +1,12 @@
 {# The active projects under Projects in the sidebar, each in its colour,
    opening its page; the one open (on any of its pages) is current. Drawn
-   again as a project is added, renamed, recoloured or shelved
+   again as a project is added, renamed, recoloured, shelved or dragged
    (projects:changed). #}
 <ul class="nav-sub" id="rail-projects" aria-label="Projects"
     hx-get="/ui/rail/projects{% if current %}?current={{ current }}{% endif %}"
     hx-trigger="projects:changed from:body" hx-swap="outerHTML">
   {%- for p in rail_projects(request) %}
-  <li><a href="/projects/{{ p.id }}" title="{{ p.name }}" style="--project: var(--hue-{{ p.color }})"
+  <li data-project-id="{{ p.id }}"><a href="/projects/{{ p.id }}" title="{{ p.name }}" draggable="false" style="--project: var(--hue-{{ p.color }})"
          {%- if current == p.id %} aria-current="page"{% endif %}>
     <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
     <span class="nav-label">{{ p.name }}</span>

@@ -74,6 +74,12 @@ The wordmark is Brasa's pattern: the name in 600 followed by a spark period, "Pe
 At night the name carries a faint halo (`--ink-glow-text`) and the period glows and strikes once on load, three stutters and then steady, like a tube coming on (`--spark-entrance`).
 Nav items are 14px/500 graphite; the active one is ink 600 with Brasa's 3px spark bar, glowing at night, inset 8px from the viewport edge.
 Nav is grouped in the Brasa manner: the planning pages (Today, Calendar) sit under a 12px pewter "Planner" group label, Today first since the app opens on it; Projects follows as a second group, Health (Nutrition, Me, Garmin) a third, Finances (Spending, Accounts, Bills, Goals) a fourth, and Code (Repositories) a fifth, each under its own label.
+That is the order the code lists; Oscar's own is kept as the `rail` setting in the database (`app/services/rail.py`), so it holds on every device.
+A page (a module) is dragged within its section, never out of it; a section by its label, or by its one page when it has one (Projects); a project among the projects, which is Projects' order too.
+A press picks the thing up once it moves 5px: it lifts onto `--paper` with `--shadow-dropdown`, follows the pointer, and the others slide out of its way (160ms) as the pointer passes their middles; Esc puts it back, and the drop is never a click.
+Alt+Up/Down moves the focused page or project a place, with Shift its whole section.
+On hover or focus a page shows an eye at its right (14px, `--steel`, left of Projects' chevron) that hides it; the toast says so with Undo, and the eyes wait for the pointer to move on, so the page sliding up under it is not hidden by a second click.
+A hidden page stays in the markup (`hidden`), so its key and the command menu still reach it, and a section with every page hidden goes, label and all.
 Under Projects sit the active projects, in Projects' order: 400-weight rows 32px tall, each a 12px flag in its colour, with the name in line with "Projects" and cut short with an ellipsis, opening that project's page.
 On any of a project's pages (its page, its Gantt, a document of its context) the project's own row holds the spark, and Projects is `aria-current="true"`.
 A chevron at the right of Projects folds the list away and back (`data-rail-projects="folded"`, saved as `pc-rail-projects`, applied before paint); while the list is out of sight (folded, the icon rail, the phone's tab bar), Projects holds the spark on a project's pages.
@@ -82,6 +88,7 @@ On a desktop rail too short for every page, the nav scrolls between the head and
 The foot starts with Search, its magnifier and name, and its key ("Ctrl K") in a hairline box at the right, as the keys dialog draws keys; it opens the command menu.
 Then Brasa's shipped light/dark toggle: the current mode's sun or moon, which rotates and fades into the other, beside the mode's name in 12px pewter.
 The names are the installed system's own, read from `design-language.json`: "Day" and "Night" for Neon Signage.
+Settings ends the foot, two sliders and its name; it opens the keys dialog's paper, 480px wide, whose Modules section lists the hidden pages, each its icon, its name, its section in pewter and a quiet Show, or says every page is in the sidebar.
 A panel icon beside the wordmark collapses the sidebar to a 64px icon rail (`data-rail="collapsed"` on `<html>`, saved as `pc-rail`, applied before paint).
 The shell animates its column width on `--ease` over 220ms.
 When collapsed, the wordmark and labels hide, each link keeps its name as a tooltip, group labels become hairlines, and the spark bar stays.
@@ -364,7 +371,7 @@ A new task opens with the caret in its empty description, whose placeholder asks
 
 Motion is colour, border and background transitions at `--dur` 150ms on `--ease`, and nothing else in the signed-in UI.
 The earlier checkbox draw-in, the breathing running dot and the row fade-in were removed.
-Beyond that, only these move: the toast, the confirm dialog (an 8px rise with fade), the theme icon's morph, the sidebar's width when it collapses, and the system's two one-shot animations, the wordmark's `--spark-entrance` and a ticked box's `--check-pulse`.
+Beyond that, only these move: the toast, the confirm dialog (an 8px rise with fade), the theme icon's morph, the sidebar's width when it collapses, its pages and projects making room for one dragged, and the system's two one-shot animations, the wordmark's `--spark-entrance` and a ticked box's `--check-pulse`.
 `prefers-reduced-motion` collapses every transition.
 
 **Calendar drag** (`app/static/calendar.js`, vanilla, listeners on `document` so they survive htmx swaps).
