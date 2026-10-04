@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.dates import short_date, upper_first
-from app.models import AGENTS_DOC, Project, ProjectDoc, Task, TaskStatus
+from app.models import AGENTS_DOC, Project, ProjectDoc, ProjectDocFolder, Task, TaskStatus
 from app.services import github as github_svc
 from app.services import projects as projects_svc
 from app.ui.repositories_view import repo_row
@@ -99,8 +99,47 @@ def project_page_ctx(db: Session, project: Project, today: date) -> dict[str, An
         "tab": "overview",
         "status_words": STATUS_WORDS,
         "repos": repos_ctx(project)["repos"],
-        "docs": [doc_row(d, project, today) for d in projects_svc.docs_of(project)],
+        **context_ctx(project, today),
     }
+
+
+def context_tree(project: Project, today: date) -> list[dict[str, Any]]:
+    """The project's context as its tree: at each level its folders, by
+    name, then its documents (AGENTS.md first at the top). A folder carries
+    what it holds, and how many documents that is, however deep."""
+
+    def level(folder: ProjectDocFolder | None) -> list[dict[str, Any]]:
+        docs = [
+            {"kind": "doc", **doc_row(d, project, today)}
+            for d in projects_svc.docs_in(project, folder)
+        ]
+        folders = []
+        for f in projects_svc.folders_in(project, folder):
+            inside, docs_inside = projects_svc.contents(f)
+            folders.append(
+                {
+                    "kind": "folder",
+                    "folder": f,
+                    "children": level(f),
+                    "count": len(docs_inside),
+                    "meta": (
+                        _count(len(docs_inside), "document", "documents")
+                        if docs_inside
+                        else "No documents"
+                        if inside
+                        else "Empty"
+                    ),
+                }
+            )
+        if folder is None and docs and docs[0]["doc"].is_agents:
+            return [docs[0], *folders, *docs[1:]]
+        return folders + docs
+
+    return level(None)
+
+
+def context_ctx(project: Project, today: date) -> dict[str, Any]:
+    return {"project": project, "tree": context_tree(project, today)}
 
 
 def repos_ctx(project: Project) -> dict[str, Any]:
@@ -146,6 +185,8 @@ def doc_page_ctx(doc: ProjectDoc, today: date) -> dict[str, Any]:
     return {
         "project": project,
         "doc": doc,
+        # Every folder it could be moved to, in the tree's order.
+        "folders": projects_svc.folders_of(project),
         "edited": edited(doc, today),
         "placeholder": (
             f"What an agent should know before working on {project.name}: how to build, "

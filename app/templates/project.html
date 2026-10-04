@@ -3,9 +3,9 @@
 {% block content %}
 {# A project's own page: the project at a glance, then its sections, a card
    each: what it is, the documents an agent working on it reads (AGENTS.md
-   first) and where its code is, beside its details. Each saves as it
-   changes. Its Gantt is the next tab; each document opens on a page of its
-   own (project_doc.html). #}
+   first, the rest in folders as Oscar files them) and where its code is,
+   beside its details. Each saves as it changes. Its Gantt is the next tab;
+   each document opens on a page of its own (project_doc.html). #}
 <div class="project-page">
   <header class="page-header project-header">
     {% include "partials/project_head.html" %}
@@ -22,34 +22,7 @@
                   placeholder="What it is, and what done looks like">{{ project.notes }}</textarea>
       </form>
 
-      <section class="list-section ov-card project-context" aria-labelledby="context-head">
-        <h2 id="context-head">Context <span class="count">What an agent working on it reads, AGENTS.md first</span></h2>
-        <ul class="ov-list">
-          {% for row in docs %}
-          <li>
-            <a class="ov-item doc-row" href="{{ row.href }}">
-              <span class="ov-icon">
-                <svg class="item-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.75h6.5L15 6.25v11H5z"/><path d="M11.25 2.75v3.75H15"/><path d="M7.75 10.25h4.5"/><path d="M7.75 13.25h4.5"/></svg>
-              </span>
-              <span class="ov-text">
-                <span class="item-name" title="{{ row.doc.name }}">{{ row.doc.name }}</span>
-                {% if row.summary %}
-                <span class="doc-summary">{{ row.summary }}</span>
-                {% else %}
-                <span class="doc-summary is-empty">{% if row.doc.is_agents %}Not written yet: how to build and test it, its conventions, what to leave alone{% else %}Empty{% endif %}</span>
-                {% endif %}
-              </span>
-              {% if row.meta %}<span class="doc-meta">{{ row.meta }}</span>{% endif %}
-            </a>
-          </li>
-          {% endfor %}
-        </ul>
-        <form class="ov-add" hx-post="/ui/projects/{{ project.id }}/docs" hx-swap="none">
-          <svg class="item-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4.5v11"/><path d="M4.5 10h11"/></svg>
-          <input id="doc-new" name="name" required autocomplete="off" aria-label="New document"
-                 placeholder="New document: CONTEXT.md, Architecture, Decisions…">
-        </form>
-      </section>
+      {% include "partials/project_context.html" %}
 
       {% include "partials/project_repos.html" %}
     </div>
@@ -88,4 +61,5 @@
     </aside>
   </div>
 </div>
+<script src="{{ asset('context-tree.js') }}" defer></script>
 {% endblock %}

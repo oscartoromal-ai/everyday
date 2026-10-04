@@ -125,6 +125,9 @@ class Project(Base):
     docs: Mapped[list[ProjectDoc]] = relationship(
         back_populates="project", order_by="ProjectDoc.id", cascade="all, delete-orphan"
     )
+    doc_folders: Mapped[list[ProjectDocFolder]] = relationship(
+        back_populates="project", order_by="ProjectDocFolder.id", cascade="all, delete-orphan"
+    )
 
 
 class ProjectRepo(Base):
@@ -145,24 +148,65 @@ class ProjectRepo(Base):
 AGENTS_DOC = "AGENTS.md"
 
 
-class ProjectDoc(Base):
-    """A document of the project's context, in Markdown, for Oscar and the
-    agents working on it: its AGENTS.md, and any others he writes."""
+class ProjectDocFolder(Base):
+    """A folder of the project's context, as a folder on disk: its documents
+    and its subfolders, named once among what sits beside it."""
 
-    __tablename__ = "project_docs"
-    __table_args__ = (UniqueConstraint("project_id", "name"),)
+    __tablename__ = "project_doc_folders"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    # The folder it is in; none at the context's top.
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("project_doc_folders.id"), index=True, default=None
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    # Folded on the project's page, its contents hidden: kept here, so it
+    # holds through the tree's re-renders and on every device.
+    folded: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    project: Mapped[Project] = relationship(back_populates="doc_folders")
+    parent: Mapped[ProjectDocFolder | None] = relationship(
+        back_populates="children", remote_side=[id]
+    )
+    children: Mapped[list[ProjectDocFolder]] = relationship(
+        back_populates="parent", cascade="all, delete-orphan"
+    )
+    docs: Mapped[list[ProjectDoc]] = relationship(back_populates="folder")
+
+    @property
+    def path(self) -> str:
+        """Where it is in the context, as a path: "decisions/adr"."""
+        return f"{self.parent.path}/{self.name}" if self.parent else self.name
+
+
+class ProjectDoc(Base):
+    """A document of the project's context, in Markdown, for Oscar and the
+    agents working on it: its AGENTS.md, and any others he writes, at the
+    context's top or in a folder."""
+
+    __tablename__ = "project_docs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    folder_id: Mapped[int | None] = mapped_column(
+        ForeignKey("project_doc_folders.id"), index=True, default=None
+    )
     name: Mapped[str] = mapped_column(String(200))
     body: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     project: Mapped[Project] = relationship(back_populates="docs")
+    folder: Mapped[ProjectDocFolder | None] = relationship(back_populates="docs")
 
     @property
     def is_agents(self) -> bool:
-        return self.name == AGENTS_DOC
+        return self.name == AGENTS_DOC and self.folder_id is None
+
+    @property
+    def path(self) -> str:
+        """Where it is in the context, as a path: "decisions/adr/0001.md"."""
+        return f"{self.folder.path}/{self.name}" if self.folder else self.name
 
 
 class Workstream(Base):

@@ -134,8 +134,14 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   A repository is where the project's code is, a local folder or a URL, as written; it is named after the last part of it.
   The line to add one offers his GitHub repositories (Oscar's call on 2026-10-04: "make this easy"): focused, it lists those synced from GitHub, last pushed first, and written on, those holding its words, or the one its GitHub URL names; those already the project's are left out.
   Up and Down move through them, Enter or a click adds the one picked as its URL on GitHub, and words nothing holds are added as written.
-  The context is the documents an agent working on the project reads, in Markdown: its AGENTS.md first, which every project has and which keeps its name, then any others Oscar adds and names.
-  Each document opens on a page of its own (`/projects/<id>/docs/<doc>`), written on a ruled, numbered sheet as Today's notes are and saved as it is written; any but AGENTS.md is renamed in its heading and deleted from its bin.
+  The context is the documents an agent working on the project reads, in Markdown: its AGENTS.md first, which every project has and which keeps its name and its place at the top, then any others Oscar adds and names.
+  He files them in folders and subfolders (Oscar's call on 2026-10-04: "allow to create folders and subfolders"), as a folder on disk holds files: a name is unique among what sits beside it in its folder, documents and folders alike and in any case, and holds no slash; the same name can be in two folders.
+  The context reads as a tree: AGENTS.md, then at each level its folders, then its documents, each by name (its numbers as numbers).
+  A folder folds by its row, remembered for it on every device; folding it hides what it holds.
+  A folder's row adds a document or a folder in it, and renames or deletes it (deleting asks first, and takes everything in it); a document's row renames or deletes it; F2 renames and Delete deletes the row in focus.
+  A document or a folder is moved by dragging it onto a folder, or out to the top, never into itself or a folder inside it; a document is also moved from its own page.
+  A new document's name written as a path ("decisions/adr/0001.md") makes the folders it names, as they are missing.
+  Each document opens on a page of its own (`/projects/<id>/docs/<doc>`), written on a ruled, numbered sheet as Today's notes are and saved as it is written; any but AGENTS.md is renamed in its heading, moved to another folder in the line under it, and deleted from its bin.
   The context is what the app will hand a Claude session it starts on the project (to come); for now Claude reads it over MCP (`get_project_context`), and the API serves it at `/api/projects/<id>/context`.
 - **A project as a Gantt chart** (Oscar's call on 2026-09-30: "I work in weeks", "a kind of Excel interface"): each project opens (`/projects/<id>/gantt`, the Gantt tab of its page, or its card's bars icon) as a spreadsheet of its plan by week.
   A row per workstream, its tasks under it and a row to write one more; then a row to write a workstream, the tasks in none under it and a row to write one more; a column per week (the ISO week, over its Monday), frozen beside Task, Priority, Start, Wks and Due.
@@ -288,7 +294,8 @@ Hook commands need a short HTTP timeout so a down app never delays sessions.
 
 ### Project context
 
-- `get_project_context(project_id or name)` reads a project's context: the project, its repositories, and its documents in full, AGENTS.md first.
+- `get_project_context(project_id or name)` reads a project's context: the project, its repositories, and its documents in full, AGENTS.md first, in the tree's order.
+  Each document carries its path among the folders ("decisions/adr/0001.md"), and `folders` lists every folder's path, empty ones too.
   `list_projects` names each project's repositories too, so a session can tell which project its folder belongs to.
   The context is read-only to Claude for now: Oscar writes it on the project's page.
 

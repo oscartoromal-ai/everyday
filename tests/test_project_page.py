@@ -301,13 +301,183 @@ async def test_the_context_is_handed_over_mcp(app_db) -> None:
         assert by_id == by_name
         assert by_id["docs"][0] == {
             "name": "AGENTS.md",
+            "path": "AGENTS.md",
             "body": "Run uv sync.",
             "updated_at": by_id["docs"][0]["updated_at"],
         }
+        assert by_id["folders"] == []
         listed = (await client.call_tool("list_projects", {})).data
         assert listed[0]["repos"] == ["C:/code/note-app"]
         with pytest.raises(ToolError):
             await client.call_tool("get_project_context", {"name": "Nope"})
+
+
+def test_folders_nest_and_names_are_unique_beside_each_other(db) -> None:
+    project = projects_svc.create_project(db, name="Note-app")
+    decisions = projects_svc.create_folder(db, project_id=project.id, name=" decisions ")
+    adr = projects_svc.create_folder(db, project_id=project.id, name="adr", parent_id=decisions.id)
+    assert (decisions.name, adr.path) == ("decisions", "decisions/adr")
+    # A folder and a document share their names, as on disk, in any case.
+    for taken in ("Decisions", "AGENTS.md"):
+        with pytest.raises(DomainError, match="already has"):
+            projects_svc.create_folder(db, project_id=project.id, name=taken)
+    with pytest.raises(DomainError, match="already has"):
+        projects_svc.create_doc(db, project_id=project.id, name="decisions")
+    with pytest.raises(DomainError, match="already has adr"):
+        projects_svc.create_folder(db, project_id=project.id, name="ADR", parent_id=decisions.id)
+    # The same name in another folder is another document, AGENTS.md too.
+    inner = projects_svc.create_doc(db, project_id=project.id, name="AGENTS.md", folder_id=adr.id)
+    assert inner.path == "decisions/adr/AGENTS.md" and not inner.is_agents
+    with pytest.raises(DomainError, match="slash"):
+        projects_svc.update_doc(db, inner.id, name="a/b")
+    # Another project's folder is not one to file into.
+    other = projects_svc.create_project(db, name="Other")
+    with pytest.raises(DomainError, match="not one of"):
+        projects_svc.create_doc(db, project_id=other.id, name="x", folder_id=adr.id)
+
+
+def test_a_path_makes_the_folders_it_names(db) -> None:
+    project = projects_svc.create_project(db, name="Note-app")
+    first = projects_svc.create_doc(db, project_id=project.id, name="decisions/adr/0001.md")
+    second = projects_svc.create_doc(db, project_id=project.id, name="Decisions\\adr\\0002.md")
+    assert (first.path, second.path) == ("decisions/adr/0001.md", "decisions/adr/0002.md")
+    assert [f.path for f in projects_svc.folders_of(project)] == ["decisions", "decisions/adr"]
+    deep = projects_svc.create_folder(
+        db, project_id=project.id, name="2026/oct", parent_id=first.folder.id
+    )
+    assert deep.path == "decisions/adr/2026/oct"
+
+
+def test_documents_and_folders_move_but_never_into_themselves(db) -> None:
+    project = projects_svc.create_project(db, name="Note-app")
+    agents = project.docs[0]
+    a = projects_svc.create_folder(db, project_id=project.id, name="a")
+    b = projects_svc.create_folder(db, project_id=project.id, name="b", parent_id=a.id)
+    doc = projects_svc.create_doc(db, project_id=project.id, name="Plan.md")
+    projects_svc.update_doc(db, doc.id, folder_id=b.id)
+    assert doc.path == "a/b/Plan.md"
+    projects_svc.update_doc(db, doc.id, folder_id=None)
+    assert doc.path == "Plan.md"
+    for inside in (a.id, b.id):
+        with pytest.raises(DomainError, match="inside itself"):
+            projects_svc.update_folder(db, a.id, parent_id=inside)
+    projects_svc.update_folder(db, b.id, parent_id=None, name="c")
+    assert b.path == "c"
+    # Moved where its name is taken, it stays put.
+    projects_svc.create_doc(db, project_id=project.id, name="plan.md", folder_id=a.id)
+    with pytest.raises(DomainError, match="already has plan.md"):
+        projects_svc.update_doc(db, doc.id, folder_id=a.id)
+    with pytest.raises(DomainError, match="stays at the top"):
+        projects_svc.update_doc(db, agents.id, folder_id=a.id)
+
+
+def test_a_folder_is_deleted_with_everything_in_it(db) -> None:
+    project = projects_svc.create_project(db, name="Note-app")
+    projects_svc.create_doc(db, project_id=project.id, name="a/b/deep.md")
+    projects_svc.create_doc(db, project_id=project.id, name="a/top.md")
+    kept = projects_svc.create_doc(db, project_id=project.id, name="kept.md")
+    a = projects_svc.folders_of(project)[0]
+    projects_svc.delete_folder(db, a.id)
+    db.commit()
+    db.expire_all()
+    assert [d.name for d in db.query(ProjectDoc).all()] == ["AGENTS.md", "kept.md"]
+    assert projects_svc.folders_of(project) == [] and kept in project.docs
+
+
+def test_the_context_reads_as_its_tree(db) -> None:
+    project = projects_svc.create_project(db, name="Note-app")
+    for name in ("zeta.md", "Plan 10.md", "Plan 2.md", "b/two.md", "a/one.md", "a/c/three.md"):
+        projects_svc.create_doc(db, project_id=project.id, name=name)
+    projects_svc.create_folder(db, project_id=project.id, name="empty")
+    # AGENTS.md, then each folder's (its subfolders' first), then the rest,
+    # by name, its numbers as numbers.
+    assert [d.path for d in projects_svc.docs_of(project)] == [
+        "AGENTS.md",
+        "a/c/three.md",
+        "a/one.md",
+        "b/two.md",
+        "Plan 2.md",
+        "Plan 10.md",
+        "zeta.md",
+    ]
+    context = projects_svc.project_context(project)
+    assert context["folders"] == ["a", "a/c", "b", "empty"]
+    assert context["docs"][1]["name"] == "three.md"
+
+
+def test_the_tree_is_drawn_and_worked_on_the_page(client, db) -> None:
+    project = projects_svc.create_project(db, name="Note-app")
+    doc = projects_svc.create_doc(db, project_id=project.id, name="Plan.md")
+    db.commit()
+    made = client.post(f"/ui/projects/{project.id}/folders", data={"name": "decisions"})
+    assert 'id="project-context"' in made.text and 'data-name="decisions"' in made.text
+    assert ">Empty</span>" in made.text and 'hx-swap-oob="true"' in made.text
+    folder = projects_svc.folders_of(project)[0]
+
+    # A document written in the folder opens on its own page.
+    added = client.post(
+        f"/ui/projects/{project.id}/docs", data={"name": "0001.md", "folder": str(folder.id)}
+    )
+    inner = db.query(ProjectDoc).filter_by(name="0001.md").one()
+    assert inner.folder_id == folder.id
+    assert added.headers["HX-Redirect"] == f"/projects/{project.id}/docs/{inner.id}"
+
+    # Folded, it stays so; a document dragged into it opens it again.
+    assert client.post(f"/ui/folders/{folder.id}/fold", data={"folded": "true"}).status_code == 204
+    db.refresh(folder)
+    assert folder.folded
+    assert f'id="ctx-in-{folder.id}" hidden' in client.get(f"/projects/{project.id}").text
+    moved = client.post(f"/ui/docs/{doc.id}/place", data={"folder": str(folder.id)})
+    assert "2 documents" in moved.text and f'id="ctx-in-{folder.id}" hidden' not in moved.text
+    db.refresh(doc)
+    assert doc.folder_id == folder.id
+
+    # Renamed on the tree; back to the top from its own page.
+    client.post(f"/ui/folders/{folder.id}/place", data={"name": "adr"})
+    db.refresh(folder)
+    assert folder.name == "adr"
+    page = client.get(f"/projects/{project.id}/docs/{doc.id}").text
+    assert f'<option value="{folder.id}" selected>adr</option>' in page
+    assert client.post(f"/ui/docs/{doc.id}", data={"folder": "top"}).status_code == 204
+    db.refresh(doc)
+    assert doc.folder_id is None
+    assert client.post(f"/ui/docs/{doc.id}/place", data={"name": "AGENTS.md"}).status_code == 422
+    # Dragged into the folder and out to the top again.
+    client.post(f"/ui/docs/{doc.id}/place", data={"folder": str(folder.id)})
+    client.post(f"/ui/docs/{doc.id}/place", data={"folder": "top"})
+    db.refresh(doc)
+    assert doc.folder_id is None
+
+    # Deleted on the tree: the tree comes back, the folder and its contents gone.
+    gone = client.post(f"/ui/docs/{doc.id}/delete?tree=1")
+    assert 'id="project-context"' in gone.text and 'data-name="Plan.md"' not in gone.text
+    gone = client.post(f"/ui/folders/{folder.id}/delete")
+    assert 'data-name="adr"' not in gone.text
+    assert db.query(ProjectDoc).filter_by(name="0001.md").count() == 0
+
+
+def test_the_folders_migration_keeps_every_document(tmp_path) -> None:
+    path = tmp_path / "app.db"
+    command.upgrade(migrate._config(path), "a9d3f6e21c48")  # the revision before
+    with sqlite3.connect(path) as db:
+        db.execute(
+            "INSERT INTO projects (name, status, notes, color, folded, position, created_at) "
+            "VALUES ('Old one', 'active', '', 1, 0, 0, '2026-09-01 10:00:00')"
+        )
+        db.execute(
+            "INSERT INTO project_docs (project_id, name, body, updated_at) "
+            "VALUES (1, 'AGENTS.md', 'Run it.', '2026-09-01 10:00:00')"
+        )
+    migrate.upgrade(path)
+    with sqlite3.connect(path) as db:
+        rows = db.execute("SELECT project_id, name, body, folder_id FROM project_docs").fetchall()
+        # The same name in two folders is allowed by the table now.
+        db.execute("INSERT INTO project_doc_folders (project_id, name, folded) VALUES (1, 'a', 0)")
+        db.execute(
+            "INSERT INTO project_docs (project_id, folder_id, name, body, updated_at) "
+            "VALUES (1, 1, 'AGENTS.md', '', '2026-09-01 10:00:00')"
+        )
+    assert rows == [(1, "AGENTS.md", "Run it.", None)]
 
 
 def test_the_migration_gives_every_project_its_agents_md(tmp_path) -> None:

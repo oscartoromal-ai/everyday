@@ -32,7 +32,18 @@
     </button>
     {% endif %}
   </div>
-  <p class="rest doc-rest">{{ project_flag(project) }}<span>{{ project.name }}'s context{% if doc.body %} · edited {{ edited }}{% endif %}</span></p>
+  <p class="rest doc-rest">{{ project_flag(project) }}<span>{{ project.name }}'s context</span>
+    {%- if not doc.is_agents and folders %}
+    <span class="doc-folder">· in
+      <select name="folder" aria-label="Folder" title="Move it to another folder"
+              hx-post="/ui/docs/{{ doc.id }}" hx-trigger="change" hx-swap="none" data-was="{{ doc.folder_id or 'top' }}"
+              hx-on::after-request="if (event.detail.successful) this.dataset.was = this.value; else this.value = this.dataset.was">
+        <option value="top"{% if not doc.folder_id %} selected{% endif %}>No folder</option>
+        {% for f in folders %}<option value="{{ f.id }}"{% if doc.folder_id == f.id %} selected{% endif %}>{{ f.path }}</option>{% endfor %}
+      </select>
+    </span>
+    {%- endif %}
+    {%- if doc.body %}<span> · edited {{ edited }}</span>{% endif %}</p>
 
   <div class="doc-body notes-editor" data-doc-editor>
     <textarea class="doc-source" data-doc-body aria-label="{{ doc.name }}" data-placeholder="{{ placeholder }}" hidden>{{ doc.body }}</textarea>
