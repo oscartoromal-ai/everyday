@@ -148,6 +148,26 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
   width: 3px; border-radius: 0; background: var(--spark); box-shadow: var(--spark-glow);
 }
 
+/* a module's number, Alt+1 to Alt+9 (shell.js): a 14px disc on its icon's top-left
+   corner, the icon cut away 1.5px around it. The current page's always shows; every
+   one while Alt is held, the others quieter. Not on the phone's tab bar. */
+.nav-key {
+  position: absolute; left: calc(var(--s-3) - 10px); top: calc(50% - 19px);
+  display: none; place-items: center; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--hairline); color: var(--graphite);
+  font-size: 9px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.nav a:is([aria-current="page"], [aria-current="true"]) .nav-key { background: var(--ink); color: var(--paper); }
+@media (min-width: 721px) {
+  .nav a:is([aria-current="page"], [aria-current="true"]) .nav-key:not(:empty),
+  :root[data-nav-keys] .nav-key:not(:empty) { display: grid; }
+  .nav a:is([aria-current="page"], [aria-current="true"]):has(.nav-key:not(:empty)) svg,
+  :root[data-nav-keys] .nav a:has(.nav-key:not(:empty)) svg {
+    mask: radial-gradient(circle at -3px -3px, transparent 8.5px, #000 9px);
+  }
+}
+
 /* the modules, laid out as Oscar dragged them (shell.js): a hidden one stays in
    the page for its key; a section with none showing goes too. Containers are
    positioned, so a drag measures its peers from them. */
@@ -276,6 +296,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 :root[data-rail="collapsed"] .nav-hide,
 :root[data-rail="collapsed"] .nav-sub { display: none; }
 :root[data-rail="collapsed"] .nav-parent > a { padding-right: 0; }
+:root[data-rail="collapsed"] .nav-key { left: calc(50% - 19px); }
 :root[data-rail="collapsed"] .nav-group-label { height: 0; margin: 0 var(--s-1) var(--s-3); padding: 0; border-top: 1px solid var(--chrome-flank-border); font-size: 0; }
 :root[data-rail="collapsed"] .nav a,
 :root[data-rail="collapsed"] .rail-button { justify-content: center; padding-inline: 0; }

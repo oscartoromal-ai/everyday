@@ -71,8 +71,10 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
 <div class="shell">
   {# The sidebar's modules, each a page, in the sections and order Oscar laid them out
      (app/services/rail.py); shell.js drags them within their section, hides them, and
-     brings them back from Settings. A hidden one stays in the page, for its key and
-     Ctrl+K; a section with every module hidden goes too (app.css). #}
+     brings them back from Settings. The ones showing are Alt+1 to Alt+9 top to bottom,
+     each its number on its icon (the current page's always, every one while Alt is
+     held); shell.js numbers them again as they move. A hidden one stays in the page
+     for Ctrl+K; a section with every module hidden goes too (app.css). #}
   {% set nav_icons = {
     "today": '<rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M3 8h14"/><circle cx="10" cy="12.5" r="1.4" fill="currentColor" stroke="none"/>',
     "calendar": '<rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/>',
@@ -110,8 +112,9 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         {# Its page's link (the page's is current; on a project's page, Projects is "true",
            the project's own link under it the page), and its hide button on hover. #}
         <div class="nav-item{% if m.key == "projects" %} nav-parent{% endif %}" data-module="{{ m.key }}"{% if item.hidden %} hidden{% endif %}>
-          <a href="{{ m.href }}" title="{{ m.label }}" draggable="false"{% if m.shortcut %} aria-keyshortcuts="{{ m.shortcut }}"{% endif %} {% if active == m.key %}aria-current="page"{% elif m.key == "projects" and active == "project" %}aria-current="true"{% endif %}>
+          <a href="{{ m.href }}" title="{{ m.label }}" draggable="false"{% if item.number %} aria-keyshortcuts="Alt+{{ item.number }}"{% endif %} {% if active == m.key %}aria-current="page"{% elif m.key == "projects" and active == "project" %}aria-current="true"{% endif %}>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ nav_icons[m.key] | safe }}</svg>
+            <span class="nav-key" aria-hidden="true">{{ item.number }}</span>
             <span class="nav-label">{{ m.label }}</span>
           </a>
           <button type="button" class="nav-hide" data-nav-hide aria-label="Hide {{ m.label }}" title="Hide {{ m.label }} (bring it back in Settings)">
@@ -235,8 +238,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       <section>
         <h3>Anywhere</h3>
         <dl>
-          {% set keyed = rail_keys() %}
-          <dt>{% for first, last in rail_key_runs(keyed) %}{% if not loop.first %}, {% endif %}<kbd>{{ first }}</kbd>{% if last != first %}–<kbd>{{ last }}</kbd>{% endif %}{% endfor %}</dt><dd>{{ keyed | map(attribute="label") | join(", ") }}</dd>
+          <dt><kbd>Alt</kbd> <kbd>1</kbd>–<kbd>9</kbd></dt><dd>The sidebar's pages, as it shows them; hold Alt to see their numbers</dd>
           <dt><kbd>N</kbd> <span class="or">or</span> <kbd>Shift</kbd> <kbd>N</kbd></dt><dd>New task</dd>
           <dt><kbd>Alt</kbd> <kbd>←</kbd></dt><dd>Back to the page before, as you left it (or the mouse's back button; on a sheet's cell, Alt ← is the sheet's)</dd>
           <dt><kbd>?</kbd></dt><dd>These keys</dd>

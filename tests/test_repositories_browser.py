@@ -7,6 +7,7 @@ import pytest
 from github_fake import LOGIN, FakeCli, FakeGitHub, fake_account, repo_payload
 
 from app.services import github as github_svc
+from app.services import rail as rail_svc
 
 pytest.importorskip("playwright.sync_api")
 
@@ -58,8 +59,14 @@ def test_connect_in_one_click_then_find_a_repository(page, live, app_db, github)
 
 
 def test_reached_by_its_key_and_the_command_menu(page, live, app_db, github) -> None:
+    # Finances hidden, Repositories is the seventh module showing.
+    with app_db() as db:
+        rail_svc.save_layout(
+            db, sections=[], modules={}, hidden=["spending", "accounts", "bills", "goals"]
+        )
+        db.commit()
     page.goto(f"{live}/today")
-    page.locator("body").press("8")
+    page.keyboard.press("Alt+7")
     page.wait_for_url(f"{live}/repositories")
     assert page.get_by_role("link", name="Repositories").get_attribute("aria-current") == "page"
 

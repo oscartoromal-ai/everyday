@@ -180,9 +180,12 @@ def test_keys_that_work_anywhere(page, live, tasks) -> None:
     page.locator("#keys-dialog[open]").wait_for()
     press(page, "Escape")
     page.locator("#keys-dialog[open]").wait_for(state="detached")
+    # A digit alone is no longer a page; with Alt, it is the sidebar's.
     press(page, "1")
+    assert page.url.endswith("/projects")
+    press(page, "Alt+1")
     page.wait_for_url("**/today")
-    press(page, "3")
+    press(page, "Alt+3")
     page.wait_for_url("**/projects")
 
 
@@ -408,8 +411,8 @@ def test_left_and_right_step_the_calendar_a_week(page, live) -> None:
 
     this = date.today() - timedelta(days=date.today().weekday())
     page.goto(f"{live}/projects")
-    # From Projects, 2 opens the Calendar on this week; Right goes on a week.
-    page.keyboard.press("2")
+    # From Projects, Alt+2 opens the Calendar on this week; Right goes on a week.
+    page.keyboard.press("Alt+2")
     page.wait_for_url("**/calendar")
     page.keyboard.press("ArrowRight")
     page.wait_for_url(f"**/calendar?start={(this + timedelta(days=7)).isoformat()}")

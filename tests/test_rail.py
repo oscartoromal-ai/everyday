@@ -49,6 +49,41 @@ def test_sections_and_modules_keep_the_order_they_are_dragged_to(db) -> None:
     assert not finances.hidden
 
 
+def numbers(db) -> dict[str, str]:
+    return {m.module.key: m.number for s in rail_svc.layout(db) for m in s.modules if m.number}
+
+
+def test_the_modules_showing_are_numbered_top_to_bottom_up_to_nine(db) -> None:
+    assert numbers(db) == {
+        "today": "1",
+        "calendar": "2",
+        "projects": "3",
+        "nutrition": "4",
+        "me": "5",
+        "garmin": "6",
+        "spending": "7",
+        "accounts": "8",
+        "bills": "9",
+    }
+    # A hidden module has none, and the ones after it move up.
+    rail_svc.save_layout(
+        db,
+        sections=["code", "planner"],
+        modules={"planner": ["calendar", "today"]},
+        hidden=["nutrition", "me", "accounts"],
+    )
+    assert numbers(db) == {
+        "repositories": "1",
+        "calendar": "2",
+        "today": "3",
+        "projects": "4",
+        "garmin": "5",
+        "spending": "6",
+        "bills": "7",
+        "goals": "8",
+    }
+
+
 def test_a_section_with_every_module_hidden_is_hidden(db) -> None:
     rail_svc.save_layout(
         db, sections=[], modules={}, hidden=["spending", "accounts", "bills", "goals"]
@@ -101,8 +136,10 @@ def test_the_rail_route_keeps_the_layout_and_the_page_draws_it(client, db) -> No
     assert nav.index('href="/calendar"') < nav.index('href="/today"')
     accounts = nav.split('data-module="accounts"')[1].split(">")[0]
     assert "hidden" in accounts
-    # A page keeps its key wherever it is.
-    assert 'href="/today" title="Today" draggable="false" aria-keyshortcuts="1"' in nav
+    # The numbers follow the places: Spending, Bills and Goals before Calendar and Today.
+    assert 'href="/calendar" title="Calendar" draggable="false" aria-keyshortcuts="Alt+4"' in nav
+    assert 'href="/today" title="Today" draggable="false" aria-keyshortcuts="Alt+5"' in nav
+    assert '<span class="nav-key" aria-hidden="true">5</span>' in nav.split('href="/today"')[1]
 
     refused = client.put(
         "/ui/rail", json={"sections": [], "modules": {"code": ["today"]}, "hidden": []}

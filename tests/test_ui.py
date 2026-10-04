@@ -769,7 +769,7 @@ def test_health_is_its_own_nav_group_with_nutrition(client) -> None:
     group = page.split('aria-labelledby="nav-health"')[1].split("</nav>")[0]
     assert 'id="nav-health" title="Drag to move Health">Health</div>' in group
     link = group.split('href="/nutrition"')[1].split("</a>")[0]
-    assert 'aria-keyshortcuts="4"' in link and 'aria-current="page"' in link
+    assert 'aria-keyshortcuts="Alt+4"' in link and 'aria-current="page"' in link
     # The day's log beside the day's chat with Claude (test_nutrition.py has the rest).
     main = page.split('<main class="main">')[1]
     assert 'class="chat-page nutrition-page"' in main and 'id="chat-composer"' in main
@@ -777,7 +777,7 @@ def test_health_is_its_own_nav_group_with_nutrition(client) -> None:
 
 def test_me_saves_as_it_changes_and_says_what_follows(client, db) -> None:
     page = client.get("/me").text
-    assert 'aria-keyshortcuts="5"' in page and "<h1>Me</h1>" in page
+    assert 'aria-keyshortcuts="Alt+5"' in page and "<h1>Me</h1>" in page
     assert "No weigh-ins yet." in page
     needs = "once you add your weight, height, birth date, sex and activity."
     assert f"Daily energy is estimated {needs}" in page

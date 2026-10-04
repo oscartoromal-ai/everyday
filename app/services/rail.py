@@ -2,7 +2,8 @@
 Code) and the modules (pages) in each, in the order Oscar dragged them, and
 the modules he hid. Kept as the "rail" setting, so it holds on every device;
 a module or section the code adds later joins at its section's end. A section
-the machine was installed without (Health, Finances, Code) is left out."""
+the machine was installed without (Health, Finances, Code) is left out. The
+modules showing are numbered top to bottom, for Alt+1 to Alt+9."""
 
 from __future__ import annotations
 
@@ -22,8 +23,6 @@ class Module:
     key: str
     label: str
     href: str
-    # Its key on the keyboard (1 to 9), the same wherever it is dragged.
-    shortcut: str = ""
 
 
 @dataclass(frozen=True)
@@ -39,39 +38,45 @@ SECTIONS: tuple[Section, ...] = (
         "planner",
         "Planner",
         (
-            Module("today", "Today", "/today", "1"),
-            Module("calendar", "Calendar", "/calendar", "2"),
+            Module("today", "Today", "/today"),
+            Module("calendar", "Calendar", "/calendar"),
         ),
     ),
-    Section("projects", None, (Module("projects", "Projects", "/projects", "3"),)),
+    Section("projects", None, (Module("projects", "Projects", "/projects"),)),
     Section(
         "health",
         "Health",
         (
-            Module("nutrition", "Nutrition", "/nutrition", "4"),
-            Module("me", "Me", "/me", "5"),
-            Module("garmin", "Garmin", "/garmin", "6"),
+            Module("nutrition", "Nutrition", "/nutrition"),
+            Module("me", "Me", "/me"),
+            Module("garmin", "Garmin", "/garmin"),
         ),
     ),
     Section(
         "finances",
         "Finances",
         (
-            Module("spending", "Spending", "/spending", "7"),
+            Module("spending", "Spending", "/spending"),
             Module("accounts", "Accounts", "/accounts"),
             Module("bills", "Bills", "/bills"),
             Module("goals", "Goals", "/goals"),
         ),
     ),
-    Section("code", "Code", (Module("repositories", "Repositories", "/repositories", "8"),)),
+    Section("code", "Code", (Module("repositories", "Repositories", "/repositories"),)),
 )
 _SECTIONS = {s.key: s for s in SECTIONS}
+
+
+# Alt+1 to Alt+9: the modules showing, top to bottom, hidden ones skipped.
+KEYS = 9
 
 
 @dataclass(frozen=True)
 class PlacedModule:
     module: Module
     hidden: bool
+    # Its number on the keyboard (Alt+number), "" when hidden or past the ninth.
+    number: str = ""
 
 
 @dataclass(frozen=True)
@@ -97,24 +102,6 @@ def not_installed() -> list[Section]:
     return [s for s in SECTIONS if not settings.installed(s.key)]
 
 
-def keyed() -> list[Module]:
-    """The installed modules with a key, by their key."""
-    settings = get_settings()
-    modules = [m for s in SECTIONS if settings.installed(s.key) for m in s.modules]
-    return sorted((m for m in modules if m.shortcut), key=lambda m: m.shortcut)
-
-
-def key_runs(modules: list[Module]) -> list[tuple[str, str]]:
-    """Their keys as runs, first and last: 1 to 6 and 8 without Spending's 7."""
-    runs: list[list[str]] = []
-    for m in modules:
-        if runs and int(m.shortcut) == int(runs[-1][1]) + 1:
-            runs[-1][1] = m.shortcut
-        else:
-            runs.append([m.shortcut, m.shortcut])
-    return [(first, last) for first, last in runs]
-
-
 def layout(db: Session | None) -> list[PlacedSection]:
     """The sections installed in their order, each with its modules in
     theirs; as the code lists them with no session to read the setting from."""
@@ -124,15 +111,20 @@ def layout(db: Session | None) -> list[PlacedSection]:
     modules = saved.get("modules", {})
     settings = get_settings()
     placed = []
+    shown = 0
     for section_key in _ordered(saved.get("sections", []), list(_SECTIONS)):
         if not settings.installed(section_key):
             continue
         section = _SECTIONS[section_key]
         by_key = {m.key: m for m in section.modules}
-        order = _ordered(modules.get(section_key, []), list(by_key))
-        placed.append(
-            PlacedSection(section, tuple(PlacedModule(by_key[k], k in hidden) for k in order))
-        )
+        items = []
+        for k in _ordered(modules.get(section_key, []), list(by_key)):
+            number = ""
+            if k not in hidden:
+                shown += 1
+                number = str(shown) if shown <= KEYS else ""
+            items.append(PlacedModule(by_key[k], k in hidden, number))
+        placed.append(PlacedSection(section, tuple(items)))
     return placed
 
 

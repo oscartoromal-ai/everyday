@@ -2,6 +2,7 @@
 installer's install.toml read over the config, and the app leaving out their
 pages, keys, Claude's tools, jobs and nudges (config.py's InstallConfig)."""
 
+import re
 from datetime import date, datetime
 
 import pydantic
@@ -67,6 +68,13 @@ def test_only_an_optional_module_can_be_left_out(tmp_path, monkeypatch) -> None:
         home_config(tmp_path, monkeypatch, '[install]\nwithout = ["planner"]\n')
 
 
+def keys(html: str) -> list[str]:
+    """The pages Alt+1, Alt+2 and on reach, in that order."""
+    found = re.findall(r'href="/(\w+)" [^>]*aria-keyshortcuts="Alt\+(\d)"', html)
+    assert [n for _, n in found] == [str(i) for i in range(1, len(found) + 1)]
+    return [page for page, _ in found]
+
+
 def test_without_finances_its_pages_are_gone(client_without) -> None:
     client = client_without("finances")
     for path in ("/spending", "/accounts", "/bills", "/goals"):
@@ -77,9 +85,16 @@ def test_without_finances_its_pages_are_gone(client_without) -> None:
     assert 'data-section="finances"' not in html
     assert 'href="/spending"' not in html
     assert 'data-section="health"' in html and 'data-section="code"' in html
-    # The number keys say the pages they reach, Spending's 7 no longer one.
-    assert "<kbd>1</kbd>–<kbd>6</kbd>, <kbd>8</kbd></dt>" in html
-    assert "<dd>Today, Calendar, Projects, Nutrition, Me, Garmin, Repositories</dd>" in html
+    # The pages left are numbered without Finances': Repositories moves up to Alt+7.
+    assert keys(html) == [
+        "today",
+        "calendar",
+        "projects",
+        "nutrition",
+        "me",
+        "garmin",
+        "repositories",
+    ]
     assert (
         "Not installed on this machine: Finances. Run the installer again to add it." in html
     )
@@ -92,15 +107,22 @@ def test_without_health_its_pages_and_keys_are_gone(client_without) -> None:
     html = client.get("/today").text
     assert 'data-section="health"' not in html
     assert "<h3>Nutrition</h3>" not in html
-    assert "<kbd>1</kbd>–<kbd>3</kbd>, <kbd>7</kbd>–<kbd>8</kbd></dt>" in html
-    assert "<dd>Today, Calendar, Projects, Spending, Repositories</dd>" in html
+    assert keys(html) == [
+        "today",
+        "calendar",
+        "projects",
+        "spending",
+        "accounts",
+        "bills",
+        "goals",
+        "repositories",
+    ]
 
 
 def test_with_only_the_planner_the_settings_name_every_module_left_out(client_without) -> None:
     client = client_without("health", "finances", "code")
     html = client.get("/today").text
-    assert "<dd>Today, Calendar, Projects</dd>" in html
-    assert "<dt><kbd>1</kbd>–<kbd>3</kbd></dt>" in html
+    assert keys(html) == ["today", "calendar", "projects"]
     assert (
         "Not installed on this machine: Health, Finances and Code. "
         "Run the installer again to add them." in html
@@ -111,8 +133,9 @@ def test_with_only_the_planner_the_settings_name_every_module_left_out(client_wi
 def test_with_every_module_nothing_is_said_of_installing(client) -> None:
     html = client.get("/today").text
     assert "Not installed" not in html
-    every = "Today, Calendar, Projects, Nutrition, Me, Garmin, Spending, Repositories"
-    assert f"<dt><kbd>1</kbd>–<kbd>8</kbd></dt><dd>{every}</dd>" in html
+    # Nine pages have a number; Goals and Repositories, past them, none.
+    every = ["today", "calendar", "projects", "nutrition", "me", "garmin", "spending"]
+    assert keys(html) == [*every, "accounts", "bills"]
     for path in ("/spending", "/me", "/garmin", "/nutrition", "/repositories"):
         assert client.get(path).status_code == 200, path
 
@@ -143,16 +166,18 @@ def test_without_health_today_has_no_watch_figures(db, leave_out) -> None:
 
 
 def test_without_finances_no_bill_nudges(db, leave_out) -> None:
-    money_svc.save_bill(db, name="Netflix", cents=2299, cadence="monthly",
-                        due=date(2026, 10, 14), match="netflix")
+    money_svc.save_bill(
+        db, name="Netflix", cents=2299, cadence="monthly", due=date(2026, 10, 14), match="netflix"
+    )
     now = datetime(2026, 10, 12, 9, 0)
     [nudge] = [n for n in nudges_svc.evaluate(db, now) if n.type == NudgeType.bill_due]
 
     leave_out("finances")
     # The one raised while Finances was in stops asking, and no other comes.
     assert nudge not in nudges_svc.active_nudges(db)
-    money_svc.save_bill(db, name="Gym", cents=1500, cadence="monthly",
-                        due=date(2026, 10, 13), match="gym")
+    money_svc.save_bill(
+        db, name="Gym", cents=1500, cadence="monthly", due=date(2026, 10, 13), match="gym"
+    )
     assert nudges_svc.evaluate(db, now) == []
     assert "Bills due" not in nudges_svc.build_morning_digest(db, now)
 
