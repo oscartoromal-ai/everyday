@@ -44,7 +44,7 @@ def modules(page, section: str) -> list[str]:
 
 
 def numbers(page) -> dict[str, str]:
-    """Each module's Alt+number, top to bottom, as its link and its disc say."""
+    """Each module's Alt+number, top to bottom, as its link and its figure say."""
     found = page.eval_on_selector_all(
         ".nav-item",
         """is => is.map(i => [
@@ -53,9 +53,9 @@ def numbers(page) -> dict[str, str]:
             i.querySelector(".nav-key").textContent,
         ])""",
     )
-    for _, shortcut, disc in found:
-        assert shortcut == (f"Alt+{disc}" if disc else None)
-    return {module: disc for module, _, disc in found if disc}
+    for _, shortcut, figure in found:
+        assert shortcut == (f"Alt+{figure}" if figure else None)
+    return {module: figure for module, _, figure in found if figure}
 
 
 def saved(app_db) -> list[tuple[str, list[str], bool]]:
@@ -201,27 +201,31 @@ def test_modules_sections_and_projects_drag_within_their_own_place(page, live, a
 
 def test_alt_and_a_number_go_to_the_module_showing_there(page, live) -> None:
     page.goto(f"{live}/today")
-    discs = page.locator(".nav-key:visible")
-    # The current page's number is on its icon; holding Alt shows every one.
-    assert discs.all_inner_texts() == ["1"]
-    page.keyboard.down("Alt")
-    assert discs.all_inner_texts() == [str(n) for n in range(1, 10)]
-    page.keyboard.up("Alt")
-    assert discs.all_inner_texts() == ["1"]
+    figures = page.locator(".nav-key:visible")
+    # Every page's number shows, just left of its name, the names all in line.
+    assert figures.all_inner_texts() == [str(n) for n in range(1, 10)]
+    rows = page.eval_on_selector_all(
+        ".nav-item:not([hidden]) a",
+        """as => as.map(a => [
+            a.querySelector(".nav-key").getBoundingClientRect().right,
+            a.querySelector(".nav-label").getBoundingClientRect().left,
+        ])""",
+    )
+    assert len({label for _, label in rows}) == 1
+    assert all(label - figure == 6 for figure, label in rows)
 
     # From a field too: what was being written saves as the page goes.
     page.goto(f"{live}/projects")
     page.get_by_label("New project").focus()
     page.keyboard.press("Alt+2")
     page.wait_for_url(f"{live}/calendar")
-    assert discs.all_inner_texts() == ["2"]
-    assert page.evaluate("!document.documentElement.hasAttribute('data-nav-keys')")
 
     # Hidden, Today has no number; Calendar is Alt+1 at once.
     today = page.locator('.nav-item[data-module="today"]')
     today.hover()
     today.locator("[data-nav-hide]").click()
-    assert discs.all_inner_texts() == ["1"]
+    assert figures.all_inner_texts() == [str(n) for n in range(1, 10)]
+    assert numbers(page)["calendar"] == "1"
     page.keyboard.press("Alt+2")
     page.wait_for_url(f"{live}/projects")
 

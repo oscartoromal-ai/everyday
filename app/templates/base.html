@@ -72,9 +72,9 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
   {# The sidebar's modules, each a page, in the sections and order Oscar laid them out
      (app/services/rail.py); shell.js drags them within their section, hides them, and
      brings them back from Settings. The ones showing are Alt+1 to Alt+9 top to bottom,
-     each its number on its icon (the current page's always, every one while Alt is
-     held); shell.js numbers them again as they move. A hidden one stays in the page
-     for Ctrl+K; a section with every module hidden goes too (app.css). #}
+     each its number just left of its name; shell.js numbers them again as they move.
+     A hidden one stays in the page for Ctrl+K; a section with every module hidden goes
+     too (app.css). #}
   {% set nav_icons = {
     "today": '<rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M3 8h14"/><circle cx="10" cy="12.5" r="1.4" fill="currentColor" stroke="none"/>',
     "calendar": '<rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/>',
@@ -247,7 +247,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       <section>
         <h3>Anywhere</h3>
         <dl>
-          <dt><kbd>Alt</kbd> <kbd>1</kbd>–<kbd>9</kbd></dt><dd>The sidebar's pages, as it shows them; hold Alt to see their numbers</dd>
+          <dt><kbd>Alt</kbd> <kbd>1</kbd>–<kbd>9</kbd></dt><dd>The sidebar's pages, by the numbers beside their names</dd>
           <dt><kbd>N</kbd> <span class="or">or</span> <kbd>Shift</kbd> <kbd>N</kbd></dt><dd>New task (the sidebar's New task too, from any page)</dd>
           <dt><kbd>Alt</kbd> <kbd>←</kbd></dt><dd>Back to the page before, as you left it (or the mouse's back button; on a sheet's cell, Alt ← is the sheet's)</dd>
           <dt><kbd>?</kbd></dt><dd>These keys</dd>
