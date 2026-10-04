@@ -145,12 +145,21 @@ def _bill_still_due(db: Session, nudge: Nudge) -> bool:
 
 def _still_holds(nudge: Nudge) -> bool:
     """Whether the fact a task's nudge names is still true: a finished task
-    has had its answer, so its nudge stops asking."""
+    has had its answer, so its nudge stops asking, and one whose due day
+    moved, or whose review ended and began again, is another fact (with a
+    nudge of its own, if it calls for one)."""
     task = nudge.task
     if task is None:
         return True
+    _, _, fact = nudge.dedup_key.split(":", 2)
     if nudge.type == NudgeType.needs_review:
-        return task.status == TaskStatus.needs_review
+        return (
+            task.status == TaskStatus.needs_review
+            and task.status_changed_at is not None
+            and task.status_changed_at.isoformat() == fact
+        )
+    if task.due is None or task.due.isoformat() != fact:
+        return False  # a due nudge, the only other a task has
     return task.status in tasks_svc.OPEN_STATUSES
 
 
