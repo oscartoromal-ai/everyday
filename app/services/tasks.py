@@ -25,6 +25,8 @@ OPEN_STATUSES = (
     TaskStatus.blocked,
     TaskStatus.needs_review,
 )
+# How near an open task's due is "due soon", the urgency it is shown with.
+DUE_SOON_DAYS = 3
 
 
 def _validate_workstream(db: Session, project_id: int | None, workstream_id: int | None) -> None:
