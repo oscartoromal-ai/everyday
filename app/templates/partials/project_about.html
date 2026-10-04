@@ -1,0 +1,4 @@
+{# The answer to the project written on its page: its header, which names
+   it, and its glance, which its status changes, out of band. #}
+{% include "partials/project_head.html" %}
+{% with oob_glance = True %}{% include "partials/project_glance.html" %}{% endwith %}

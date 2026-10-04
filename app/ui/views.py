@@ -306,48 +306,13 @@ def projects_overview(db: Session, now: datetime) -> dict[str, Any] | None:
         return None
     rows = []
     for project in shown:
-        tasks = [
-            t for t in tasks_svc.list_tasks(db, project_id=project.id)
-            if t.status != TaskStatus.cancelled
-        ]
-        open_tasks = tasks_svc.one_per_series(
-            [t for t in tasks if t.status in tasks_svc.OPEN_STATUSES], today
-        )
-        done = sum(1 for t in tasks if t.status == TaskStatus.done)
-        total = done + len(open_tasks)
-        deadlines = sorted((t for t in open_tasks if t.due), key=lambda t: t.due)
-        overdue = sum(1 for t in deadlines if t.due < today)
-        upcoming = deadlines[0] if deadlines else None
-        if project.status == ProjectStatus.paused:
-            health = ("Paused", "neutral")
-        elif overdue:
-            health = (f"{overdue} overdue", "err")
-        elif upcoming and upcoming.due <= today + timedelta(days=DUE_SOON_DAYS):
-            health = ("Due soon", "warn")
-        elif not open_tasks:
-            health = ("Nothing open", "neutral")
-        elif not upcoming:
-            health = ("No deadline", "neutral")
-        else:
-            health = ("On track", "ok")
-        days = [d for t in tasks for d in (t.starts_on, t.due) if d]
-        first, last = (min(days), max(days)) if days else (None, None)
+        glance = project_glance(db, project, today)
+        first, last = glance["first"], glance["last"]
         bar = None
         if first and last and last >= start and first < end:
             left = at(first)
             bar = {"left": left, "width": round(at(last + timedelta(days=1)) - left, 3)}
-        rows.append({
-            "project": project,
-            "health": health[0],
-            "health_class": health[1],
-            "done": done,
-            "total": total,
-            "percent": round(100 * done / total) if total else 0,
-            "next": upcoming,
-            "next_label": upper_first(short_date(upcoming.due, today)) if upcoming else None,
-            "span_label": human_span(first, last, today) if first and last else "No dates yet",
-            "bar": bar,
-        })
+        rows.append({**glance, "bar": bar})
     months = []
     day = start.replace(day=1)
     while day < end:
@@ -362,6 +327,54 @@ def projects_overview(db: Session, now: datetime) -> dict[str, Any] | None:
         "months": months,
         "now": round(100 * ((today - start).days + 0.5) / length, 3),
         "weeks": OVERVIEW_WEEKS,
+    }
+
+
+def project_glance(db: Session, project: Project, today: date) -> dict[str, Any]:
+    """A project at a glance: its health (what its deadlines say), its
+    progress, its next deadline, and its span, its tasks' first start to
+    their last due. Projects' portfolio rows and its own page show it."""
+    tasks = [
+        t for t in tasks_svc.list_tasks(db, project_id=project.id)
+        if t.status != TaskStatus.cancelled
+    ]
+    open_tasks = tasks_svc.one_per_series(
+        [t for t in tasks if t.status in tasks_svc.OPEN_STATUSES], today
+    )
+    done = sum(1 for t in tasks if t.status == TaskStatus.done)
+    total = done + len(open_tasks)
+    deadlines = sorted((t for t in open_tasks if t.due), key=lambda t: t.due)
+    overdue = sum(1 for t in deadlines if t.due < today)
+    upcoming = deadlines[0] if deadlines else None
+    if project.status == ProjectStatus.paused:
+        health = ("Paused", "neutral")
+    elif project.status == ProjectStatus.done:
+        health = ("Done", "neutral")
+    elif overdue:
+        health = (f"{overdue} overdue", "err")
+    elif upcoming and upcoming.due <= today + timedelta(days=DUE_SOON_DAYS):
+        health = ("Due soon", "warn")
+    elif not open_tasks:
+        health = ("Nothing open", "neutral")
+    elif not upcoming:
+        health = ("No deadline", "neutral")
+    else:
+        health = ("On track", "ok")
+    days = [d for t in tasks for d in (t.starts_on, t.due) if d]
+    first, last = (min(days), max(days)) if days else (None, None)
+    return {
+        "project": project,
+        "health": health[0],
+        "health_class": health[1],
+        "done": done,
+        "open": len(open_tasks),
+        "total": total,
+        "percent": round(100 * done / total) if total else 0,
+        "next": upcoming,
+        "next_label": upper_first(short_date(upcoming.due, today)) if upcoming else None,
+        "first": first,
+        "last": last,
+        "span_label": human_span(first, last, today) if first and last else "No dates yet",
     }
 
 

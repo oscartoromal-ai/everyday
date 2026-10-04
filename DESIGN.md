@@ -103,13 +103,13 @@ The shell animates its column width on `--ease` over 220ms.
 When collapsed, the wordmark and labels hide, each link keeps its name as a tooltip, group labels become hairlines, and the spark bar stays.
 Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the spark bar moves above the active tab's icon, and the mode toggle ends the bar as a 44px sun or moon icon past a hairline, with no label; the collapse control and Back stay desktop-only (the phone's browser has its own Back).
 Under 600px each tab is its icon, 44px wide; the tabs scroll sideways past the bar's width, it opens with the current page's tab in its middle, and an edge with tabs past it fades (`data-more`, `shell.js`).
-Content is 800px wide for list pages, where more width only lengthens a row; 1040px for Projects, whose overview lays its projects over weeks; and up to 1600px for Today and Calendar, so a wide window or a zoomed-out page widens them rather than their margins.
+Content is 800px wide for list pages, where more width only lengthens a row; 1040px for Projects, whose overview lays its projects over weeks, and for a project's page, whose sections sit beside each other; and up to 1600px for Today and Calendar, so a wide window or a zoomed-out page widens them rather than their margins.
 Compact rows (the rail's toggle above the mode's, or C) set Projects' sheet and Today's notes 28px a row rather than 36px, the text its size: 3px above a 20px line, 4px below; the toggle's three lines close up while it is on, its label the state (Roomy, Compact).
 On Today a panel icon at the day header's right (or Ctrl+\) folds the timeline away, the notes taking its column, and back.
 
 ## Components
 
-**List cards.** The nudge center (at the top of Today) is a glass card; Projects' groups are not, but rows of its ruled sheet (see Projects).
+**List cards.** The nudge center (at the top of Today) and the sections of a project's page are glass cards; Projects' groups are not, but rows of its ruled sheet (see Projects).
 A title row sits on a stronger hairline, and rows below are full-bleed, dividing with hairlines and lighting on hover with `--glass-row-hover`.
 
 **Task rows.** An 18px checkbox with a 6px radius fills with ink when checked; there is no draw-in animation.
@@ -276,8 +276,8 @@ Week navigation and nudge actions are secondary-style controls.
 
 **Inputs: written on the line, as Today's notes are** (Oscar's call, 2026-09-30, replacing the settei plates of 2026-09-27).
 Every place Oscar writes is a line of the notebook: no box, no fill and no focus ring, the words straight on a rule, 22px of 14px ink on a 36px line as the notes' rows are, pewter placeholders, date and time in `--font-num`, a select's words followed by a small steel chevron, and an empty date in pewter.
-On a ruled sheet (Projects, Me, a project's page) the rows are the lines: a field is a row, its name in the row's indent in 12px/500 graphite, and the field in use has its row number in ink 600 and its group's rules in ink, as the notes' caret row does.
-Elsewhere (the event, workstream and new-project forms, the project editor) a field is its name in 12px/500 graphite over a 1px steel line (3:1 as a field's edge), the line 2px ink and the name ink while it is in use.
+On a ruled sheet (Projects, Me) the rows are the lines: a field is a row, its name in the row's indent in 12px/500 graphite, and the field in use has its row number in ink 600 and its group's rules in ink, as the notes' caret row does.
+Elsewhere (the event, workstream and new-project forms, the project editor, a project's Details) a field is its name in 12px/500 graphite over a 1px steel line (3:1 as a field's edge), the line 2px ink and the name ink while it is in use.
 Their buttons are the app's own, 36px beside a form's fields; the task sheet's are words on its line (see Task sheet).
 Projects' status select is its words in 12px/500 graphite and the steel chevron, the fog under it on hover.
 Focus elsewhere in the app is unchanged: every other focus ring is `--spark-deep`, not `--spark`, since accent text holds 4.5:1 on every surface where the bright spark can sink into a glow of its own colour.
@@ -318,16 +318,27 @@ The row in hand fades to 40%, and the target under it lights as a drop target, `
 
 A ghost bars icon, before the pencil, opens the project as a Gantt chart.
 
-**A project's page** (`project.html`, `/projects/<id>`, at a list page's 800px).
+**A project's page** (`project.html`, `/projects/<id>`, at Projects' 1040px).
+Not a ruled sheet (Oscar's call, 2026-10-04): an overview in sections, a glass card each, as a modern product's project page is.
 Its header is shared with its Gantt: a pewter "‹ Projects", the project's flag (20px) and name at 24px, then a line of graphite words ("Active · 14 tasks open · 2 repositories · 1 document", the repositories left out while there are none), then its tabs, Overview and Gantt.
 A tab is 14px/500 graphite (ink on hover), 24px apart; the current one is ink 600 on the nav's 3px spark bar, laid flat under its words, glowing at night.
-Under it, one ruled sheet as Me's is, to the window's foot, in three groups, each saved as it changes:
 
-- Project: Name, Status (a select), Colour (the editor's eight flags as 24px swatches, the chosen one ringed in its colour) and Notes, each a field on its row.
-- Repositories: a row each, its steel branch icon and name (the last part of where it is) in 14px/500 ink, then where it is written on the line in graphite (ink while written), and a bin at the row's end as a weigh-in's; then "Add a repository" in graphite after a steel plus, its line asking for a folder or a URL.
-- Context, with a pewter "What an agent working on it reads, AGENTS.md first" after its name: a row each, AGENTS.md first, a steel page icon and the name in 14px/500 ink (underlined on hover), what it is about (its first words, heading marks gone) in graphite cut with an ellipsis, or in pewter what to write while it is empty, and at the right its length and when it was written ("12 lines · 11:48") in 12px pewter figures; the whole row opens it; then "New document", named on its line, Enter opening it.
+Under it, the project at a glance: four glass tiles in a row, 12px apart, each its name in 12px/500 graphite, its value at 20px/600 ink on a 28px line, and a 12px pewter note along the tile's foot, so the four notes share a line.
+Health is Projects' badge ("On track", "Due soon", "1 overdue", "Paused"…), its note the open count; Progress the share done, a 4px meter in ink over the hairline, and "20 of 29 tasks done"; Next due the nearest open deadline's day, its note the task's title, cut with an ellipsis; Timeline the tasks' first start to their last due ("5 Oct to 23 Oct", each day kept on one line), its note how long that is.
+With nothing to show the value is in pewter ("None", "No dates yet") and the note says why.
+The glance is drawn again, out of band, whenever the project is saved, since its status changes its health.
 
-The names of every group (fields, repositories, documents) share one 176px column (112px on a phone, where the add rows' names wrap), so all their values start on one line.
+Then two columns, 24px apart: the main one, and Details, 300px, at the right, kept in view as the page scrolls.
+Each section is a list card: its title in 16px/600 on a stronger hairline, a pewter count or note after it, its rows full-bleed with hairlines between and `--glass-row-hover` under the pointer.
+
+- Description: the project's notes written straight on the card, 14px ink on 22px lines, at least three lines tall and growing with the text; the card's edge goes ink while it is written in.
+- Context, with "What an agent working on it reads, AGENTS.md first" after its title: a row each, AGENTS.md first, its steel page icon on a 32px glass tile, then its name in 14px/500 ink (underlined on hover) over what it is about (its first words, heading marks gone) in 12px graphite, or in pewter what to write while it is empty, and at the right its length and when it was written ("12 lines · 11:48") in 12px pewter figures; the whole row opens it.
+- Repositories, with its count: a row each, its steel branch icon on the tile, its name (the last part of where it is) in 14px/500 ink over where it is in 12px graphite, written in place (a steel line under it on hover, ink while written), and at the row's end a bin as a weigh-in's, shown on hover.
+- Details: Name, Status (a select) and Colour (the editor's eight flags as 28px swatches, the chosen one ringed in its colour), each a field as a form's: its name over its line.
+
+Context and Repositories each end in a line to add one: a steel plus under the icons' column, then the name written on it, its placeholder in graphite (a document's name, or a repository's folder or URL); Enter adds it, and a new document opens on its own page.
+Each card saves as it changes and posts only its own fields: Description the notes, Details the name, status and colour.
+Under 760px of content the columns become one, Details last with its fields side by side; under 600px the glance goes two by two and a document's length and time go.
 
 **A document's page** (`project_doc.html`, `/projects/<id>/docs/<doc>`, at a task page's 800px).
 The task page's header: a pewter "‹ " and the project's name, and at the right a 12px pewter "Saved" once a save lands ("Not saved" and a toast if one fails), nothing while the writing is unsaved.

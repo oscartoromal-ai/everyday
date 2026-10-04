@@ -1,0 +1,37 @@
+{# The project at a glance, over its page: a tile each for its health, its
+   progress, its next deadline and its span. Drawn again, out of band, as
+   its status changes on the page. #}
+{% set g = glance %}
+<section class="project-glance" id="project-glance"{% if oob_glance %} hx-swap-oob="true"{% endif %} aria-label="{{ project.name }} at a glance">
+  <div class="glance-tile">
+    <h2 class="glance-label">Health</h2>
+    <p class="glance-value"><span class="chip {{ g.health_class }}">{{ g.health }}</span></p>
+    <p class="glance-note">{% if g.open %}{{ g.open }} {{ "task" if g.open == 1 else "tasks" }} open{% else %}Nothing open{% endif %}</p>
+  </div>
+  <div class="glance-tile">
+    <h2 class="glance-label">Progress</h2>
+    <p class="glance-value">{{ g.percent }}%</p>
+    <span class="glance-meter" aria-hidden="true"><span style="width: {{ g.percent }}%"></span></span>
+    <p class="glance-note">{{ g.done }} of {{ g.total }} {{ "task" if g.total == 1 else "tasks" }} done</p>
+  </div>
+  <div class="glance-tile">
+    <h2 class="glance-label">Next due</h2>
+    {% if g.next %}
+    <p class="glance-value">{{ g.next_label }}</p>
+    <p class="glance-note" title="{{ g.next.title }}">{{ g.next.title }}</p>
+    {% else %}
+    <p class="glance-value is-none">None</p>
+    <p class="glance-note">No open task has a deadline</p>
+    {% endif %}
+  </div>
+  <div class="glance-tile">
+    <h2 class="glance-label">Timeline</h2>
+    {% if g.first %}
+    <p class="glance-value">{{ g.span_label }}</p>
+    <p class="glance-note">{{ g.length }}</p>
+    {% else %}
+    <p class="glance-value is-none">No dates yet</p>
+    <p class="glance-note">Give its tasks a start or a due date</p>
+    {% endif %}
+  </div>
+</section>
