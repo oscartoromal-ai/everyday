@@ -62,6 +62,7 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.filters["human_date"] = human_date
 templates.env.filters["short_date"] = short_date
 templates.env.filters["duration"] = duration_label
+templates.env.filters["upper_first"] = upper_first
 templates.env.globals["asset"] = asset
 
 
@@ -719,8 +720,9 @@ def back_link(url: str, today: date | None = None) -> dict[str, str]:
         label = "Calendar"
     elif path == "/projects":
         label = "Projects"
-    elif segments[0] == "projects" and len(segments) == 2 and segments[1].isdigit():
-        label = "Gantt"
+    elif segments[0] == "projects" and segments[1:2] and segments[1].isdigit():
+        # A project's page, or its Gantt.
+        label = {(): "Project", ("gantt",): "Gantt"}.get(tuple(segments[2:]))
     elif segments[0] == "day" and len(segments) == 2:
         try:
             label = upper_first(short_date(date.fromisoformat(segments[1]), today or date.today()))

@@ -33,14 +33,14 @@ def _remember(response: Response, scale: str) -> Response:
     return response
 
 
-@router.get("/projects/{project_id}")
+@router.get("/projects/{project_id}/gantt")
 def gantt_page(request: Request, db: DbSession, project_id: int, scale: str | None = None):
     project = projects_svc.get_project(db, project_id)
     scale = _scale(request, scale)
     response = templates.TemplateResponse(
         request,
         "gantt.html",
-        {"request": request, "active": "project", "today": date.today(),
+        {"request": request, "active": "project", "tab": "gantt", "today": date.today(),
          **gantt_ctx(db, project, date.today(), scale)},
     )
     return _remember(response, scale)

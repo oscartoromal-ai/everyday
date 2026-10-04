@@ -22,6 +22,7 @@ from app.ui import garmin as ui_garmin
 from app.ui import money as ui_money
 from app.ui import nutrition as ui_nutrition
 from app.ui import pages as ui_pages
+from app.ui import project as ui_project
 from app.ui import repositories as ui_repositories
 from app.ui.views import keep_db
 
@@ -64,6 +65,7 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     app.include_router(ui_money.router, dependencies=ui)
     app.include_router(ui_repositories.router, dependencies=ui)
     app.include_router(ui_gantt.router, dependencies=ui)
+    app.include_router(ui_project.router, dependencies=ui)
 
     @app.exception_handler(DomainError)
     def domain_error(request: Request, exc: DomainError) -> JSONResponse:

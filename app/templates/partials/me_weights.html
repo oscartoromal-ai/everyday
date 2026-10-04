@@ -17,7 +17,7 @@
   <ul class="weight-log">
     {% for w in me.weights %}
     <li class="sheet-row me-row">
-      <span class="me-label">{{ w.day | short_date | capitalize }}</span>
+      <span class="me-label">{{ w.day | short_date | upper_first }}</span>
       <span class="me-value">{{ "%g" % w.weight_kg }} kg</span>
       <button type="button" class="task-delete" title="Delete this weigh-in"
               aria-label="Delete the weigh-in of {{ w.day | short_date }}"

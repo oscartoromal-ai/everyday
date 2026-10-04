@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter
 
 from app.api.schemas import (
@@ -36,6 +38,13 @@ def update_project(
     return ProjectOut.model_validate(
         projects_svc.update_project(db, project_id, **body.model_dump(exclude_unset=True))
     )
+
+
+@router.get("/{project_id}/context")
+def project_context(project_id: int, db: DbSession) -> dict[str, Any]:
+    """What an agent working on the project is given: the project, its
+    repositories, and its documents in full, AGENTS.md first."""
+    return projects_svc.project_context(projects_svc.get_project(db, project_id))
 
 
 @router.get("/{project_id}/workstreams")

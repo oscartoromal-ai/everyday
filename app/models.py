@@ -112,6 +112,50 @@ class Project(Base):
 
     workstreams: Mapped[list[Workstream]] = relationship(back_populates="project")
     tasks: Mapped[list[Task]] = relationship(back_populates="project")
+    repos: Mapped[list[ProjectRepo]] = relationship(
+        back_populates="project", order_by="ProjectRepo.id", cascade="all, delete-orphan"
+    )
+    docs: Mapped[list[ProjectDoc]] = relationship(
+        back_populates="project", order_by="ProjectDoc.id", cascade="all, delete-orphan"
+    )
+
+
+class ProjectRepo(Base):
+    """A repository the project's work lives in: where it is, a local path
+    or a URL, as written."""
+
+    __tablename__ = "project_repos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    location: Mapped[str] = mapped_column(String(1000))
+
+    project: Mapped[Project] = relationship(back_populates="repos")
+
+
+# The document every project has, first among its context: what an agent
+# working on the project reads before anything else.
+AGENTS_DOC = "AGENTS.md"
+
+
+class ProjectDoc(Base):
+    """A document of the project's context, in Markdown, for Oscar and the
+    agents working on it: its AGENTS.md, and any others he writes."""
+
+    __tablename__ = "project_docs"
+    __table_args__ = (UniqueConstraint("project_id", "name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    project: Mapped[Project] = relationship(back_populates="docs")
+
+    @property
+    def is_agents(self) -> bool:
+        return self.name == AGENTS_DOC
 
 
 class Workstream(Base):

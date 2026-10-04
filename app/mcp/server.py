@@ -30,6 +30,9 @@ mcp = FastMCP(
     instructions=(
         "Oscar's personal planner: projects, tasks and calendar events. "
         "The app database is canonical for cross-project plan state. "
+        "Each project has its context on its page: its repositories, and documents "
+        "for the agents working on it, AGENTS.md first; read them with "
+        "get_project_context before working on a project. "
         "Dates are calendar dates (YYYY-MM-DD); datetimes are naive local wall time. "
         "A task's notes are its free-form description: lines starting with '- ' are "
         "its sub-tasks ('- [x] ' once done), and other lines are context around them. "
@@ -51,6 +54,7 @@ mcp = FastMCP(
 
 def _project_payload(db, project) -> dict[str, Any]:  # noqa: ANN001
     payload = ProjectOut.model_validate(project).model_dump()
+    payload["repos"] = [r.location for r in project.repos]
     payload["workstreams"] = [
         WorkstreamOut.model_validate(m).model_dump() | {
             "progress": projects_svc.workstream_progress(db, m.id)
@@ -93,6 +97,25 @@ def upsert_project(
                 db, project_id, name=name, status=status, notes=notes, color=color
             )
         return _project_payload(db, project)
+
+
+@mcp.tool
+def get_project_context(project_id: int | None = None, name: str | None = None) -> dict[str, Any]:
+    """A project's context, for working on it: the project (name, status,
+    notes), its repositories (each a local path or a URL), and its documents
+    in full, written in Markdown on its page in the app: AGENTS.md first,
+    what an agent should know before working on it, then the others. Give
+    project_id, or its exact name."""
+    with session_scope("claude") as db:
+        if project_id is None:
+            project = next(
+                (p for p in projects_svc.list_projects(db) if p.name == (name or "").strip()), None
+            )
+            if project is None:
+                raise DomainError(f"No project is named {name!r}")
+        else:
+            project = projects_svc.get_project(db, project_id)
+        return projects_svc.project_context(project)
 
 
 @mcp.tool

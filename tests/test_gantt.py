@@ -219,12 +219,12 @@ def test_the_days_view_has_a_column_a_day(client, db) -> None:
         db, title="Spec", project_id=project.id, starts_on=today, due=today + timedelta(days=2),
     )
     db.commit()
-    page = client.get(f"/projects/{project.id}?scale=days").text
+    page = client.get(f"/projects/{project.id}/gantt?scale=days").text
     assert 'data-scale="days"' in page and '<abbr title="Days">Days</abbr>' in page
     assert f'data-day="{today.isoformat()}"' in page and "--n: 3.0" in page
     # Remembered: the sheet comes back in days.
     assert 'data-scale="days"' in client.get(f"/ui/projects/{project.id}/gantt").text
-    assert 'data-scale="weeks"' in client.get(f"/projects/{project.id}?scale=weeks").text
+    assert 'data-scale="weeks"' in client.get(f"/projects/{project.id}/gantt?scale=weeks").text
 
 
 def test_weeks_on_a_task_due_reach_back_from_its_due(db) -> None:
@@ -325,7 +325,7 @@ def test_the_gantt_page_draws_the_plan(client, db) -> None:
     tasks_svc.create_task(db, title="Loose end", project_id=project.id)
     db.commit()
 
-    page = client.get(f"/projects/{project.id}").text
+    page = client.get(f"/projects/{project.id}/gantt").text
     assert "Beta" in page and 'role="grid"' in page
     assert 'data-edit="title"' in page and "Spec" in page and "Loose end" in page
     assert "Add a task to Launch…" in page
@@ -335,9 +335,9 @@ def test_the_gantt_page_draws_the_plan(client, db) -> None:
     assert 'class="gantt-bar"' in page and "--n: 1.7143" in page
     # A workstream's lane: its tasks' summary, its Due their last due, no dates of its own.
     assert 'class="gantt-summary"' in page and 'data-key="w' in page
-    # The Projects card opens it.
+    # The Projects card's bars icon opens it.
     projects = client.get("/projects").text
-    assert f'<a class="project-name" href="/projects/{project.id}"' in projects
+    assert f'<a class="card-edit-btn" href="/projects/{project.id}/gantt"' in projects
 
 
 def test_the_sheet_is_edited_through_one_request(client, db) -> None:

@@ -157,7 +157,7 @@ def test_projects_open_on_the_projects_at_a_glance(client, db) -> None:
     # Above the tasks: a row a project, active then paused, done ones shelved.
     assert page.index('id="projects-overview"') < page.index('aria-label="Add a task"')
     rows = overview.split('class="sheet-row overview-row')[2:]
-    assert [r.split('title="Open ')[1].split(" as")[0] for r in rows] == [
+    assert [r.split('title="Open ')[1].split('"')[0] for r in rows] == [
         "Late one", "Calm one", "Soon one", "Bare one", "Parked one",
     ]
     late_row, calm_row, soon_row, bare_row, parked_row = rows
@@ -702,7 +702,7 @@ def test_sidebar_lists_the_active_projects_under_projects(client, db) -> None:
     shelved = projects_svc.create_project(db, name="Shelved")
     projects_svc.update_project(db, shelved.id, status=ProjectStatus.paused)
 
-    # Every page: each active project under Projects, in its colour, opening its Gantt.
+    # Every page: each active project under Projects, in its colour, opening its page.
     nav = client.get("/today").text.split('id="main-nav"')[1].split("</nav>")[0]
     sub = nav.split('id="rail-projects"')[1].split("</ul>")[0]
     assert nav.index('href="/projects"') < nav.index('id="rail-projects"')
@@ -710,7 +710,7 @@ def test_sidebar_lists_the_active_projects_under_projects(client, db) -> None:
     assert 'style="--project: var(--hue-3)"' in sub and ">Reno<" in sub
     assert "Shelved" not in sub and 'aria-current' not in sub
 
-    # A project's Gantt: its own row is the page, Projects the set it is in.
+    # A project's page, and its Gantt: its own row is the page, Projects the set it is in.
     nav = client.get(f"/projects/{reno.id}").text.split('id="main-nav"')[1].split("</nav>")[0]
     projects = nav.split('href="/projects"')[1].split(">")[0]
     assert 'aria-current="true"' in projects
@@ -756,6 +756,12 @@ def test_me_saves_as_it_changes_and_says_what_follows(client, db) -> None:
     weights = client.post("/ui/me/weight", data={"weight_kg": "80,5"})
     assert weights.headers["HX-Trigger"] == "me:changed"
     assert "80.5 kg" in weights.text and "Today" in weights.text
+    # An older one names its day, its month in capitals ("Wed 30 Sep").
+    earlier = date.today() - timedelta(days=9)
+    weights = client.post(
+        "/ui/me/weight", data={"weight_kg": "81", "day": earlier.isoformat()}
+    ).text
+    assert f">{earlier:%a} {earlier.day} {earlier:%b}</span>" in weights
     context = client.get("/ui/me/context").text
     assert "Your target is 75 kg: 5.5 kg to lose." in context
     assert "kcal a day keeps your weight" in context
