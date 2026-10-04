@@ -1307,6 +1307,19 @@
     switchScale(scale() === "weeks" ? "days" : "weeks");
   });
 
+  // Alt+W, anywhere on the page but a field: a workstream to name, on the
+  // row that adds one.
+  document.addEventListener("keydown", (e) => {
+    if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing || e.defaultPrevented) return;
+    if (e.code !== "KeyW") return;
+    if (e.target.closest?.("input, textarea, select, [contenteditable]") || document.querySelector("dialog[open]")) return;
+    const row = rowOf("add-workstream");
+    if (!row) return;
+    e.preventDefault();
+    moveTo(row.dataset.key, TITLE);
+    edit(cellAt(row, TITLE));
+  });
+
   document.querySelector("[data-gantt-this-week]")?.addEventListener("click", () => {
     toNow();
     if (cursor) moveTo(cursor.key, FROZEN + thisCol());

@@ -1,8 +1,8 @@
 """A project's Gantt in a real browser, worked as a spreadsheet: writing a
 task and its weeks from the keyboard, a refused week, drawing and dragging
-bars, Alt moves, rows moved into a workstream, undo, deleting a task, a
-title growing its row as it is written, and a task opened on its page.
-The `live`, `page` and `app_db` fixtures are conftest.py's."""
+bars, Alt moves, rows moved into a workstream, a workstream added by Alt+W,
+undo, deleting a task, a title growing its row as it is written, and a task
+opened on its page. The `live`, `page` and `app_db` fixtures are conftest.py's."""
 
 from datetime import date, timedelta
 
@@ -491,3 +491,20 @@ def test_a_task_opens_on_its_page_and_comes_back(page, live, app_db, project) ->
     _row(page, "Loose end").locator(".gantt-due").click()
     page.keyboard.press("Control+Enter")
     page.wait_for_url(f"{live}/tasks/{loose}")
+
+
+def test_alt_w_writes_a_new_workstream_from_anywhere_on_the_page(page, live, project) -> None:
+    page.goto(f"{live}/projects/{project}")
+    # From a task's cell in the sheet, where plain letters are written.
+    _row(page, "Loose end").locator(".gantt-title .gantt-text").click()
+    page.keyboard.press("Alt+w")
+    assert page.locator(".gantt-row.kind-add-workstream .gantt-input").is_visible()
+    page.keyboard.type("Polish")
+    page.keyboard.press("Enter")
+    page.locator('.gantt-row.kind-workstream[data-title="Polish"]').wait_for()
+    # And from outside it.
+    page.locator("h1").click()
+    page.keyboard.press("Alt+w")
+    assert page.locator(".gantt-row.kind-add-workstream .gantt-input").is_visible()
+    page.keyboard.press("Escape")
+    assert page.locator(".gantt-input").count() == 0
