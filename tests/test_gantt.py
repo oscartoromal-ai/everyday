@@ -10,6 +10,7 @@ from app.services import DomainError
 from app.services import gantt as gantt_svc
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
+from app.ui.gantt_view import gantt_ctx
 
 # A Wednesday in ISO week 40 of 2026 (Monday 28 September).
 TODAY = date(2026, 9, 30)
@@ -225,6 +226,35 @@ def test_the_days_view_has_a_column_a_day(client, db) -> None:
     # Remembered: the sheet comes back in days.
     assert 'data-scale="days"' in client.get(f"/ui/projects/{project.id}/gantt").text
     assert 'data-scale="weeks"' in client.get(f"/projects/{project.id}/gantt?scale=weeks").text
+
+
+def test_the_sheet_is_drawn_as_wide_as_its_view(db) -> None:
+    project, _ = _project(db)
+    db.commit()
+    # With no view measured: the week before this one, this one and 19 after.
+    assert len(gantt_ctx(db, project, TODAY)["columns"]) == 21
+    # A view 60 weeks wide, opened a week before this one, is drawn to its edge.
+    weeks = gantt_ctx(db, project, TODAY, "weeks", fit=60)
+    assert (weeks["this_col"], weeks["lead"], len(weeks["columns"])) == (1, 1, 60)
+    # Its weeks name their year only where it turns, so each fits its column.
+    heads = {c["iso"]: c for c in weeks["columns"]}
+    assert [heads[d]["top"] for d in ("2026-12-28", "2027-01-04", "2027-03-08")] == [
+        "W53", "W1 '27", "W10",
+    ]
+    assert heads["2027-03-08"]["aria"] == "Week 10 of 2027, from 8 March"
+    # In days, it is drawn to the end of the week its edge falls in.
+    days = gantt_ctx(db, project, TODAY, "days", fit=200)
+    past_open = len(days["columns"]) - (days["this_col"] - days["lead"])
+    assert 200 <= past_open < 207 and len(days["columns"]) % 7 == 0
+
+
+def test_the_view_measured_is_remembered_in_a_cookie_per_scale(client, db) -> None:
+    project, _ = _project(db)
+    db.commit()
+    client.cookies.set("gantt_fit_weeks", "60")
+    client.cookies.set("gantt_fit_days", "not a number")
+    assert 'data-col-count="60"' in client.get(f"/projects/{project.id}/gantt?scale=weeks").text
+    assert 'data-col-count="147"' in client.get(f"/ui/projects/{project.id}/gantt?scale=days").text
 
 
 def test_weeks_on_a_task_due_reach_back_from_its_due(db) -> None:

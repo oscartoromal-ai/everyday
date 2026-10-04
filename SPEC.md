@@ -133,6 +133,8 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
 - **A project as a Gantt chart** (Oscar's call on 2026-09-30: "I work in weeks", "a kind of Excel interface"): each project opens (`/projects/<id>/gantt`, the Gantt tab of its page, or its card's bars icon) as a spreadsheet of its plan by week.
   A row per workstream, its tasks under it and a row to write one more; then a row to write a workstream, the tasks in none under it and a row to write one more; a column per week (the ISO week, over its Monday), frozen beside Task, Priority, Start, Wks and Due.
   It drills down to days (Oscar's call on 2026-10-01): a Weeks / Days switch (or V) for the whole sheet, remembered, the same days kept in view; in Days a column per day, weekends tinted, the length in days, and every move by days.
+  The sheet takes the whole window, and its time always fills it to the right edge, however wide the window or far out its zoom: zoomed out, more weeks ahead come into view (Oscar's call on 2026-10-04: "Always fill in the entire screen so I can see more weeks in the future").
+  A week's head names its year only where the year turns ("W1 '27", then "W2"), as its Monday's names the month.
   A task's bar is its span: from its start day to its due, so the end of a bar is its deadline, and Projects and the nudges see the plan through the due they already read (Oscar's call: a task has to be done by a day).
   The do-date stays apart: when Oscar works on it, not when the plan says it runs.
   A task due with no start is a tick on its due; a workstream is a lane: a summary from its tasks' first start to their last due, its Start, length and Due theirs.

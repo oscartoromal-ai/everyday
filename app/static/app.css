@@ -2379,8 +2379,10 @@ li.repo-row:hover { background: var(--glass-row-hover); }
    and Due) stay put, as a spreadsheet's do, so they are opaque paper where
    the time is the sheet's own see-through paper. Its columns of time are a
    week each (52px) or a day (36px), ruled by the table's background, so
-   the filler rows under the last are too. */
-.main:has(.gantt-page) { max-width: 1600px; }
+   the filler rows under the last are too. It takes the whole window, and
+   its time always reaches past the view's right edge (gantt.js measures
+   it), however wide the window or far out its zoom. */
+.main:has(.gantt-page) { max-width: none; }
 .gantt-page { display: flex; flex-direction: column; height: calc(100dvh - 2 * var(--s-8)); min-height: 560px; }
 .gantt-header { margin-bottom: var(--s-4); }
 :is(.gantt-header, .project-head) h1 { display: flex; align-items: center; gap: var(--s-2); }
@@ -2405,7 +2407,9 @@ li.repo-row:hover { background: var(--glass-row-hover); }
 .gantt-sheet.hide-done .gantt-row.kind-task.status-done { display: none; }
 
 .gantt-sheet {
-  --gantt-col: 52px;
+  --gantt-col-weeks: 52px;
+  --gantt-col-days: 36px;
+  --gantt-col: var(--gantt-col-weeks);
   --gantt-num: var(--pad-rows);
   --gantt-box: 44px;
   --gantt-title: 280px;
@@ -2423,7 +2427,7 @@ li.repo-row:hover { background: var(--glass-row-hover); }
   font-size: var(--t-body-sm); line-height: var(--pad-text);
 }
 /* drilled down to days: narrower columns, and a Start wide enough for its date */
-.gantt-sheet:has(> .gantt-table[data-scale="days"]) { --gantt-col: 36px; --gantt-start: 112px; }
+.gantt-sheet:has(> .gantt-table[data-scale="days"]) { --gantt-col: var(--gantt-col-days); --gantt-start: 112px; }
 
 .gantt-table {
   --time: calc(100% - var(--gantt-pane));

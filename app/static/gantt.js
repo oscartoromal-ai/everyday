@@ -1376,6 +1376,7 @@
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", up);
       store("pc-gantt-title", String(Math.round(px("--gantt-title"))));
+      fillView();
     };
     document.addEventListener("pointermove", move);
     document.addEventListener("pointerup", up);
@@ -1400,14 +1401,18 @@
     history.replaceState(null, "", `?scale=${now}`);
   };
 
+  const fetchSheet = async (to) => {
+    const response = await fetch(`/ui/projects/${project}/gantt?scale=${to}`);
+    if (!response.ok) throw await failure(response);
+    return response.text();
+  };
+
   const switchScale = (to) => {
     if (editing) commit();
     chain = chain.then(async () => {
       if (to === scale()) return;
       try {
-        const response = await fetch(`/ui/projects/${project}/gantt?scale=${to}`);
-        if (!response.ok) throw await failure(response);
-        draw(await response.text());
+        draw(await fetchSheet(to));
         showScale();
         const cell = cursor && cellAt(rowOf(cursor.key), cursor.col);
         if (cell) reveal(cell);
@@ -1450,6 +1455,42 @@
     toNow();
     if (cursor) moveTo(cursor.key, FROZEN + thisCol());
   });
+
+  /* ---- the time fills the view, however wide the window or far out its zoom ---- */
+
+  // The columns of time in view in each scale, kept in cookies the server
+  // draws the sheet by: at least that many past where it opens. One over,
+  // for the other scale's Start being wider or narrower.
+  const COL_WIDTHS = { weeks: "--gantt-col-weeks", days: "--gantt-col-days" };
+  const measureFit = () => {
+    const view = sheet.clientWidth - paneWidth();
+    const fits = {};
+    for (const [to, width] of Object.entries(COL_WIDTHS)) {
+      fits[to] = Math.max(1, Math.ceil(view / px(width)) + 1);
+      document.cookie = `gantt_fit_${to}=${fits[to]}; path=/; max-age=31536000; samesite=strict`;
+    }
+    return fits[scale()];
+  };
+  const short = (fit) => Number(table().dataset.colCount) < thisCol() - Number(table().dataset.lead) + fit;
+
+  // A view wider than the sheet drawn (a first visit, a wider window, a
+  // zoom out, the sidebar folded) has it drawn again, the same days in view.
+  function fillView() {
+    if (!short(measureFit())) return;
+    chain = chain.then(async () => {
+      if (!short(measureFit())) return;
+      try {
+        draw(await fetchSheet(scale()));
+      } catch (error) {
+        window.toast(error.message);
+      }
+    });
+  }
+  let fillTimer = null;
+  new ResizeObserver(() => {
+    clearTimeout(fillTimer);
+    fillTimer = setTimeout(fillView, 120);
+  }).observe(sheet);
 
   showFolds();
   showHidden();

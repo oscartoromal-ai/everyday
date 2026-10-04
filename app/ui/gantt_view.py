@@ -46,33 +46,48 @@ def _day_label(value: date, today: date) -> str:
     return label if value.year == today.year else f"{label} '{value.year % 100:02d}"
 
 
-def _week_range(dates: list[date], today: date) -> tuple[date, int]:
+def _in_view(today: date, scale: str, fit: int) -> date:
+    """The last day in view as the sheet opens, `fit` columns of time wide."""
+    days = SCALE_DAYS[scale]
+    opens = (monday(today) if scale == "weeks" else today) - timedelta(days=LEAD[scale] * days)
+    return opens + timedelta(days=fit * days - 1)
+
+
+def _week_range(dates: list[date], today: date, scale: str, fit: int) -> tuple[date, int]:
     """The first week shown and how many: this week's neighbourhood and the
-    whole plan, with room after it. Both scales show the same weeks."""
+    whole plan, with room after it, and at least the view's width from where
+    it opens, so the time always fills it. Both scales start on the same week."""
     this = monday(today)
     first = min([this - WEEK, *(monday(d) for d in dates)])
-    last = max([this + WEEK * WEEKS_AHEAD, *(monday(d) + WEEK * WEEKS_PAST_PLAN for d in dates)])
+    last = max([this + WEEK * WEEKS_AHEAD, monday(_in_view(today, scale, fit)),
+                *(monday(d) + WEEK * WEEKS_PAST_PLAN for d in dates)])
     count = min((last - first).days // 7 + 1, gantt_svc.MAX_WEEKS * 2)
     return first, count
 
 
 def _columns(first: date, weeks: int, scale: str, today: date) -> list[dict[str, Any]]:
     """The time's columns. A week's head is its ISO week over its Monday's
-    day (with the month where it turns, and in the first column); a day's is
-    its weekday's initial and its date, under its week's name on Mondays."""
+    day (with the month where it turns, and in the first column; its year
+    too where that turns, outside this year, so each fits its column); a
+    day's is its weekday's initial and its date, under its week's name on
+    Mondays."""
     out = []
     if scale == "weeks":
         this = monday(today)
         for i in range(weeks):
             start = first + WEEK * i
+            year, week, _ = start.isocalendar()
             new_month = i == 0 or start.month != (start - WEEK).month
+            new_year = i == 0 or year != (start - WEEK).isocalendar()[0]
             out.append({
                 "iso": start.isoformat(),
-                "top": week_label(start, today),
+                "top": week_label(start, today) if new_year else f"W{week}",
                 "bottom": f"{start.day} {start:%b}" if new_month else str(start.day),
                 "new_month": new_month,
                 "current": start == this,
-                "aria": f"Week {start.isocalendar()[1]}, from {start.day} {start:%B}"
+                "aria": f"Week {week}"
+                        + (f" of {year}" if year != today.isocalendar()[0] else "")
+                        + f", from {start.day} {start:%B}"
                         + (", this week" if start == this else ""),
             })
         return out
@@ -203,8 +218,11 @@ def _workstream_row(
     }
 
 
-def gantt_ctx(db: Session, project: Project, today: date, scale: str = "weeks") -> dict:
-    """The Gantt sheet in its scale: its columns, and its groups of rows:
+def gantt_ctx(
+    db: Session, project: Project, today: date, scale: str = "weeks", fit: int = 0
+) -> dict:
+    """The Gantt sheet in its scale, `fit` columns of time in view (as
+    gantt.js measured them): its columns, and its groups of rows:
     each workstream's row, its tasks and a row to write one more; then a
     row to write a workstream, the tasks in none under it, and a row to
     write one more of those."""
@@ -212,7 +230,7 @@ def gantt_ctx(db: Session, project: Project, today: date, scale: str = "weeks") 
     groups = gantt_svc.groups(db, project, today)
     tasks = [t for g in groups for t in g.tasks]
     dates = [d for t in tasks for d in (t.starts_on, t.due) if d]
-    first, weeks = _week_range(dates, today)
+    first, weeks = _week_range(dates, today, scale, fit)
     place = _Place(first, scale)
     out = []
     for group in groups:
