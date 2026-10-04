@@ -37,7 +37,8 @@ def test_keys_written_in_the_file_are_the_ones_that_work(page, live, keys_file) 
     page.keyboard.press("Control+p")
     page.locator("#command-dialog[open]").wait_for()
     page.keyboard.press("Escape")
-    page.locator("#command-dialog[open]").wait_for(state="detached")
+    # Closed, the menu's field keeps focus until the browser's next frame.
+    page.wait_for_function("!document.getElementById('command-dialog').contains(document.activeElement)")
 
     page.keyboard.press("c")
     assert not page.evaluate(DENSE)
@@ -161,7 +162,7 @@ def test_the_new_keys_do_what_was_the_mouses_alone(page, live, app_db) -> None:
 
     # On a task's page, Alt+D opens its do date's menu, from its words too.
     page.goto(f"{live}/tasks/{task_id}")
-    page.locator(".sheet-title").click()
+    page.locator("main .sheet-title").click()
     page.keyboard.press("Alt+d")
     page.locator(".sheet-menu[role=menu]").wait_for()
 
@@ -213,6 +214,6 @@ def test_a_mark_key_chosen_writes_the_mark_in_a_description(page, live, app_db, 
     page.keyboard.press("End")
     page.keyboard.press("Shift+Control+ArrowLeft")
     page.keyboard.press("Control+b")  # Ctrl+B is not bold any more
-    assert page.locator("textarea[name=notes]").input_value() == "the rail pass"
+    assert page.locator("main textarea[name=notes]").input_value() == "the rail pass"
     page.keyboard.press("Alt+b")
-    assert page.locator("textarea[name=notes]").input_value() == "the rail **pass**"
+    assert page.locator("main textarea[name=notes]").input_value() == "the rail **pass**"
