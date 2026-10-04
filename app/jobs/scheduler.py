@@ -85,8 +85,19 @@ def run_github_sync() -> None:
     github_svc.syncing.run_here(lambda: github_svc.run_sync(get_session_factory(), account()))
 
 
+def _snapshot_due() -> datetime | None:
+    """Soon, when today has no snapshot yet (the app was not running at
+    03:30), else None: the night's run is the next."""
+    settings = get_settings()
+    if backup_svc.snapshot_path(settings.backup_dir, date.today()).exists():
+        return None
+    return datetime.now() + timedelta(seconds=90)
+
+
 def create_scheduler() -> BackgroundScheduler:
-    scheduler = BackgroundScheduler()
+    # A run missed while the machine slept (APScheduler's default gives it
+    # one second) runs once on waking, however late.
+    scheduler = BackgroundScheduler(job_defaults={"misfire_grace_time": None, "coalesce": True})
     scheduler.add_job(
         run_materialize_recurrence,
         CronTrigger(hour=4, minute=0),
@@ -111,6 +122,8 @@ def create_scheduler() -> BackgroundScheduler:
         run_morning_digest,
         CronTrigger(hour=int(digest_hour), minute=int(digest_minute)),
         id="morning_digest",
+        # Woken later than this, the morning is gone and so is its digest.
+        misfire_grace_time=2 * 60 * 60,
     )
     # The optional modules' syncs, unless the machine was installed without them.
     if get_settings().installed("health"):
@@ -127,9 +140,12 @@ def create_scheduler() -> BackgroundScheduler:
             id="github_sync",
             next_run_time=datetime.now() + timedelta(seconds=60),  # catch up at startup too
         )
+    # A next_run_time of None would pause the job, so it is only given when due.
+    catch_up = {"next_run_time": due} if (due := _snapshot_due()) else {}
     scheduler.add_job(
         run_daily_backup,
         CronTrigger(hour=3, minute=30),
         id="daily_backup",
+        **catch_up,
     )
     return scheduler
