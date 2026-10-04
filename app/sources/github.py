@@ -96,20 +96,27 @@ def _message(response: httpx.Response) -> str:
 
 
 class GitHub:
-    """GitHub's REST API, signed in with one token. A context manager: its
+    """GitHub's REST API, signed in with one token, or with none (public
+    repositories alone, at a lower rate). A context manager: its
     connections close at the end."""
 
     def __init__(
-        self, token: str, *, transport: httpx.BaseTransport | None = None, base_url: str = API
+        self,
+        token: str | None,
+        *,
+        transport: httpx.BaseTransport | None = None,
+        base_url: str = API,
     ) -> None:
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": API_VERSION,
+            "User-Agent": "personal-calendar",
+        }
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
         self._http = httpx.Client(
             base_url=base_url,
-            headers={
-                "Accept": "application/vnd.github+json",
-                "Authorization": f"Bearer {token}",
-                "X-GitHub-Api-Version": API_VERSION,
-                "User-Agent": "personal-calendar",
-            },
+            headers=headers,
             timeout=TIMEOUT,
             transport=transport,
             follow_redirects=True,
@@ -160,6 +167,11 @@ class GitHub:
     def user(self) -> dict[str, Any]:
         """The account signed in: its login, name and page."""
         return self.get("/user")
+
+    def pull_request(self, repo: str, number: int) -> dict[str, Any]:
+        """A pull request (owner/name, its number): its title, state
+        (open or closed), whether it is a draft, and whether it merged."""
+        return self.get(f"/repos/{repo}/pulls/{number}")
 
     def repositories(self) -> list[dict[str, Any]]:
         """Every repository the account can reach: its own, those it
@@ -279,6 +291,10 @@ class GitHubAccount:
 
     def _api(self, token: str) -> GitHub:
         return GitHub(token, transport=self._transport)
+
+    def anonymous(self) -> GitHub:
+        """The API signed in as no one: public repositories alone."""
+        return GitHub(None, transport=self._transport)
 
     def token_file(self, link_id: int) -> Path:
         return self.tokens_dir / f"{link_id}.txt"

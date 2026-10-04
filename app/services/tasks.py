@@ -54,6 +54,7 @@ def create_task(
     written_on: date | None = None,
     estimate_minutes: int | None = None,
     priority: TaskPriority | None = None,
+    acceptance: str = "",
 ) -> Task:
     if not title.strip():
         raise DomainError("Task title must not be empty")
@@ -72,6 +73,7 @@ def create_task(
         written_on=written_on,
         estimate_minutes=estimate_minutes,
         priority=priority,
+        acceptance=acceptance.strip(),
     )
     _keep_span(task, {"starts_on"} if starts_on else set())
     db.add(task)

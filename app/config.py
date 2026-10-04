@@ -104,6 +104,8 @@ class GitHubConfig(BaseModel):
     cli: str = ""
     # How often the repositories are fetched again while connected.
     sync_minutes: int = 60
+    # How often open tasks' pull requests are read again, to see them merge.
+    pull_request_minutes: int = 3
 
 
 class ImproveConfig(BaseModel):

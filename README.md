@@ -197,8 +197,22 @@ With the app running, add it as a user-level MCP server:
 claude mcp add --scope user --transport http personal-calendar http://127.0.0.1:8377/mcp/
 ```
 
-This gives any Claude Code session the planner tools (list/upsert projects and tasks, update task status, get the agenda, read the day's notes, a task's history and a project's context, add an event, list the GitHub repositories) against the same database the web UI uses.
+This gives any Claude Code session the planner tools (list/upsert projects and tasks, update task status, report on a task, get the agenda, read the day's notes, a task's history and a project's context, add an event, list the GitHub repositories) against the same database the web UI uses.
 No auth is required locally; the trust boundary is the network (localhost and the tailnet), not a token.
+
+## Agents reporting on a task
+
+An agent working on a task reports on it with one HTTP call, any agent system, MCP or not (SPEC.md, Agent runs):
+
+```
+curl -X POST http://127.0.0.1:8377/api/tasks/62/report -H "Content-Type: application/json" \
+  -d '{"status": "needs_review", "note": "Ready for a look.", "outcome": "Added the window.", "pull_requests": ["https://github.com/me/app/pull/41"]}'
+```
+
+Every field is optional.
+`status` goes as far as `needs_review` (`in_progress`, `blocked`, `needs_review`), never `done`: a task is done once its pull requests all merge, which the app reads from GitHub every few minutes, or when Oscar says so.
+A note is kept as one of the task's updates, and the outcome is written over the one it had; all of it shows on the task's page, under Agent work.
+The JSON body stands in for the pages' CSRF token, so no cookie is needed; MCP's `report_task` does the same.
 
 ## Models and the chats
 

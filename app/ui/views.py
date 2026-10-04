@@ -765,6 +765,8 @@ HISTORY_FIELDS = {
     "starts_on": "Start week",
     "estimate_minutes": "Estimate",
     "priority": "Priority",
+    "acceptance": "Acceptance criteria",
+    "outcome": "Outcome",
 }
 STATUS_WORDS = {
     "todo": "To do",
@@ -774,7 +776,7 @@ STATUS_WORDS = {
     "done": "Done",
     "cancelled": "Cancelled",
 }
-ACTOR_WORDS = {"oscar": "Oscar", "claude": "Claude", "system": "The planner"}
+ACTOR_WORDS = {"oscar": "Oscar", "claude": "Claude", "agent": "An agent", "system": "The planner"}
 
 
 def _ticks(before: str, after: str) -> list[str] | None:
@@ -829,6 +831,8 @@ def history_ctx(changes: list[dict[str, Any]], today: date) -> list[dict[str, An
                 if f["field"] == "notes":
                     ticks = _ticks(f["from"], f["to"])
                     lines += ticks if ticks else ["Description edited"]
+                elif f["field"] in ("acceptance", "outcome"):
+                    lines.append(f"{name} {'written' if not f['from'] else 'edited'}")
                 elif f["field"] == "title":
                     lines.append(f"Title: “{f['from']}” → “{f['to']}”")
                 else:

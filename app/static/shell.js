@@ -467,6 +467,16 @@
   });
   document.addEventListener("htmx:sendError", () => window.toast("Could not reach the app. Try again?"));
 
+  /* ---- a field saved as it is written says so at its page's header, as the page's own do ---- */
+
+  const pageState = (e, text) => {
+    if (!e.detail.elt.closest?.("[data-says-saved]")) return;
+    const state = document.querySelector("[data-page-state]");
+    if (state) state.textContent = text;
+  };
+  document.addEventListener("htmx:beforeRequest", (e) => pageState(e, ""));
+  document.addEventListener("htmx:afterRequest", (e) => pageState(e, e.detail.successful ? "Saved" : "Not saved"));
+
   /* ---- a toast: one line of news at the foot of the page, for a moment ---- */
 
   // One with an action (Undo) stays longer, and while the pointer is on it.

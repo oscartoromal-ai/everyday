@@ -22,7 +22,7 @@ from app.api.schemas import EventOut, ProjectOut, WorkstreamOut
 from app.api.tasks import task_out
 from app.db import session_scope
 from app.models import ProjectStatus, TaskOwner, TaskPriority, TaskStatus
-from app.services import DomainError, project_files
+from app.services import DomainError, project_files, task_runs
 from app.services import events as events_svc
 from app.services import habits as habits_svc
 from app.services import history as history_svc
@@ -40,6 +40,9 @@ INSTRUCTIONS = (
     "Dates are calendar dates (YYYY-MM-DD); datetimes are naive local wall time. "
     "A task's notes are its free-form description: lines starting with '- ' are "
     "its sub-tasks ('- [x] ' once done), and other lines are context around them. "
+    "Working on a task, report on it with report_task (how far it got, a note, the "
+    "outcome, its pull requests): never as far as done, which its pull requests "
+    "merging, or Oscar, says. "
     "Each day has a notebook page Oscar writes in: prose, the tasks he wrote there "
     "(as they stand now), reflections, the habits he checked that day, and where he "
     "stays (a stay: its items, such as place and accommodation, each sorted or not); "
@@ -198,6 +201,8 @@ class TaskUpsert(BaseModel):
     starts_on: date | None = None
     estimate_minutes: int | None = None
     priority: TaskPriority | None = None
+    acceptance: str | None = None
+    repos: list[str] | None = None
 
 
 @tool
@@ -212,20 +217,50 @@ def upsert_tasks(tasks: list[TaskUpsert]) -> list[dict[str, Any]]:
     against his other tasks: urgent, high, medium or low; null is none. owner is
     oscar or claude. notes is the description: write
     sub-tasks as '- ' lines (tick one by rewriting it as '- [x] '), keeping context
-    lines next to the sub-tasks they explain."""
+    lines next to the sub-tasks they explain. acceptance is what done means, in
+    Markdown, apart from the description. repos are the repositories it is worked
+    in: some of its project's, by their locations as list_projects names them
+    (all of them at once; [] clears them)."""
     out: list[dict[str, Any]] = []
     with session_scope("claude") as db:
         for item in tasks:
             fields = item.model_dump(exclude_unset=True)
             task_id = fields.pop("task_id", None)
+            repos = fields.pop("repos", None)
             if task_id is None:
                 if not fields.get("title"):
                     raise DomainError("A new task needs a title")
                 task = tasks_svc.create_task(db, **fields)
             else:
                 task = tasks_svc.update_task(db, task_id, **fields)
+            if repos is not None:
+                task = task_runs.set_repos(db, task.id, repos)
             out.append(task_out(task).model_dump())
     return out
+
+
+@tool
+def report_task(
+    task_id: int,
+    status: TaskStatus | None = None,
+    note: str | None = None,
+    outcome: str | None = None,
+    pull_requests: list[str] | None = None,
+) -> dict[str, Any]:
+    """Report on a task you are working on, any of these at once: status, how
+    far it got (in_progress, blocked, or needs_review once its work is ready
+    for Oscar to look at; never done: a task is done when its pull requests
+    merge, or when Oscar says so); note, a word on the work as it goes;
+    outcome, what came of it, in Markdown (written over the one it had); and
+    pull_requests, the URLs of the pull requests its work opened. The same is
+    POST /api/tasks/<id>/report on the app, for an agent without MCP."""
+    with session_scope("claude") as db:
+        return task_out(
+            task_runs.report(
+                db, task_id, actor="claude", status=status, note=note, outcome=outcome,
+                pull_requests=pull_requests,
+            )
+        ).model_dump()
 
 
 @tool

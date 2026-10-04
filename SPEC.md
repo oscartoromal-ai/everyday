@@ -219,7 +219,7 @@ It is the history git would have kept, without git's merges: `projects/` is not 
 A stream of the project's work run beside its others, a lane of its tasks with no date of its own: its span is its tasks', and its progress is computable from them.
 Deleting one leaves its tasks in the project, in none.
 
-**Task**: title, notes, status, owner (oscar / claude), optional project, optional workstream (only of its own project), optional planned_for (do-date), optional due (deadline), optional starts_on (its start week on its project's Gantt), optional position (its place among its group's rows there), optional written_on (the notebook page it was written on), optional estimate (how long its work is thought to take, a minute to a day), optional priority (urgent, high, medium or low).
+**Task**: title, notes, status, owner (oscar / claude), optional project, optional workstream (only of its own project), optional planned_for (do-date), optional due (deadline), optional starts_on (its start week on its project's Gantt), optional position (its place among its group's rows there), optional written_on (the notebook page it was written on), optional estimate (how long its work is thought to take, a minute to a day), optional priority (urgent, high, medium or low), acceptance criteria and outcome (Markdown, "" for none; see [Agent runs](#agent-runs)).
 An estimate is set in the task sheet (its stopwatch icon, or "45m", "1h30" or "2 hours" as the title is written), in Today's notes the same way, and by Claude; it is the task's weight in a day's plan.
 A priority (Oscar's call on 2026-10-04: "visible in GANTT and everywhere we see tasks") is how much a task matters against the others, Linear's four levels, none by default.
 It is set in the task sheet (its bars icon, or "p1" to "p4" as the title is written, as Todoist writes them), in Today's notes the same way, with "!" on a task list's row, in the Gantt's Priority column, and by Claude.
@@ -233,7 +233,13 @@ planned_for is the day Oscar intends to work it and drives the daily list; due i
 Backlog tasks have neither.
 starts_on always comes with a due, never after it: its span is its start day to its due, a start given alone ends that week's Friday (or on itself at a weekend), a due cleared takes the start with it, and a due moved before the start pulls the start back to its week's Monday.
 
-**TaskRevision**: one step in a task's history: when, who (oscar, claude or system), the kind of change (created, updated, deleted), and the task's fields as they stood after it.
+**Task repository** (2026-10-04): a repository a task is worked in, one of its project's, by its location (so the link holds however `project.toml` lists them).
+
+**Task pull request** (2026-10-04): belongs to one task; its repository (`owner/name`) and number, and as GitHub last had it: its title and state (unknown, draft, open, merged or closed), when it was read and why it could not be.
+
+**Task update** (2026-10-04): belongs to one task; when, who (oscar, claude, agent or system), and a word on its work: a note an agent reported, or what the app saw (its pull requests merged).
+
+**TaskRevision**: one step in a task's history: when, who (oscar, claude, an agent through the API, or system), the kind of change (created, updated, deleted), and the task's fields as they stood after it.
 Recorded by the ORM on every flush that touches a task, whatever path made the change, and kept after the task is deleted; the history started on 2026-09-26 with a baseline of every task as it stood.
 It is shown under the task's sheet and read by Claude through `get_task_history`.
 A description written over a while is one step: an edit to the description alone, by the same hand within ten minutes of that task's last step, itself such an edit, folds into it, so a page saving as it is written leaves one "Description edited".
@@ -454,9 +460,12 @@ Built in three steps: the everyday files and the context as files (first), then 
   A save names the version it was made from (its words' hash), and one made from an older copy is refused, so an agent's edit is never silently overwritten: the page says the document was changed elsewhere and offers that version or keeping its own, as Today's notes do.
   `projects/` is not a git repository: what a document was before is in its revisions, so nothing merges and nothing conflicts (Oscar's old projects repository broke on merge conflicts, its tasks and outcomes written by several agents at once).
 - **Tasks stay in the database.** Their state changes many times a day, from Oscar, agents and the app's own checks, and is never a file.
+- **A task's work** (2026-10-04).
+  A task names the repositories it is worked in (one or several of its project's), its acceptance criteria (what done means, apart from its description), and, once worked, its outcome (what came of it), its pull requests and the updates reported as it went.
+  Its page has them under the description, as Agent work: its project's repositories as toggles, the acceptance criteria and outcome written on the line and saved as they are written, the pull requests as GitHub last had them (a chip each: not read yet, draft, open, merged or closed), one added by its URL or `owner/name#number` and taken off from its bin, Check to read them from GitHub at once, and the updates, newest first.
+  The API gives them with the task (`repos`, `acceptance`, `outcome`, `pull_requests`) and takes them (`PATCH /api/tasks/<id>`); Claude sets the acceptance criteria and repositories through `upsert_tasks`.
 - **A task as a run** (to come).
   A task is handed to an agent from its page: Launch.
-  The task names the repositories it works in (one or several of its project's), its acceptance criteria (what done means, apart from its description), and, once worked, its outcome (what came of it) and its pull requests.
   Launching prepares the run's workspace, `work/<task id>-<words>/`: a git worktree of each of the task's repositories on a branch of the task's own (`task/<id>-<words>`), each repository cloned into `repos/` first when it is not there yet, and the project's context files beside them.
   So one run works across several repositories, each on its own branch, and two runs never share a checkout.
   The run is given the brief: the task (its id, title, description and acceptance criteria), the project's context, the workspace, and how to report back.
@@ -469,11 +478,13 @@ Built in three steps: the everyday files and the context as files (first), then 
   The app holds a token T3 issues for it (`t3 auth session issue`, kept in `local/`), trades it for a WebSocket ticket (`POST /api/auth/websocket-ticket`), and speaks T3's RPC over `/ws` (Effect RPC, in JSON).
   `orchestration.dispatchCommand` with `thread.create`, then `thread.turn.start`, launches a thread; `orchestration.subscribeShell` reads every thread as it stands: its session, its last turn, whether it waits on Oscar, its branch and its pull requests.
   That API is T3's own app's, not a published one, and it changes between releases (`orchestration.launchThread` came after 0.0.45), so all of it sits in one module, with a test against the installed T3 that fails loudly when it moves.
-- **Reporting back, mostly without the agent** (to come).
-  What a runner can see it reports, at no cost to the agent: a run started puts its task in progress, one waiting on Oscar blocks it, and a pull request opened is linked to the task.
-  What only the agent knows it reports itself over the API, a one-line HTTP call (`POST /api/tasks/<id>/report`: a note, the outcome, ready for review), a fraction of an MCP tool's tokens (Oscar's call: "reporting back via MCP costs tokens"); MCP offers the same, for agents that would rather.
-  An agent takes a task as far as needs review, never to done.
-  Done is the app's to say: a task whose pull requests are all merged (read from GitHub) is done, and one without any is done when Oscar says so.
+- **Reporting back, mostly without the agent.**
+  What a runner can see it will report, at no cost to the agent (to come, with the runners): a run started puts its task in progress, one waiting on Oscar blocks it, and a pull request opened is linked to the task.
+  What only the agent knows it reports itself over the API, one HTTP call with a JSON body and nothing else (`POST /api/tasks/<id>/report`: `status`, `note`, `outcome`, `pull_requests`, any of them), a fraction of an MCP tool's tokens (Oscar's call: "reporting back via MCP costs tokens"); MCP's `report_task` does the same, for agents that would rather.
+  A note is kept as an update, the outcome is written over the one the task had, and the pull requests are added to its own; history names the hand an agent's.
+  An agent takes a task as far as needs review (in progress, blocked, needs review), never to done or cancelled: a report saying so is refused whole, and a task already done or cancelled keeps its status whatever is reported.
+- **Done when its pull requests merge.** Done is the app's to say: a task whose pull requests are all merged is done, with an update saying so, and one without any is done when Oscar says so; a closed or draft one keeps its task open.
+  A job reads every open task's pull requests not merged yet from GitHub every `[github].pull_request_minutes` (3), whether Code is installed or not: asked as each connected account that reaches the repository first, then as the others, then as no one (a public repository), so a pull request GitHub will not show says why under it.
 
 ### Plan truth
 
@@ -538,6 +549,7 @@ APScheduler inside the FastAPI process; jobs share app code and database session
   The agent is an agent run (`app/services/agent_runs.py`): a brief launched by a runner, T3 Code first, into a worktree on a branch of its own, its state read from the runner and its pull request found from its branch, never reported by the agent.
   Around the scan, and every hour between, the picks being fixed are followed: each pull request's newest commit is gated by master's lint and tests and the outcome commented on it; merged settles the pick as done, closed unmerged as ignored, and a run ending without one opens the pick again, twice at most.
   One pick is fixed at a time by default, so a pull request waiting on Oscar holds the next.
+- Open tasks' pull requests read from GitHub every three minutes; a task whose pull requests all merged made done.
 - The everyday files' `projects/` read into the database as the app starts, then watched while it runs.
 
 ### Deployment and backups
@@ -559,6 +571,7 @@ APScheduler inside the FastAPI process; jobs share app code and database session
 - **Tailscale overlay**: the app binds localhost plus the Tailscale interface; Oscar's phone joins the tailnet and gets the full web UI anywhere.
   WireGuard-authenticated, zero public exposure, no port forwarding.
 - **No app-level login**: localhost and the tailnet are the trust boundary; MCP and REST stay authless locally.
+  The REST API takes a JSON body in place of the CSRF token (2026-10-04), so an agent reports with one HTTP call: a browser sends JSON to another site only after a CORS preflight the app never answers, and the Origin check still refuses another site's page; the pages' own paths keep needing the token.
 - **Browser-side hardening**: middleware rejects requests whose Origin/Host headers are not the app's own (closing DNS rebinding and cross-site XHR against localhost); standard CSRF tokens on HTMX form posts.
 - **Push relay**: managed ntfy.sh with an unguessable topic name plus access token.
   Task titles transiting ntfy's server is accepted for personal use; self-hosting ntfy on the tailnet is a drop-in swap later.

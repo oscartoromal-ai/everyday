@@ -297,12 +297,88 @@ class Task(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     # When the current status was entered; drives the needs_review-age nudge.
     status_changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    # What done means, apart from its description (SPEC.md, Agent runs), and,
+    # once worked, what came of it; both Markdown, "" for none.
+    acceptance: Mapped[str] = mapped_column(Text, default="")
+    outcome: Mapped[str] = mapped_column(Text, default="")
 
     project: Mapped[Project | None] = relationship(back_populates="tasks")
     workstream: Mapped[Workstream | None] = relationship(back_populates="tasks")
     # A nudge is about its task; deleting the task retires its nudges with it.
     nudges: Mapped[list[Nudge]] = relationship(back_populates="task", cascade="all, delete-orphan")
     recurrence_template: Mapped[RecurrenceTemplate | None] = relationship()
+    # The work's trail (SPEC.md, Agent runs): the repositories it is worked
+    # in, its pull requests, and what was reported of it as it went.
+    repos: Mapped[list[TaskRepo]] = relationship(
+        order_by="TaskRepo.id", cascade="all, delete-orphan", passive_deletes=True
+    )
+    pull_requests: Mapped[list[TaskPullRequest]] = relationship(
+        order_by="TaskPullRequest.id", cascade="all, delete-orphan", passive_deletes=True
+    )
+    updates: Mapped[list[TaskUpdate]] = relationship(
+        order_by="TaskUpdate.id", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class TaskRepo(Base):
+    """A repository a task is worked in: one of its project's, by where it
+    is (its location, as the project writes it), so the link holds however
+    project.toml lists them."""
+
+    __tablename__ = "task_repos"
+    __table_args__ = (UniqueConstraint("task_id", "location"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    location: Mapped[str] = mapped_column(String(1000))
+
+
+class PullRequestState(enum.StrEnum):
+    """A pull request as GitHub last had it; unknown until first read."""
+
+    unknown = "unknown"
+    draft = "draft"
+    open = "open"
+    merged = "merged"
+    closed = "closed"
+
+
+class TaskPullRequest(Base):
+    """A pull request of a task's work, as GitHub last had it: a task whose
+    pull requests are all merged is done (app.services.task_runs)."""
+
+    __tablename__ = "task_pull_requests"
+    __table_args__ = (UniqueConstraint("task_id", "repo", "number"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    # owner/name, as written in its URL, and its number there.
+    repo: Mapped[str] = mapped_column(String(200))
+    number: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(Text, default="")
+    state: Mapped[PullRequestState] = mapped_column(
+        _enum(PullRequestState), default=PullRequestState.unknown
+    )
+    # When GitHub was last asked, and why it could not answer ("" when it did).
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    check_error: Mapped[str] = mapped_column(Text, default="")
+
+    @property
+    def url(self) -> str:
+        return f"https://github.com/{self.repo}/pull/{self.number}"
+
+
+class TaskUpdate(Base):
+    """A word on a task's work as it went: a note an agent reported, or what
+    the app saw (a pull request merged). Who: oscar, claude, agent or system."""
+
+    __tablename__ = "task_updates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    actor: Mapped[str] = mapped_column(String(20))
+    text: Mapped[str] = mapped_column(Text)
 
 
 class Event(Base):

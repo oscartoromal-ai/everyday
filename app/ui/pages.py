@@ -20,6 +20,7 @@ from app.ui.calendar_view import (
     view_start,
 )
 from app.ui.day_sheet_view import day_sheet_ctx
+from app.ui.task_run_view import run_ctx
 from app.ui.views import (
     day_glance_ctx,
     day_page_ctx,
@@ -205,4 +206,5 @@ def task_page(request: Request, db: DbSession, task_id: int, back: str = ""):
     if task is None:
         raise HTTPException(404, "No such task: it may have been deleted")
     ctx = task_page_ctx(db, task, date.today(), back or request.headers.get("referer", ""))
+    ctx["run"] = run_ctx(task, date.today())
     return templates.TemplateResponse(request, "task.html", {**_base(request, "task"), **ctx})

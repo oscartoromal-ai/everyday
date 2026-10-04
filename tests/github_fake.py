@@ -62,6 +62,11 @@ class FakeGitHub:
         self.repos: list[dict[str, Any]] = [repo_payload(1, "everyday-app")]
         self.work_repos: list[dict[str, Any]] = []
         self.per_page: int | None = None  # GitHub's; None: as asked
+        # Pull requests, by (owner/name, number): each GitHub's payload. One
+        # is read by an account whose repositories hold its repository, or
+        # by anyone when that repository is in `public`.
+        self.pulls: dict[tuple[str, int], dict[str, Any]] = {}
+        self.public: set[str] = set()
         self.fail: httpx.Response | Exception | None = None
         self.requests: list[httpx.Request] = []
 
@@ -76,6 +81,8 @@ class FakeGitHub:
             return self.fail
         token = request.headers.get("authorization", "").removeprefix("Bearer ")
         user = self.users.get(token)
+        if request.url.path.startswith("/repos/") and "/pulls/" in request.url.path:
+            return self._pull(request, user if token else None)
         if user is None:
             return httpx.Response(401, json={"message": "Bad credentials"})
         if request.url.path == "/user":
@@ -91,6 +98,27 @@ class FakeGitHub:
                 headers["Link"] = f'<{url}>; rel="next"'
             return httpx.Response(200, json=chunk, headers=headers)
         return httpx.Response(404, json={"message": "Not Found"})
+
+    def pull(self, repo: str, number: int, **fields: Any) -> dict[str, Any]:
+        """A pull request on GitHub: open, not a draft, unless `fields` say."""
+        payload = {"number": number, "title": f"Pull {number}", "state": "open",
+                   "draft": False, "merged": False, "merged_at": None, **fields}
+        self.pulls[(repo.lower(), number)] = payload
+        return payload
+
+    def _pull(self, request: httpx.Request, user: dict[str, Any] | None) -> httpx.Response:
+        _, _, owner, name, _, number = request.url.path.split("/")
+        repo = f"{owner}/{name}".lower()
+        if user is None and request.headers.get("authorization"):
+            return httpx.Response(401, json={"message": "Bad credentials"})
+        reached = repo in self.public or (user is not None and any(
+            r["full_name"].lower() == repo
+            for r in (self.repos if user["login"] == LOGIN else self.work_repos)
+        ))
+        payload = self.pulls.get((repo, int(number)))
+        if not reached or payload is None:
+            return httpx.Response(404, json={"message": "Not Found"})
+        return httpx.Response(200, json=payload)
 
 
 class FakeCli:
