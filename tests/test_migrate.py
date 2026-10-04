@@ -53,8 +53,11 @@ def test_the_migrations_end_in_one_head(tmp_path) -> None:
 @pytest.mark.parametrize("branch", ["d4b7e9a2c1f5", "f3b6d0a2c8e1"])
 def test_a_database_on_either_side_of_a_merge_comes_up_to_head(tmp_path, branch) -> None:
     from alembic import command
+    from alembic.script import ScriptDirectory
 
     path = tmp_path / "app.db"
     command.upgrade(migrate._config(path), branch)
     migrate.upgrade(path)
-    assert migrate.current_revisions(path) == {"f4d0a341d1cc"}
+    # The head, whichever migration it is by now.
+    heads = ScriptDirectory.from_config(migrate._config(path)).get_heads()
+    assert migrate.current_revisions(path) == set(heads)
