@@ -301,6 +301,7 @@ Oscar's call on 2026-09-30: Nutrition is tracked by day, and a chat with Claude 
 - **Claude through the Agent SDK, on this machine's Claude Code login.** Each message is one stateless run of the Claude Agent SDK (`app/services/nutrition_agent.py`), driving the installed Claude Code CLI, so no API key is needed.
   Its world is the nutrition folder: its tools are the file tools and web search, a PreToolUse hook denies any path outside the folder, and no setting, CLAUDE.md, skill or MCP server of the machine's reaches it.
   The prompt carries the time, the day, Oscar's Health > Me profile and the day's chat so far; the files carry everything else.
+  It runs on the model and reasoning effort chosen for it on [Models](#models), Claude Code's default until one is.
 - **The chat is the day's.** Messages are stored by day (`nutrition_messages`); each day starts a fresh chat.
   A run goes on in its own thread after its page closes, and its answer is saved; one run at a time per day.
 - **The log stays readable.** After a run the day's file is read back; if it does not follow the format, Claude gets one unseen turn to fix it, and a file that still cannot be read is shown as such, with why.
@@ -341,6 +342,7 @@ Oscar's call on 2026-09-30: the app keeps his money, fed by his banks' CSV expor
   Its world is the tools of `app/services/money_tools.py`, run in the app's process on its database: read a month, find transactions, sort them, add rules, categories and budgets, write balances, and keep bills and goals.
   It has no files and no shell, and no setting, CLAUDE.md, skill or MCP server of the machine's; it can search the web.
   The chat is the month's (`money_messages`); a run goes on after its page closes, one at a time per month.
+  It runs on the model and reasoning effort chosen for it on [Models](#models), Claude Code's default until one is.
 - **Read by Claude elsewhere** through `get_finances(month)` over MCP.
 
 ### Repositories
@@ -360,6 +362,22 @@ Oscar's call on 2026-10-04: a Repositories page, connected to GitHub to pull his
   A field at the header's right finds them by every word written, in their name, description or language.
 - **Synced by the scheduler** every `[github].sync_minutes` (60) and on demand.
 - **Read by Claude** through `list_repositories(query, include_archived)` over MCP.
+
+### Models
+
+Oscar's call on 2026-10-04: before the app grows features of its own that call a model, it discovers the Claude and OpenAI models this machine can use, with somewhere to set them up, as T3 Code does.
+
+- **Through each provider's own CLI, signed in its own way** (`app/sources/llm.py`), so the app keeps no API key: Claude through Claude Code, OpenAI through the Codex CLI.
+  Each CLI is found on PATH, or where Oscar says it is on the page (npm's `claude.cmd` leads to the `claude.exe` beside it, which the Agent SDK can run).
+- **Claude Code** answers `claude --version`, then `claude auth status --json` (whether it is signed in, and how), then its initialize handshake through the Agent SDK, a session opened and closed with no prompt, which lists the account and the models it offers, each with the reasoning efforts it takes, and the one it picks by default.
+  Unlike T3 Code, which ships a list of Claude's models of its own, the app takes Claude Code's, so a new model shows up once Claude Code knows it.
+- **The Codex CLI** answers `codex --version`, then a short-lived `codex app-server`, spoken to in its JSON-RPC (a JSON object a line): `initialize`, `account/read` (signed in with ChatGPT, and on which plan, or with an API key), and `model/list` page by page, its hidden models left out.
+- **A provider stands** ready (installed and signed in), not signed in, not installed, or in need of attention (why, in words); each check is kept in the database (`settings`, `llm_status`), so a page draws the last one at once.
+  A page that finds it older than five minutes checks again in the background, both providers at once, and Check again does so on demand.
+- **A use** is a feature of the app that calls a model, naming the providers it can run on (`USES` in `app/services/llm.py`); it asks `choice` what to run with: the provider, the model and reasoning effort chosen for it on the page (`settings`, `llm`), else the provider's own default, and where its CLI is.
+  Nutrition's and Spending's chats are the first, Claude only, since their tools and hooks are the Agent SDK's.
+- **The page**, Models (`/models`, from Settings and the command menu), is a ruled sheet: each provider's group (its state, its CLI and version, who it is signed in as, where its CLI is, written on the line, and its models, a row each with what it is for and its id; or what to install or run to sign it in), then what each use runs on (a model, then an effort the model takes), then when it was checked.
+  Settings carries a row of each provider's state, opening the page.
 
 ### Plan truth
 

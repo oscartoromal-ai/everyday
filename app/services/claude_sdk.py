@@ -9,7 +9,6 @@ answer's words as they are written, and a status line for each tool call.
 
 from __future__ import annotations
 
-import shutil
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,28 +28,20 @@ class AgentEvent:
 
 
 def resolve_cli(configured: str = "") -> Path:
-    """The Claude Code executable to run. Windows will only run a native
-    claude.exe for the SDK (a .cmd would go through cmd.exe), so npm's
-    claude.cmd shim leads to the claude.exe npm installed beside it."""
-    if configured:
-        path = Path(configured)
-        if not path.is_file():
-            raise AgentFailed(f"No Claude Code at {configured} ([claude].cli)")
-        return path
-    found = shutil.which("claude")
+    """The Claude Code executable to run: where Models says it is, else
+    `claude` on PATH (sources/llm.py)."""
+    from app.sources.llm import CLAUDE, ProbeFailed, claude_executable, find_cli
+
+    found = find_cli(CLAUDE, configured)
     if found is None:
-        raise AgentFailed("Claude Code is not installed here: install it, or set [claude].cli")
-    path = Path(found)
-    if path.suffix.lower() in (".cmd", ".bat"):
-        package = path.parent / "node_modules" / "@anthropic-ai" / "claude-code"
-        native = package / "bin" / "claude.exe"
-        if not native.is_file():
-            raise AgentFailed(
-                f"Claude Code at {path} is a script the SDK cannot run: "
-                "set [claude].cli to a claude.exe"
-            )
-        return native
-    return path
+        where = f"at {configured}" if configured else "on this computer"
+        raise AgentFailed(
+            f"Claude Code is not installed {where}: install it, or say where it is on Models"
+        )
+    try:
+        return claude_executable(found)
+    except ProbeFailed as exc:
+        raise AgentFailed(str(exc)) from exc
 
 
 async def run(

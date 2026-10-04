@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.models import ChatRole, MoneyMessage
-from app.services import agent_chat
+from app.services import agent_chat, llm
 from app.services.agent_chat import Run
 from app.services.money_agent import Agent, AgentRequest
 
@@ -42,7 +42,7 @@ def start(db: Session, month: date, text: str, *, agent: Agent, now: datetime | 
     factory = sessionmaker(bind=db.get_bind(), expire_on_commit=False)
     request = AgentRequest(
         month=month, now=now or datetime.now(), message=text, factory=factory,
-        transcript=transcript,
+        transcript=transcript, choice=llm.choice(db, "money"),
     )
 
     async def drive(run: Run) -> None:

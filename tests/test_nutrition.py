@@ -205,7 +205,7 @@ def test_the_cli_is_found_as_a_native_executable(tmp_path: Path, monkeypatch) ->
     (npm / "claude.cmd").write_text("")
     monkeypatch.setattr("shutil.which", lambda name: str(npm / "claude.cmd"))
     assert resolve_cli() == exe
-    with pytest.raises(AgentFailed, match=r"[claude].cli"):
+    with pytest.raises(AgentFailed, match="not installed at .*nowhere.exe"):
         resolve_cli(str(tmp_path / "nowhere.exe"))
     monkeypatch.setattr("shutil.which", lambda name: None)
     with pytest.raises(AgentFailed, match="not installed"):

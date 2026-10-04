@@ -1,0 +1,95 @@
+{# Models' groups: each provider (its state, the CLI it is reached through,
+   who it is signed in as, its models, or what to do), the model each use
+   runs on, and when it was all checked. Polled while a check runs; each
+   change draws it again in place. #}
+<div class="models-body" id="models-body"
+     {% if checking %}hx-get="/ui/models" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  {% for p in providers %}
+  <section class="sheet-group llm-provider" id="llm-{{ p.key }}" aria-labelledby="llm-{{ p.key }}-title" data-state="{{ p.state or 'unchecked' }}">
+    <h2 class="sheet-row sheet-head llm-head" id="llm-{{ p.key }}-title">
+      <span class="llm-name">{{ p.name }}</span>
+      <span class="chip {{ p.tone }}">{{ p.label }}</span>
+      <span class="llm-program">{{ p.program }}{% if p.version %} {{ p.version }}{% endif %}</span>
+    </h2>
+    {% if p.account %}
+    <div class="sheet-row me-row">
+      <span class="me-label">Account</span>
+      <span class="me-value llm-account">{{ p.account }}</span>
+    </div>
+    {% endif %}
+    <form class="sheet-row me-row llm-cli" hx-post="/ui/models/cli" hx-trigger="change" hx-target="#models-body" hx-swap="outerHTML">
+      <input type="hidden" name="provider" value="{{ p.key }}">
+      <label class="me-label" for="llm-{{ p.key }}-cli">Program</label>
+      <span class="sheet-field">
+        <input type="text" id="llm-{{ p.key }}-cli" name="path" value="{{ p.configured }}" autocomplete="off" spellcheck="false"
+               placeholder="{% if p.found %}{{ p.command }}, found on PATH{% else %}Where {{ p.command }} is{% endif %}"
+               {% if p.found %}title="{{ p.found }}"{% endif %}>
+      </span>
+    </form>
+    {% if p.error %}<p class="sheet-row llm-line llm-error" role="alert">{{ p.error }}</p>{% endif %}
+    {% if p.state == "missing" %}
+    <p class="sheet-row llm-line">{{ p.message }} Install it (<code>{{ p.install }}</code>) and sign it in (<code>{{ p.sign_in }}</code>), then check again; or say above where it is.</p>
+    {% elif p.state == "signed_out" %}
+    <p class="sheet-row llm-line">Not signed in. Run <code>{{ p.sign_in }}</code> in a terminal, then check again.</p>
+    {% elif p.state == "failed" %}
+    <p class="sheet-row llm-line llm-error" role="alert">{{ p.message }}</p>
+    {% elif p.state is none %}
+    <p class="sheet-row llm-line llm-quiet">{% if checking %}Checking…{% else %}Not checked yet.{% endif %}</p>
+    {% endif %}
+    {% if p.models %}
+    <ul class="llm-models" aria-label="{{ p.name }}'s models">
+      {% for m in p.models %}
+      <li class="sheet-row llm-model">
+        <span class="llm-model__main">
+          <span class="llm-model__name">{{ m.name }}</span>
+          {% if m.default %}<span class="chip neutral">Default</span>{% endif %}
+          {% if m.description %}<span class="llm-model__description">{{ m.description }}</span>{% endif %}
+        </span>
+        <code class="llm-model__id">{{ m.id }}</code>
+      </li>
+      {% endfor %}
+    </ul>
+    {% elif p.state == "ready" %}
+    <p class="sheet-row llm-line llm-quiet">Signed in, but it listed no models.</p>
+    {% endif %}
+  </section>
+  {% endfor %}
+  {% if uses %}
+  <section class="sheet-group llm-uses" aria-labelledby="llm-uses-title">
+    <h2 class="sheet-row sheet-head" id="llm-uses-title">Used for</h2>
+    {% for u in uses %}
+    <form class="sheet-row me-row llm-use" hx-post="/ui/models/use" hx-trigger="change" hx-target="#models-body" hx-swap="outerHTML">
+      <input type="hidden" name="use" value="{{ u.key }}">
+      <label class="me-label" for="llm-use-{{ u.key }}">{{ u.label }}</label>
+      <span class="sheet-field">
+        <select id="llm-use-{{ u.key }}" name="model" title="{{ u.hint }}">
+          {% for g in u.groups %}
+          {% if not u.single %}<optgroup label="{{ g.name }}">{% endif %}
+          {% for o in g.options %}<option value="{{ o.value }}"{% if o.value == u.selected %} selected{% endif %}>{{ o.label }}</option>{% endfor %}
+          {% if not u.single %}</optgroup>{% endif %}
+          {% endfor %}
+        </select>
+        {% if u.efforts %}
+        <select name="effort" aria-label="{{ u.label }}'s reasoning effort">
+          <option value="">{{ u.effort_default }}</option>
+          {% for e in u.efforts %}<option value="{{ e.value }}"{% if e.value == u.effort %} selected{% endif %}>{{ e.label }} effort</option>{% endfor %}
+        </select>
+        {% endif %}
+      </span>
+    </form>
+    {% endfor %}
+  </section>
+  {% endif %}
+  <section class="sheet-group llm-checked" aria-label="Checked">
+    <div class="sheet-row me-row">
+      <span class="me-label">Checked</span>
+      <span class="me-value">
+        {% if checking %}<span class="me-unset">Checking…</span>
+        {% elif checked %}{{ checked }}
+        {% else %}<span class="me-unset">Not yet</span>{% endif %}
+      </span>
+      <button type="button" class="plan-btn" hx-post="/ui/models/check" hx-target="#models-body" hx-swap="outerHTML"
+              {% if checking %}disabled{% endif %}>Check again</button>
+    </div>
+  </section>
+</div>

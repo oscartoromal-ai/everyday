@@ -31,20 +31,10 @@ digest_time = "07:45"
 dir = "backups"
 retain = 30
 
-[claude]
-# The Claude Code executable the chats run (Nutrition, Spending); empty
-# finds it (see app/config.py).
-cli = ""
-
 [nutrition]
 # The Markdown files nutrition lives in (plan.md, meals/, log/), written by
 # Claude from Nutrition's chat.
 dir = "nutrition"
-model = "claude-opus-5-5"
-
-[money]
-# The model behind Spending's chat, which keeps Finances with Oscar.
-model = "claude-opus-5-5"
 
 [garmin]
 # Garmin Connect, connected from Health > Garmin. Its sign-in token lives in

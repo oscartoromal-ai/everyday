@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Models · Personal Calendar{% endblock %}
+{% block content %}
+{# Models, from Settings: the LLM providers on this computer (Claude through
+   Claude Code, OpenAI through the Codex CLI), each as last checked, the
+   models each offers, and the model each of the app's features runs on. #}
+<div class="me-page models-page">
+  <header class="page-header">
+    <div>
+      <h1>Models</h1>
+      <p class="rest">The models the app can use, found through Claude Code and the Codex CLI on this computer, each signed in its own way. The app keeps no API key.</p>
+    </div>
+  </header>
+  <div class="ruled-sheet models-sheet">
+    {% include "partials/models_body.html" %}
+    {# The empty rows under the last group, numbered on, to the sheet's foot. #}
+    <div class="sheet-filler" aria-hidden="true"><ol>{% for _ in range(30) %}<li></li>{% endfor %}</ol></div>
+  </div>
+</div>
+{% endblock %}

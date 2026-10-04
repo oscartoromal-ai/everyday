@@ -131,14 +131,16 @@ claude mcp add --scope user --transport http personal-calendar http://127.0.0.1:
 This gives any Claude Code session the planner tools (list/upsert projects and tasks, update task status, get the agenda, read the day's notes, a task's history and a project's context, add an event, list the GitHub repositories) against the same database the web UI uses.
 No auth is required locally; the trust boundary is the network (localhost and the tailnet), not a token.
 
-## Nutrition and Spending chat setup
+## Models and the chats
 
-Nutrition's and Spending's chats run Claude through the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk), which drives the Claude Code CLI installed and logged in on this machine: no API key is needed, and it runs on that login.
+The app reaches models through the CLIs signed in on this machine, never an API key of its own: Claude through Claude Code, OpenAI through the Codex CLI.
+Models, opened from Settings (or Ctrl+K), shows how each stands, the models it offers and the one each of the app's features runs on.
 
-1. Install Claude Code and log in once (`claude`, then `/login`).
-2. On Windows the SDK only runs a native `claude.exe`, never npm's `claude.cmd` shim.
-   With `[claude].cli` empty in `config.toml`, the app finds `claude` on PATH and, when that is the npm shim, the `claude.exe` npm installed beside it; otherwise set `cli` to a `claude.exe`.
-3. `[nutrition].dir` names the folder of Markdown files Nutrition's chat reads and writes (`nutrition/` in the app's home by default); `[nutrition].model` and `[money].model` the models.
+1. Install Claude Code and sign it in once (`npm install -g @anthropic-ai/claude-code`, then `claude auth login`); for OpenAI, the Codex CLI (`npm install -g @openai/codex`, then `codex login`).
+2. Each is found on PATH; on Windows the Agent SDK only runs a native `claude.exe`, so npm's `claude.cmd` shim leads to the `claude.exe` beside it.
+   A CLI found elsewhere is pointed to on Models.
+3. Nutrition's and Spending's chats run Claude through the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk) on the model and effort chosen for them on Models.
+   `[nutrition].dir` names the folder of Markdown files Nutrition's chat reads and writes (`nutrition/` in the app's home by default).
 
 The files are the record, outside the database and its backups: git keeps their history.
 

@@ -120,6 +120,16 @@ def rail_layout(request: Request) -> list[rail_svc.PlacedSection]:
 
 
 templates.env.globals["rail_layout"] = rail_layout
+
+
+def llm_summary(request: Request) -> list[dict[str, str]]:
+    """Each model provider in a word, for Settings (app/ui/models_view.py)."""
+    from app.ui.models_view import summary
+
+    return summary(getattr(request.state, "db", None))
+
+
+templates.env.globals["llm_summary"] = llm_summary
 # The modules this machine has, for what a page shows of the optional ones.
 templates.env.globals["installed"] = lambda module: get_settings().installed(module)
 templates.env.globals["not_installed"] = rail_svc.not_installed

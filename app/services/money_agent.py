@@ -20,9 +20,9 @@ from typing import Any
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.config import get_settings
 from app.services import DomainError, claude_sdk
 from app.services.claude_sdk import AgentEvent, resolve_cli
+from app.services.llm import Choice
 from app.services.money_tools import TOOLS, TOOLS_BY_NAME
 
 SERVER = "money"
@@ -39,6 +39,8 @@ class AgentRequest:
     factory: sessionmaker[Session]
     # The month's chat so far, oldest first: ("oscar" | "claude", text).
     transcript: list[tuple[str, str]] = field(default_factory=list)
+    # The model it runs on, as chosen on Models (services/llm.py).
+    choice: Choice = Choice("claude", None, None, "")
 
 
 Agent = Callable[[AgentRequest], AsyncIterator[AgentEvent]]
@@ -134,13 +136,13 @@ async def claude_agent(request: AgentRequest) -> AsyncIterator[AgentEvent]:
 
     server = create_sdk_mcp_server(SERVER, tools=[sdk_tool(t) for t in TOOLS])
     allowed = ["WebSearch", *(PREFIX + t.name for t in TOOLS)]
-    settings = get_settings()
     options = ClaudeAgentOptions(
         system_prompt=SYSTEM_PROMPT,
-        model=settings.money.model,
+        model=request.choice.model,
+        effort=request.choice.effort,
         # No files are its: a folder of nothing in particular.
         cwd=tempfile.gettempdir(),
-        cli_path=resolve_cli(settings.claude.cli),
+        cli_path=resolve_cli(request.choice.cli),
         tools=["WebSearch"],
         allowed_tools=allowed,
         mcp_servers={SERVER: server},
