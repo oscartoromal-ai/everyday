@@ -31,7 +31,7 @@
 {% else %}
 <button type="button" class="rail-button update-button" data-update="ready"
         hx-post="/ui/desktop/update" hx-swap="outerHTML"
-        title="Build your latest commit, {{ update.latest }} (this is {{ update.installed }}), in the background; the app restarts on it when you say">
+        title="Build master's latest commit, {{ update.latest }} (this is {{ update.installed }}), in the background; the app restarts on it when you say">
   {{ icon }}<span class="rail-button__label">Update</span><span class="update-button__dot" aria-hidden="true"></span>
 </button>
 {% endif %}

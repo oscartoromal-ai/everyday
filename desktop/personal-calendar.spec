@@ -17,6 +17,8 @@ datas = [
     (str(ROOT / "config.toml"), "."),
     # Written by build.ps1: the commit and repo it was built from.
     (str(ROOT / "build" / "build-info.json"), "."),
+    # What the Update button runs (app/desktop/update.py).
+    (str(ROOT / "desktop" / "update.ps1"), "desktop"),
 ]
 datas += collect_data_files("tzdata")
 datas += collect_data_files("webview")

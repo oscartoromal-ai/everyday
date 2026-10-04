@@ -29,16 +29,27 @@ def commit(repo, name: str) -> str:
 
 
 @pytest.fixture
-def repo(tmp_path):
+def origin(tmp_path):
+    """GitHub's copy: its master gets the merged pull requests."""
+    path = tmp_path / "origin"
+    path.mkdir()
+    git(path, "init", "-q", "-b", "master")
+    return path
+
+
+@pytest.fixture
+def repo(tmp_path, origin):
+    """The checkout the app was built from, with origin as its remote."""
     path = tmp_path / "repo"
     path.mkdir()
-    git(path, "init", "-q")
+    git(path, "init", "-q", "-b", "master")
+    git(path, "remote", "add", "origin", str(origin))
     return path
 
 
 def updater_at(repo, sha, tmp_path, install=None) -> Updater:
     updater = Updater(sha, repo, tmp_path / "data" / "update.json", install=install)
-    updater._checked = float("-inf")
+    updater.fetch()
     return updater
 
 
@@ -55,21 +66,52 @@ def installed_at(tmp_path, *versions: str) -> Path:
     return root
 
 
-def test_nothing_to_do_while_the_installed_commit_is_the_latest(repo, tmp_path) -> None:
-    installed = commit(repo, "a")
+def test_nothing_to_do_while_the_installed_commit_is_the_latest(origin, repo, tmp_path) -> None:
+    installed = commit(origin, "a")
     assert updater_at(repo, installed, tmp_path).state() is None
 
 
-def test_a_newer_commit_is_ready_to_install(repo, tmp_path) -> None:
-    installed = commit(repo, "a")
-    latest = commit(repo, "b")
+def test_a_newer_commit_is_ready_to_install(origin, repo, tmp_path) -> None:
+    installed = commit(origin, "a")
+    latest = commit(origin, "b")
     state = updater_at(repo, installed, tmp_path).state()
     assert state == UpdateState("ready", installed[:7], latest[:7])
 
 
-def test_uncommitted_work_is_not_an_update(repo, tmp_path) -> None:
+def test_a_commit_merged_later_is_seen_once_fetched(origin, repo, tmp_path) -> None:
+    installed = commit(origin, "a")
+    updater = updater_at(repo, installed, tmp_path)
+    assert updater.state() is None
+    latest = commit(origin, "b")
+    updater.fetch()
+    assert updater.state() == UpdateState("ready", installed[:7], latest[:7])
+
+
+def test_the_repos_checkout_is_not_what_it_updates_to(origin, repo, tmp_path) -> None:
+    # The checkout's master is stale, with commits of its own that reached
+    # origin rebased: updating to it would go back, with an older script.
+    stale = commit(repo, "stale")
+    installed = commit(origin, "a")
+    latest = commit(origin, "b")
+    (repo / "stale").write_text("half done", encoding="utf-8")
+    state = updater_at(repo, installed, tmp_path).state()
+    assert state == UpdateState("ready", installed[:7], latest[:7])
+    assert git(repo, "rev-parse", "HEAD") == stale
+
+
+def test_master_behind_the_installed_commit_is_no_update(origin, repo, tmp_path) -> None:
+    commit(origin, "a")
+    updater = updater_at(repo, "0" * 40, tmp_path)
+    # Installed by hand from a branch ahead of master.
+    git(repo, "checkout", "-q", "-b", "branch", "origin/master")
+    updater.sha = commit(repo, "b")
+    updater._checked = float("-inf")
+    assert updater.state() is None
+
+
+def test_no_update_without_the_remotes_master(repo, tmp_path) -> None:
+    git(repo, "remote", "set-url", "origin", str(tmp_path / "nowhere"))
     installed = commit(repo, "a")
-    (repo / "a").write_text("half done", encoding="utf-8")
     assert updater_at(repo, installed, tmp_path).state() is None
 
 
@@ -93,11 +135,11 @@ def scripts_started(monkeypatch) -> list[list[str]]:
     return started
 
 
-def test_starting_runs_the_repos_script_on_the_latest_commit(
-    repo, tmp_path, scripts_started
+def test_starting_runs_the_apps_own_script_on_the_latest_commit(
+    origin, repo, tmp_path, scripts_started
 ) -> None:
-    installed = commit(repo, "a")
-    latest = commit(repo, "b")
+    installed = commit(origin, "a")
+    latest = commit(origin, "b")
     install = installed_at(tmp_path, f"app-{installed[:7]}")
     updater = updater_at(repo, installed, tmp_path, install)
 
@@ -105,22 +147,64 @@ def test_starting_runs_the_repos_script_on_the_latest_commit(
 
     assert state.state == "updating" and state.latest == latest[:7]
     (args,) = scripts_started
-    assert args[args.index("-File") + 1] == str(repo / "desktop" / "update.ps1")
+    # The script bundled with the app, not whatever the repo has checked out.
+    assert args[args.index("-File") + 1] == str(update.SCRIPT)
+    assert args[args.index("-Repo") + 1] == str(repo)
     assert args[args.index("-Sha") + 1] == latest
     # Staged beside the running version.
     assert args[args.index("-Install") + 1] == str(install)
     status = json.loads(updater.status_path.read_text(encoding="utf-8"))
-    assert status == {"state": "updating", "sha": latest, "pid": os.getpid()}
+    console = str(tmp_path / "data" / "logs" / "update-console.log")
+    assert status == {"state": "updating", "sha": latest, "log": console, "pid": os.getpid()}
     # A second press starts nothing more.
     assert updater.start().state == "updating"
     assert len(scripts_started) == 1
 
 
-def test_an_app_from_before_versions_had_folders_is_updated_by_the_installer(
-    repo, tmp_path, scripts_started
+def test_a_script_powershell_would_not_run_points_at_why(
+    origin, repo, tmp_path, monkeypatch
 ) -> None:
-    installed = commit(repo, "a")
-    commit(repo, "b")
+    installed = commit(origin, "a")
+    latest = commit(origin, "b")
+    updater = updater_at(repo, installed, tmp_path)
+
+    class EndedProcess:
+        pid = 999999
+
+    real_popen = subprocess.Popen
+
+    def popen(args, **kwargs):  # noqa: ANN001, ANN202
+        if args[0] != "powershell.exe":  # its git lookups run for real
+            return real_popen(args, **kwargs)
+        kwargs["stdout"].write(b"update.ps1 : A parameter cannot be found that matches\r\n")
+        return EndedProcess()
+
+    monkeypatch.setattr("app.desktop.update.subprocess.Popen", popen)
+    updater.start()
+
+    state = updater.state()
+    assert state.state == "failed" and state.latest == latest[:7]
+    assert "A parameter cannot be found" in Path(state.log).read_text(encoding="utf-8")
+
+
+def test_the_bundled_script_runs_on_the_repo_it_is_given() -> None:
+    # As PowerShell binds what start() passes: an unknown name fails it
+    # before its first line, so the log would say nothing.
+    out = subprocess.run(
+        [
+            "powershell.exe", "-NoProfile", "-Command",
+            f"(Get-Command '{update.SCRIPT}').Parameters.Keys -join ','",
+        ],
+        capture_output=True, text=True, check=True,
+    )
+    assert {"Repo", "Status", "Sha", "Install"} <= set(out.stdout.strip().split(","))
+
+
+def test_an_app_from_before_versions_had_folders_is_updated_by_the_installer(
+    origin, repo, tmp_path, scripts_started
+) -> None:
+    installed = commit(origin, "a")
+    commit(origin, "b")
     updater_at(repo, installed, tmp_path).start()
     (args,) = scripts_started
     assert "-Install" not in args
@@ -134,9 +218,9 @@ def stage(updater: Updater, sha: str, folder: Path) -> None:
     )
 
 
-def test_a_staged_update_offers_restart(repo, tmp_path, scripts_started) -> None:
-    installed = commit(repo, "a")
-    latest = commit(repo, "b")
+def test_a_staged_update_offers_restart(origin, repo, tmp_path, scripts_started) -> None:
+    installed = commit(origin, "a")
+    latest = commit(origin, "b")
     install = installed_at(tmp_path, f"app-{installed[:7]}", f"app-{latest[:7]}")
     updater = updater_at(repo, installed, tmp_path, install)
     stage(updater, latest, install / f"app-{latest[:7]}")
@@ -148,9 +232,9 @@ def test_a_staged_update_offers_restart(repo, tmp_path, scripts_started) -> None
     assert scripts_started == []
 
 
-def test_a_staged_update_whose_folder_is_gone_is_offered_again(repo, tmp_path) -> None:
-    installed = commit(repo, "a")
-    latest = commit(repo, "b")
+def test_a_staged_update_whose_folder_is_gone_is_offered_again(origin, repo, tmp_path) -> None:
+    installed = commit(origin, "a")
+    latest = commit(origin, "b")
     install = installed_at(tmp_path, f"app-{installed[:7]}")
     updater = updater_at(repo, installed, tmp_path, install)
     stage(updater, latest, install / f"app-{latest[:7]}")
@@ -160,9 +244,9 @@ def test_a_staged_update_whose_folder_is_gone_is_offered_again(repo, tmp_path) -
     assert not updater.status_path.exists()
 
 
-def test_a_restart_that_did_not_come_up_has_failed(repo, tmp_path) -> None:
-    installed = commit(repo, "a")
-    latest = commit(repo, "b")
+def test_a_restart_that_did_not_come_up_has_failed(origin, repo, tmp_path) -> None:
+    installed = commit(origin, "a")
+    latest = commit(origin, "b")
     install = installed_at(tmp_path, f"app-{installed[:7]}", f"app-{latest[:7]}")
     updater = updater_at(repo, installed, tmp_path, install)
     stage(updater, latest, install / f"app-{latest[:7]}")
@@ -223,17 +307,17 @@ def test_a_program_outside_an_install_takes_nothing_over(tmp_path) -> None:
     assert not (exe.parent.parent / "current.txt").exists()
 
 
-def test_an_update_whose_script_is_gone_has_failed(repo, tmp_path) -> None:
-    installed = commit(repo, "a")
-    latest = commit(repo, "b")
+def test_an_update_whose_script_is_gone_has_failed(origin, repo, tmp_path) -> None:
+    installed = commit(origin, "a")
+    latest = commit(origin, "b")
     updater = updater_at(repo, installed, tmp_path)
     updater._write_status({"state": "updating", "sha": latest, "pid": 999999})
     assert updater.state().state == "failed"
 
 
-def test_a_failure_says_where_its_log_is(repo, tmp_path) -> None:
-    installed = commit(repo, "a")
-    latest = commit(repo, "b")
+def test_a_failure_says_where_its_log_is(origin, repo, tmp_path) -> None:
+    installed = commit(origin, "a")
+    latest = commit(origin, "b")
     updater = updater_at(repo, installed, tmp_path)
     # As update.ps1 writes it: UTF-8 with a byte-order mark.
     updater.status_path.parent.mkdir(parents=True)
@@ -244,20 +328,21 @@ def test_a_failure_says_where_its_log_is(repo, tmp_path) -> None:
     assert updater.state() == UpdateState("failed", installed[:7], latest[:7], "C:/logs/update.log")
 
 
-def test_a_failure_is_forgotten_once_the_repo_is_back_at_the_installed_commit(
-    repo, tmp_path
+def test_a_failure_is_forgotten_once_master_is_back_at_the_installed_commit(
+    origin, repo, tmp_path
 ) -> None:
-    installed = commit(repo, "a")
-    latest = commit(repo, "b")
+    installed = commit(origin, "a")
+    latest = commit(origin, "b")
     updater = updater_at(repo, installed, tmp_path)
     updater._write_status({"state": "failed", "sha": latest})
-    git(repo, "reset", "-q", "--hard", installed)
+    git(origin, "reset", "-q", "--hard", installed)
+    updater.fetch()
     assert updater.state() is None
     assert not updater.status_path.exists()
 
 
-def test_the_new_app_settles_the_update_that_installed_it(repo, tmp_path) -> None:
-    installed = commit(repo, "a")
+def test_the_new_app_settles_the_update_that_installed_it(origin, repo, tmp_path) -> None:
+    installed = commit(origin, "a")
     updater = updater_at(repo, installed, tmp_path)
     updater._write_status({"state": "updating", "sha": installed, "pid": 999999})
     updater.settle()

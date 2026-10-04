@@ -38,13 +38,14 @@ Launching it again while it runs brings its window forward.
 
 ### Updating it
 
-Develop in the repo (the dev server, the tests), and commit.
-Once the repo has a commit newer than the installed app's, the app shows **Update** at the foot of its sidebar (and in the command menu, Ctrl+K).
+Develop in the repo (the dev server, the tests), commit, and merge the pull request on GitHub.
+The app fetches the repo's `origin/master` in the background, every few minutes, whatever the repo has checked out.
+Once it is past the installed app's commit, the app shows **Update** at the foot of its sidebar (and in the command menu, Ctrl+K).
 Pressing it builds that commit in the background, a few minutes, while the app carries on, and stages it beside the running version.
 The button then says **Restart to update**, and waits for you.
 Pressing it restarts the app on the new version in a second or two: the new window comes up where the old one was, at the same page, over it, and the old one goes; its database migrates as it starts.
-Only commits go into an update, never uncommitted work, which is built in a worktree of its own (`desktop/update.ps1`).
-If the build or the restart fails, the button says so and offers Retry; why is in `data/logs/update.log` (the build) or `data/logs/personal-calendar.log` (the restart) in the app's home.
+Only commits go into an update, never uncommitted work, which is built in a worktree of its own by the app's own copy of `desktop/update.ps1`, bundled with it.
+If the build or the restart fails, the button says so and offers Retry; why is in `data/logs/update.log` (the build), `data/logs/update-console.log` (a script that would not run at all) or `data/logs/personal-calendar.log` (the restart) in the app's home.
 A restart that fails comes back up on the version it was running.
 Windows' Installed apps lists the version with the commit it was built from.
 
