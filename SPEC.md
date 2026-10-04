@@ -140,6 +140,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   Rows keep their order as they are edited (a spreadsheet's rows do not re-sort), their own order once moved: with Alt+Up/Down, or dragged by their number to another place or workstream (Oscar's call on 2026-10-01).
   Workstreams keep an order of their own, a new one last: on a workstream's row, Alt+Up/Down moves its whole lane past the workstream above or below, and its number drags it to another place among them; the tasks in none stay under them all, and the Projects page lists them in the same order (Oscar's call on 2026-10-04).
   Done tasks stay on the plan, struck through; cancelled ones and a series' finished occurrences leave it.
+  The tasks shown are chosen by status from a menu, remembered in that browser; Ctrl+Tab steps through all tasks, all but done, in progress and review, Ctrl+Shift+Tab back (Oscar's call on 2026-10-04).
 
 ### The notebook (decided 2026-09-26, set aside 2026-09-27)
 

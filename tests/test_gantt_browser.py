@@ -488,6 +488,68 @@ def test_tasks_are_shown_by_status(page, live, app_db, project) -> None:
     assert show.inner_text() == "All tasks"
 
 
+def test_ctrl_tab_steps_through_the_tasks_shown(page, live, app_db, project) -> None:
+    with app_db() as db:
+        shipped = tasks_svc.create_task(db, title="Shipped", project_id=project)
+        tasks_svc.set_status(db, shipped.id, TaskStatus.done)
+        started = tasks_svc.create_task(db, title="Started", project_id=project)
+        tasks_svc.set_status(db, started.id, TaskStatus.in_progress)
+        checked = tasks_svc.create_task(db, title="Checked", project_id=project)
+        tasks_svc.set_status(db, checked.id, TaskStatus.needs_review)
+        db.commit()
+    page.goto(f"{live}/projects/{project}/gantt")
+    show = page.locator("[data-gantt-show]")
+    titles = ("Loose end", "Shipped", "Started", "Checked")
+
+    def shown() -> list[str]:
+        return [t for t in titles if _row(page, t).is_visible()]
+
+    # From the cursor on the done task: all but done, the cursor (and the
+    # focus) on the next row shown; then in progress, then review, then all.
+    _row(page, "Shipped").locator(".gantt-title .gantt-text").click()
+    page.keyboard.press("Control+Tab")
+    assert show.inner_text() == "To do, In progress, Review"
+    assert shown() == ["Loose end", "Started", "Checked"]
+    focused = page.evaluate("document.activeElement.closest('.gantt-row')?.dataset.title")
+    assert focused == "Started"
+    page.keyboard.press("Control+Tab")
+    assert show.inner_text() == "In progress"
+    assert shown() == ["Started"]
+    page.keyboard.press("Control+Tab")
+    assert show.inner_text() == "Review"
+    assert shown() == ["Checked"]
+    page.keyboard.press("Control+Tab")
+    assert show.inner_text() == "All tasks"
+    assert shown() == list(titles)
+    # With Shift, back; and the choice stays across a visit.
+    page.keyboard.press("Control+Shift+Tab")
+    assert show.inner_text() == "Review"
+    page.reload()
+    assert show.inner_text() == "Review"
+    assert shown() == ["Checked"]
+
+    # A choice of its own steps to all tasks; with the menu open, its ticks follow.
+    show.click()
+    menu = page.locator(".sheet-menu")
+    menu.get_by_text("To do").click()
+    assert show.inner_text() == "To do, Review"
+    page.keyboard.press("Control+Tab")
+    assert show.inner_text() == "All tasks"
+    assert menu.locator('[aria-checked="false"]').all_inner_texts() == []
+    page.keyboard.press("Control+Tab")
+    assert menu.locator('[aria-checked="false"]').all_inner_texts() == ["Done"]
+
+    # Writing in a cell, Ctrl+Tab keeps what is written and steps on.
+    page.keyboard.press("Escape")
+    menu.wait_for(state="detached")
+    _row(page, "Started").locator(".gantt-title .gantt-text").dblclick()
+    page.keyboard.press("End")
+    page.keyboard.type(" now")
+    page.keyboard.press("Control+Tab")
+    assert show.inner_text() == "In progress"
+    _row(page, "Started now").wait_for()
+
+
 def test_a_task_is_deleted_from_its_bin_or_with_delete(page, live, app_db, project) -> None:
     with app_db() as db:
         tasks_svc.create_task(db, title="Spare", project_id=project)
