@@ -4,7 +4,7 @@
    stretched by dragging or with Alt, rows moved with Alt+Up/Down or
    dragged by their number to another place or workstream, workstreams
    moved among each other the same way and folded to their row, a task's status stepped on by its box or chosen
-   from its menu, tasks shown by status, the time seen in weeks or drilled down to days,
+   from its menu, tasks shown by status (Ctrl+Tab steps through the usual choices), the time seen in weeks or drilled down to days,
    tasks deleted (their bin, or Delete on Task), and undo. A task opens on
    its page from the way at its Task cell's end, or Ctrl+Enter on its row.
 
@@ -803,6 +803,7 @@
       });
     };
     if (key === "Enter") { done(e.shiftKey ? -1 : 1, 0); return; }
+    if (key === "Tab" && e.ctrlKey) return; // the tasks shown (Ctrl+Tab), what is written kept
     if (key === "Tab") { done(0, e.shiftKey ? -1 : 1); return; }
     if (key === "Escape") { e.preventDefault(); e.stopPropagation(); cancel(); return; }
     if (typed && (key === "ArrowUp" || key === "ArrowDown")) { done(key === "ArrowUp" ? -1 : 1, 0); return; }
@@ -1204,10 +1205,10 @@
     } else if (e.key === "Enter" || e.key === " ") {
       handled();
       menu.choose(items[at]);
-    } else if (e.key === "Escape" || e.key === "Tab") {
+    } else if (e.key === "Escape" || (e.key === "Tab" && !e.ctrlKey)) {
       handled();
       closeMenu();
-    } else {
+    } else if (e.key !== "Tab") {
       e.stopPropagation(); // the sheet's own keys stay out of the menu
     }
   }, true);
@@ -1302,18 +1303,45 @@
     if (hiding.has(value)) hiding.delete(value);
     else if (hiding.size < STATUSES.length - 1) hiding.add(value);
     else return;
+    shownChanged();
+    item.focus();
+  };
+
+  // The choice kept and named, the cursor kept on a row shown, and the
+  // menu's ticks, if it is open, following it.
+  function shownChanged() {
     store(HIDDEN, JSON.stringify([...hiding]));
     showHidden();
     keepInView();
     place();
+    if (menu?.button !== showButton) return;
     for (const el of menu.el.querySelectorAll("[data-value]")) {
       const on = !hiding.has(el.dataset.value);
       el.setAttribute("aria-checked", String(on));
       el.querySelector(".tick")?.remove();
       if (on) el.insertAdjacentHTML("beforeend", TICK);
     }
-    item.focus();
-  };
+  }
+
+  // Ctrl+Tab steps through the usual choices (with Shift, back): all tasks,
+  // all but done, in progress, review; from a choice of its own, all tasks.
+  const VIEWS = [[], ["done"], ["todo", "needs_review", "done"], ["todo", "in_progress", "done"]];
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab" || !e.ctrlKey || e.altKey || e.metaKey || e.isComposing || e.defaultPrevented) return;
+    if (document.querySelector("dialog[open]")) return;
+    e.preventDefault();
+    if (editing) commit();
+    if (menu && menu.button !== showButton) closeMenu();
+    const inSheet = sheet.contains(document.activeElement);
+    const at = VIEWS.findIndex((view) => view.length === hiding.size && view.every((v) => hiding.has(v)));
+    const by = e.shiftKey ? -1 : 1;
+    const to = at < 0 ? (by > 0 ? 0 : VIEWS.length - 1) : (at + by + VIEWS.length) % VIEWS.length;
+    hiding.clear();
+    for (const value of VIEWS[to]) hiding.add(value);
+    shownChanged();
+    // The cursor's row hidden, the focus goes with the cursor.
+    if (inSheet && cursor) moveTo(cursor.key, cursor.col);
+  });
 
   showButton?.addEventListener("click", () => {
     if (menu?.button === showButton) { closeMenu(false); return; }
