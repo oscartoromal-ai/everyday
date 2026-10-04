@@ -14,6 +14,7 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     Boolean,
+    Column,
     Date,
     DateTime,
     Enum,
@@ -22,6 +23,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Table,
     Text,
     UniqueConstraint,
 )
@@ -547,19 +549,33 @@ class GarminActivity(Base):
 class GitHubSource(enum.StrEnum):
     # The GitHub CLI's own sign-in, asked for at each sync and never copied.
     cli = "cli"
-    # A token pasted on Repositories, kept in local/ ([github].token_file).
+    # A token pasted on Repositories, kept in local/ ([github].tokens_dir).
     token = "token"
 
 
+# Which connected account reaches which repository: a repository his two
+# accounts both reach is one repository, reached by both.
+github_link_repositories = Table(
+    "github_link_repositories",
+    Base.metadata,
+    Column("link_id", ForeignKey("github_link.id", ondelete="CASCADE"), primary_key=True),
+    Column("repository_id", ForeignKey("repositories.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
 class GitHubLink(Base):
-    """The link to Oscar's GitHub account (Repositories): who is signed in,
-    how, and how the last sync went. One row while connected. No token is
+    """A GitHub account of Oscar's, connected (Repositories): who is signed
+    in, how, and how its last sync went. One row per account. No token is
     here: the CLI keeps its own, and a pasted one is in local/."""
 
     __tablename__ = "github_link"
+    __table_args__ = (Index("ix_github_link_user_id", "user_id", unique=True),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     source: Mapped[GitHubSource] = mapped_column(_enum(GitHubSource))
+    # GitHub's id for the account, which a rename keeps; None for an
+    # account connected before the app kept it, until its next sync.
+    user_id: Mapped[int | None] = mapped_column(Integer, default=None)
     login: Mapped[str] = mapped_column(String(64), default="")
     name: Mapped[str] = mapped_column(Text, default="")
     connected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
@@ -569,10 +585,15 @@ class GitHubLink(Base):
     # GitHub stopped accepting the sign-in (or gh signed out): connect again.
     signed_out: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    repositories: Mapped[list[Repository]] = relationship(
+        secondary=github_link_repositories, back_populates="links"
+    )
+
 
 class Repository(Base):
     """A GitHub repository Oscar can reach, as GitHub has it at the last
-    sync: his own, those he collaborates on, and his organizations'."""
+    sync: his own, those he collaborates on, and his organizations'; kept
+    while any of his accounts reaches it."""
 
     __tablename__ = "repositories"
 
@@ -594,6 +615,12 @@ class Repository(Base):
     open_issues: Mapped[int] = mapped_column(Integer, default=0)
     # The last push to any branch, local time; None for one never pushed to.
     pushed_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+    # The accounts that reach it, connected first first.
+    links: Mapped[list[GitHubLink]] = relationship(
+        secondary=github_link_repositories, back_populates="repositories",
+        order_by="GitHubLink.id",
+    )
 
 
 # ---- Finances (SPEC.md, Finances): money in whole cents, Australian dollars ----

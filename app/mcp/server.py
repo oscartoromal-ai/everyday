@@ -391,26 +391,34 @@ def get_finances(month: str | None = None) -> dict[str, Any]:
 
 @tool(module="code")
 def list_repositories(query: str = "", include_archived: bool = False) -> dict[str, Any]:
-    """The GitHub repositories Oscar can reach (his own, those he
-    collaborates on, and his organizations'), as GitHub had them at the
-    last sync, last pushed first: each one's full_name (owner/name),
-    description, main language, whether it is private, a fork or archived,
-    its default branch, its url, its open issues and pull requests together,
-    and when it was last pushed to (local time). `query` keeps those holding
-    every one of its words in their name, description or language; archived
-    ones are left out unless `include_archived`. `connected` is false when
-    he has not connected GitHub on Repositories, or GitHub signed the app
-    out; `account` is his GitHub login, `synced_at` the last sync. Read-only."""
+    """The GitHub repositories Oscar can reach through the GitHub accounts
+    he has connected (their own, those they collaborate on, and their
+    organizations'), as GitHub had them at the last sync, last pushed
+    first: each one's full_name (owner/name), description, main language,
+    whether it is private, a fork or archived, its default branch, its url,
+    its open issues and pull requests together, when it was last pushed to
+    (local time), and the logins of the accounts that reach it. `query`
+    keeps those holding every one of its words in their name, description
+    or language; archived ones are left out unless `include_archived`.
+    `accounts` are his connected GitHub accounts, each its login, whether
+    it is connected (false once GitHub signed the app out of it) and its
+    last sync; `connected` is false when none is. Read-only."""
     from app.services import github as github_svc
 
     with session_scope("claude") as db:
-        link = github_svc.link(db)
+        links = github_svc.links(db)
         archived = None if include_archived else False
         return {
-            "connected": link is not None and not link.signed_out,
-            "account": link.login if link else None,
-            "synced_at": link.synced_at.isoformat(timespec="minutes")
-            if link and link.synced_at else None,
+            "connected": any(not link.signed_out for link in links),
+            "accounts": [
+                {
+                    "login": link.login,
+                    "connected": not link.signed_out,
+                    "synced_at": link.synced_at.isoformat(timespec="minutes")
+                    if link.synced_at else None,
+                }
+                for link in links
+            ],
             "repositories": [
                 github_svc.repository_dict(r)
                 for r in github_svc.repositories(db, query, archived=archived)

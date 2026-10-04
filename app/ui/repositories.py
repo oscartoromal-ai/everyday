@@ -1,13 +1,13 @@
 """Repositories' routes: the page and its list (found by its words),
-connecting to GitHub (through the GitHub CLI's sign-in, or a token),
-syncing, and disconnecting."""
+connecting GitHub accounts (through the GitHub CLI's sign-ins, or a token),
+syncing, and disconnecting one."""
 
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -15,14 +15,14 @@ from app.db import DbSession
 from app.models import GitHubSource
 from app.services import github as github_svc
 from app.sources.github import GitHubAccount, GitHubError, GitHubUnavailable, account
-from app.ui.repositories_view import account_ctx, list_ctx, page_ctx
+from app.ui.repositories_view import account_ctx, cli_ctx, list_ctx, page_ctx
 from app.ui.views import templates
 
 router = APIRouter(include_in_schema=False)
 
 
 def get_github() -> GitHubAccount:
-    """The app's GitHub sign-in, or a stand-in under test."""
+    """The app's GitHub sign-ins, or a stand-in under test."""
     return account()
 
 
@@ -51,44 +51,56 @@ def _account(request: Request, db: Session, error: str = "") -> Response:
 
 
 def _start_sync(db: Session, github: GitHubAccount) -> None:
-    """The sync, in its own thread and session, on the request's database."""
+    """The sync, in its own thread and session, on the request's database.
+    One running already syncs an account connected meanwhile before it ends."""
     factory = sessionmaker(bind=db.get_bind(), expire_on_commit=False)
     github_svc.syncing.start(lambda: github_svc.run_sync(factory, github))
 
 
-def _connected(db: Session, github: GitHubAccount, user: dict, source: GitHubSource) -> Response:
-    """Signed in: the link recorded, the first sync begun, the page drawn
-    again around it."""
-    github_svc.connect(db, user, source)
+def _connected(db: Session, github: GitHubAccount, user: dict, source: GitHubSource,
+               token: str = "") -> Response:
+    """Signed in: the link recorded (its token kept, for a pasted one), the
+    sync begun, the page drawn again around it."""
+    link = github_svc.connect(db, user, source)
+    if source == GitHubSource.token:
+        github.keep_token(link.id, token)
+    else:
+        github.forget(link.id)  # a token kept from before is no longer its sign-in
     db.commit()
     _start_sync(db, github)
     return Response(status_code=204, headers={"HX-Refresh": "true"})
 
 
 @router.get("/ui/github/cli")
-def github_cli(request: Request, github: GitHub):
-    """Whether the GitHub CLI here is signed in, and as whom: asked once
-    the page is up, since it asks gh and then GitHub."""
-    user, error = None, ""
+def github_cli(request: Request, db: DbSession, github: GitHub):
+    """The accounts the GitHub CLI here is signed in to, those not connected
+    yet offered: asked once the page is up, since it asks gh, which asks
+    GitHub."""
+    logins, error = [], ""
     try:
-        user = github.cli_user()
+        logins = github.cli.logins()
     except GitHubUnavailable as exc:
         error = str(exc)
     ctx = {
-        "request": request, "installed": github.cli.installed, "user": user, "error": error,
+        "request": request, "installed": github.cli.installed, "error": error,
+        **cli_ctx(db, logins),
     }
     return templates.TemplateResponse(request, "partials/github_cli.html", ctx)
 
 
 @router.post("/ui/github/connect/cli")
-def github_connect_cli(request: Request, db: DbSession, github: GitHub):
+def github_connect_cli(
+    request: Request, db: DbSession, github: GitHub, login: Annotated[str, Form()] = ""
+):
     try:
-        user = github.cli_user()
+        user = github.cli_user(login) if login else None
     except GitHubError as exc:
         return _account(request, db, str(exc))
     if user is None:
-        return _account(request, db, "The GitHub CLI is not signed in. Run gh auth login first.")
-    github.forget()  # a token kept from before is no longer the sign-in
+        return _account(
+            request, db, f"The GitHub CLI is not signed in as {login or 'that account'}. "
+            "Run gh auth login first."
+        )
     return _connected(db, github, user, GitHubSource.cli)
 
 
@@ -97,15 +109,15 @@ def github_connect_token(
     request: Request, db: DbSession, github: GitHub, token: Annotated[str, Form()] = ""
 ):
     try:
-        user = github.use_token(token)
+        user = github.check_token(token)
     except GitHubError as exc:
         return _account(request, db, str(exc))
-    return _connected(db, github, user, GitHubSource.token)
+    return _connected(db, github, user, GitHubSource.token, token)
 
 
 @router.post("/ui/github/sync")
 def github_sync(request: Request, db: DbSession, github: GitHub):
-    if github_svc.link(db) is not None:
+    if github_svc.links(db):
         _start_sync(db, github)
     return _account(request, db)
 
@@ -119,10 +131,14 @@ def github_account(request: Request, db: DbSession):
     return response
 
 
-@router.post("/ui/github/disconnect")
-def github_disconnect(db: DbSession, github: GitHub):
-    github_svc.syncing.wait(30)  # a sync ending now would bring the list back
-    github.forget()
-    github_svc.disconnect(db)
+@router.post("/ui/github/{link_id}/disconnect")
+def github_disconnect(db: DbSession, github: GitHub, link_id: int):
+    github_svc.syncing.wait(30)  # a sync ending now would bring its list back
+    link = github_svc.get_link(db, link_id)
+    if link is None:
+        raise HTTPException(404, "No such GitHub account is connected")
+    github.forget(link.id)
+    github_svc.disconnect(db, link)
     db.commit()
     return Response(status_code=204, headers={"HX-Refresh": "true"})
+

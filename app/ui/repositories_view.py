@@ -45,11 +45,12 @@ def synced(moment: datetime | None, now: datetime) -> str:
     return f"{moment:%H:%M}, {moment.day} {moment:%b}"
 
 
-def repo_row(r: Repository, link: GitHubLink | None, now: datetime) -> dict[str, Any]:
+def repo_row(r: Repository, first: GitHubLink | None, now: datetime) -> dict[str, Any]:
     return {
         "name": r.name,
-        # Another's repository says whose; his own goes by its name.
-        "owner": r.owner if link is None or r.owner.lower() != link.login.lower() else "",
+        # Another's repository says whose; his first account's own goes by
+        # its name (only the one's, so two of his named alike stay apart).
+        "owner": r.owner if first is None or r.owner.lower() != first.login.lower() else "",
         "full_name": r.full_name,
         "description": r.description,
         "url": r.html_url,
@@ -66,30 +67,48 @@ def repo_row(r: Repository, link: GitHubLink | None, now: datetime) -> dict[str,
 def list_ctx(db: Session, query: str, now: datetime) -> dict[str, Any]:
     """The repositories holding the query's words: the active ones, then
     the archived ones folded away."""
-    link = github_svc.link(db)
+    links = github_svc.links(db)
+    first = links[0] if links else None
     query = query.strip()
     found = github_svc.repositories(db, query)
     return {
         "query": query,
         "has_repos": bool(found) or bool(query and github_svc.repositories(db)),
-        "repos": [repo_row(r, link, now) for r in found if not r.archived],
-        "archived": [repo_row(r, link, now) for r in found if r.archived],
+        "repos": [repo_row(r, first, now) for r in found if not r.archived],
+        "archived": [repo_row(r, first, now) for r in found if r.archived],
         "running": github_svc.syncing.running,
-        "link": link,
+        # Fetching the first time: an account connected and not yet synced.
+        "fetching": any(not link.signed_out and link.synced_at is None for link in links),
+        "connected": any(not link.signed_out for link in links),
     }
 
 
 def account_ctx(db: Session, now: datetime) -> dict[str, Any]:
-    """The account group: connected (who, how, how the last sync went) or
-    not (the ways to connect, and why when GitHub signed it out)."""
-    link = github_svc.link(db)
+    """The accounts group: each account connected (who, how, and how its
+    last sync went), when the last sync finished, and the ways to connect
+    another, folded away unless an account needs connecting again."""
+    links = github_svc.links(db)
+    last = max((link.synced_at for link in links if link.synced_at), default=None)
+    connected = any(not link.signed_out for link in links)
     return {
-        "link": link,
-        "connected": link is not None and not link.signed_out,
-        "signed_out": link is not None and link.signed_out,
+        "links": links,
+        "connected": connected,
+        "signed_out": any(link.signed_out for link in links),
         "running": github_svc.syncing.running,
-        "synced": synced(link.synced_at, now) if link else "",
+        "synced": synced(last, now),
         "new_token_url": NEW_TOKEN_URL,
+    }
+
+
+def cli_ctx(db: Session, logins: list[str]) -> dict[str, Any]:
+    """The GitHub CLI's accounts as Connect offers them: those not connected
+    yet, or signed out since, and whether any is connected already."""
+    working = {
+        link.login.lower() for link in github_svc.links(db) if not link.signed_out
+    }
+    return {
+        "offer": [login for login in logins if login.lower() not in working],
+        "all_connected": bool(logins) and all(login.lower() in working for login in logins),
     }
 
 

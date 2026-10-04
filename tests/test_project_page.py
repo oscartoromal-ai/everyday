@@ -191,6 +191,55 @@ def test_repositories_are_added_changed_and_removed(client, db) -> None:
     assert project.repos == []
 
 
+def test_the_line_to_add_a_repository_offers_his_github_ones(client, db) -> None:
+    from github_fake import repo_payload
+
+    from app.models import GitHubSource, Repository
+    from app.services import github as github_svc
+
+    project = projects_svc.create_project(db, name="Note-app")
+    db.commit()
+    url = f"/ui/projects/{project.id}/repo-options"
+    # Before GitHub is connected: where to connect it.
+    assert 'href="/repositories">Connect GitHub</a>' in client.get(url).text
+    assert "Enter adds" in client.get(url, params={"location": r"C:\code"}).text
+
+    link = github_svc.connect(db, {"id": 1, "login": "me", "name": "Me"}, GitHubSource.cli)
+    found = [
+        repo_payload(i, f"repo-{i}", owner="me", pushed_at=f"2026-10-{i:02d}T10:00:00Z")
+        for i in range(1, 12)
+    ]
+    found.append(repo_payload(20, "legacy", owner="acme-labs", archived=True))
+    github_svc.keep_repositories(db, link, found)
+    projects_svc.add_repo(db, project_id=project.id, location="git@github.com:me/repo-11.git")
+    db.commit()
+    assert db.query(Repository).count() == 12
+
+    # Focused: the active ones not the project's yet, last pushed first, eight at most.
+    offered = client.get(url).text
+    assert offered.count('role="option"') == 8
+    assert "repo-11" not in offered and "legacy" not in offered
+    assert offered.index(">repo-10<") < offered.index(">repo-9<")
+    assert 'data-location="https://github.com/me/repo-10"' in offered
+    assert "2 more: keep writing to find them." in offered
+    assert 'class="repo-owner"' not in offered  # his own go by their names
+
+    legacy = client.get(url, params={"location": "LEGACY"}).text
+    assert legacy.count('role="option"') == 1 and "acme-labs/" in legacy and "Archived" in legacy
+    named = client.get(url, params={"location": "https://github.com/me/repo-3"}).text
+    assert named.count('role="option"') == 1 and ">repo-3<" in named
+    nothing = client.get(url, params={"location": r"C:\code\notes"}).text
+    assert "Enter adds “C:\\code\\notes” as written." in nothing and 'role="option"' not in nothing
+    assert client.get("/ui/projects/999/repo-options").status_code == 404
+
+    # Just added, the line is quiet as the focus comes back to it.
+    added = client.post(
+        f"/ui/projects/{project.id}/repos", data={"location": "https://github.com/me/repo-3"}
+    )
+    assert "data-repo-picker data-quiet" in added.text
+    assert ">repo-3<" not in client.get(url, params={"location": "repo-3"}).text
+
+
 def test_a_document_is_added_written_renamed_and_deleted(client, db) -> None:
     project = projects_svc.create_project(db, name="Note-app")
     db.commit()

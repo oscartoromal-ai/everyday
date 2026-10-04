@@ -4,7 +4,7 @@ document of its context on a page of its own (project_doc.html)."""
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import func, select
@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 
 from app.dates import short_date, upper_first
 from app.models import AGENTS_DOC, Project, ProjectDoc, Task, TaskStatus
+from app.services import github as github_svc
 from app.services import projects as projects_svc
+from app.ui.repositories_view import repo_row
 from app.ui.views import project_glance
 
 OPEN = (TaskStatus.todo, TaskStatus.in_progress, TaskStatus.blocked, TaskStatus.needs_review)
@@ -105,6 +107,37 @@ def repos_ctx(project: Project) -> dict[str, Any]:
     return {
         "project": project,
         "repos": [{"repo": r, "name": projects_svc.repo_name(r.location)} for r in project.repos],
+    }
+
+
+# The most GitHub repositories the line to add one offers at once.
+REPO_OPTIONS = 8
+
+
+def repo_options_ctx(db: Session, project: Project, query: str, now: datetime) -> dict[str, Any]:
+    """The GitHub repositories the line to add one offers as it is written
+    on, those already the project's left out: the active ones last pushed
+    first, before a word is written; then those holding its words, the
+    archived ones too, or the one its GitHub URL names."""
+    query = query.strip()
+    taken = {name for r in project.repos if (name := github_svc.full_name_of(r.location))}
+    named = github_svc.full_name_of(query)
+    if named:
+        found = [r for r in github_svc.repositories(db) if r.full_name.lower() == named]
+    else:
+        found = github_svc.repositories(db, query, archived=None if query else False)
+    found = [r for r in found if r.full_name.lower() not in taken]
+    found.sort(key=lambda r: r.archived)  # stable: the active ones first
+    links = github_svc.links(db)
+    first = links[0] if links else None
+    return {
+        "query": query,
+        "options": [
+            {**repo_row(r, first, now), "archived": r.archived}
+            for r in found[:REPO_OPTIONS]
+        ],
+        "more": max(0, len(found) - REPO_OPTIONS),
+        "linked": bool(links),
     }
 
 

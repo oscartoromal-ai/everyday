@@ -1,7 +1,8 @@
 {# The project's repositories, a card: each its name, read from where it
    is, over where it is, written in place and saved as it changes; then a
-   line to add one. Drawn again after each change, the page's header with
-   it. #}
+   line to add one, which offers his GitHub repositories as it is focused
+   and written on (repo-picker.js), or takes a folder or URL as written.
+   Drawn again after each change, the page's header with it. #}
 <section class="list-section ov-card project-repos" id="project-repos" aria-labelledby="repos-head">
   <h2 id="repos-head">Repositories{% if repos %} <span class="count">{{ repos|length }}</span>{% endif %}</h2>
   {% for r in repos %}
@@ -29,8 +30,18 @@
   {% endfor %}
   <form class="ov-add" hx-post="/ui/projects/{{ project.id }}/repos" hx-target="#project-repos" hx-swap="outerHTML">
     <svg class="item-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4.5v11"/><path d="M4.5 10h11"/></svg>
+    {% if installed("code") %}
+    <input id="repo-new" name="location" required autocomplete="off" spellcheck="false" aria-label="Add a repository"
+           placeholder="Add a repository: find one of yours, or write its folder or URL"
+           role="combobox" aria-expanded="false" aria-controls="repo-listbox" aria-autocomplete="list"
+           hx-get="/ui/projects/{{ project.id }}/repo-options" hx-trigger="focus, input changed delay:120ms"
+           hx-target="#repo-options" hx-swap="outerHTML" hx-sync="this:replace"
+           data-repo-picker{% if added %} data-quiet{% endif %}>
+    {% else %}
     <input id="repo-new" name="location" required autocomplete="off" spellcheck="false" aria-label="Add a repository"
            placeholder="Add a repository: its folder or its URL">
+    {% endif %}
   </form>
+  {% if installed("code") %}<div class="repo-options" id="repo-options" hidden></div>{% endif %}
 </section>
 {% if oob_head %}{% include "partials/project_head.html" %}{% endif %}

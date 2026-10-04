@@ -96,9 +96,10 @@ class GarminConfig(BaseModel):
 
 
 class GitHubConfig(BaseModel):
-    # A token pasted on Repositories is kept here (git-ignored); connected
-    # through the GitHub CLI, the app keeps none and asks gh each time.
-    token_file: str = "local/github-token.txt"
+    # A token pasted on Repositories is kept in this folder (git-ignored), a
+    # file per account; connected through the GitHub CLI, the app keeps none
+    # and asks gh each time.
+    tokens_dir: str = "local/github-tokens"
     # The GitHub CLI. Empty: `gh` on PATH, else where its installer puts it.
     cli: str = ""
     # How often the repositories are fetched again while connected.
@@ -184,8 +185,8 @@ class Settings(BaseSettings):
         return self.resolve(self.garmin.token_dir)
 
     @property
-    def github_token_file(self) -> Path:
-        return self.resolve(self.github.token_file)
+    def github_tokens_dir(self) -> Path:
+        return self.resolve(self.github.tokens_dir)
 
     @property
     def ics_url(self) -> str | None:

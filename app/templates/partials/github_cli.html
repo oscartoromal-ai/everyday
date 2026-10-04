@@ -1,18 +1,39 @@
-{# The GitHub CLI on this computer, as Connect GitHub offers it: signed in,
-   one click connects as it; signed out, or not installed, what to do. #}
-<div class="sheet-row me-row github-cli" id="github-cli">
-  <span class="me-label">GitHub CLI</span>
-  {% if user %}
-  <span class="me-value github-who">Signed in as {{ user.login }}</span>
-  <button type="button" class="btn primary github-connect" hx-post="/ui/github/connect/cli" hx-target="#github-account" hx-swap="outerHTML"
-          hx-disabled-elt="this"><span class="github-idle">Connect</span><span class="github-busy">Connecting…</span></button>
-  {% elif error %}
-  <span class="github-line">{{ error }}</span>
-  <button type="button" class="plan-btn" hx-get="/ui/github/cli" hx-target="#github-cli" hx-swap="outerHTML">Check again</button>
+{# The GitHub CLI on this computer, as Connect offers it: each account it
+   is signed in to and not connected yet, one click connecting as it; when
+   every one is connected already, signed out, or not installed, what to do. #}
+<div class="github-cli-rows" id="github-cli">
+  {% if error %}
+  <div class="sheet-row me-row github-cli">
+    <span class="me-label">GitHub CLI</span>
+    <span class="github-line">{{ error }}</span>
+    <button type="button" class="plan-btn" hx-get="/ui/github/cli" hx-target="#github-cli" hx-swap="outerHTML">Check again</button>
+  </div>
+  {% elif offer %}
+  {% for login in offer %}
+  <div class="sheet-row me-row github-cli">
+    <span class="me-label">{% if loop.first %}GitHub CLI{% endif %}</span>
+    <span class="me-value github-who">Signed in as {{ login }}</span>
+    <button type="button" class="btn primary github-connect" hx-post="/ui/github/connect/cli" hx-vals='{{ {"login": login}|tojson }}'
+            hx-target="#github-account" hx-swap="outerHTML" hx-disabled-elt="this"
+            aria-label="Connect {{ login }}"><span class="github-idle">Connect</span><span class="github-busy">Connecting…</span></button>
+  </div>
+  {% endfor %}
+  {% elif all_connected %}
+  <div class="sheet-row me-row github-cli">
+    <span class="me-label">GitHub CLI</span>
+    <span class="github-line">Every account it is signed in to is connected. To add another, run <code>gh auth login</code> in a terminal, then check again.</span>
+    <button type="button" class="plan-btn" hx-get="/ui/github/cli" hx-target="#github-cli" hx-swap="outerHTML">Check again</button>
+  </div>
   {% elif installed %}
-  <span class="github-line">Not signed in. Run <code>gh auth login</code> in a terminal, then check again.</span>
-  <button type="button" class="plan-btn" hx-get="/ui/github/cli" hx-target="#github-cli" hx-swap="outerHTML">Check again</button>
+  <div class="sheet-row me-row github-cli">
+    <span class="me-label">GitHub CLI</span>
+    <span class="github-line">Not signed in. Run <code>gh auth login</code> in a terminal, then check again.</span>
+    <button type="button" class="plan-btn" hx-get="/ui/github/cli" hx-target="#github-cli" hx-swap="outerHTML">Check again</button>
+  </div>
   {% else %}
-  <span class="github-line">Not on this computer. With it installed (<code>winget install GitHub.cli</code>) and signed in, connecting is one click.</span>
+  <div class="sheet-row me-row github-cli">
+    <span class="me-label">GitHub CLI</span>
+    <span class="github-line">Not on this computer. With it installed (<code>winget install GitHub.cli</code>) and signed in, connecting is one click.</span>
+  </div>
   {% endif %}
 </div>
