@@ -13,6 +13,7 @@ from app.api import calendar as calendar_api
 from app.api import projects as projects_api
 from app.api import tasks as tasks_api
 from app.config import get_settings
+from app.fresh import FreshPagesMiddleware
 from app.mcp.server import create_mcp
 from app.security import BrowserGuardMiddleware
 from app.services import DomainError
@@ -83,6 +84,7 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
         return JSONResponse(status_code=422, content={"detail": str(exc)})
 
     allowed_hosts = {"127.0.0.1", "localhost", *settings.server.extra_hosts}
+    app.add_middleware(FreshPagesMiddleware)
     app.add_middleware(BrowserGuardMiddleware, allowed_hosts=allowed_hosts)
 
     return app

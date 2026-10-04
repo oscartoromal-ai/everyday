@@ -92,10 +92,12 @@ Settings ends the foot, two sliders and its name; it opens the keys dialog's pap
 On a machine installed without some modules, a line in 14px graphite, as the hint's, 12px under the list, names them and says the installer adds them back ("Not installed on this machine: Finances. Run the installer again to add it.").
 Such a module's section is not in the sidebar at all, and the keys dialog lists the number keys left as runs ("1–6, 8").
 Its Version section, 24px under, is one 48px row between hairlines: the version in 14px/600 ink, "built from" (or "run from") its commit in 12px pewter, and "Changelog ›" in 12px/500 graphite at the right, ink on hover, the whole row the link.
+Back sits under the wordmark, 12px under the date and 24px above the first section, drawn as a foot button: a 16px arrow and "Back to" the page before by its title ("Back to Garden Planner · Gantt"), in 12px/500 pewter, ink on a glass hover, cut short with an ellipsis and whole in its tooltip with its key (Alt+←).
+With no page before it (the window's first), it stays, faint in `--mist`, as "Back", so the sidebar under it never moves.
 A panel icon beside the wordmark collapses the sidebar to a 64px icon rail (`data-rail="collapsed"` on `<html>`, saved as `pc-rail`, applied before paint).
 The shell animates its column width on `--ease` over 220ms.
 When collapsed, the wordmark and labels hide, each link keeps its name as a tooltip, group labels become hairlines, and the spark bar stays.
-Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the spark bar moves above the active tab's icon, and the mode toggle ends the bar as a 44px sun or moon icon past a hairline, with no label; the collapse control stays desktop-only.
+Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the spark bar moves above the active tab's icon, and the mode toggle ends the bar as a 44px sun or moon icon past a hairline, with no label; the collapse control and Back stay desktop-only (the phone's browser has its own Back).
 Under 600px each tab is its icon, 44px wide; the tabs scroll sideways past the bar's width, it opens with the current page's tab in its middle, and an edge with tabs past it fades (`data-more`, `shell.js`).
 Content is 800px wide for list pages, where more width only lengthens a row; 1040px for Projects, whose overview lays its projects over weeks; and up to 1600px for Today and Calendar, so a wide window or a zoomed-out page widens them rather than their margins.
 Compact rows (the rail's toggle above the mode's, or C) set Projects' sheet and Today's notes 28px a row rather than 36px, the text its size: 3px above a 20px line, 4px below; the toggle's three lines close up while it is on, its label the state (Roomy, Compact).

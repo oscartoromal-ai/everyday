@@ -57,6 +57,10 @@
     }
   });
   placeScroll();
+  // Back here, the hours where they were left (shell.js).
+  window.keepPlace?.("calendar-grid", () => grid()?.scrollTop, (top) => {
+    if (grid()) grid().scrollTop = top;
+  });
 
   const api = async (method, url, body) => {
     const headers = { "X-CSRF": window.csrfToken ? window.csrfToken() : "" };

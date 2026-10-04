@@ -1455,4 +1455,15 @@
   showHidden();
   toNow();
   place();
+
+  // Back here (from a task's page opened on it): the cursor where it was,
+  // focused if it was, and the same time and rows in view (shell.js).
+  window.keepPlace?.("gantt", () => ({
+    cursor, top: sheet.scrollTop, left: sheet.scrollLeft, focused: sheet.contains(document.activeElement),
+  }), (kept) => {
+    if (!kept.cursor || !rowOf(kept.cursor.key)) return;
+    sheet.scrollTop = kept.top;
+    sheet.scrollLeft = kept.left;
+    moveTo(kept.cursor.key, kept.cursor.col, { focus: kept.focused });
+  });
 })();

@@ -699,4 +699,15 @@
   place();
   const today = sheet.querySelector("tr.is-today");
   if (today) reveal(cellAt(today, 0));
+
+  // Back here (from a task's page opened on it): the cursor where it was,
+  // focused if it was, and the same days in view (shell.js).
+  window.keepPlace?.("day-sheet", () => ({
+    cursor, top: sheet.scrollTop, left: sheet.scrollLeft, focused: sheet.contains(document.activeElement),
+  }), (kept) => {
+    if (!kept.cursor || !rowOf(kept.cursor.day)) return;
+    sheet.scrollTop = kept.top;
+    sheet.scrollLeft = kept.left;
+    moveTo(kept.cursor.day, kept.cursor.col, { focus: kept.focused });
+  });
 })();

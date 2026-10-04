@@ -1,5 +1,5 @@
 /* Shell chrome shared by every page: the light/dark toggle, the collapsible
-   sidebar and its folding projects, the keys that work everywhere, the confirm dialog behind
+   sidebar and its folding projects, Back to the page before, the keys that work everywhere, the confirm dialog behind
    hx-confirm, and the desktop app's title bar and taskbar count. The saved theme and sidebar state are first applied by the
    inline script in base.html's <head>, before paint; this file keeps them
    in step with the controls. */
@@ -482,6 +482,109 @@
     if (!link) return;
     e.preventDefault();
     link.click();
+  });
+
+  /* ---- Back: to the page before, named, and as it was left. The window's
+     own history (the Navigation API) says which page that is. Each page
+     leaves its name under its history entry, and as it goes, where it was
+     as its own script keeps it (window.keepPlace: a sheet's cursor, a
+     grid's scroll; the window's scroll is the browser's to keep). The
+     server never lets a page be cached (app/fresh.py), so the page comes
+     back as it is now, and is put back where it was. The sidebar's Back
+     goes back, as Alt+Left and the mouse's back button do; a page's own
+     "‹" link (a task's, a project's)
+     goes back too when the page before is the one it names, else it opens
+     that page. ---- */
+
+  const sessionHistory = window.navigation;
+  const PLACE = "pc-place:";
+  const pageName = () => document.title.replace(/\s*·\s*Personal Calendar$/, "");
+  const keptAt = (entry) => {
+    try { return JSON.parse(sessionStorage.getItem(PLACE + entry.key)) || {}; } catch { return {}; }
+  };
+  const keepAt = (entry, kept) => {
+    try { sessionStorage.setItem(PLACE + entry.key, JSON.stringify(kept)); } catch { /* full or off: no place kept */ }
+  };
+  // The page before this one in the window, if it is one of the app's.
+  const before = () => {
+    const at = sessionHistory?.currentEntry;
+    if (!at || at.index < 1) return null;
+    const entry = sessionHistory.entries()[at.index - 1];
+    return entry ? { url: new URL(entry.url), name: keptAt(entry).name } : null;
+  };
+
+  // Arriving back (or reloaded), the place each script kept, once.
+  const arrivedBy = sessionHistory?.activation?.navigationType;
+  const returning = arrivedBy === "traverse" || arrivedBy === "reload";
+  const kept = returning && sessionHistory.currentEntry ? keptAt(sessionHistory.currentEntry) : {};
+  const keepers = new Map();
+  window.keepPlace = (name, save, restore) => {
+    keepers.set(name, save);
+    if (kept.places?.[name] !== undefined) restore(kept.places[name]);
+  };
+  if (sessionHistory?.currentEntry) keepAt(sessionHistory.currentEntry, { ...kept, name: pageName() });
+  window.addEventListener("pagehide", () => {
+    if (!sessionHistory?.currentEntry) return;
+    const places = {};
+    for (const [name, save] of keepers) {
+      try { places[name] = save(); } catch { /* that one is not kept */ }
+    }
+    keepAt(sessionHistory.currentEntry, { name: pageName(), places });
+  });
+  // A page restored as it was left (the back-forward cache) would show what
+  // has changed since as it was: drawn again instead.
+  window.addEventListener("pageshow", (e) => { if (e.persisted) location.reload(); });
+
+  const goBack = () => {
+    if (before()) sessionHistory.back();
+  };
+  // Alt+Left, where the page has no use of its own for it (a sheet moves
+  // its bars with it), and the mouse's back button. On the window, so a
+  // page's own handler goes first.
+  window.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowLeft" || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.defaultPrevented) return;
+    if (!before()) return;
+    e.preventDefault();
+    goBack();
+  });
+  window.addEventListener("mouseup", (e) => {
+    if (e.button !== 3 || !before()) return;
+    e.preventDefault();
+    goBack();
+  });
+
+  const back = document.querySelector("[data-back]");
+  if (back) {
+    const to = before();
+    const label = to?.name ? `Back to ${to.name}` : "Back";
+    back.disabled = !to;
+    back.querySelector("[data-back-label]").textContent = label;
+    back.title = to ? `${label} (Alt+←)` : "Nothing to go back to";
+    back.addEventListener("click", goBack);
+  }
+
+  // A page's own "‹" link names where it goes; when that is the page
+  // before, it goes back there, as it was left.
+  const isBefore = (href) => {
+    const to = before();
+    if (!to) return false;
+    const url = new URL(href, location.href);
+    return url.origin === to.url.origin && url.pathname === to.url.pathname && (!url.search || url.search === to.url.search);
+  };
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest?.("a.page-back");
+    if (!link || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    if (!isBefore(link.href)) return;
+    e.preventDefault();
+    goBack();
+  });
+  // So does the server's way out of a page whose thing is gone (a task
+  // deleted on its own page goes back to where it was opened from).
+  document.addEventListener("htmx:beforeOnLoad", (e) => {
+    const to = e.detail.xhr?.getResponseHeader("HX-Redirect");
+    if (!to || !isBefore(to)) return;
+    e.preventDefault();
+    goBack();
   });
 
   /* ---- confirm: hx-confirm on an element with data-confirm-* opens the
