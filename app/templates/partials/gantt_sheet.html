@@ -1,11 +1,13 @@
 {# A project's Gantt sheet (gantt_view.gantt_ctx), drawn again after every
    edit, in weeks or drilled down to days (its scale). A row is its frozen
-   pane (its number, then the box, Task, Start, the length and Due cells),
+   pane (its number, then the box, Task, Priority, Start, the length and Due
+   cells),
    then a cell per column of time, with its bar laid over them. Cells are
    the grid's, in columns counted from the box (data-col); a cell that can
    be written names what it writes (data-edit). A task's number is the
    handle that drags its row to another place or workstream; its Task cell
    ends in a way to its page, then its bin. #}
+{% from "partials/priority.html" import priority_icon %}
 {% macro opener() %}<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11.5 3.5h5v5"/><path d="M16.5 3.5 9.5 10.5"/><path d="M14.5 12v3a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5h3"/></svg>{% endmacro %}
 {% macro bin() %}<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>{% endmacro %}
 {% macro pane(row) -%}
@@ -19,9 +21,14 @@
     <button type="button" class="gantt-status" data-status-menu tabindex="-1" aria-haspopup="menu" aria-expanded="false"
             aria-label="Status of “{{ row.title }}”" title="Status"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button></span>
   <span class="gantt-cell gantt-title" role="rowheader" data-col="1" data-edit="title" tabindex="-1"><span class="gantt-text">{{ row.title }}</span><a class="gantt-open" href="/tasks/{{ row.id }}" data-open-task tabindex="-1" title="Open the task" aria-label="Open “{{ row.title }}”">{{ opener() }}</a><button type="button" class="gantt-delete" data-delete-task tabindex="-1" title="Delete task" aria-label="Delete “{{ row.title }}”">{{ bin() }}</button></span>
-  <span class="gantt-cell gantt-start" role="gridcell" data-col="2" data-edit="start" tabindex="-1"{% if row.start_title %} title="Starts {{ row.start_title }}"{% endif %}>{{ row.start_label }}</span>
-  <span class="gantt-cell gantt-length" role="gridcell" data-col="3" data-edit="length" tabindex="-1">{{ row.length }}</span>
-  <span class="gantt-cell gantt-due" role="gridcell" data-col="4" data-edit="due" tabindex="-1">
+  {# Its priority: typed ("high", "h", "2"), or chosen from its menu (Enter). #}
+  <span class="gantt-cell gantt-priority" role="gridcell" data-col="2" data-edit="priority" tabindex="-1" aria-haspopup="menu"
+        {%- if row.priority %} title="Priority: {{ row.priority_label }}"{% endif %}>
+    {%- if row.priority %}{{ priority_icon(row.priority) }}<span class="gantt-priority-word">{{ row.priority_label }}</span>{% endif -%}
+  </span>
+  <span class="gantt-cell gantt-start" role="gridcell" data-col="3" data-edit="start" tabindex="-1"{% if row.start_title %} title="Starts {{ row.start_title }}"{% endif %}>{{ row.start_label }}</span>
+  <span class="gantt-cell gantt-length" role="gridcell" data-col="4" data-edit="length" tabindex="-1">{{ row.length }}</span>
+  <span class="gantt-cell gantt-due" role="gridcell" data-col="5" data-edit="due" tabindex="-1">
     {%- if row.due_soon %}<span class="gantt-soon">{{ row.due_label }}</span>{% else %}{{ row.due_label }}{% endif -%}
   </span>
   {%- elif row.kind == "workstream" %}
@@ -36,9 +43,10 @@
     </button>
     <span class="gantt-text">{{ row.title }}</span><span class="gantt-count">{{ row.count_label }}</span>
   </span>
-  <span class="gantt-cell gantt-start derived" role="gridcell" data-col="2" tabindex="-1">{{ row.start_label }}</span>
-  <span class="gantt-cell gantt-length derived" role="gridcell" data-col="3" tabindex="-1">{{ row.length }}</span>
-  <span class="gantt-cell gantt-due derived" role="gridcell" data-col="4" tabindex="-1">{{ row.due_label }}</span>
+  <span class="gantt-cell gantt-priority derived" role="gridcell" data-col="2" tabindex="-1"></span>
+  <span class="gantt-cell gantt-start derived" role="gridcell" data-col="3" tabindex="-1">{{ row.start_label }}</span>
+  <span class="gantt-cell gantt-length derived" role="gridcell" data-col="4" tabindex="-1">{{ row.length }}</span>
+  <span class="gantt-cell gantt-due derived" role="gridcell" data-col="5" tabindex="-1">{{ row.due_label }}</span>
   {%- else %}
   <span class="gantt-num" aria-hidden="true">{{ row.number }}</span>
   <span class="gantt-cell gantt-box" role="gridcell" data-col="0" tabindex="-1">
@@ -48,9 +56,10 @@
         data-edit="{{ row.kind }}" data-placeholder="{{ row.placeholder }}" tabindex="-1">
     <span class="gantt-text placeholder">{{ row.placeholder }}</span>
   </span>
-  <span class="gantt-cell gantt-start" role="gridcell" data-col="2" tabindex="-1"></span>
-  <span class="gantt-cell gantt-length" role="gridcell" data-col="3" tabindex="-1"></span>
-  <span class="gantt-cell gantt-due" role="gridcell" data-col="4" tabindex="-1"></span>
+  <span class="gantt-cell gantt-priority" role="gridcell" data-col="2" tabindex="-1"></span>
+  <span class="gantt-cell gantt-start" role="gridcell" data-col="3" tabindex="-1"></span>
+  <span class="gantt-cell gantt-length" role="gridcell" data-col="4" tabindex="-1"></span>
+  <span class="gantt-cell gantt-due" role="gridcell" data-col="5" tabindex="-1"></span>
   {%- endif %}
 </div>
 {%- endmacro %}
@@ -67,6 +76,7 @@
       <span class="gantt-num" aria-hidden="true"></span>
       <span class="gantt-cell gantt-box" role="columnheader" aria-label="Done"></span>
       <span class="gantt-cell gantt-title" role="columnheader">Task<span class="gantt-resize" data-gantt-resize aria-hidden="true" title="Drag to widen"></span></span>
+      <span class="gantt-cell gantt-priority" role="columnheader">Priority</span>
       <span class="gantt-cell gantt-start" role="columnheader">Start</span>
       <span class="gantt-cell gantt-length" role="columnheader"><abbr title="{{ length_head[1] }}">{{ length_head[0] }}</abbr></span>
       <span class="gantt-cell gantt-due" role="columnheader">Due</span>
@@ -85,7 +95,7 @@
     <div class="gantt-row kind-{{ row.kind }}{% if row.done %} is-done{% endif %}{% if row.kind == "task" %} status-{{ row.status }}{% endif %}{% if row.indent %} indent{% endif %}"
          role="row" data-key="{{ row.key }}" data-kind="{{ row.kind }}"
          {% if row.id %}data-id="{{ row.id }}"{% endif %}
-         {% if row.kind == "task" %}data-title="{{ row.title }}" data-status="{{ row.status }}" data-starts-on="{{ row.starts_on }}" data-due="{{ row.due }}"{% endif %}
+         {% if row.kind == "task" %}data-title="{{ row.title }}" data-status="{{ row.status }}" data-priority="{{ row.priority }}" data-starts-on="{{ row.starts_on }}" data-due="{{ row.due }}"{% endif %}
          {% if row.kind == "workstream" %}data-title="{{ row.title }}" data-status="{{ row.status }}"{% endif %}
          {% if row.kind == "add" %}data-workstream="{{ row.workstream_id }}"{% endif %}
          {% if row.describe %}aria-label="{{ row.describe }}"{% endif %}>
@@ -103,7 +113,7 @@
 
   {# Empty numbered rows fill the sheet under the last, as on every ruled sheet. #}
   <div class="gantt-filler" aria-hidden="true">
-    {% for i in range(40) %}<div class="gantt-row"><div class="gantt-pane"><span class="gantt-num">{{ last_row + 1 + i }}</span><span class="gantt-cell gantt-box"></span><span class="gantt-cell gantt-title"></span><span class="gantt-cell gantt-start"></span><span class="gantt-cell gantt-length"></span><span class="gantt-cell gantt-due"></span></div></div>{% endfor %}
+    {% for i in range(40) %}<div class="gantt-row"><div class="gantt-pane"><span class="gantt-num">{{ last_row + 1 + i }}</span><span class="gantt-cell gantt-box"></span><span class="gantt-cell gantt-title"></span><span class="gantt-cell gantt-priority"></span><span class="gantt-cell gantt-start"></span><span class="gantt-cell gantt-length"></span><span class="gantt-cell gantt-due"></span></div></div>{% endfor %}
   </div>
 
   <span class="gantt-now" aria-hidden="true"></span>

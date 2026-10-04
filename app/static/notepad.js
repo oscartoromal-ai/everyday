@@ -102,7 +102,7 @@
   // project and the rest, as the sheet posts them. A task not yet
   // added is for the notes' day.
   const newFields = () => ({
-    planned_for: day, due: "", repeat: "none", estimate: "",
+    planned_for: day, due: "", repeat: "none", estimate: "", priority: "",
     project_id: "", workstream_id: "", status: "todo", owner: "oscar",
   });
   const newTask = () => ({ id: null, saved: null, fields: newFields(), folded: false });
@@ -967,6 +967,7 @@
     if (c.name === "planned_for") return `do ${shown}`;
     if (c.name === "due") return `due ${shown}`;
     if (c.name === "estimate") return `${shown} estimate`;
+    if (c.name === "priority") return `${shown.toLowerCase()} priority`;
     return (button?.title || "").toLowerCase();
   };
   // The toast's Undo: the words back at the title's end, written to the task.
@@ -1055,8 +1056,8 @@
     if (m.id) return null;
     const { title, notes } = contentOf(block);
     if (!title || (m.saved && m.saved.title === title && m.saved.notes === notes)) return null;
-    const { planned_for, time, due, repeat, project_id, workstream_id, estimate } = m.fields;
-    return { title, notes, planned_for, time, due, repeat, project_id, workstream_id, estimate, done: isDone(block) };
+    const { planned_for, time, due, repeat, project_id, workstream_id, estimate, priority } = m.fields;
+    return { title, notes, planned_for, time, due, repeat, project_id, workstream_id, estimate, priority, done: isDone(block) };
   };
 
   // The notes as the page's blocks: the text between reflections and
@@ -1237,8 +1238,10 @@
       else window.toast("Could not save that task. Its words are still in the notes.");
       return;
     }
-    const { planned_for, time, due, repeat, project_id, estimate } = m.fields;
-    const body = new URLSearchParams({ title, notes, planned_for, time, due, repeat, project_id, estimate: estimate || "" });
+    const { planned_for, time, due, repeat, project_id, estimate, priority } = m.fields;
+    const body = new URLSearchParams({
+      title, notes, planned_for, time, due, repeat, project_id, estimate: estimate || "", priority: priority || "",
+    });
     const res = await post("/ui/tasks/quick-add", body, leaving).catch(() => null);
     if (leaving) return;
     const html = res?.ok ? await res.text() : "";
@@ -1523,6 +1526,22 @@
       title.className = "pad-carry-title";
       title.textContent = t.title;
       write.append(title);
+      if (t.fields.priority) {
+        // Its priority's bars, the controls' own icon, its word on hover.
+        const bars = document.getElementById("pad-props-template")?.content.querySelector(".priority-icon");
+        if (bars) {
+          const priority = document.createElement("span");
+          priority.className = "pad-carry-priority";
+          priority.setAttribute("role", "img");
+          const word = t.fields.priority[0].toUpperCase() + t.fields.priority.slice(1);
+          priority.title = `Priority: ${word}`;
+          priority.setAttribute("aria-label", priority.title);
+          const icon = bars.cloneNode(true);
+          icon.setAttribute("data-priority", t.fields.priority);
+          priority.append(icon);
+          title.before(priority);
+        }
+      }
       if (t.due) {
         const due = document.createElement("span");
         due.className = "pad-carry-due";

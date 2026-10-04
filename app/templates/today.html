@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/priority.html" import priority_icon %}
 {% block title %}{% if is_today %}Today{% else %}{{ day.strftime("%a") }} {{ day.day }} {{ day.strftime("%b") }}{% endif %} · Personal Calendar{% endblock %}
 {% block content %}
 {# A day's page: a notepad for the day on the left, the day's timeline on
@@ -50,7 +51,7 @@
        data-sheet="props"), over the task's fields, and Delete. #}
     <template id="pad-props-template">
       <form class="task-sheet pad-props" data-sheet="props" onsubmit="return false">
-        {% for name in ["planned_for", "due", "repeat", "estimate", "project_id", "workstream_id", "status", "owner"] %}
+        {% for name in ["planned_for", "due", "repeat", "estimate", "priority", "project_id", "workstream_id", "status", "owner"] %}
         <input type="hidden" name="{{ name }}" value="">
         {% endfor %}
         <button type="button" class="prop" data-prop="planned_for" aria-haspopup="menu" title="Do date" aria-label="Do date">
@@ -66,6 +67,10 @@
         </button>
         <button type="button" class="prop" data-prop="estimate" aria-haspopup="menu" title="Estimate" aria-label="Estimate">
           <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="11" r="6.25"/><path d="M8 2.5h4"/><path d="M10 2.5v2.25"/><path d="M10 11V8"/><path d="M15 5.5l1.25-1.25"/></svg>
+          <span class="prop-value"></span>
+        </button>
+        <button type="button" class="prop" data-prop="priority" aria-haspopup="menu" title="Priority" aria-label="Priority">
+          {{ priority_icon() }}
           <span class="prop-value"></span>
         </button>
         <button type="button" class="prop" data-prop="project" aria-haspopup="menu" title="Project and workstream">

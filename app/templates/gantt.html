@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "partials/project_flag.html" import project_flag %}
+{% from "partials/priority.html" import priority_icon %}
 {% block title %}{{ project.name }} · Gantt · Personal Calendar{% endblock %}
 {% block content %}
 {# A project as a Gantt chart: a spreadsheet of its workstreams and tasks,
@@ -37,6 +38,8 @@
        data-project="{{ project.id }}">
     {% include "partials/gantt_sheet.html" %}
   </div>
+  {# A priority's icon, for the items of the Priority column's menu (gantt.js). #}
+  <template id="gantt-priority-icon">{{ priority_icon() }}</template>
 </div>
 <script src="{{ asset('gantt.js') }}" defer></script>
 {% endblock %}

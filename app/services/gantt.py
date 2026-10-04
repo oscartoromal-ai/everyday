@@ -289,12 +289,15 @@ def edit_task(db: Session, task: Task, op: dict[str, Any], today: date) -> None:
     title; start, length or due as typed; span, the columns a bar was drawn
     over ([first, last]: Mondays, or days); shift, the bar moved; grow, its
     end moved; move_start, its start moved; clear, its span or its due;
-    status, as its box or its menu gives it; and set, every field as it
+    status, as its box or its menu gives it; priority, as typed or chosen
+    ("high", "h", "2", "p2"; empty for none); and set, every field as it
     was (undo)."""
     unit = op.get("unit", "week")
     step = _step(op)
     if "title" in op:
         tasks_svc.update_task(db, task.id, title=op["title"])
+    if "priority" in op:
+        tasks_svc.update_task(db, task.id, priority=tasks_svc.parse_priority(op["priority"]))
     if "start" in op:
         _start(db, task, op["start"], today)
     if "length" in op:
@@ -336,7 +339,7 @@ def edit_task(db: Session, task: Task, op: dict[str, Any], today: date) -> None:
         was = op["set"]
         tasks_svc.update_task(
             db, task.id, title=was["title"], starts_on=_iso(was["starts_on"]),
-            due=_iso(was["due"]),
+            due=_iso(was["due"]), priority=tasks_svc.parse_priority(was.get("priority", "")),
         )
         tasks_svc.set_status(db, task.id, TaskStatus(was["status"]))
 
@@ -405,7 +408,8 @@ def apply(db: Session, project: Project, ops: list[dict[str, Any]], today: date)
     and workstreams it made, in order. An op is {"op": ...} with:
 
     task (id, and edit_task's keys), workstream (id, and edit_workstream's),
-    create (a task: workstream_id, title, and start, length or due as typed),
+    create (a task: workstream_id, title, and priority, start, length or due
+    as typed),
     delete (id), move (id, step), place (id, workstream_id, before: a task's
     id or none), workstream_create (name), workstream_delete (id: its tasks
     stay, in none)."""
@@ -424,7 +428,11 @@ def apply(db: Session, project: Project, ops: list[dict[str, Any]], today: date)
                 db, title=op.get("title", ""), project_id=project.id,
                 workstream_id=int(workstream_id) if workstream_id else None,
             )
-            cells = {k: op[k] for k in ("start", "length", "due") if (op.get(k) or "").strip()}
+            cells = {
+                k: op[k]
+                for k in ("priority", "start", "length", "due")
+                if (op.get(k) or "").strip()
+            }
             if cells:
                 edit_task(db, task, {**cells, "unit": op.get("unit", "week")}, today)
             made.append(task.id)

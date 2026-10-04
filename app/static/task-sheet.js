@@ -3,9 +3,10 @@
    place of its row (edit).
 
    The title is a line of a document: a plaintext contenteditable that wraps,
-   with the do-date, due and repeat icons trailing its last word.
-   Typing "tomorrow", "friday", "due friday", "every week" or "30m" followed
-   by a space turns the words into the matching field;
+   with the do-date, due, repeat, estimate and priority icons trailing its
+   last word.
+   Typing "tomorrow", "friday", "due friday", "every week", "30m" or "p2"
+   followed by a space turns the words into the matching field;
    Backspace straight after puts them back. Each field is a hidden input the
    form posts; the icons and the small menus they open only read and write
    those inputs.
@@ -130,6 +131,10 @@
   };
   const ESTIMATES = [15, 30, 45, 60, 90, 120, 180, 240];
 
+  // "p1" to "p4", as Todoist writes them: urgent, high, medium, low.
+  const PRIORITIES = ["urgent", "high", "medium", "low"];
+  const PRIORITY_LABELS = { urgent: "Urgent", high: "High", medium: "Medium", low: "Low" };
+
   // Tried in order against the text before the caret; each ends at the typed space.
   const RULES = [
     { name: "due", re: new RegExp(`(?:^|\\s)(due (${DATE_WORDS})) $`, "i"), value: (m) => dateOfWord(m[2]) },
@@ -137,6 +142,7 @@
     { name: "time", re: TIME, value: timeOfWords },
     { name: "repeat", re: /(?:^|\s)(every (day|weekday|week|month)) $/i, value: (m) => REPEATS[m[2].toLowerCase()] },
     { name: "estimate", re: ESTIMATE, value: estimateOfWords },
+    { name: "priority", re: /(?:^|\s)(p([1-4])) $/i, value: (m) => PRIORITIES[Number(m[2]) - 1] },
   ];
 
   // The last conversion, so Backspace right after it can take it back.
@@ -269,6 +275,13 @@
         set = value !== "";
         text = set ? durationLabel(value) : "";
         spoken = set ? `Estimate: ${text}` : "Estimate";
+      } else if (name === "priority") {
+        // Its bars, as many filled as it matters (app.css, .priority-icon).
+        const value = valueOf(form, "priority");
+        set = value !== "";
+        text = set ? PRIORITY_LABELS[value] : "";
+        spoken = set ? `Priority: ${text}` : "Priority";
+        button.querySelector(".priority-icon")?.setAttribute("data-priority", value);
       } else if (name === "repeat") {
         const value = valueOf(form, "repeat") || "none";
         set = value !== "none";
@@ -384,7 +397,8 @@
 
   // Items are buttons, except one that holds the date picker's input (a
   // button may not contain an input); the menu's keys press either.
-  const item = (label, { checked = false, aside = "", indent = false, flag = false, color = 0, pick, tag = "button", role = "menuitemradio" } = {}) => {
+  // `icon`: an element before the label (a priority's bars).
+  const item = (label, { checked = false, aside = "", indent = false, flag = false, color = 0, icon = null, pick, tag = "button", role = "menuitemradio" } = {}) => {
     const el = document.createElement(tag);
     if (tag === "button") el.type = "button";
     el.setAttribute("role", role);
@@ -392,6 +406,7 @@
     el.tabIndex = -1;
     if (indent) el.classList.add("indent");
     el.innerHTML = `${flag ? FLAG : ""}<span class="label"></span>${aside ? '<span class="aside"></span>' : ""}${checked ? CHECK : ""}`;
+    if (icon) el.prepend(icon);
     if (color) el.style.setProperty("--project", `var(--hue-${color})`);
     el.querySelector(".label").textContent = label;
     if (aside) el.querySelector(".aside").textContent = aside;
@@ -462,6 +477,22 @@
         items.unshift(item(durationLabel(current), { checked: true, pick: () => {} }));
       }
       if (current) items.push(item("No estimate", { pick: () => setField(form, "estimate", "") }));
+      return items;
+    }
+    if (name === "priority") {
+      // Most first, each after its bars (the field's own icon, redrawn).
+      const current = valueOf(form, "priority");
+      const bars = form.querySelector('.prop[data-prop="priority"] .priority-icon');
+      const iconOf = (value) => {
+        const icon = bars.cloneNode(true);
+        icon.setAttribute("data-priority", value);
+        return icon;
+      };
+      const items = PRIORITIES.map((value) => item(PRIORITY_LABELS[value], {
+        checked: current === value, icon: iconOf(value), aside: `P${PRIORITIES.indexOf(value) + 1}`,
+        pick: () => setField(form, "priority", value),
+      }));
+      items.push(item("No priority", { checked: current === "", icon: iconOf(""), pick: () => setField(form, "priority", "") }));
       return items;
     }
     if (name === "days") {
@@ -1087,7 +1118,7 @@
   // Projects' list re-renders from the server whenever the plan changes,
   // composers included. Carry a half-written task, its fields
   // and focus over to the fresh composer with the same key.
-  const FIELDS = ["planned_for", "due", "repeat", "project_id"];
+  const FIELDS = ["planned_for", "due", "repeat", "estimate", "priority", "project_id"];
   const carried = new WeakMap(); // request -> drafts
   document.addEventListener("htmx:beforeSwap", (e) => {
     const drafts = [...e.detail.target.querySelectorAll(".task-sheet[data-composer]")]

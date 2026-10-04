@@ -449,6 +449,23 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .task-meta .planned { color: var(--graphite); }
 /* how long it is thought to take */
 .estimate { color: var(--graphite); font-variant-numeric: tabular-nums; }
+/* a task's priority (partials/priority.html): three bars rising, as many
+   filled in ink as it matters, the rest in mist; urgent an err square with
+   "!". With none, the bars are one quiet colour: the field's own icon. */
+.priority-icon { flex: none; width: 14px; height: 14px; --p-on: var(--graphite); --p-off: var(--mist); --p-none: var(--steel); }
+.priority-icon .p-bar { fill: var(--p-none); stroke: none; transition: fill var(--dur) var(--ease); }
+.priority-icon:is([data-priority="low"], [data-priority="medium"], [data-priority="high"]) .p-bar { fill: var(--p-off); }
+.priority-icon[data-priority="low"] .p-1,
+.priority-icon[data-priority="medium"] :is(.p-1, .p-2),
+.priority-icon[data-priority="high"] .p-bar { fill: var(--p-on); }
+.priority-icon .p-urgent { display: none; }
+.priority-icon[data-priority="urgent"] .p-bar { display: none; }
+.priority-icon[data-priority="urgent"] .p-urgent { display: inline; }
+.priority-icon .p-urgent rect { fill: var(--err-fg); stroke: none; }
+.priority-icon .p-urgent path { fill: none; stroke: var(--paper); stroke-width: 2; stroke-linecap: round; }
+.prop:hover .priority-icon, .prop[aria-expanded="true"] .priority-icon { --p-on: var(--ink); --p-none: var(--ink); }
+.task-meta .priority { display: inline-flex; align-items: center; gap: 3px; color: var(--graphite); }
+.sheet-menu .priority-icon { --p-on: var(--ink); }
 /* a task's project: its flag, filled in the project's colour (the name on hover) */
 .project-flag { display: inline-grid; place-content: center; width: 16px; height: 16px; }
 .project-flag svg, .prop.in-project svg, .sheet-menu .flag {
@@ -1768,6 +1785,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); cursor: pointer;
 }
 .pad-carry-title { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pad-carry-priority { flex: none; align-self: center; display: inline-grid; place-content: center; margin-right: -2px; }
 .pad-carry-due { flex: none; font-size: var(--t-caption); font-weight: 500; color: var(--warn-fg); }
 .pad-carry-write:hover { background: var(--fog); }
 .pad-carry-all {
@@ -2239,10 +2257,11 @@ li.repo-row:hover { background: var(--glass-row-hover); }
   --gantt-num: var(--pad-rows);
   --gantt-box: 44px;
   --gantt-title: 280px;
+  --gantt-priority: 96px;
   --gantt-start: 64px;
   --gantt-length: 48px;
   --gantt-due: 108px;
-  --gantt-pane: calc(var(--gantt-num) + var(--gantt-box) + var(--gantt-title) + var(--gantt-start) + var(--gantt-length) + var(--gantt-due));
+  --gantt-pane: calc(var(--gantt-num) + var(--gantt-box) + var(--gantt-title) + var(--gantt-priority) + var(--gantt-start) + var(--gantt-length) + var(--gantt-due));
   --gantt-head: 48px;
   --gantt-pane-bg: var(--paper);
   --bracket-rule: var(--graphite);
@@ -2306,6 +2325,7 @@ li.repo-row:hover { background: var(--glass-row-hover); }
 .gantt-cell:focus, .gantt-cell:focus-visible { outline: none; box-shadow: inset -1px 0 0 var(--hairline); border-radius: 0; }
 /* the box sits at the same place on every row; a task's status chevron hugs it */
 .gantt-box { width: var(--gantt-box); justify-content: flex-start; padding: 0 0 0 8px; }.gantt-title { width: var(--gantt-title); padding-left: var(--s-3); color: var(--ink); font-weight: 500; }
+.gantt-priority { width: var(--gantt-priority); gap: 6px; }
 .gantt-start { width: var(--gantt-start); }
 .gantt-length { width: var(--gantt-length); justify-content: flex-end; }
 .gantt-due { width: var(--gantt-due); box-shadow: none; }
@@ -2548,7 +2568,7 @@ li.repo-row:hover { background: var(--glass-row-hover); }
     --gantt-pane: calc(var(--gantt-num) + var(--gantt-box) + min(var(--gantt-title), 150px));
   }
   .gantt-sheet .gantt-title { width: min(var(--gantt-title), 150px); }
-  .gantt-sheet :is(.gantt-start, .gantt-length, .gantt-due) { display: none; }
+  .gantt-sheet :is(.gantt-priority, .gantt-start, .gantt-length, .gantt-due) { display: none; }
   .gantt-this-week { display: none; }
 }
 
@@ -2673,6 +2693,9 @@ tr.is-folded .ds-plan-list li:first-child .ds-title { min-width: 0; overflow: hi
   content: ""; width: 8px; height: 8px; background: var(--paper);
   clip-path: polygon(14% 52%, 5% 65%, 38% 95%, 97% 18%, 85% 8%, 37% 71%);
 }
+/* its priority's bars, before its title (the word on hover); a slot kept
+   empty without one, so the titles start in one column */
+.ds-priority { flex: none; align-self: center; display: inline-grid; place-content: center; width: 14px; height: 18px; }
 .ds-due {
   flex: none; padding: 0 var(--s-2); font-size: var(--t-caption); font-weight: 500; line-height: 18px;
   color: var(--warn-fg); background: var(--badge-warn-glass);

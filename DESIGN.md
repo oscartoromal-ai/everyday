@@ -116,13 +116,16 @@ Each opening hears only its own answer: a dialog's close arrives a moment after 
 
 **Task sheet.** Adding a task and editing one are the same sheet, written like a document rather than filled in like a form.
 It is written on the line (see Inputs), shaped like the row it becomes: the row's box (or, to add, a plus in steel, ink once writing), then the title in 14px/500 ink, which wraps as a line of text.
-The do-date, due, repeat and estimate fields trail the title's last word as small icons in `--steel`, 14px, with the value beside the icon in 12px graphite once set ("tomorrow", "Fri 2 Oct", "1h 30m"); repeat stays an icon, its rule in the tooltip.
+The do-date, due, repeat, estimate and priority fields trail the title's last word as small icons in `--steel`, 14px, with the value beside the icon in 12px graphite once set ("tomorrow", "Fri 2 Oct", "1h 30m", "High"); repeat stays an icon, its rule in the tooltip.
 The estimate's icon is a stopwatch; its menu offers 15m to 4h, the current length ticked, and No estimate.
 A task's estimate shows on its row's meta line in 12px graphite figures.
+The priority's icon is three rising bars (`partials/priority.html`, drawn by `.priority-icon` from its `data-priority`): low fills the first in graphite, medium two, high all three, the rest in mist; urgent is a 14px `--err-fg` square with a paper "!", the only colour, and the bars all steel mean none.
+Its menu lists Urgent, High, Medium and Low, each after its icon with its P1 to P4 in pewter, then No priority.
+A task's priority shows on its row's meta line, first, as its icon and its word in 12px graphite ("Urgent"), the word on hover too.
 The gaps before and between them are the line's own spaces, widened, so when they wrap they start flush with the title's text.
 Each is a 24px target that opens a small menu on paper with the dropdown shadow: Today, Tomorrow, Next week, Pick a date (the native picker) and No date; or the repeat presets.
 The current choice is 600 with a tick, and choosing hands the caret back to where it was.
-Writing sets them too: "today", "tomorrow", a weekday's name or "next week" followed by a space becomes the do-date, "due friday" the due date, "every day", "every weekday", "every week" or "every month" the repeat, and "45m", "1h", "1.5h", "1h30" or "2 hours" the estimate (a bare number stays a word).
+Writing sets them too: "today", "tomorrow", a weekday's name or "next week" followed by a space becomes the do-date, "due friday" the due date, "every day", "every weekday", "every week" or "every month" the repeat, "45m", "1h", "1.5h", "1h30" or "2 hours" the estimate (a bare number stays a word), and "p1" to "p4" the priority, urgent to low.
 A task has no time of its own, so "at 3pm" stays words; in an event's title (the calendar's composer) "at 3", "3pm", "15:30" or "9-10:30am" is its time, an hour when no end is given.
 The words leave the title as they convert, and Backspace straight after puts them back as words, which then stay words.
 The description follows under the title, aligned with its text.
@@ -162,7 +165,7 @@ Every task is bracketed by a 2px graphite rule above its title and below its las
 A task's "- [ ] " rows are its sub-tasks, each with the task box inline before its words; a ticked sub-task, and a ticked task (title and every row), is crossed out in pewter, its box, "Task" and icons not struck.
 A task (or reflection, habit, stay) right under another shares that one's rule, one line between them: it draws none above itself, and the shared rule takes its colour while the caret is in it.
 A task with rows under its title has a 12px pewter chevron after "Task" (ink on hover; pointing down when open, right when folded): folded, the task shows its title alone, its hidden rows counted in a pewter caption tag after it ("2 rows") and its row numbers skipping them, and it stays folded with the notes.
-At the right of a task's title come its controls, 12px or more after its last word: the task sheet's icons (do date, due, repeat, estimate, project), each a pewter icon with its value beside it once set, in graphite, and last the rows' trash bin (steel, red on hover).
+At the right of a task's title come its controls, 12px or more after its last word: the task sheet's icons (do date, due, repeat, estimate, priority, project), each a pewter icon with its value beside it once set, in graphite, and last the rows' trash bin (steel, red on hover).
 They stand on the title's last line when they fit there, and when not, on a line of their own under it, still at the right: the row grows by a line, and no row is added to the notes.
 On a line too narrow for them all (a phone) they wrap whole onto a further line, never breaking a value's word.
 A reflection is drawn as a task's rows are, without a box or controls: "Reflection" in 12px `--signal-deep` in its first row's indent, its words in the body grey, and its rules light blue (`--signal` 45% into the paper; the signal itself while the caret is in it).
@@ -171,7 +174,7 @@ A stay is drawn as a reflection is, in amber (`--hue-3`: 45% into the paper for 
 A task in a project has its rules in the project's colour, 55% into the paper (the colour itself while the caret is in it; the rule it shares with the task above takes the upper task's colour, and the lower's while the caret is in the lower), and its project control is the flag alone, filled in that colour.
 Light blue for reflection, green for habits, amber for stays and the projects' colours are the only colours in the notes that are not ink or grey.
 Under the date, a day with a stay lists it item by item on one wrapping line: a 10px box (ink once sorted, amber-ruled until), the name in pewter caption, the value in 14px ink (amber while unsorted, "not sorted" when it has none); each is a button to its row.
-Under the card, the day's tasks not yet written: "For today" in pewter caption and Bring all (12px pewter, underlined in mist) on a line, then each task's title (14px ink at 500, cut with an ellipsis at 40ch) inside a 1px graphite rule, its due after it in 12px `--warn-fg` ("due today"); none left, the list is gone.
+Under the card, the day's tasks not yet written: "For today" in pewter caption and Bring all (12px pewter, underlined in mist) on a line, then each task's title (14px ink at 500, cut with an ellipsis at 40ch, after its priority's icon when it has one, the word on hover) inside a 1px graphite rule, its due after it in 12px `--warn-fg` ("due today"); none left, the list is gone.
 Then "Habits not yet written" in pewter caption and each habit due that day not written yet: its name (14px ink at 500) and its days' icon, on the see-through paper inside a 1px green rule; none due, the line is gone.
 What is offered while writing (after "/" at a row's start, and after "/habit ") is drawn as the icons' menus are: the paper, a hairline, the dropdown shadow, 32px rows, the matched letters in 600 and a pewter caption beside a command.
 No border, no focus ring and no resize handle; the pewter placeholder "Anything on your mind today."
@@ -301,7 +304,7 @@ A ghost bars icon, before the pencil, opens the project as a Gantt chart.
 
 **Gantt** (a project's page, `/projects/<id>`, as wide as Calendar).
 A page header (a pewter "‹ Projects", the project's flag and name at 24px, the task counts and the plan's span, the key line) with, at its right, the Weeks / Days segmented control and a quiet This week (or Today) button, then one sheet, ruled as Projects' is (36px rows, 28px compact, the row numbers on the fog), that runs to the window's foot and scrolls both ways inside itself.
-Its header row (48px) and its frozen pane stay put while it scrolls, as a spreadsheet's do: the numbers, a 32px box column, Task (280px, widened by dragging its header's edge, remembered as `pc-gantt-title`), Start, the length (Wks or Days) and Due, on opaque paper edged by a mist line, while the time is the sheet's see-through paper.
+Its header row (48px) and its frozen pane stay put while it scrolls, as a spreadsheet's do: the numbers, a 32px box column, Task (280px, widened by dragging its header's edge, remembered as `pc-gantt-title`), Priority (96px: the priority's icon and its word in graphite), Start, the length (Wks or Days) and Due, on opaque paper edged by a mist line, while the time is the sheet's see-through paper.
 Its time is a 52px column a week, or drilled down, a 36px column a day (Start then 112px, for its date).
 Column names are 12px/500 graphite; a week's head is its ISO week in 12px/600 ink over its Monday's day in pewter (graphite, with the month, where the month turns); a day's is its initial in pewter and its date in ink (pewter at weekends), under its week's name and Monday ("W41 · 5 Oct") running across the week from its Monday; now's head is `--spark-deep`, glowing at night.
 Cells carry hairline rules both ways, as a spreadsheet's; the time's columns are ruled by the table's background, so the empty numbered rows under the last are too, now's column (this week, or today) is tinted `--ink-tint-faint`, and in days so are weekends, each week's Monday ruled in mist.
@@ -316,7 +319,7 @@ A range is `--spark-tint`; a bar being drawn is that tint edged top and bottom i
 A cell being written takes its words on its own line (500 ink, on the paper), the ring kept; a title or a name wraps, its row growing with the words (its number, box and dates centred in it), scrolled into sight as it grows.
 A task's Task cell ends in a 14px steel trash bin, hidden until its row is hovered (always shown on touch) and err-tinted on hover, as Calendar's sheet's; it opens the same "Delete task?" dialog.
 A task's row number is its grip (a steel six-dot mark beside it on hover): dragged, the row fades to 40%, a 2px spark line (glowing at night) marks where it would land, and the group it would land in takes `--spark-deep` rules.
-On phones the Task column narrows to 150px and Start, Wks and Due fold away; the bars are still drawn and dragged.
+On phones the Task column narrows to 150px and Priority, Start, Wks and Due fold away; the bars are still drawn and dragged.
 
 **Calendar's sheet** (`partials/day_sheet.html`, Calendar's fourth view).
 Under the calendar's header, a key line in place of New event, then one table that scrolls both ways inside itself to the window's foot (as the grid does), on the sheets' see-through paper under a mist line.
@@ -325,7 +328,7 @@ The columns: a stay item's 176px (accommodation's, a checkbox, 120px), Plan the 
 Rows are 36px (28px compact) and grow with their plan; cells carry hairline rules both ways, each week's Monday is ruled in mist, and weekends are tinted `--ink-tint-faint`.
 A stay's cell is its value in ink; accommodation's is a centred 14px box, steel on a day with no stay, edged amber while its stay has it unsorted (as under Today's date), and ink with a paper tick once sorted.
 A day that folds has a 12px steel chevron before its date (ink on hover, turned right while folded; the Day header's folds them all); folded, its plan is its first line, cut short with an ellipsis, then "+N" in 12px/500 pewter.
-Plan lists the day's tasks, each a 14px box in steel (edged in `--hue-6` with a 6px `--hue-6` square inside while in progress; `--ok-fg` once done, its title pewter and struck through), a 10px steel chevron hugging it (ink on fog when hovered or open) whose menu is the sheet menu's, and its title in ink, a link to its page underlined on hover, a warn "due" badge after a deadline still open, and then the day's own events, the time in 12px pewter figures before the title in graphite.
+Plan lists the day's tasks, each a 14px box in steel (edged in `--hue-6` with a 6px `--hue-6` square inside while in progress; `--ok-fg` once done, its title pewter and struck through), a 10px steel chevron hugging it (ink on fog when hovered or open) whose menu is the sheet menu's, its priority's icon (a 14px slot kept empty without one, so the titles line up; the word on hover), and its title in ink, a link to its page underlined on hover, a warn "due" badge after a deadline still open, and then the day's own events, the time in 12px pewter figures before the title in graphite.
 A task's line ends in a 14px steel trash bin at the cell's right, hidden until the line is hovered (always shown on touch) and err-tinted on hover, as Projects' rows'; it opens the same "Delete task?" dialog.
 A habit done fills its cell with `--hue-4` at 30%, the habits' green, with a 16px tick in it; skipped is a 10px steel box, missed a 10px steel dash, and the cell's tooltip says which, with the day's note.
 A habit's cells being painted fill (or empty) as the drag passes, before the sheet is drawn again.

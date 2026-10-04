@@ -1,4 +1,5 @@
 {% from "partials/project_flag.html" import project_flag %}
+{% from "partials/priority.html" import priority_tag %}
 <li class="task-row{% if row.done %} done{% endif %}{% if row.project %} in-project{% endif %}" id="task-{{ row.task.id }}"
     {%- if row.project %} style="--project: var(--hue-{{ row.project.color }})"{% endif %}
     data-task-id="{{ row.task.id }}" data-task-title="{{ row.task.title }}" tabindex="-1">
@@ -12,7 +13,7 @@
             hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML">
       <span class="task-title">{{ row.task.title }}</span>
     </button>
-    {% if row.description or row.chip or row.project or row.due_label or row.planned_label or row.estimate_label %}
+    {% if row.description or row.chip or row.priority or row.project or row.due_label or row.planned_label or row.estimate_label %}
     <div class="task-meta">
       {% if row.description %}
       <button type="button" class="notes-toggle"
@@ -25,6 +26,7 @@
       {% if row.chip %}
       <span class="chip {{ row.chip_class }}">{% if row.chip_class == "running" %}<span class="dot"></span>{% endif %}{{ row.chip }}</span>
       {% endif %}
+      {% if row.priority %}{{ priority_tag(row.priority, row.priority_label) }}{% endif %}
       {% if row.planned_label %}<span class="planned">{{ row.planned_label }}</span>{% endif %}
       {% if row.estimate_label %}<span class="estimate" title="Estimate">{{ row.estimate_label }}</span>{% endif %}
       {% if row.project %}{{ project_flag(row.project) }}{% endif %}

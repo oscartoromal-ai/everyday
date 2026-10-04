@@ -4,20 +4,21 @@
     target (the list a new row joins), planned_for, project_id, placeholder.
   - edit: the task in place of its row, from sheet_ctx() (views.py).
   - page: the task on its own page (task.html), from task_page_ctx().
-  The title wraps like a line of a document and the do-date, due and
-  repeat icons trail its last word. The description follows. In edit mode the sheet
+  The title wraps like a line of a document and the do-date, due, repeat,
+  estimate and priority icons trail its last word. The description follows. In edit mode the sheet
   ends with Project › Workstream, owner (and status once it is Claude's), and
   delete; it saves when focus leaves it. On a page the title is the page's
   heading with every icon on one line under it, then the description at
   length; it saves as it is written, and its bin goes back to `back`.
   It is written on the line, as a row is (app.css, "inputs").
 #}
+{% from "partials/priority.html" import priority_icon %}
 {% set page = mode == "page" %}
 {% set editing = mode in ("edit", "page") %}
 {% set s = sheet if editing else {
   "title": "", "notes": "", "status": "todo", "owner": "oscar", "repeat": "none",
   "planned_for": planned_for.isoformat() if planned_for else "", "due": "",
-  "estimate": "", "estimate_label": "",
+  "estimate": "", "estimate_label": "", "priority": "", "priority_label": "",
   "project_id": project_id or "", "workstream_id": "",
   "planned_label": planned_for | short_date if planned_for else "", "due_label": "",
 } %}
@@ -42,6 +43,11 @@
                 title="Estimate" aria-label="Estimate{{ ': ' ~ s.estimate_label if s.estimate_label }}">
           <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="11" r="6.25"/><path d="M8 2.5h4"/><path d="M10 2.5v2.25"/><path d="M10 11V8"/><path d="M15 5.5l1.25-1.25"/></svg>
           <span class="prop-value">{{ s.estimate_label }}</span>
+        </button>
+        <button type="button" class="prop" data-prop="priority" aria-haspopup="menu"
+                title="Priority" aria-label="Priority{{ ': ' ~ s.priority_label if s.priority_label }}">
+          {{ priority_icon(s.priority) }}
+          <span class="prop-value">{{ s.priority_label }}</span>
         </button>
 {%- endmacro %}
 
@@ -92,7 +98,7 @@
       hx-post="/ui/tasks/quick-add" hx-target="#{{ target }}" hx-swap="beforeend"
   {%- endif %}>
   <input type="hidden" name="title" value="{{ s.title }}">
-  {% for name in ["planned_for", "due", "repeat", "estimate", "project_id", "owner", "status"] %}
+  {% for name in ["planned_for", "due", "repeat", "estimate", "priority", "project_id", "owner", "status"] %}
   <input type="hidden" name="{{ name }}" value="{{ s[name] }}" data-default="{{ s[name] }}">
   {% endfor %}
   {% if editing %}

@@ -10,6 +10,7 @@ from app.models import (
     EventSource,
     ProjectStatus,
     TaskOwner,
+    TaskPriority,
     TaskStatus,
     WorkstreamStatus,
 )
@@ -67,6 +68,7 @@ class TaskIn(BaseModel):
     due: date | None = None
     starts_on: date | None = None
     estimate_minutes: int | None = None
+    priority: TaskPriority | None = None
 
 
 class TaskPatch(BaseModel):
@@ -82,6 +84,7 @@ class TaskPatch(BaseModel):
     due: date | None = None
     starts_on: date | None = None
     estimate_minutes: int | None = None
+    priority: TaskPriority | None = None
 
 
 class TaskOut(BaseModel):
@@ -98,6 +101,7 @@ class TaskOut(BaseModel):
     due: date | None
     starts_on: date | None = None
     estimate_minutes: int | None = None
+    priority: TaskPriority | None = None
 
 
 class EventIn(BaseModel):

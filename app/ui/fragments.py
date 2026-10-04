@@ -9,7 +9,14 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.db import DbSession
-from app.models import ProjectStatus, RecurrenceKind, TaskOwner, TaskStatus, WorkstreamStatus
+from app.models import (
+    ProjectStatus,
+    RecurrenceKind,
+    TaskOwner,
+    TaskPriority,
+    TaskStatus,
+    WorkstreamStatus,
+)
 from app.services import DomainError
 from app.services import events as events_svc
 from app.services import health as health_svc
@@ -40,6 +47,11 @@ def _estimate(value: str) -> int | None:
         raise DomainError(f"Not an estimate: {value}") from exc
 
 
+def _priority(value: str) -> TaskPriority | None:
+    """The sheet's priority field: its value, or empty for none."""
+    return tasks_svc.parse_priority(value)
+
+
 def _row_response(
     request: Request,
     db,  # noqa: ANN001
@@ -64,6 +76,7 @@ def _add_task(
     workstream_id: str = "",
     done: bool = False,
     estimate: str = "",
+    priority: str = "",
 ):
     """A new task as written (quick-add, the task sheet, the notepad's rows),
     its repeat set."""
@@ -77,6 +90,7 @@ def _add_task(
         workstream_id=int(workstream_id) if workstream_id else None,
         status=TaskStatus.done if done else TaskStatus.todo,
         estimate_minutes=_estimate(estimate),
+        priority=_priority(priority),
     )
     _apply_task_repeat(db, task, repeat)
     return task
@@ -94,13 +108,14 @@ def quick_add(
     project_id: Annotated[str, Form()] = "",
     list_day: Annotated[str, Form()] = "",
     estimate: Annotated[str, Form()] = "",
+    priority: Annotated[str, Form()] = "",
 ):
     title = title.strip()
     if not title:
         return HTMLResponse("")
     task = _add_task(
         db, title=title, notes=notes, planned_for=planned_for, due=due, repeat=repeat,
-        project_id=project_id, estimate=estimate,
+        project_id=project_id, estimate=estimate, priority=priority,
     )
     db.commit()
     if list_day and task.planned_for != date.fromisoformat(list_day):
@@ -180,6 +195,7 @@ def _save_task(
     due: str,
     repeat: str,
     estimate: str,
+    priority: str,
 ) -> None:
     """A task as its sheet (or its page) holds it."""
     task = tasks_svc.update_task(
@@ -194,6 +210,7 @@ def _save_task(
         planned_for=date.fromisoformat(planned_for) if planned_for else None,
         due=date.fromisoformat(due) if due else None,
         estimate_minutes=_estimate(estimate),
+        priority=_priority(priority),
     )
     _apply_task_repeat(db, task, repeat)
     db.commit()
@@ -214,11 +231,12 @@ def save_task(
     due: Annotated[str, Form()] = "",
     repeat: Annotated[str, Form()] = "none",
     estimate: Annotated[str, Form()] = "",
+    priority: Annotated[str, Form()] = "",
 ):
     _save_task(
         db, task_id, title=title, status=status, owner=owner, notes=notes,
         project_id=project_id, workstream_id=workstream_id, planned_for=planned_for,
-        due=due, repeat=repeat, estimate=estimate,
+        due=due, repeat=repeat, estimate=estimate, priority=priority,
     )
     response = _row_response(request, db, task_id)
     # Its day or estimate may have changed: lists grouped or filtered by day,
@@ -274,13 +292,14 @@ def save_task_page(
     due: Annotated[str, Form()] = "",
     repeat: Annotated[str, Form()] = "none",
     estimate: Annotated[str, Form()] = "",
+    priority: Annotated[str, Form()] = "",
 ) -> None:
     """A task's page, saved as it is written (task-sheet.js): nothing to draw
     again, the page already shows what it holds."""
     _save_task(
         db, task_id, title=title, status=status, owner=owner, notes=notes,
         project_id=project_id, workstream_id=workstream_id, planned_for=planned_for,
-        due=due, repeat=repeat, estimate=estimate,
+        due=due, repeat=repeat, estimate=estimate, priority=priority,
     )
 
 
@@ -573,7 +592,9 @@ async def save_notebook(request: Request, db: DbSession, day: date):
     return JSONResponse({"version": page.version})
 
 
-NEW_ROW_FIELDS = ("planned_for", "due", "repeat", "project_id", "workstream_id", "estimate")
+NEW_ROW_FIELDS = (
+    "planned_for", "due", "repeat", "project_id", "workstream_id", "estimate", "priority",
+)
 
 
 def _add_new_rows(db, block):  # noqa: ANN001, ANN202
@@ -597,7 +618,7 @@ def _add_new_rows(db, block):  # noqa: ANN001, ANN202
             planned_for=fields["planned_for"], due=fields["due"],
             repeat=fields["repeat"] or "none", project_id=fields["project_id"],
             workstream_id=fields["workstream_id"], done=written.get("done") is True,
-            estimate=fields["estimate"],
+            estimate=fields["estimate"], priority=fields["priority"],
         )
         links[str(row)] = task.id
     if links:

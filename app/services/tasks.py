@@ -13,6 +13,7 @@ from app.dates import monday
 from app.models import (
     Task,
     TaskOwner,
+    TaskPriority,
     TaskStatus,
     Workstream,
 )
@@ -50,6 +51,7 @@ def create_task(
     starts_on: date | None = None,
     written_on: date | None = None,
     estimate_minutes: int | None = None,
+    priority: TaskPriority | None = None,
 ) -> Task:
     if not title.strip():
         raise DomainError("Task title must not be empty")
@@ -67,6 +69,7 @@ def create_task(
         starts_on=starts_on,
         written_on=written_on,
         estimate_minutes=estimate_minutes,
+        priority=priority,
     )
     _keep_span(task, {"starts_on"} if starts_on else set())
     db.add(task)
@@ -81,6 +84,33 @@ MAX_ESTIMATE_MINUTES = 24 * 60
 def _validate_estimate(minutes: int | None) -> None:
     if minutes is not None and not 0 < minutes <= MAX_ESTIMATE_MINUTES:
         raise DomainError("A task's estimate must be between a minute and a day")
+
+
+# A priority's place, most first; a task with none comes after every one.
+PRIORITY_RANK = {p: i for i, p in enumerate(TaskPriority)}
+# A priority as written: its word, its first letter, its number (1 most) or
+# "p" and its number, as Todoist writes them.
+PRIORITY_WORDS = {
+    word: priority
+    for i, priority in enumerate(TaskPriority, start=1)
+    for word in (priority.value, priority.value[0], str(i), f"p{i}")
+} | {"med": TaskPriority.medium}
+NO_PRIORITY_WORDS = ("", "none", "no", "no priority", "0", "-")
+
+
+def priority_rank(task: Task) -> int:
+    """Where a task's priority sorts it: urgent first, no priority last."""
+    return PRIORITY_RANK.get(task.priority, len(PRIORITY_RANK))
+
+
+def parse_priority(text: str) -> TaskPriority | None:
+    """A priority as written ("urgent", "h", "2", "p3"), or None for none."""
+    word = " ".join(text.lower().split())
+    if word in NO_PRIORITY_WORDS:
+        return None
+    if word not in PRIORITY_WORDS:
+        raise DomainError(f"Not a priority: {text.strip()}. Try urgent, high, medium or low")
+    return PRIORITY_WORDS[word]
 
 
 # A span with no end given runs to the Friday of its week.
@@ -210,7 +240,8 @@ def planning_list(db: Session, today: date) -> list[Task]:
 def for_day(db: Session, day: date, today: date) -> list[Task]:
     """Oscar's open tasks for a day's page: those planned for it or due on
     it, and on today's also those whose do-date or due has passed; deadlines
-    first, then by do-date. A past day has none: its work was its own."""
+    first, then by do-date, then by priority. A past day has none: its work
+    was its own."""
     if day < today:
         return []
 
@@ -221,7 +252,7 @@ def for_day(db: Session, day: date, today: date) -> list[Task]:
 
     return sorted(
         (t for t in planning_list(db, day) if on(t)),
-        key=lambda t: (t.due or date.max, t.planned_for or date.max, t.id),
+        key=lambda t: (t.due or date.max, t.planned_for or date.max, priority_rank(t), t.id),
     )
 
 
