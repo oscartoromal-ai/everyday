@@ -2349,8 +2349,9 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
 
 /* the plan: a task's bar is solid ink, from its
    start's day to its due's, filling most of its row, grips at its ends;
-   done, it is the system's ok green. A task due with no start is a tick on
-   its due. A workstream's lane is a summary of its tasks' bars, graphite,
+   past to do, it takes its status's colour, as its box does: in progress
+   blue, in review amber, blocked red, done the system's ok green. A task
+   due with no start is a tick on its due, coloured the same. A workstream's lane is a summary of its tasks' bars, graphite,
    its ends ticked; done, green too. */
 .gantt-bar {
   position: absolute; top: 50%; z-index: 1; height: 20px; margin-top: -10px;
@@ -2358,7 +2359,16 @@ a.garmin-trend-day:hover { color: var(--ink); text-decoration: underline; text-u
   background: var(--solid); box-shadow: inset 0 0 0 1.5px var(--solid-edge), var(--solid-glow);
   cursor: grab;
 }
-.gantt-row.is-done .gantt-bar { background: color-mix(in srgb, var(--ok-fg) 30%, var(--ok-bg)); box-shadow: inset 0 0 0 1.5px var(--ok-fg); }
+/* --bar is the status's colour, --bar-bg the tint it is mixed into */
+.gantt-row.status-in_progress { --bar: var(--hue-6); --bar-bg: var(--paper); }
+.gantt-row.status-needs_review { --bar: var(--warn-fg); --bar-bg: var(--warn-bg); }
+.gantt-row.status-blocked { --bar: var(--err-fg); --bar-bg: var(--err-bg); }
+.gantt-row.is-done { --bar: var(--ok-fg); --bar-bg: var(--ok-bg); }
+.gantt-row:is(.status-in_progress, .status-needs_review, .status-blocked, .is-done) .gantt-bar {
+  background: color-mix(in srgb, var(--bar) 30%, var(--bar-bg)); box-shadow: inset 0 0 0 1.5px var(--bar);
+}
+.gantt-row:is(.status-in_progress, .status-needs_review, .status-blocked, .is-done) .gantt-tick,
+.gantt-row:is(.status-in_progress, .status-needs_review, .status-blocked, .is-done) .gantt-tick::before { background: var(--bar); }
 .gantt-grip { position: absolute; top: -4px; bottom: -4px; width: 8px; cursor: ew-resize; }
 .gantt-grip[data-grip="start"] { left: -4px; }
 .gantt-grip[data-grip="end"] { right: -4px; }
