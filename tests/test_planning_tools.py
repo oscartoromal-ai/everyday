@@ -14,28 +14,33 @@ def _row(page: str, task_id: int) -> str:
 
 def test_planning_rows_take_keyboard_focus_and_name_their_actions(client, db) -> None:
     task = tasks_svc.create_task(db, title="triage me")
-    page = client.get("/projects").text
+    page = client.get("/plan").text
     row = page.split(f'id="task-{task.id}"')[1].split(">")[0]
     # The row itself is focusable (the keys act on it), but not a Tab stop.
     assert 'tabindex="-1"' in row
     buttons = _row(page, task.id)
     assert 'data-plan="today"' in buttons and 'data-plan="tomorrow"' in buttons
     # The rows are cursor stops, inside the page's cursor area.
-    assert 'id="task-groups" class="tasks-groups" data-cursor' in page
+    assert 'id="plan-lists" class="task-lists" data-cursor' in page
 
 
-def test_project_cards_and_workstreams_are_drop_targets(client, db) -> None:
+def test_task_lists_and_workstreams_are_drop_targets(client, db) -> None:
     p = projects_svc.create_project(db, name="Calendar sync")
     m = projects_svc.create_workstream(db, project_id=p.id, name="ICS import")
     tasks_svc.create_task(db, title="parse", project_id=p.id, workstream_id=m.id)
     tasks_svc.create_task(db, title="loose one")
 
-    page = client.get("/projects").text
+    # A project's Tasks: the project, and each of its workstreams.
+    page = client.get(f"/projects/{p.id}/tasks").text
     assert f'data-file-project="{p.id}"' in page
     assert f'data-file-workstream="{m.id}"' in page
-    assert 'id="group-loose" data-file-project=""' in page
     # The list re-renders when a task is filed elsewhere.
-    assert "tasks:changed from:body" in page.split('id="task-groups"')[1][:400]
+    assert "tasks:changed from:body" in page.split('id="project-tasks"')[1][:600]
+    # Plan: No project, and each project's list.
+    plan = client.get("/plan").text
+    assert 'id="group-loose" data-file-project=""' in plan
+    assert f'data-file-project="{p.id}"' in plan
+    assert "tasks:changed from:body" in plan.split('id="plan-lists"')[1][:600]
 
 
 def test_filing_moves_a_task_between_workstreams_projects_and_none(client, db) -> None:

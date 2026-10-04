@@ -48,11 +48,11 @@ a { color: var(--ink); text-decoration: underline; text-decoration-thickness: 1p
 h1, h2, h3 { font-weight: 600; margin: 0; }
 
 /* faces by role: titles and figures follow the system (one face in most) */
-.page-header h1, .day-header .weekday, .list-section > h2, .project-card > header h2, .confirm-title,
+.page-header h1, .day-header .weekday, .list-section > h2, .workstream .name, .confirm-title,
 .timeline-header h2 {
   font-family: var(--font-display);
 }
-:is(.task-meta .planned, .notes-toggle .progress, .count, .open-count,
+:is(.task-meta .planned, .notes-toggle .progress, .count,
     .workstream .progress, .hour-label, .now-label, .cal-item .item-time, .estimate) {
   font-family: var(--font-num);
 }
@@ -507,7 +507,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 
 /* ---------- glass cards (resting surfaces: no shadow) ---------- */
 
-.list-section, .project-card, .calendar-grid, .nudge-center {
+.list-section, .calendar-grid, .nudge-center {
   background: var(--glass-card);
   backdrop-filter: blur(20px) saturate(1.1);
   border: 1px solid var(--glass-border);
@@ -585,7 +585,7 @@ label.me-row:hover, .weight-log .me-row:hover { background: var(--glass-row-hove
   transition: background-color var(--dur) var(--ease);
 }
 .task-row:hover { background: var(--glass-row-hover); }
-/* the keyboard cursor on Projects: focus is the spark's job, drawn as the nav's inset bar */
+/* the keyboard cursor on a task list: focus is the spark's job, drawn as the nav's inset bar */
 .task-row[tabindex]:focus { outline: none; }
 .task-row[tabindex] { position: relative; }
 .task-row[tabindex]:focus-visible { border-radius: 0; box-shadow: none; background: var(--glass-row-hover); }
@@ -595,9 +595,8 @@ label.me-row:hover, .weight-log .me-row:hover { background: var(--glass-row-hove
   background: var(--spark); box-shadow: var(--spark-glow);
 }
 .task-row[tabindex]:focus-visible .plan-btn { color: var(--graphite); }
-/* filing by drag: the row in hand fades; the card or workstream under it lights */
+/* filing by drag: the row in hand fades; the list under it lights (task lists) */
 .task-row.dragging { opacity: 0.4; }
-.project-card.drop-over, .workstream-group.drop-over { background: var(--spark-tint); box-shadow: inset 0 0 0 1.5px var(--spark); }
 
 .task-check {
   appearance: none;
@@ -793,8 +792,8 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   .plan-btn.slot { display: none; }
 }
 
-.projects-page .page-header { margin-bottom: var(--s-4); }
-/* a new project: its name on a line at the header's right, out of the list's refreshes */
+.projects-page .page-header { margin-bottom: var(--s-6); }
+/* a new project: its name on a line at the header's right, out of the page's redraws */
 .new-project { flex: none; display: flex; align-items: flex-end; gap: var(--s-2); margin-top: var(--s-1); }
 .new-project .field-line { width: 200px; }
 .new-project .btn { height: 36px; padding-block: 0; }
@@ -803,59 +802,133 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   .new-project { flex: 1 1 100%; }
   .new-project .field-line { flex: 1; width: auto; }
 }
-/* Projects is wider than a list page: its overview lays the projects over weeks */
-.main:has(.projects-page) { max-width: 1040px; }
+/* Projects lays its projects over weeks: the wider the window, the wider the weeks */
+.main:has(.projects-page) { max-width: 1600px; }
 
-/* the projects at a glance: a ruled sheet of a row a project, its columns
-   a grid, the weeks they share at the right; as tall as its rows */
-.projects-overview.ruled-sheet { flex: none; min-height: 0; margin-bottom: var(--s-4); }
-.overview-row {
-  display: grid; align-items: center; column-gap: var(--s-3);
-  grid-template-columns: minmax(0, 1fr) 112px 112px 88px 264px;
+/* what needs attention: a row a task, its badge, its title, its project, its day */
+.attention { margin-bottom: var(--s-4); }
+.attention > h2 { padding: var(--s-3) var(--s-4); font-size: var(--t-body-sm); }
+.attention-list { list-style: none; margin: 0; padding: 0; }
+.attention-row {
+  display: grid; grid-template-columns: 112px minmax(0, 1fr) minmax(0, 220px) 96px; align-items: center; column-gap: var(--s-4);
+  min-height: 40px; padding: var(--s-1) var(--s-4); border-top: 1px solid var(--hairline-on-glass);
+  font-size: var(--t-body-sm); transition: background-color var(--dur) var(--ease);
 }
-.overview-row.overview-head { font-size: var(--t-caption); font-weight: 500; color: var(--graphite); }
-.overview-row.overview-head .ov-name { color: var(--ink); font-size: var(--t-body-sm); font-weight: 600; }
-.overview-row:not(.overview-head) { transition: background-color var(--dur) var(--ease); }
-.overview-row:not(.overview-head):hover { background: var(--glass-row-hover); }
-.ov-name { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
-.ov-name a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-weight: 500; text-decoration: none; }
-.ov-name a:hover { text-decoration: underline; text-underline-offset: 3px; }
-.overview-row.is-paused .ov-name a { color: var(--graphite); }
-.ov-health { display: flex; }
-.chip.neutral { color: var(--neutral-fg); background: var(--badge-neutral-glass); }
-/* progress: a 4px meter, what is done in ink, then the count */
-.ov-progress { display: flex; align-items: center; gap: var(--s-2); }
-.ov-meter { flex: 1; height: 4px; background: var(--hairline); overflow: hidden; }
-.ov-meter > span { display: block; height: 100%; background: var(--ink); }
-.ov-count, .ov-due { color: var(--graphite); font-family: var(--font-num); font-variant-numeric: tabular-nums; }
-.ov-count { flex: none; min-width: 34px; text-align: right; }
-.ov-due { color: var(--ink); white-space: nowrap; }
-.overview-head :is(.ov-due, .ov-count) { color: var(--graphite); font-family: inherit; }
-.ov-none { color: var(--pewter); }
-/* the weeks: ruled a week a column, each project's span a bar of the plan's
-   solid ink as on its Gantt, now the signal through every row */
-.ov-time { position: relative; align-self: stretch; margin-block: calc(-1 * var(--pad-above)) calc(-1 * var(--pad-below)); }
-.overview-row:not(.overview-head) .ov-time {
-  background: repeating-linear-gradient(to right, var(--hairline) 0 1px, transparent 1px calc(100% / 12));
+.attention-row:first-child { border-top: none; }
+.attention-row:hover { background: var(--glass-row-hover); }
+.attention-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-weight: 500; text-decoration: none; }
+a.attention-title:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.attention-title.is-plain { color: var(--graphite); font-weight: 400; }
+.attention-project { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--t-caption); color: var(--graphite); }
+.attention-project > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attention-project .project-flag { flex: none; width: 12px; height: 12px; }
+.attention-project .project-flag svg { width: 12px; height: 12px; }
+.attention-project .is-none { color: var(--pewter); }
+.attention-day { text-align: right; font-size: var(--t-caption); color: var(--graphite); font-family: var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+a.attention-link { font-family: inherit; font-weight: 500; color: var(--ink); text-decoration: none; }
+a.attention-link:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+/* narrow: the badge, then the title over its project and day */
+@container projects (max-width: 640px) {
+  .attention-row { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 2px; padding-block: var(--s-2); }
+  .attention-project { grid-column: 2; grid-row: 2; }
+  .attention-day { grid-column: 3; grid-row: 1 / span 2; }
 }
-.ov-month { position: absolute; bottom: var(--pad-below); padding-left: 4px; line-height: var(--pad-text); }
-.ov-bar {
-  position: absolute; top: 50%; height: 10px; margin-top: -5px; min-width: 4px;
-  background: var(--solid); box-shadow: inset 0 0 0 1.5px var(--solid-edge), var(--solid-glow);
+.projects-page { container: projects / inline-size; }
+
+/* the timeline: a project a group of rows, its name, its progress and its
+   span over the weeks every project shares; its open workstreams under it */
+.projects-timeline { margin-bottom: var(--s-4); }
+.tl-row {
+  display: grid; grid-template-columns: minmax(240px, 320px) 96px minmax(0, 1fr); align-items: center;
+  min-height: 36px; border-top: 1px solid var(--hairline-on-glass);
+  transition: background-color var(--dur) var(--ease);
 }
-.overview-row.is-paused .ov-bar { background: var(--steel); box-shadow: none; }
-.ov-now { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--signal); box-shadow: var(--signal-glow); }
-/* the columns go as the sheet narrows (the sidebar takes its share): the
-   weeks first, then the meter and the next deadline */
-.projects-overview { container-type: inline-size; }
-@container (max-width: 860px) {
-  .overview-row { grid-template-columns: minmax(0, 1fr) 112px 112px 88px; }
-  .ov-time { display: none; }
+.tl-row:not(.tl-head):hover { background: var(--glass-row-hover); }
+.tl-label { display: flex; align-items: center; gap: var(--s-2); min-width: 0; padding: 0 var(--s-3) 0 var(--s-4); }
+.tl-progress {
+  display: flex; align-items: baseline; gap: 6px; padding-right: var(--s-3); white-space: nowrap;
+  font-size: var(--t-caption); color: var(--graphite); font-family: var(--font-num); font-variant-numeric: tabular-nums;
 }
-@container (max-width: 520px) {
-  .overview-row { grid-template-columns: minmax(0, 1fr) auto auto; }
-  .ov-meter, .ov-due { display: none; }
+.tl-progress b { font-size: var(--t-body-sm); font-weight: 600; color: var(--ink); }
+/* the weeks, ruled a week a column; now the signal through every row */
+.tl-track {
+  position: relative; align-self: stretch; overflow: hidden; border-left: 1px solid var(--hairline-on-glass);
+  background: repeating-linear-gradient(to right, transparent 0 calc(100% / var(--weeks) - 1px),
+    var(--hairline-on-glass) calc(100% / var(--weeks) - 1px) calc(100% / var(--weeks)));
 }
+.tl-head { min-height: 36px; border-top: none; border-bottom: 1px solid var(--hairline-on-glass-strong); }
+.tl-head .tl-label { font-size: var(--t-caption); font-weight: 500; color: var(--graphite); }
+.tl-head .tl-progress { font-family: inherit; font-weight: 500; }
+.tl-head .tl-track { background: none; }
+.tl-week {
+  position: absolute; top: 0; bottom: 0; display: flex; align-items: center; padding-left: 6px;
+  border-left: 1px solid var(--hairline-on-glass); white-space: nowrap;
+  font-size: var(--t-caption); color: var(--pewter); font-family: var(--font-num); font-variant-numeric: tabular-nums;
+}
+.tl-week:first-child { border-left: none; }
+.tl-week b { margin-right: 3px; font-family: var(--font-display); font-weight: 600; color: var(--graphite); }
+.tl-group + .tl-group { border-top: 1px solid var(--hairline-on-glass-strong); }
+.tl-group > .tl-project { min-height: 48px; border-top: none; }
+.tl-name {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--t-body-sm); font-weight: 600; color: var(--ink); text-decoration: none;
+}
+.tl-name:hover, .tl-stream .tl-label a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.tl-project .chip { flex: none; margin-left: auto; }
+/* a workstream: its name one step in, under the project's */
+.tl-stream .tl-label { padding-left: calc(var(--s-4) + 44px); }
+.tl-stream .tl-label a {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--t-body-sm); color: var(--graphite); text-decoration: none;
+}
+.tl-stream .tl-label a:hover { color: var(--ink); }
+.tl-finished .tl-label { gap: 6px; font-size: var(--t-caption); color: var(--pewter); }
+.tl-finished .tl-label svg { flex: none; stroke: currentColor; }
+.tl-group.folded .tl-streams { display: none; }
+/* a span: the plan's solid as on the Gantt, a tube with what is done of it filled */
+.tl-bar {
+  position: absolute; top: 50%; height: 12px; margin-top: -6px; min-width: 4px;
+  background: color-mix(in srgb, var(--solid-edge) 10%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--solid-edge), var(--solid-glow);
+}
+.tl-bar.thin { height: 8px; margin-top: -4px; }
+.tl-bar-done { display: block; height: 100%; background: var(--solid-edge); }
+/* a deadline: a diamond under the bar, filled once it has passed */
+.tl-due {
+  position: absolute; top: 50%; width: 7px; height: 7px; margin: 10px 0 0 -3.5px;
+  border: 1.5px solid var(--ink); background: var(--paper); transform: rotate(45deg);
+}
+.tl-due.overdue { background: var(--ink); }
+.tl-now { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--signal); box-shadow: var(--signal-glow); }
+.tl-undated { position: absolute; left: var(--s-3); top: 50%; transform: translateY(-50%); font-size: var(--t-caption); color: var(--pewter); white-space: nowrap; }
+/* a project's chevron folds its workstreams away (tasks.js), kept on the project */
+.project-fold { display: grid; place-content: center; flex: none; width: 24px; height: 24px; margin: 0 -4px 0 -8px; }
+.project-fold.slot { visibility: hidden; }
+.project-fold svg { width: 12px; height: 12px; fill: none; stroke: var(--steel); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--dur) var(--ease); }
+.project-fold:hover svg { stroke: var(--ink); }
+.tl-group.folded .project-fold svg { transform: rotate(-90deg); }
+/* narrow (the sidebar takes its share): the weeks go, the names and progress stay */
+@container projects (max-width: 720px) {
+  .tl-row { grid-template-columns: minmax(0, 1fr) 88px; }
+  .tl-track { display: none; }
+}
+@container projects (max-width: 420px) {
+  .tl-project .chip { display: none; }
+}
+
+/* the paused and done projects, a line each */
+.projects-shelf { display: grid; gap: var(--s-2); margin-bottom: var(--s-6); }
+.shelf-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.shelf-label { width: 64px; font-size: var(--t-caption); font-weight: 500; color: var(--pewter); }
+.shelf-project {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 var(--s-3);
+  background: var(--glass-card); border: 1px solid var(--glass-border);
+  font-size: var(--t-caption); font-weight: 500; color: var(--graphite); text-decoration: none;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.shelf-project:hover { color: var(--ink); background: var(--glass-hover); }
+.shelf-project .project-flag, .shelf-project .project-flag svg { width: 12px; height: 12px; }
+
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* the triage keys, named where they are used; no keyboard, no hint */
@@ -1423,69 +1496,44 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   border: 1px solid var(--hairline); border-radius: var(--r-tag);
 }
 
-/* ---------- projects ---------- */
+/* ---------- task lists: a project's Tasks, and Plan; a card a list ---------- */
 
-.project-card { margin-bottom: var(--s-6); overflow: clip; }
-/* --head-gap: its items' gap, closed up on a phone so the name keeps its room */
-.project-card > header { --head-gap: var(--s-3); display: flex; align-items: center; gap: var(--head-gap); padding: var(--s-4) var(--s-4) 0; }
-@media (max-width: 540px) { .project-card > header { --head-gap: var(--s-2); } }
-.project-card > header h2 { flex: 1; min-width: 0; font-size: var(--t-sub); line-height: 1.4; letter-spacing: -0.01em; }
-/* the name opens the project's Gantt, a link only on hover, as a task's title is */
-.project-card > header h2 a { color: inherit; text-decoration: none; border-radius: var(--r-tag); }
-.project-card > header h2 a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.project-card .open-count { font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.status-select {
-  width: auto; appearance: none; cursor: pointer;
-  padding: 6px 30px 6px var(--s-3);
-  font-size: var(--t-caption); font-weight: 500; color: var(--graphite);
-  border: none; border-radius: 0;
-  --chevron: transparent calc(50% - 0.75px), var(--steel) calc(50% - 0.75px) calc(50% + 0.75px), transparent calc(50% + 0.75px);
-  background:
-    linear-gradient(45deg, var(--chevron)) no-repeat calc(100% - 17px) 50% / 5px 5px,
-    linear-gradient(-45deg, var(--chevron)) no-repeat calc(100% - 12px) 50% / 5px 5px;
-  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
-}
-.status-select:hover { color: var(--ink); background-color: var(--fog); }
-.status-select option { color: var(--ink); background: var(--paper); }
-.card-edit-btn {
-  display: grid; place-content: center; width: 32px; height: 32px;
-  border-radius: var(--r-ctl); color: var(--steel);
-  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
-}
-.card-edit-btn:hover { color: var(--ink); background: var(--fog); }
-.card-edit-btn svg { stroke: currentColor; }
-.card-edit-btn.slot, .status-select.slot { visibility: hidden; }
-.project-card .notes { margin: var(--s-1) var(--s-4) 0; font-size: var(--t-body-sm); color: var(--graphite); white-space: pre-line; }
+.task-lists > .list-section { margin-bottom: var(--s-4); }
+/* the list says which project its rows are in: no flag, nor a line for it alone */
+.task-lists .task-meta > .project-flag { display: none; }
+.task-lists .task-meta:not(:has(> :not(.project-flag))) { display: none; }
+.task-lists .task-list .task-row:last-child { border-bottom: none; }
+.task-lists .task-list:has(> li) + .compose-slot { border-top: 1px solid var(--hairline-on-glass); }
+.task-lists .list-section > h2 { align-items: center; }
+.task-lists .list-section > h2 .project-flag { flex: none; }
+.task-lists .list-section > h2 a { color: inherit; text-decoration: none; }
+.task-lists .list-section > h2 a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 
-.workstream-groups:not(:empty) { margin-top: var(--s-3); }
+/* a workstream's row heads its card, as a card's title does */
 .workstreams { list-style: none; margin: 0; padding: 0; }
-.workstream {
-  display: flex; align-items: center; gap: var(--s-3);
-  padding: 10px var(--s-4);
-  border-top: 1px solid var(--hairline-on-glass);
-  font-size: var(--t-body-sm);
-}
+.workstream { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-4) var(--s-4) var(--s-3); }
+.workstream-group > .workstreams { border-bottom: 1px solid var(--hairline-on-glass-strong); }
 .workstream button { display: grid; place-content: center; width: 24px; height: 24px; margin: -4px; border-radius: 0; }
 .workstream svg { flex: none; stroke: var(--steel); }
-.workstream.done svg { stroke: var(--ink); }
-.workstream .name { flex: 1; font-weight: 600; }
+.workstream button:hover svg, .workstream.done svg { stroke: var(--ink); }
+.workstream .name { flex: 1; min-width: 0; font-size: var(--t-body); font-weight: 600; color: var(--ink); }
 .workstream.done .name { color: var(--pewter); font-weight: 500; }
 .workstream .progress { font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums; }
-.workstream-tasks { padding-left: var(--s-6); }
-.workstream-tasks .task-row { border-top: 1px solid var(--hairline-on-glass); border-bottom: none; }
+/* the finished ones: a line under the lists, each still a row that opens again */
+.finished-workstreams { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); margin: 0 0 var(--s-4); padding: 0 var(--s-4); }
+.finished-label { font-size: var(--t-caption); font-weight: 500; color: var(--pewter); }
+.finished-workstreams .workstreams { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-4); }
+.finished-workstreams .workstream { gap: var(--s-2); padding: 0; }
+.finished-workstreams .workstream .name { font-size: var(--t-caption); font-weight: 500; color: var(--graphite); }
+.new-workstream { margin-bottom: var(--s-8); }
+.project-tasks-page .keys-hint { margin: calc(-1 * var(--s-2)) 0 var(--s-4); }
+/* filing by drag: the list under the row in hand lights */
+:is([data-file-project], [data-file-workstream]).drop-over { background: var(--spark-tint); box-shadow: inset 0 0 0 1.5px var(--spark); }
 
-.project-card .task-meta .project { display: none; }
-.project-card .task-list .task-row:last-child { border-bottom: none; }
-.project-card .task-sheet[data-sheet="compose"] { border-top: 1px solid var(--hairline-on-glass); }
-.project-card > .expander { border-top: 1px solid var(--hairline-on-glass); padding: 2px var(--s-4); }
+/* Plan reads as a list page: as wide as one */
+.plan-page .page-back { display: inline-block; margin-bottom: var(--s-1); }
 
-.project-editor { padding: var(--s-4); }
-.project-editor .field { margin-top: var(--s-3); }
-.project-editor textarea { resize: vertical; line-height: 1.5; }
-/* its colour: the eight flags, the chosen one ringed in its colour */
-.project-editor .color-field { min-width: 0; margin-inline: 0; padding: 0; border: 0; }
-.color-field .field-label { float: left; width: 100%; }
-.color-field .swatches { clear: both; display: flex; flex-wrap: wrap; gap: var(--s-1); }
+/* a project's colour: the eight flags, the chosen one ringed in its colour */
 .swatch {
   position: relative; display: grid; place-content: center; width: 32px; height: 32px;
   border-radius: var(--r-tag); cursor: pointer;
@@ -1498,41 +1546,9 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .swatch:hover { background: var(--fog); }
 .swatch:has(input:checked) { box-shadow: inset 0 0 0 1.5px var(--project); }
 .swatch:has(input:focus-visible) { box-shadow: 0 0 0 2px var(--spark-deep), var(--spark-glow); }
-.project-card > header .project-flag { margin-right: calc(var(--s-2) - var(--head-gap)); }
-
-/* folded: the card is its header alone, the chevron turned to the name */
-.project-fold {
-  display: grid; place-content: center; flex: none; width: 24px; height: 24px;
-  margin: 0 calc(var(--s-1) - var(--head-gap, var(--s-3))) 0 -6px; border-radius: var(--r-tag);
-}
-.project-fold.slot { visibility: hidden; }
-.project-fold svg { width: 12px; height: 12px; fill: none; stroke: var(--steel); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--dur) var(--ease); }
-.project-fold:hover svg { stroke: var(--ink); }
-.project-card.folded .project-fold svg { transform: rotate(-90deg); }
-.project-card.folded > :not(header) { display: none; }
-.project-card.folded > header { padding-bottom: var(--s-4); }
-/* a folded card's header is a stop of the keyboard cursor (tasks.js): the rows' spark bar */
-.project-card > header { position: relative; }
-.project-fold:focus-visible { box-shadow: none; }
-.project-card > header:has(.project-fold:focus-visible) { background: var(--glass-row-hover); }
-.project-card > header:has(.project-fold:focus-visible)::before {
-  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px;
-  width: 3px; background: var(--spark); box-shadow: var(--spark-glow);
-}
-
 
 .add-inline { font-size: var(--t-body-sm); color: var(--graphite); padding: var(--s-2) 0; transition: color var(--dur) var(--ease); }
 .add-inline:hover { color: var(--ink); }
-.expander summary { cursor: pointer; list-style: none; user-select: none; }
-.expander summary::-webkit-details-marker { display: none; }
-.expander summary::before { content: "+"; display: inline-block; width: var(--s-3); margin-right: var(--s-1); }
-.expander[open] summary::before { content: "−"; }
-
-.inline-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s-3); padding: var(--s-2) 0 var(--s-3); }
-.inline-form .field { flex: 1; min-width: 10rem; }
-.inline-form .check-label { min-height: 36px; }
-.inline-form .field:has(select) { flex: 0 1 auto; min-width: 11.5rem; }
-.inline-form .btn { height: 36px; }
 
 /* ---------- nudges ---------- */
 
@@ -1558,19 +1574,17 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .nudge-dismiss svg { stroke: currentColor; }
 #nudge-editor-slot:empty { display: none; }
 
-/* ---------- ruled sheets: Tasks and Me, ruled as Today's notepad is ---------- */
+/* ---------- ruled sheets: Me, Garmin, Finances and the rest, ruled as Today's notepad is ---------- */
 
 /* The page runs to the window's foot and the sheet takes what the header
    leaves. Ruled like the notepad: every row is 36px tall with its text in
    the middle, on its own hairline, numbered down the left on a fog wash;
-   each group (a project, a shelf, Done; a part of Me) is bracketed by a
-   2px graphite rule above its title row and below its last row, one rule
-   between two groups, in ink while the keyboard is in it. Empty numbered
-   rows fill the sheet under the last group, the last of them cut at its
-   edge. Projects' lists and rows are the cards' own markup, so the sheet
-   restyles them here rather than in their markup; Me's are .sheet-group
-   and .sheet-row. */
-:is(.projects-page, .me-page, .garmin-page, .doc-page) { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-8)); }
+   each group (a part of Me) is bracketed by a 2px graphite rule above its
+   title row and below its last row, one rule between two groups, in ink
+   while the keyboard is in it. Empty numbered rows fill the sheet under
+   the last group, the last of them cut at its edge. Its groups are
+   .sheet-group, its rows .sheet-row. */
+:is(.me-page, .garmin-page, .doc-page) { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-8)); }
 /* compact rows: the sheets and Today's notes 28px a row, not 36px, the text its size */
 :root[data-density="compact"] :is(.ruled-sheet, .notepad-card) {
   --pad-line: 28px; --pad-text: 20px; --pad-above: 3px; --pad-below: 4px;
@@ -1595,33 +1609,27 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
     color-mix(in srgb, var(--paper) 35%, transparent);
   border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
 }
-/* Projects' first row is its composer, above the first group's rule */
-.tasks-sheet { padding-top: 0; }
-.tasks-groups { flex: 1; display: flex; flex-direction: column; }
 
 /* a group: no card of its own, only its two rules; the lower of two
    groups draws the rule they share over the upper's, unless the keyboard
    is in the upper */
-:is(.sheet-group, .tasks-sheet :is(.list-section, .project-card)) {
+.sheet-group {
   --bracket: var(--graphite);
   position: relative; margin: 0; overflow: visible;
   background: none; backdrop-filter: none; border: none; border-radius: 0;
 }
-:is(.sheet-group, .tasks-sheet :is(.list-section, .project-card))::before,
-:is(.sheet-group, .tasks-sheet :is(.list-section, .project-card))::after {
+.sheet-group::before, .sheet-group::after {
   content: ""; position: absolute; left: 0; right: 0; height: 2px;
   background: var(--bracket); pointer-events: none;
 }
-:is(.sheet-group, .tasks-sheet :is(.list-section, .project-card))::before { top: -2px; }
-:is(.sheet-group, .tasks-sheet :is(.list-section, .project-card))::after { bottom: 0; }
+.sheet-group::before { top: -2px; }
+.sheet-group::after { bottom: 0; }
 /* the keyboard's group, or the one being written in */
-:is(.sheet-group:focus-within, .tasks-sheet :is(.list-section, .project-card):has(:focus-visible, .sheet-item, .task-sheet:focus-within)) { --bracket: var(--ink); }
-:is(.sheet-group:focus-within, .tasks-sheet :is(.list-section, .project-card):has(:focus-visible, .sheet-item, .task-sheet:focus-within))::after { z-index: 1; }
+.sheet-group:focus-within { --bracket: var(--ink); }
+.sheet-group:focus-within::after { z-index: 1; }
 
 /* every row: 36px or more, text from the numbers' edge, its own hairline */
-:is(.ruled-sheet .sheet-row, .ruled-sheet .sheet-filler li, .tasks-sheet :is(.capture, .list-section > h2, .project-card > header,
-  .project-card > .notes, .workstream, .task-row, .sheet-item, .empty, .done-fold > summary, .project-card > .compose-slot,
-  .expander > summary)) {
+:is(.ruled-sheet .sheet-row, .ruled-sheet .sheet-filler li) {
   position: relative; min-height: var(--pad-line); margin: 0;
   padding: var(--row-above, var(--pad-above)) var(--s-4) var(--row-below, var(--pad-below)) var(--row-start);
   border: none; border-bottom: 1px solid var(--hairline); border-radius: 0;
@@ -1629,96 +1637,18 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   counter-increment: sheet-row;
 }
 /* its number, level with its first line, on the fog */
-:is(.ruled-sheet .sheet-row, .ruled-sheet .sheet-filler li, .tasks-sheet :is(.capture, .list-section > h2, .project-card > header,
-  .project-card > .notes, .workstream, .task-row, .sheet-item, .empty, .done-fold > summary, .project-card > .compose-slot,
-  .expander > summary))::after {
+:is(.ruled-sheet .sheet-row, .ruled-sheet .sheet-filler li)::after {
   content: counter(sheet-row);
   position: absolute; left: 0; top: 0; width: var(--pad-rows); padding-right: var(--s-2);
   font: 400 var(--t-caption) / calc(var(--pad-line) - 1px) var(--font-num); text-align: right;
   letter-spacing: normal; color: var(--pewter);
   font-variant-numeric: tabular-nums;
 }
-.tasks-sheet :is(.task-row, .done-fold > summary):focus-visible::after,
-:is(.sheet-row, .tasks-sheet :is(.capture, .sheet-item, .compose-slot)):focus-within::after { color: var(--ink); font-weight: 600; }
-/* a list's last row keeps its hairline: a group's rule, or the next row, follows */
-.tasks-sheet .task-list .task-row:last-child { border-bottom: 1px solid var(--hairline); }
-/* a task in a project: its rule in the project's colour, softened, and full
-   under the keyboard's cursor */
-.task-list .task-row.in-project, .tasks-sheet .task-list .task-row.in-project:last-child {
-  border-bottom-color: color-mix(in srgb, var(--project) 55%, var(--paper));
-}
-.task-list .task-row.in-project:focus-visible, .tasks-sheet .task-list .task-row.in-project:last-child:focus-visible {
-  border-bottom-color: var(--project);
-}
-
-/* a group's title row: its name in ink, its count in pewter */
-.tasks-sheet .list-section > h2 {
-  display: flex; align-items: baseline; gap: var(--s-2);
-  font-size: var(--t-body-sm); font-weight: 600; color: var(--ink);
-}
-.tasks-sheet .project-card > header { display: flex; align-items: center; gap: var(--head-gap); }
-.tasks-sheet .project-card > header h2 { font-size: var(--t-body-sm); line-height: var(--pad-text); letter-spacing: 0; }
-.tasks-sheet .card-edit-btn { width: 24px; height: 24px; margin: -1px -4px; }
-.tasks-sheet .project-card > .notes { color: var(--graphite); }
-.tasks-sheet .empty { color: var(--pewter); }
-
-/* a task row: the notepad's box, 8px before the words; the meta line and
-   an opened description on the row's own 22px lines, the row growing */
-.tasks-sheet .task-row { gap: 0 var(--s-2); }
-.tasks-sheet .task-check { width: 14px; height: 14px; margin-top: 4px; border-color: var(--graphite); }
-.tasks-sheet .task-check::before { width: 8px; height: 8px; }
-.tasks-sheet .task-check:checked { border-color: var(--ink); }
-.tasks-sheet .task-meta { margin-top: 0; min-height: var(--pad-text); }
-.tasks-sheet .task-notes { margin-top: 0; line-height: var(--pad-text); }
-.tasks-sheet .task-notes .gap { height: var(--pad-text); }
-.tasks-sheet .subtask label { padding: 0; }
-.tasks-sheet .subtask-check { margin-top: 4px; }
-.tasks-sheet .task-plan { margin: -1px 0 -1px auto; }
-.tasks-sheet .plan-btn { height: 24px; }
-.tasks-sheet .plan-btn.icon { width: 24px; }
-.tasks-sheet .task-delete { width: 24px; height: 24px; margin: -1px -4px -1px 0; }
-
-/* a project's workstreams, their tasks one step in */
-.tasks-sheet .workstream-groups:not(:empty) { margin-top: 0; }
-.tasks-sheet .workstream { gap: var(--s-2); }
-.tasks-sheet .workstream-tasks { --row-start: calc(var(--pad-rows) + var(--pad-gap) + var(--s-6)); padding-left: 0; }
-
-/* writing: the composer the sheet's first row, a project's composer a row
-   of its own, the edit sheet in place of its row; each on the rows' lines,
-   its box (or plus) where the rows' box is */
-.tasks-sheet .task-sheet { gap: 0 var(--s-2); padding: 0; }
-.tasks-sheet .task-sheet .task-check { width: 14px; height: 14px; margin-top: 4px; border-color: var(--graphite); }
-.tasks-sheet .task-sheet .task-check::before { width: 8px; height: 8px; }
-.tasks-sheet .sheet-plus { width: 14px; height: 14px; margin-top: 4px; }
-.tasks-sheet .sheet-item { border-bottom: 1px solid var(--ink); }
-.tasks-sheet .notes-editor { line-height: var(--pad-text); }
-.tasks-sheet .task-sheet[data-sheet] .notes-editor { min-height: var(--pad-text); padding: 0; }
-.tasks-sheet :is(.sheet-actions, .sheet-end) { min-height: var(--pad-text); margin-top: 0; }
-.tasks-sheet .sheet-end .prop { min-height: var(--pad-text); padding-block: 0; }
-.tasks-sheet .task-sheet .btn { height: var(--pad-text); }
-.tasks-sheet .project-card .task-sheet[data-sheet="compose"] { border-top: none; }
-.tasks-sheet .project-card > .expander { padding: 0; border-top: none; }
-.tasks-sheet .expander > summary.add-inline { font-size: var(--t-body-sm); }
-.tasks-sheet .expander .inline-form {
-  padding: var(--s-2) var(--s-4) var(--s-3) var(--row-start); border-bottom: 1px solid var(--hairline);
-}
-
-/* Done: the last group, its summary a row */
-.tasks-sheet .done-fold > summary { gap: var(--s-2); }
-.tasks-sheet .done-fold .task-list { border-top: none; }
+.sheet-row:focus-within::after { color: var(--ink); font-weight: 600; }
 
 /* the empty rows under the last group: numbered on, cut at the sheet's foot */
 .sheet-filler { position: relative; flex: 1 0 0; min-height: 0; overflow: hidden; }
 .sheet-filler > ol { position: absolute; inset: 0 0 auto; margin: 0; padding: 0; list-style: none; }
-
-@media (max-width: 720px) {
-  .projects-page { min-height: calc(100vh - var(--s-6) - 96px); }
-  .tasks-sheet { --pad-rows: 34px; --pad-gap: var(--s-2); }
-}
-@media (max-width: 540px) {
-  /* the buttons' words under the title's: the box and its gap, less a button's padding */
-  .tasks-sheet .task-row .task-plan { margin: 0 0 0 calc(22px - var(--s-2)); }
-}
 
 /* ---------- calendar (week grid and Today's timeline) ---------- */
 
@@ -2559,6 +2489,7 @@ li.repo-row:hover { background: var(--glass-row-hover); }
 .chip.ok { color: var(--ok-fg); background: var(--badge-ok-glass); }
 .chip.warn { color: var(--warn-fg); background: var(--badge-warn-glass); }
 .chip.err { color: var(--err-fg); background: var(--badge-err-glass); }
+.chip.neutral { color: var(--neutral-fg); background: var(--badge-neutral-glass); }
 .money-page .page-header { margin-bottom: var(--s-4); }
 
 /* a figure: its name in the row's indent, as Me's are; the figure in ink,

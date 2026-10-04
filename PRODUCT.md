@@ -17,11 +17,11 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 
 ## Core objects (v1)
 
-- Tasks planned on Projects, the one screen for tasks (Oscar's call on 2026-10-02: those in no project first, then each project's), worked from Today, with lifecycle todo / in_progress / blocked / needs_review / done / cancelled, and a history of every change.
+- Tasks planned in their lists, each project's on its Tasks tab and those without a day on Plan (Oscar's call on 2026-10-04), worked from Today, with lifecycle todo / in_progress / blocked / needs_review / done / cancelled, and a history of every change.
   Each task is an object with its own page, for one too long for its row: its title, its fields and its description written at length, saved as it is written, opened from Calendar's sheet for now (Oscar's call on 2026-10-03).
 - Today as a notepad: plain notes for each day, beside the day's timeline (for now; the notebook that turned lines into tasks is set aside), under a glance at the day (what is on now and next, and readiness, sleep and body battery from Garmin), with the day's due and planned tasks offered to write in.
 - "Delegated to Claude" list section with status chips: queued, running, needs review.
-- Projects with workstreams (lanes of their work, computed progress), seen together at the top of Projects as a portfolio (each one's health, progress, next deadline and span on shared weeks), each opening on a page of its own: the project, its repositories, and its context for the agents working on it (its AGENTS.md first, then other Markdown documents, each written on a page of its own), with its Gantt chart as the next tab: a spreadsheet of its tasks as bars over weeks or days, a bar running from the task's start day to its due (Oscar's call on 2026-10-04).
+- Projects with workstreams (lanes of their work, computed progress), seen together on Projects as a timeline under what needs attention (each one's health, progress, deadlines and span, and its workstreams', on shared weeks; Oscar's call on 2026-10-04), each opening on a page of its own: the project, its repositories, and its context for the agents working on it (its AGENTS.md first, then other Markdown documents, each written on a page of its own), with its tasks as the next tab and its Gantt chart after it: a spreadsheet of its tasks as bars over weeks or days, a bar running from the task's start day to its due (Oscar's call on 2026-10-04).
 - Calendar: a day, three days or a week of local events (written, dragged and changed on the grid) and read-only work events (a cancelled one struck through); tasks take no time on it (Oscar's call on 2026-10-02).
   Or its sheet: four weeks of days as spreadsheet rows, where he stays, the day's plan and a column per habit, all written in place (Oscar's call on 2026-10-02, after his Excel).
 - Nutrition: a day of eating, read from its Markdown file against the plan's targets, beside the day's chat with Claude, who writes that file from what Oscar says.
@@ -35,7 +35,7 @@ Operate. Every surface is task completion: scan today, check things off, replan,
 - Visual direction: **Neon Signage**, from Oscar's central design-language repo (`C:/Users/me/design-language/systems/neon-signage/SYSTEM.md`).
   Pink and cyan neon over black glass by night, the same signs unlit and printed on a pale sky by day; ink draws the interface; pink is you, cyan is time; Inter only.
 - The app consumes the system only through the repo's token contract, so switching to another of Oscar's systems (Brasa v2, Tokyo Night, Sumi & Neon) is one command.
-- Inputs (user-pinned 2026-09-30, replacing the 2026-09-27 settei plates): written on the line, as Today's notes are. Forms on Projects and Health are ruled, numbered sheets, one field per row; elsewhere a field is its name over a single rule. No boxes, no graph paper, no red pencil.
+- Inputs (user-pinned 2026-09-30, replacing the 2026-09-27 settei plates): written on the line, as Today's notes are. Forms on Health and Finances are ruled, numbered sheets, one field per row; elsewhere a field is its name over a single rule. No boxes, no graph paper, no red pencil.
 - Theme: Day and Night, following the system theme until the user picks one.
 - Pixel-perfection matters; quality over development cost (SPEC.md section 10).
 

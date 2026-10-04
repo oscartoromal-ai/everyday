@@ -174,8 +174,8 @@
         hidden: [...railNav.querySelectorAll(".nav-item[hidden]")].map((i) => i.dataset.module),
       });
     };
-    // The projects' order is Projects' too: its lists, and this one, are drawn
-    // again in it (the link that had focus keeps it).
+    // The projects' order is Projects' too: its timeline, Plan, and this list
+    // are drawn again in it (the link that had focus keeps it).
     const saveProjects = (focusHref = null) => {
       const ids = [...document.querySelectorAll("#rail-projects > li")].map((li) => Number(li.dataset.projectId));
       send("/ui/projects/order", { ids }).then(() => {
@@ -505,9 +505,10 @@
   /* ---- keys that work on every page: Alt+1 to Alt+9 go to the sidebar's
      pages showing, top to bottom, each its number beside its name (from a
      field too, which saves as the page goes); ? shows every key
-     (#keys-dialog), and N or Shift+N writes a new task (on Projects, tasks.js
-     puts it in the page's own list; elsewhere it opens #capture-dialog, as the
-     sidebar's New task does on every page).
+     (#keys-dialog), and N or Shift+N writes a new task (on a task list, a
+     project's Tasks or Plan, tasks.js puts it in the page's own list;
+     elsewhere it opens #capture-dialog, as the sidebar's New task does on
+     every page).
      Never over a dialog, and the single keys never while typing. ---- */
 
   const TYPING = "input, textarea, select, [contenteditable]";

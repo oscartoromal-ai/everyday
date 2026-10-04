@@ -19,7 +19,7 @@ from app.services import search as search_svc
 from app.services import tasks as tasks_svc
 from app.ui.day_sheet_view import day_sheet_ctx
 from app.ui.gantt_view import gantt_ctx
-from app.ui.views import history_ctx, projects_page_ctx
+from app.ui.views import history_ctx, plan_page_ctx, project_tasks_ctx
 
 TODAY = date.today()
 
@@ -112,15 +112,28 @@ def test_a_task_written_in_todays_notes_keeps_its_priority(client, db) -> None:
 
 
 def test_lists_put_the_most_pressing_first_among_the_same_dates(db) -> None:
-    tasks_svc.create_task(db, title="Low", planned_for=TODAY, priority=TaskPriority.low)
-    tasks_svc.create_task(db, title="None", planned_for=TODAY)
-    tasks_svc.create_task(db, title="Urgent", planned_for=TODAY, priority=TaskPriority.urgent)
+    from app.services import projects as projects_svc
+
+    home = projects_svc.create_project(db, name="Home")
     tasks_svc.create_task(
-        db, title="Later", planned_for=TODAY + timedelta(days=1), priority=TaskPriority.urgent
+        db, title="Low", project_id=home.id, planned_for=TODAY, priority=TaskPriority.low
     )
-    ctx = projects_page_ctx(db, datetime.now())
-    # Dates first: a later day stays later, however pressing.
+    tasks_svc.create_task(db, title="None", project_id=home.id, planned_for=TODAY)
+    tasks_svc.create_task(
+        db, title="Urgent", project_id=home.id, planned_for=TODAY, priority=TaskPriority.urgent
+    )
+    tasks_svc.create_task(
+        db, title="Later", project_id=home.id, planned_for=TODAY + timedelta(days=1),
+        priority=TaskPriority.urgent,
+    )
+    tasks_svc.create_task(db, title="Someday low", priority=TaskPriority.low)
+    tasks_svc.create_task(db, title="Someday urgent", priority=TaskPriority.urgent)
+    # A project's Tasks: dates first, a later day staying later, however pressing.
+    ctx = project_tasks_ctx(db, home, datetime.now())
     assert [r["task"].title for r in ctx["loose_rows"]] == ["Urgent", "Low", "None", "Later"]
+    # Plan: no day, the most pressing first.
+    plan = plan_page_ctx(db, datetime.now())
+    assert [r["task"].title for r in plan["loose_rows"]] == ["Someday urgent", "Someday low"]
     assert [t.title for t in tasks_svc.for_day(db, TODAY, TODAY)] == ["Urgent", "Low", "None"]
     sheet = day_sheet_ctx(db, TODAY, TODAY, days=1)
     assert [t["title"] for t in sheet["rows"][0]["tasks"]] == ["Urgent", "Low", "None"]

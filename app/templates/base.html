@@ -163,7 +163,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         <span class="rail-button__label">Search</span>
         <kbd class="rail-button__key">Ctrl K</kbd>
       </button>
-      {# Compact rows (C): more of Projects and Today's notes on screen, the text its size. #}
+      {# Compact rows (C): more of the ruled sheets and Today's notes on screen, the text its size. #}
       <button type="button" class="rail-button density-toggle" aria-pressed="false" title="Compact rows (C)">
         <svg class="density-toggle__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
         <span class="rail-button__label density-toggle__label--roomy">Roomy</span>
@@ -284,7 +284,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
           <dt><kbd>Alt</kbd> <kbd>←</kbd></dt><dd>Back to the page before, as you left it (or the mouse's back button; on a sheet's cell, Alt ← is the sheet's)</dd>
           <dt><kbd>?</kbd></dt><dd>These keys</dd>
           <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Search tasks, projects, events and notes; go to a page or a day ("friday", "12 oct"); or do (new task or event, theme)</dd>
-          <dt><kbd>C</kbd></dt><dd>Compact rows, or roomy again (Projects, Today's notes)</dd>
+          <dt><kbd>C</kbd></dt><dd>Compact rows, or roomy again (the ruled sheets, Today's notes)</dd>
           <dt><kbd>A</kbd></dt><dd>The agent window: open it, at its message, or collapse it</dd>
         </dl>
         <h3>Agent window</h3>
@@ -365,20 +365,19 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         {% endif %}
       </section>
       <section>
-        <h3>Projects' list</h3>
+        <h3>Task lists (a project's Tasks, Plan)</h3>
         <dl>
           <dt><kbd>↑</kbd> <kbd>↓</kbd> <span class="or">or</span> <kbd>K</kbd> <kbd>J</kbd></dt><dd>Move between tasks</dd>
-          <dt><kbd>Shift</kbd> + move</dt><dd>Previous or next project</dd>
+          <dt><kbd>Shift</kbd> + move</dt><dd>Previous or next list</dd>
           <dt><kbd>Home</kbd> <kbd>End</kbd></dt><dd>First or last task</dd>
           <dt><kbd>Enter</kbd> <span class="or">or</span> <kbd>E</kbd></dt><dd>Edit</dd>
-          <dt><kbd>N</kbd></dt><dd>New task, in the cursor's project if it has one</dd>
+          <dt><kbd>N</kbd></dt><dd>New task, in the cursor's list where it has its own, else the page's</dd>
           <dt><kbd>X</kbd></dt><dd>Done, or not done</dd>
           <dt><kbd>T</kbd> <kbd>M</kbd></dt><dd>Do today, tomorrow</dd>
           <dt><kbd>D</kbd></dt><dd>Pick a day, or none</dd>
           <dt><kbd>P</kbd></dt><dd>Project and workstream</dd>
           <dt><kbd>!</kbd></dt><dd>Priority</dd>
-          <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Fold the cursor's project to its name, or unfold it (Alt+click its chevron: every project)</dd>
-          <dt><kbd>Space</kbd></dt><dd>Show the description; opens Done and shelves</dd>
+          <dt><kbd>Space</kbd></dt><dd>Show the description; opens Done</dd>
           <dt><kbd>Delete</kbd></dt><dd>Delete, after asking</dd>
           <dt><kbd>Esc</kbd></dt><dd>Leave the list</dd>
         </dl>

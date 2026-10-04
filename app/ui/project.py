@@ -1,6 +1,6 @@
 """A project's own pages: its page (the project, its repositories and its
-context, AGENTS.md first), each document of its context on a page of its
-own, and the edits made on them. Its Gantt is app.ui.gantt's."""
+context, AGENTS.md first), its Tasks, each document of its context on a page
+of its own, and the edits made on them. Its Gantt is app.ui.gantt's."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from app.ui.project_view import (
     repo_options_ctx,
     repos_ctx,
 )
-from app.ui.views import templates
+from app.ui.views import project_tasks_ctx, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -46,6 +46,24 @@ def project_page(request: Request, db: DbSession, project_id: int):
             "active": "project",
             "today": date.today(),
             **project_page_ctx(db, project, date.today()),
+        },
+    )
+
+
+@router.get("/projects/{project_id}/tasks")
+def project_tasks_page(request: Request, db: DbSession, project_id: int):
+    """Its Tasks tab: where its tasks are planned, a list a workstream."""
+    project = _project(db, project_id)
+    return templates.TemplateResponse(
+        request,
+        "project_tasks.html",
+        {
+            "request": request,
+            "active": "project",
+            "today": date.today(),
+            **head_ctx(db, project),
+            "tab": "tasks",
+            **project_tasks_ctx(db, project, datetime.now()),
         },
     )
 

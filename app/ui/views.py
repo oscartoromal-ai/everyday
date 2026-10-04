@@ -250,7 +250,7 @@ def sheet_ctx(db: Session, task: Task, today: date) -> dict[str, Any]:
 def row_ctx(task: Task, now: datetime) -> dict[str, Any]:
     """Everything the task-row partial needs, precomputed. A row always
     names its do-date, today included, and carries the quick do-date
-    buttons: giving tasks days is what Projects' list is for."""
+    buttons: giving tasks days is what a project's Tasks and Plan are for."""
     today = now.date()
     subtasks_done, subtasks_total = checklist.progress(task.notes)
     return {
@@ -283,91 +283,142 @@ def row_ctx(task: Task, now: datetime) -> dict[str, Any]:
 
 
 DONE_DAYS = 14
+TIMELINE_WEEKS = 16
 
 
 def projects_page_ctx(db: Session, now: datetime) -> dict[str, Any]:
-    """Projects: Oscar's open tasks, for giving them days. Those in no
-    project first, under the page's composer, then each active project's
-    card, the paused and done ones shelved, and the last two weeks'
-    finished work folded away underneath."""
+    """Projects, an overview: what needs attention, then the active projects
+    over the weeks they share, the paused and done ones after. Their tasks
+    are planned on each project's Tasks tab, and those without a day on
+    Plan."""
     today = now.date()
     planning = tasks_svc.planning_list(db, today)
-    cards: dict[str, list[dict[str, Any]]] = {s.value: [] for s in ProjectStatus}
-    for project in projects_svc.list_projects(db):
-        cards[project.status.value].append(project_card_ctx(db, project, now))
-    loose = sorted((t for t in planning if t.project_id is None), key=_plan_order)
+    projects = projects_svc.list_projects(db)
+    active = [p for p in projects if p.status == ProjectStatus.active]
     return {
-        "overview": projects_overview(db, now),
+        "active_count": len(active),
         "open_count": len(planning),
         "undated_count": sum(1 for t in planning if t.planned_for is None),
-        "loose_rows": [row_ctx(t, now) for t in loose],
-        "active_cards": cards[ProjectStatus.active.value],
-        "shelves": [
-            {"key": status.value, "label": status.value.capitalize(), "cards": cards[status.value]}
-            for status in (ProjectStatus.paused, ProjectStatus.done)
-            if cards[status.value]
-        ],
-        "done_rows": [
-            row_ctx(t, now) for t in tasks_svc.recently_done(db, now - timedelta(days=DONE_DAYS))
-        ],
-        "done_days": DONE_DAYS,
+        "attention": attention_rows(db, today),
+        "timeline": projects_timeline(db, active, today),
+        "paused": [p for p in projects if p.status == ProjectStatus.paused],
+        "done_projects": [p for p in projects if p.status == ProjectStatus.done],
     }
 
 
-OVERVIEW_WEEKS = 12
+def attention_rows(db: Session, today: date) -> list[dict[str, Any]]:
+    """What needs attention: open tasks overdue or due soon, the soonest
+    first, then Claude's work waiting for review; none of a project paused
+    or done."""
+    open_tasks = [
+        t
+        for t in tasks_svc.one_per_series(
+            [t for t in tasks_svc.list_tasks(db) if t.status in tasks_svc.OPEN_STATUSES], today
+        )
+        if t.project is None or t.project.status == ProjectStatus.active
+    ]
+    soon = today + timedelta(days=tasks_svc.DUE_SOON_DAYS)
+    due = sorted(
+        (t for t in open_tasks if t.due and t.due <= soon),
+        key=lambda t: (t.due, tasks_svc.priority_rank(t), t.id),
+    )
+    rows = [
+        {
+            "task": t,
+            "chip": ("Overdue", "err") if t.due < today else ("Due soon", "warn"),
+            "day": upper_first(short_date(t.due, today)),
+        }
+        for t in due
+    ]
+    rows += [
+        {"task": t, "chip": ("Needs review", "needs_review"), "day": ""}
+        for t in open_tasks
+        if t.owner == TaskOwner.claude and t.status == TaskStatus.needs_review and t not in due
+    ]
+    return rows
 
 
-def projects_overview(db: Session, now: datetime) -> dict[str, Any] | None:
-    """The projects at a glance, as a portfolio: each active project, then
-    each paused one, with its health (what its deadlines say), its progress,
-    its next deadline, and its span (its tasks' first start to their last
-    due) on a run of weeks shared by all, from last week's Monday on. None
-    when there is no project to show."""
-    today = now.date()
+def projects_timeline(db: Session, projects: list[Project], today: date) -> dict[str, Any] | None:
+    """The projects over the weeks they share, from last week's Monday on:
+    each one's span (its tasks' first start to their last due) with what
+    is done of it, its open tasks' deadlines, and under it its workstreams
+    with work still open, each its own span. None with no project."""
+    if not projects:
+        return None
     start = monday(today) - timedelta(weeks=1)
-    end = start + timedelta(weeks=OVERVIEW_WEEKS)
+    end = start + timedelta(weeks=TIMELINE_WEEKS)
     length = (end - start).days
 
     def at(day: date) -> float:
         """A day's place in the weeks, in percent of their width, kept in them."""
         return round(100 * min(max((day - start).days, 0), length) / length, 3)
 
-    projects = projects_svc.list_projects(db)
-    shown = [p for p in projects if p.status == ProjectStatus.active] + [
-        p for p in projects if p.status == ProjectStatus.paused
-    ]
-    if not shown:
-        return None
+    def bar(first: date | None, last: date | None) -> dict[str, float] | None:
+        if not first or not last or last < start or first >= end:
+            return None
+        left = at(first)
+        return {"left": left, "width": round(at(last + timedelta(days=1)) - left, 3)}
+
     rows = []
-    for project in shown:
+    for project in projects:
         glance = project_glance(db, project, today)
-        first, last = glance["first"], glance["last"]
-        bar = None
-        if first and last and last >= start and first < end:
-            left = at(first)
-            bar = {"left": left, "width": round(at(last + timedelta(days=1)) - left, 3)}
-        rows.append({**glance, "bar": bar})
-    months = []
-    day = start.replace(day=1)
-    while day < end:
-        if day >= start:
-            months.append({"left": at(day), "label": day.strftime("%b")})
-        day = (day + timedelta(days=32)).replace(day=1)
-    # The first weeks name their month too, when no month starts in them.
-    if not months or months[0]["left"] > 100 * 2 / OVERVIEW_WEEKS:
-        months.insert(0, {"left": 0, "label": start.strftime("%b")})
+        streams, finished = [], 0
+        for workstream in project.workstreams:
+            done, total = projects_svc.workstream_progress(db, workstream.id)
+            if workstream.status == WorkstreamStatus.done or (total and done == total):
+                finished += 1
+                continue
+            days = [
+                d
+                for t in workstream.tasks
+                if t.status != TaskStatus.cancelled
+                for d in (t.starts_on, t.due)
+                if d
+            ]
+            first, last = (min(days), max(days)) if days else (None, None)
+            streams.append({
+                "workstream": workstream,
+                "done": done,
+                "total": total,
+                "percent": round(100 * done / total) if total else 0,
+                "bar": bar(first, last),
+                "span_label": human_span(first, last, today) if days else "No dates yet",
+            })
+        marks = [
+            {
+                "left": at(t.due),
+                "label": f"{t.title}, due {short_date(t.due, today)}",
+                "overdue": t.due < today,
+            }
+            for t in glance["deadlines"]
+            if start <= t.due < end
+        ]
+        rows.append({
+            **glance,
+            "bar": bar(glance["first"], glance["last"]),
+            "streams": streams,
+            "finished": finished,
+            "marks": marks,
+        })
+    weeks = []
+    for i in range(TIMELINE_WEEKS):
+        day = start + timedelta(weeks=i)
+        # A month is named on its first week, and on the first column.
+        month = day.strftime("%b") if i == 0 or day.day <= 7 else ""
+        weeks.append({"left": round(100 * i / TIMELINE_WEEKS, 3), "day": day.day, "month": month})
     return {
         "rows": rows,
-        "months": months,
+        "weeks": weeks,
+        "count": TIMELINE_WEEKS,
         "now": round(100 * ((today - start).days + 0.5) / length, 3),
-        "weeks": OVERVIEW_WEEKS,
     }
 
 
 def project_glance(db: Session, project: Project, today: date) -> dict[str, Any]:
     """A project at a glance: its health (what its deadlines say), its
-    progress, its next deadline, and its span, its tasks' first start to
-    their last due. Projects' portfolio rows and its own page show it."""
+    progress, its deadlines, the next first, and its span, its tasks'
+    first start to their last due. Projects' timeline and its own page
+    show it."""
     tasks = [
         t for t in tasks_svc.list_tasks(db, project_id=project.id)
         if t.status != TaskStatus.cancelled
@@ -404,6 +455,7 @@ def project_glance(db: Session, project: Project, today: date) -> dict[str, Any]
         "open": len(open_tasks),
         "total": total,
         "percent": round(100 * done / total) if total else 0,
+        "deadlines": deadlines,
         "next": upcoming,
         "next_label": upper_first(short_date(upcoming.due, today)) if upcoming else None,
         "first": first,
@@ -439,32 +491,59 @@ def _plan_order(task: Task) -> tuple:
     )
 
 
-def project_card_ctx(db: Session, project: Project, now: datetime) -> dict[str, Any]:
-    """A project card: its workstreams, each with its open tasks, then the rest."""
+def project_tasks_ctx(db: Session, project: Project, now: datetime) -> dict[str, Any]:
+    """A project's Tasks tab, where its tasks are planned: each workstream
+    with its open tasks, then the tasks in none, the finished workstreams on
+    a line, and the last two weeks' finished work folded away."""
     today = now.date()
+    tasks = tasks_svc.list_tasks(db, project_id=project.id)
     open_tasks = sorted(
-        tasks_svc.one_per_series(
-            [
-                t
-                for t in tasks_svc.list_tasks(db, project_id=project.id)
-                if t.status in tasks_svc.OPEN_STATUSES
-            ],
-            today,
-        ),
+        tasks_svc.one_per_series([t for t in tasks if t.status in tasks_svc.OPEN_STATUSES], today),
         key=_plan_order,
     )
-    groups = [
-        {
-            "m": workstream_ctx(db, m),
-            "rows": [row_ctx(t, now) for t in open_tasks if t.workstream_id == m.id],
-        }
-        for m in project.workstreams
-    ]
+    groups, finished = [], []
+    for workstream in project.workstreams:
+        m = workstream_ctx(db, workstream)
+        rows = [row_ctx(t, now) for t in open_tasks if t.workstream_id == workstream.id]
+        # A finished workstream (marked done, or all its tasks done) folds to
+        # its row, unless work was left open in it.
+        done, total = m["progress"]
+        if not rows and (m["done"] or (total and done == total)):
+            finished.append(m)
+        else:
+            groups.append({"m": m, "rows": rows})
+    since = now - timedelta(days=DONE_DAYS)
+    done = sorted(
+        (t for t in tasks if t.status == TaskStatus.done and t.status_changed_at >= since),
+        key=lambda t: t.status_changed_at,
+        reverse=True,
+    )
     return {
-        "project": project,
         "groups": groups,
+        "finished": finished,
         "loose_rows": [row_ctx(t, now) for t in open_tasks if t.workstream_id is None],
         "open_count": len(open_tasks),
+        "done_rows": [row_ctx(t, now) for t in done],
+        "done_days": DONE_DAYS,
+    }
+
+
+def plan_page_ctx(db: Session, now: datetime) -> dict[str, Any]:
+    """Plan: Oscar's open tasks without a day, for giving them days. Those
+    in no project first, then each project's, in Projects' order."""
+    today = now.date()
+    undated = sorted(
+        (t for t in tasks_svc.planning_list(db, today) if t.planned_for is None), key=_plan_order
+    )
+    groups = []
+    for project in projects_svc.list_projects(db):
+        rows = [row_ctx(t, now) for t in undated if t.project_id == project.id]
+        if rows:
+            groups.append({"project": project, "rows": rows})
+    return {
+        "undated_count": len(undated),
+        "loose_rows": [row_ctx(t, now) for t in undated if t.project_id is None],
+        "groups": groups,
     }
 
 
@@ -785,8 +864,8 @@ def me_ctx(db: Session, today: date) -> dict[str, Any]:
 
 def back_link(url: str, today: date | None = None) -> dict[str, str]:
     """Where a task's page goes back to: the page it was opened from (its
-    path, never another site), named; Projects, the screen for tasks, when
-    that is not one of the app's pages."""
+    path, never another site), named; Projects when that is not one of
+    the app's pages."""
     from urllib.parse import urlsplit
 
     parts = urlsplit(url or "")
@@ -800,9 +879,11 @@ def back_link(url: str, today: date | None = None) -> dict[str, str]:
         label = "Calendar"
     elif path == "/projects":
         label = "Projects"
+    elif path == "/plan":
+        label = "Plan"
     elif segments[0] == "projects" and segments[1:2] and segments[1].isdigit():
-        # A project's page, or its Gantt.
-        label = {(): "Project", ("gantt",): "Gantt"}.get(tuple(segments[2:]))
+        # A project's page, its Tasks, or its Gantt.
+        label = {(): "Project", ("tasks",): "Tasks", ("gantt",): "Gantt"}.get(tuple(segments[2:]))
     elif segments[0] == "day" and len(segments) == 2:
         try:
             label = upper_first(short_date(date.fromisoformat(segments[1]), today or date.today()))

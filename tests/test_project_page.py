@@ -83,6 +83,7 @@ def test_the_page_shows_the_project_its_repos_and_its_context(client, db) -> Non
     assert "<title>Note-app · Personal Calendar</title>" in html
     assert "Active · nothing open · 1 repository · 2 documents" in html
     assert f'<a href="/projects/{project.id}" aria-current="page">Overview</a>' in html
+    assert f'<a href="/projects/{project.id}/tasks">Tasks</a>' in html
     assert f'<a href="/projects/{project.id}/gantt">Gantt</a>' in html
     assert 'value="C:\\code\\note-app"' in html and ">note-app</span>" in html
     # AGENTS.md first, what it is about beside it; then the others.

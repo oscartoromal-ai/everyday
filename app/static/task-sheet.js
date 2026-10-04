@@ -1383,8 +1383,8 @@
 
   /* ---- drafts survive live refreshes ---- */
 
-  // Projects' list re-renders from the server whenever the plan changes,
-  // composers included. Carry a half-written task, its fields
+  // The task lists (a project's Tasks, Plan) re-render from the server
+  // whenever the plan changes, composers included. Carry a half-written task, its fields
   // and focus over to the fresh composer with the same key.
   const FIELDS = ["planned_for", "due", "repeat", "estimate", "priority", "project_id"];
   const carried = new WeakMap(); // request -> drafts

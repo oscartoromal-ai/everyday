@@ -102,37 +102,39 @@ def test_the_app_opens_on_today(client) -> None:
     assert response.status_code == 303 and response.headers["location"] == "/today"
 
 
-def test_projects_holds_every_open_task_under_its_project(client, db) -> None:
+def test_plan_holds_every_open_task_without_a_day(client, db) -> None:
     p = projects_svc.create_project(db, name="Calendar sync")
     m = projects_svc.create_workstream(db, project_id=p.id, name="ICS import")
     in_m = tasks_svc.create_task(db, title="parse VEVENTs", project_id=p.id, workstream_id=m.id)
-    tasks_svc.create_task(db, title="renew token", project_id=p.id)
+    tasks_svc.create_task(db, title="renew token", project_id=p.id, planned_for=TODAY)
     undated = tasks_svc.create_task(db, title="undated one")
     tasks_svc.create_task(db, title="has a deadline", due=TODAY + timedelta(days=3))
     tasks_svc.create_task(db, title="for today", planned_for=TODAY)
     tasks_svc.create_task(db, title="claude job", owner=TaskOwner.claude)
 
-    page = client.get("/projects").text
+    page = client.get("/plan").text
     assert 'aria-current="page"' in page.split('title="Projects"')[1].split(">")[0]
-    assert "5 tasks open" in page and "4 without a day" in page
-    # The composer first, then the tasks in no project: soonest first, a
-    # deadline before a bare capture, Claude's work off the list.
-    assert page.index('aria-label="Add a task"') < page.index('id="group-loose"')
-    loose = page.split('id="loose-list"')[1].split("</ul>")[0]
-    assert loose.index("for today") < loose.index("has a deadline") < loose.index("undated one")
-    assert "claude job" not in loose and "renew token" not in loose
+    assert "3 open tasks without a day" in page
+    # The tasks in no project first, with the page's composer: a deadline
+    # before a bare capture; a task with a day, and Claude's work, off it.
+    loose_group = page.split('id="group-loose"')[1].split("</section>")[0]
+    loose = loose_group.split('id="loose-list"')[1].split("</ul>")[0]
+    assert loose.index("has a deadline") < loose.index("undated one")
+    assert 'data-composer-key="loose-list"' in loose_group
     assert f'hx-post="/ui/tasks/{undated.id}/plan"' in loose
-    # Then each project's card: its workstreams' tasks and the rest, every
-    # row with its do-date buttons, the card with its status.
-    card = page.split(f'id="project-{p.id}"')[1].split("</article>")[0]
-    assert "ICS import" in card and "parse VEVENTs" in card and "renew token" in card
-    assert f'hx-post="/ui/tasks/{in_m.id}/plan"' in card
-    assert 'class="status-select"' in card
-    assert page.index('id="group-loose"') < page.index(f'id="project-{p.id}"')
+    for off in ("for today", "renew token", "claude job"):
+        assert off not in page
+    # Then each project's, every row with its do-date buttons.
+    group = page.split(f'id="plan-project-{p.id}"')[1].split("</section>")[0]
+    assert "parse VEVENTs" in group and f'hx-post="/ui/tasks/{in_m.id}/plan"' in group
+    assert page.index('id="group-loose"') < page.index(f'id="plan-project-{p.id}"')
+    # It draws itself again as the plan changes, and its count with it.
+    lists = page.split('id="plan-lists"')[1].split(">")[0]
+    assert 'hx-get="/plan"' in lists and "tasks:changed from:body" in lists
+    assert "#plan-rest" in lists and "data-cursor" in lists
 
 
-def test_projects_open_on_the_projects_at_a_glance(client, db) -> None:
-
+def test_projects_lays_the_projects_over_the_weeks(client, db) -> None:
     late = projects_svc.create_project(db, name="Late one")
     tasks_svc.create_task(
         db, title="missed it", project_id=late.id,
@@ -143,7 +145,16 @@ def test_projects_open_on_the_projects_at_a_glance(client, db) -> None:
     )
     tasks_svc.set_status(db, done.id, TaskStatus.done)
     calm = projects_svc.create_project(db, name="Calm one")
-    tasks_svc.create_task(db, title="later on", project_id=calm.id, due=TODAY + timedelta(days=10))
+    lane = projects_svc.create_workstream(db, project_id=calm.id, name="Lane open")
+    tasks_svc.create_task(
+        db, title="later on", project_id=calm.id, workstream_id=lane.id,
+        due=TODAY + timedelta(days=10),
+    )
+    shut = projects_svc.create_workstream(db, project_id=calm.id, name="Lane shut")
+    shut_task = tasks_svc.create_task(
+        db, title="shut it", project_id=calm.id, workstream_id=shut.id
+    )
+    tasks_svc.set_status(db, shut_task.id, TaskStatus.done)
     soon = projects_svc.create_project(db, name="Soon one")
     tasks_svc.create_task(db, title="almost", project_id=soon.id, due=TODAY + timedelta(days=1))
     projects_svc.create_project(db, name="Bare one")
@@ -153,63 +164,126 @@ def test_projects_open_on_the_projects_at_a_glance(client, db) -> None:
     projects_svc.update_project(db, finished.id, status=ProjectStatus.done)
 
     page = client.get("/projects").text
-    overview = page.split('id="projects-overview"')[1].split("</section>")[0]
-    # Above the tasks: a row a project, active then paused, done ones shelved.
-    assert page.index('id="projects-overview"') < page.index('aria-label="Add a task"')
-    rows = overview.split('class="sheet-row overview-row')[2:]
-    assert [r.split('title="Open ')[1].split('"')[0] for r in rows] == [
-        "Late one", "Calm one", "Soon one", "Bare one", "Parked one",
+    timeline = page.split('class="list-section projects-timeline"')[1].split("</section>")[0]
+    # A group a project, the active ones, in their order.
+    groups = timeline.split('class="tl-group')[1:]
+    assert [g.split('title="Open ')[1].split('"')[0] for g in groups] == [
+        "Late one", "Calm one", "Soon one", "Bare one",
     ]
-    late_row, calm_row, soon_row, bare_row, parked_row = rows
+    late_g, calm_g, soon_g, bare_g = groups
     # Its health is what its deadlines say, in words.
-    assert '"chip err">1 overdue<' in late_row
-    assert '"chip ok">On track<' in calm_row
-    assert '"chip warn">Due soon<' in soon_row
-    assert '"chip neutral">Nothing open<' in bare_row
-    assert '"chip neutral">Paused<' in parked_row and "is-paused" in parked_row
-    # Its progress, its next deadline (the overdue one), and its span on the weeks.
-    assert ">1/2<" in late_row and "width: 50%" in late_row
-    assert ">Yesterday<" in late_row and 'title="missed it, due Yesterday"' in late_row
-    assert 'class="ov-bar"' in late_row and 'class="ov-bar"' not in bare_row
-    assert "No dates yet" in bare_row and ">None<" in bare_row
-    # It is drawn again with the task groups.
-    assert "#projects-overview" in page.split('id="task-groups"')[1].split(">")[0]
+    assert '"chip err">1 overdue<' in late_g
+    assert '"chip ok">On track<' in calm_g
+    assert '"chip warn">Due soon<' in soon_g
+    assert '"chip neutral">Nothing open<' in bare_g
+    # Its progress, its span with what is done of it, and its deadlines.
+    assert "<b>50%</b> <span>1/2</span>" in late_g
+    assert 'class="tl-bar"' in late_g and 'class="tl-bar-done" style="width: 50%"' in late_g
+    assert 'class="tl-due overdue"' in late_g and 'title="missed it, due yesterday"' in late_g
+    assert 'class="tl-bar"' not in bare_g and "No dates yet" in bare_g
+    # Under it, its workstreams with work open; the finished ones counted.
+    assert "Lane open" in calm_g and "Lane shut" not in calm_g and "1 finished" in calm_g
+    assert f'data-project-fold="{calm.id}"' in calm_g and "data-project-fold" not in bare_g
+    # The paused and done ones after it, a line each.
+    shelf = page.split('class="projects-shelf"')[1].split("</nav>")[0]
+    assert shelf.index("Parked one") < shelf.index("Finished one")
+    assert "Parked one" not in timeline and "Finished one" not in timeline
+    # It is drawn again as tasks and projects change.
+    body = page.split('id="projects-body"')[1].split(">")[0]
+    assert 'hx-get="/projects"' in body and "projects:changed from:body" in body
 
 
-def test_parked_projects_sit_on_shelves_under_the_active_ones(client, db) -> None:
-    from app.models import ProjectStatus
+def test_projects_says_what_needs_attention(client, db) -> None:
+    active = projects_svc.create_project(db, name="Reno")
+    parked = projects_svc.create_project(db, name="Boat")
+    projects_svc.update_project(db, parked.id, status=ProjectStatus.paused)
+    tasks_svc.create_task(db, title="soon one", project_id=active.id, due=TODAY + timedelta(days=2))
+    tasks_svc.create_task(db, title="late one", due=TODAY - timedelta(days=1))
+    tasks_svc.create_task(db, title="later", project_id=active.id, due=TODAY + timedelta(days=9))
+    tasks_svc.create_task(
+        db, title="parked late", project_id=parked.id, due=TODAY - timedelta(days=1)
+    )
+    review = tasks_svc.create_task(db, title="claude did it", owner=TaskOwner.claude)
+    tasks_svc.set_status(db, review.id, TaskStatus.needs_review)
+    tasks_svc.create_task(db, title="no day")
 
-    active = projects_svc.create_project(db, name="Garden")
-    paused = projects_svc.create_project(db, name="Boat")
-    projects_svc.update_project(db, paused.id, status=ProjectStatus.paused)
     page = client.get("/projects").text
-    assert 'id="shelf-done"' not in page  # an empty shelf is not drawn
-    shelf = page.split('id="shelf-paused"')[1].split("</details>")[0]
-    assert "Boat" in shelf and "Garden" not in shelf
-    assert page.index(f'id="project-{active.id}"') < page.index('id="shelf-paused"')
+    attention = page.split('class="list-section attention"')[1].split("</section>")[0]
+    # Overdue, then due soon, then Claude's work to review; not what is
+    # far off, nor a paused project's.
+    order = [attention.index(t) for t in ("late one", "soon one", "claude did it")]
+    assert order == sorted(order)
+    assert '"chip err">Overdue<' in attention and '"chip warn">Due soon<' in attention
+    assert '"chip needs_review">Needs review<' in attention
+    assert ">later</a>" not in attention and "parked late" not in attention
+    assert ">No project<" in attention and ">Reno<" in attention
+    # And the tasks without a day, sent to Plan.
+    assert "open tasks have no day" in attention and 'href="/plan"' in attention
+    assert page.index('class="list-section attention"') < page.index("projects-timeline")
+
+
+def test_nothing_needing_attention_draws_no_card(client, db) -> None:
+    p = projects_svc.create_project(db, name="Calm")
+    tasks_svc.create_task(
+        db, title="later", project_id=p.id, planned_for=TODAY, due=TODAY + timedelta(days=9)
+    )
+    assert 'class="list-section attention"' not in client.get("/projects").text
+
+
+def test_a_projects_tasks_tab_plans_its_tasks(client, db) -> None:
+    p = projects_svc.create_project(db, name="Reno")
+    m = projects_svc.create_workstream(db, project_id=p.id, name="quotes in")
+    tasks_svc.create_task(db, title="call sparky", project_id=p.id, workstream_id=m.id)
+    tasks_svc.create_task(
+        db, title="pick tiles", project_id=p.id, planned_for=TODAY + timedelta(days=2)
+    )
+    claude = tasks_svc.create_task(
+        db, title="draft the plan", project_id=p.id, owner=TaskOwner.claude
+    )
+    tasks_svc.set_status(db, claude.id, TaskStatus.in_progress)
+    finished = tasks_svc.create_task(db, title="measure wall", project_id=p.id)
+    tasks_svc.set_status(db, finished.id, TaskStatus.done)
+    shut = projects_svc.create_workstream(db, project_id=p.id, name="permits")
+    from app.models import WorkstreamStatus
+
+    projects_svc.update_workstream(db, shut.id, status=WorkstreamStatus.done)
+
+    page = client.get(f"/projects/{p.id}/tasks").text
+    # Its tabs, Tasks the current one.
+    assert f'<a href="/projects/{p.id}/tasks" aria-current="page">Tasks</a>' in page
+    lists = page.split('id="project-tasks"')[1]
+    # A card a workstream, its composer filing into it.
+    group = lists.split(f'id="workstream-group-{m.id}"')[1].split("</section>")[0]
+    assert "call sparky" in group and f'data-file-workstream="{m.id}"' in group
+    assert f'name="workstream_id" value="{m.id}"' in group
+    # Then the tasks in none, its day shown, Claude's work with them.
+    loose = lists.split('id="no-workstream"')[1].split("</section>")[0]
+    assert "pick tiles" in loose and (TODAY + timedelta(days=2)).strftime("%a") in loose
+    assert "draft the plan" in loose and "Running" in loose
+    assert f'data-composer-key="project-tasks-{p.id}"' in loose
+    # A finished workstream folds to the finished ones' line; done work folds away.
+    finished_line = lists.split('class="finished-workstreams"')[1].split("</section>")[0]
+    assert "permits" in finished_line and 'id="workstream-group-' + str(shut.id) not in lists
+    groups, fold = lists.split('class="done-fold" id="project-done"')
+    assert "measure wall" not in groups and "measure wall" in fold and "last 14 days" in fold
+    # It works from the keyboard, and draws itself again as the plan changes.
+    head = lists.split(">")[0]
+    assert "data-cursor" in head and f'hx-get="/projects/{p.id}/tasks"' in head
+    assert "tasks:changed from:body" in head and "#project-head" in head
 
 
 def test_a_row_for_today_offers_tomorrow_but_not_today(client, db) -> None:
-    task = tasks_svc.create_task(db, title="for today", planned_for=TODAY)
-    row = client.get("/projects").text.split(f'id="task-{task.id}"')[1].split("</li>")[0]
+    p = projects_svc.create_project(db, name="Home")
+    task = tasks_svc.create_task(db, title="for today", project_id=p.id, planned_for=TODAY)
+    page = client.get(f"/projects/{p.id}/tasks").text
+    row = page.split(f'id="task-{task.id}"')[1].split("</li>")[0]
     assert ">Tomorrow</button>" in row and ">Today</button>" not in row
     assert "plan-btn slot" in row  # its slot stays, so the columns line up
     # A row always names its day, today included.
     assert '<span class="planned">today</span>' in row
 
 
-def test_done_work_folds_away_on_projects(client, db) -> None:
-    finished = tasks_svc.create_task(db, title="finished it", planned_for=TODAY)
-    tasks_svc.create_task(db, title="still going", planned_for=TODAY)
-    tasks_svc.set_status(db, finished.id, TaskStatus.done)
-
-    page = client.get("/projects").text
-    groups, fold = page.split('class="done-fold" id="tasks-done"')
-    assert "finished it" not in groups and "finished it" in fold
-    assert "last 14 days" in fold
-
-
-def test_projects_show_one_occurrence_of_a_repeating_task(client, db) -> None:
+def test_a_projects_tasks_show_one_occurrence_of_a_repeating_task(client, db) -> None:
     from app.models import RecurrenceKind
     from app.services import recurrence as rec_svc
 
@@ -219,8 +293,8 @@ def test_projects_show_one_occurrence_of_a_repeating_task(client, db) -> None:
         title="water the plants", project_id=p.id,
     )
     rec_svc.materialize_template(db, series, TODAY)
-    card = client.get("/projects").text.split(f'id="project-{p.id}"')[1].split("</article>")[0]
-    assert card.count("water the plants</span>") == 1
+    page = client.get(f"/projects/{p.id}/tasks").text.split('id="project-tasks"')[1]
+    assert page.count("water the plants</span>") == 1
 
 
 def test_plan_sets_and_clears_the_do_date(client, db) -> None:
@@ -240,10 +314,10 @@ def test_rows_rerendered_keep_their_date_buttons(client, db) -> None:
     assert "task-plan" in toggled
 
 
-def test_backlog_folds_into_projects(client) -> None:
+def test_backlog_folds_into_plan(client) -> None:
     response = client.get("/backlog", follow_redirects=False)
     assert response.status_code == 301
-    assert response.headers["location"] == "/projects"
+    assert response.headers["location"] == "/plan"
 
 
 def test_today_page_has_timeline_with_its_events(client, db) -> None:
@@ -614,92 +688,65 @@ def test_add_event_form_creates_event_and_series(client, db) -> None:
     assert all(e.recurrence_template_id for e in yoga)
 
 
-def test_project_card_lists_open_tasks_under_workstreams(client, db) -> None:
+def test_a_folded_project_stays_folded_on_the_timeline(client, db) -> None:
     p = projects_svc.create_project(db, name="Reno")
     m = projects_svc.create_workstream(db, project_id=p.id, name="quotes in")
     tasks_svc.create_task(db, title="call sparky", project_id=p.id, workstream_id=m.id)
-    tasks_svc.create_task(
-        db, title="pick tiles", project_id=p.id, planned_for=TODAY + timedelta(days=2)
-    )
-    finished = tasks_svc.create_task(db, title="measure wall", project_id=p.id)
-    tasks_svc.set_status(db, finished.id, TaskStatus.done)
 
-    page = client.get("/projects").text
-    card = page.split(f'id="project-{p.id}"')[1].split("</article>")[0]
-    group = card.split('class="workstream-group"')[1].split("</div>")[0]
-    assert "call sparky" in group
-    loose = card.split('class="expander"')[1]
-    assert "pick tiles" in loose
-    assert (TODAY + timedelta(days=2)).strftime("%a") in loose  # planned day shown
-    assert "measure wall" not in card
-    assert "2 open" in card
+    def group() -> str:
+        return client.get("/projects").text.split(f'id="timeline-{p.id}"')[0].rsplit("<div", 1)[1]
 
-
-def test_a_folded_project_stays_folded_wherever_its_card_shows(client, db) -> None:
-    p = projects_svc.create_project(db, name="Reno")
-    tasks_svc.create_task(db, title="call sparky", project_id=p.id)
-
-    def card(url: str) -> str:
-        return client.get(url).text.split(f'id="project-{p.id}"')[0].rsplit("<article", 1)[1]
-
-    assert "folded" not in card("/projects")
+    assert "folded" not in group()
     assert client.post(f"/ui/projects/{p.id}/fold", data={"folded": "true"}).status_code == 204
     assert projects_svc.get_project(db, p.id).folded
-    assert "folded" in card("/projects")
-    assert 'aria-expanded="false"' in client.get(f"/ui/projects/{p.id}/card").text
+    assert "folded" in group()
+    chevron = client.get("/projects").text.split(f'data-project-fold="{p.id}"')[1].split(">")[0]
+    assert 'aria-expanded="false"' in chevron
 
     client.post(f"/ui/projects/{p.id}/fold", data={"folded": "false"})
     assert not projects_svc.get_project(db, p.id).folded
-    assert "folded" not in card("/projects")
+    assert "folded" not in group()
 
 
-def test_project_quick_add_edit_and_status(client, db) -> None:
+def test_quick_add_files_into_a_project_and_its_workstream(client, db) -> None:
     p = projects_svc.create_project(db, name="Reno")
+    m = projects_svc.create_workstream(db, project_id=p.id, name="quotes in")
 
     row = client.post("/ui/tasks/quick-add", data={"title": "get quotes", "project_id": p.id})
     assert "get quotes" in row.text
-    [task] = tasks_svc.list_tasks(db, project_id=p.id)
-    assert task.title == "get quotes"
-
-    assert 'name="notes"' in client.get(f"/ui/projects/{p.id}/edit").text
-    card = client.post(
-        f"/ui/projects/{p.id}", data={"name": "Kitchen reno", "notes": "  before summer  "}
-    ).text
-    assert "Kitchen reno" in card and "before summer" in card
-    assert projects_svc.get_project(db, p.id).notes == "before summer"
-
-    # Status re-renders the list, which moves the card onto its shelf.
-    shelved = client.post(f"/ui/projects/{p.id}/status", data={"status": "paused"})
-    assert shelved.headers["HX-Trigger"] == "tasks:changed, projects:changed"
-    page = client.get("/projects").text
-    assert "Kitchen reno" in page.split('id="shelf-paused"')[1]
-    client.post(f"/ui/projects/{p.id}/status", data={"status": "active"})
-    assert 'id="shelf-paused"' not in client.get("/projects").text
+    client.post(
+        "/ui/tasks/quick-add",
+        data={"title": "call sparky", "project_id": p.id, "workstream_id": m.id},
+    )
+    quotes, sparky = tasks_svc.list_tasks(db, project_id=p.id)
+    assert (quotes.title, quotes.workstream_id) == ("get quotes", None)
+    assert (sparky.title, sparky.workstream_id) == ("call sparky", m.id)
 
 
-def test_projects_page_and_workstream_toggle(client, db) -> None:
+def test_projects_and_workstreams_redraw_the_lists(client, db) -> None:
     created = client.post("/ui/projects", data={"name": "New thing"})
     assert created.headers["HX-Trigger"] == "tasks:changed, projects:changed"
     assert "New thing" in client.get("/projects").text
 
     p = projects_svc.list_projects(db)[0]
-    workstream_row = client.post(
-        f"/ui/projects/{p.id}/workstreams", data={"name": "first cut"}
-    ).text
-    assert "first cut" in workstream_row
+    added = client.post(f"/ui/projects/{p.id}/workstreams", data={"name": "first cut"})
+    assert added.headers["HX-Trigger"] == "tasks:changed"
+    assert "first cut" in client.get(f"/projects/{p.id}/tasks").text
 
     from sqlalchemy import select
 
     from app.models import Workstream
 
     m = db.scalars(select(Workstream).where(Workstream.project_id == p.id)).one()
-    toggled = client.post(f"/ui/workstreams/{m.id}/toggle").text
-    assert 'class="workstream done"' in toggled and "Mark “first cut” open" in toggled
+    toggled = client.post(f"/ui/workstreams/{m.id}/toggle")
+    assert toggled.headers["HX-Trigger"] == "tasks:changed"
+    finished = client.get(f"/projects/{p.id}/tasks").text.split('class="finished-workstreams"')[1]
+    assert 'class="workstream done"' in finished and "Mark “first cut” open" in finished
 
 
 def test_task_rows_carry_a_delete_bin(client, db) -> None:
-    task = tasks_svc.create_task(db, title="bin me", planned_for=TODAY)
-    row = client.get("/projects").text.split(f'id="task-{task.id}"')[1].split("</li>")[0]
+    task = tasks_svc.create_task(db, title="bin me")
+    row = client.get("/plan").text.split(f'id="task-{task.id}"')[1].split("</li>")[0]
     assert f'hx-post="/ui/tasks/{task.id}/delete"' in row
     assert 'data-confirm-name="bin me"' in row
 
@@ -754,7 +801,8 @@ def test_a_task_shows_its_project_as_its_flag_in_its_colour(client, db) -> None:
     task = tasks_svc.create_task(db, title="get quotes", planned_for=TODAY, project_id=p.id)
 
     # Its row: the flag in the project's colour, the name on hover, not written.
-    row = client.get("/projects").text.split(f'id="task-{task.id}"')[1].split("</li>")[0]
+    page = client.get(f"/projects/{p.id}/tasks").text
+    row = page.split(f'id="task-{task.id}"')[1].split("</li>")[0]
     assert 'class="project-flag" role="img" style="--project: var(--hue-3)"' in row
     assert 'title="Project: Reno"' in row
     assert ">Reno<" not in row
@@ -763,11 +811,13 @@ def test_a_task_shows_its_project_as_its_flag_in_its_colour(client, db) -> None:
     assert 'class="prop in-project"' in sheet and 'style="--project: var(--hue-3)"' in sheet
     assert 'title="Project: Reno"' in sheet
 
-    # The project's colour is chosen when it is edited.
-    assert 'name="color" value="3" checked' in client.get(f"/ui/projects/{p.id}/edit").text
-    card = client.post(f"/ui/projects/{p.id}", data={"name": "Reno", "color": "6"}).text
-    assert 'style="--project: var(--hue-6)"' in card
+    # The project's colour is chosen on its page.
+    assert 'name="color" value="3" checked' in client.get(f"/projects/{p.id}").text
+    client.post(f"/ui/projects/{p.id}/about", data={"color": "6"})
     assert projects_svc.get_project(db, p.id).color == 6
+    page = client.get(f"/projects/{p.id}/tasks").text
+    row = page.split(f'id="task-{task.id}"')[1].split("</li>")[0]
+    assert 'style="--project: var(--hue-6)"' in row
 
 
 def test_sidebar_lists_the_active_projects_under_projects(client, db) -> None:
@@ -796,8 +846,8 @@ def test_sidebar_lists_the_active_projects_under_projects(client, db) -> None:
     again = client.get(f"/ui/rail/projects?current={reno.id}").text
     assert f'hx-get="/ui/rail/projects?current={reno.id}"' in again
     assert 'aria-current="page"' in again.split(f'href="/projects/{reno.id}"')[1].split(">")[0]
-    renamed = client.post(f"/ui/projects/{trip.id}", data={"name": "Road trip"})
-    assert renamed.headers["HX-Trigger"] == "tasks:changed, projects:changed"
+    renamed = client.post(f"/ui/projects/{trip.id}/about", data={"name": "Road trip"})
+    assert "projects:changed" in renamed.headers["HX-Trigger"]
     assert ">Road trip<" in client.get("/ui/rail/projects").text
 
 
