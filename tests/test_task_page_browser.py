@@ -100,3 +100,32 @@ def test_its_box_steps_it_through_progress_and_review_to_done(page, live, app_db
         assert box.get_attribute("data-status") == status
         assert box.is_checked() == (status == "done")
         assert box.evaluate("el => el.indeterminate") == (status in ("in_progress", "needs_review"))
+
+
+def test_its_description_is_read_drawn_and_its_mode_remembered(page, live, app_db) -> None:
+    with app_db() as db:
+        task = tasks_svc.create_task(
+            db, title="Trip", notes="## Packing\n- passport\n- adapter", planned_for=TODAY
+        )
+        db.commit()
+    page.goto(f"{live}/tasks/{task.id}")
+    editor = page.locator(".main [data-notes-editor] .cm-content")
+    modes = page.locator("[data-md-modes]")
+    # Opened in Live: the heading drawn, its marks hidden.
+    assert modes.locator('[aria-pressed="true"]').inner_text() == "Live"
+    assert editor.locator(".cm-line").first.inner_text() == "Packing"
+
+    # Read (Ctrl+E): not to be written, though its boxes still tick.
+    page.keyboard.press("Control+e")
+    assert modes.locator('[aria-pressed="true"]').inner_text() == "Reading"
+    assert editor.get_attribute("contenteditable") == "false"
+    editor.locator(".cm-md-box").first.click()
+    page.locator("[data-page-state]", has_text="Saved").wait_for()
+    assert stored(app_db, "Trip").notes == "## Packing\n- [x] passport\n- adapter"
+
+    # Opened again, it is read; Source shows its Markdown as written.
+    page.reload()
+    assert modes.locator('[aria-pressed="true"]').inner_text() == "Reading"
+    modes.locator("button", has_text="Source").click()
+    assert editor.locator(".cm-line").first.inner_text() == "## Packing"
+    assert editor.get_attribute("contenteditable") == "true"
