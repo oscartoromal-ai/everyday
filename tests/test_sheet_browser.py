@@ -21,7 +21,7 @@ def next_weekday(day: int) -> date:
 
 def test_typed_words_become_fields_and_backspace_takes_them_back(page, live) -> None:
     page.goto(f"{live}/projects")
-    sheet = page.locator(".task-sheet[data-sheet=compose]")
+    sheet = page.locator(".main .task-sheet[data-sheet=compose]")
     title = sheet.locator(".sheet-title")
     sheet.locator(".sheet-line").click()
 
@@ -92,7 +92,7 @@ def test_editing_saves_when_focus_leaves_the_sheet(page, live, app_db) -> None:
     page.locator(".task-title-btn", has_text="Mow").click()
     sheet.wait_for()
     page.keyboard.type(" the lawn")
-    page.locator(".prop[data-prop=project]").click()
+    page.locator(".main .prop[data-prop=project]").click()
     page.locator(".sheet-menu [role=menuitemradio]", has_text="Garden").click()
     # Tab walks the icons (estimate the last), the description, and the end line,
     # then out: a save.
@@ -109,7 +109,7 @@ def test_editing_saves_when_focus_leaves_the_sheet(page, live, app_db) -> None:
 
 def test_spelling_is_marked_only_in_the_line_being_written(page, live) -> None:
     page.goto(f"{live}/projects")
-    sheet = page.locator(".task-sheet[data-sheet=compose]")
+    sheet = page.locator(".main .task-sheet[data-sheet=compose]")
     title = sheet.locator(".sheet-title")
     sheet.locator(".sheet-line").click()
     page.keyboard.type("Wrte a titel")
@@ -126,7 +126,7 @@ def test_spelling_is_marked_only_in_the_line_being_written(page, live) -> None:
     def marked(expected: list) -> None:
         page.wait_for_function(
             """expected => JSON.stringify([...document.querySelectorAll(
-                '.task-sheet[data-sheet=compose] [data-notes-editor] .cm-line')]
+                '.main .task-sheet[data-sheet=compose] [data-notes-editor] .cm-line')]
                 .map(e => e.closest('[spellcheck]').getAttribute('spellcheck') === 'true'))
                 === JSON.stringify(expected)""",
             arg=expected, timeout=3000,
@@ -142,7 +142,7 @@ def test_spelling_is_marked_only_in_the_line_being_written(page, live) -> None:
 
 def test_an_estimate_is_written_as_words_or_picked(page, live, app_db) -> None:
     page.goto(f"{live}/projects")
-    sheet = page.locator(".task-sheet[data-sheet=compose]")
+    sheet = page.locator(".main .task-sheet[data-sheet=compose]")
     title = sheet.locator(".sheet-title")
     estimate = sheet.locator("input[name=estimate]")
     sheet.locator(".sheet-line").click()

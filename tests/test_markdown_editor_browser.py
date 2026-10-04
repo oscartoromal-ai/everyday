@@ -29,17 +29,17 @@ def open_task(page, live, app_db, notes: str = "") -> int:
         db.commit()
         task_id = task.id
     page.goto(f"{live}/tasks/{task_id}")
-    page.locator("[data-notes-editor] .cm-content").wait_for()
+    page.locator(".main [data-notes-editor] .cm-content").wait_for()
     return task_id
 
 
 def shown(page) -> str:
     """The description's words as they read on screen."""
-    return page.locator("[data-notes-editor] .cm-content").inner_text()
+    return page.locator(".main [data-notes-editor] .cm-content").inner_text()
 
 
 def field(page) -> str:
-    return page.locator("textarea[name=notes]").input_value()
+    return page.locator(".main textarea[name=notes]").input_value()
 
 
 def saved(page, app_db, task_id: int) -> str:
@@ -157,7 +157,7 @@ def test_ctrl_b_and_a_pasted_address_write_markdown(page, live, app_db) -> None:
 
 def test_ctrl_enter_in_the_description_adds_the_task(page, live, app_db) -> None:
     page.goto(f"{live}/projects")
-    sheet = page.locator(".task-sheet[data-sheet=compose]").first
+    sheet = page.locator(".main .task-sheet[data-sheet=compose]").first
     sheet.locator(".sheet-line").click()
     page.keyboard.type("Pack")
     page.keyboard.press("Enter")

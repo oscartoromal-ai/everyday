@@ -291,6 +291,43 @@ def test_quick_add_creates_row(client) -> None:
     assert response.headers["HX-Trigger"] == "task:added"
 
 
+def test_quick_add_files_it_into_a_workstream(client, db) -> None:
+    home = projects_svc.create_project(db, name="Home")
+    work = projects_svc.create_project(db, name="Work")
+    garden = projects_svc.create_workstream(db, project_id=home.id, name="Garden")
+    db.commit()
+    response = client.post(
+        "/ui/tasks/quick-add",
+        data={"title": "plant tulips", "project_id": str(home.id), "workstream_id": str(garden.id)},
+    )
+    assert response.status_code == 200
+    (task,) = tasks_svc.list_tasks(db)
+    assert (task.project_id, task.workstream_id) == (home.id, garden.id)
+    # A workstream of another project is refused, and nothing is added.
+    refused = client.post(
+        "/ui/tasks/quick-add",
+        data={"title": "stray", "project_id": str(work.id), "workstream_id": str(garden.id)},
+    )
+    assert refused.status_code == 422
+    assert [t.title for t in tasks_svc.list_tasks(db)] == ["plant tulips"]
+
+
+def test_every_page_offers_the_new_task_window(client, db) -> None:
+    home = projects_svc.create_project(db, name="Home")
+    projects_svc.create_workstream(db, project_id=home.id, name="Garden")
+    db.commit()
+    for path in ("/today", "/garmin", "/me", "/projects", f"/projects/{home.id}"):
+        page = client.get(path).text
+        assert "data-capture-open" in page, path
+        window = page.split('id="capture-dialog"')[1].split("</dialog>")[0]
+        # The projects and workstreams to file it into, at its foot.
+        assert 'class="prop file-into"' in window, path
+        assert '"name": "Garden"' in window, path
+        # A project's pages start it in that project.
+        default = home.id if path.startswith("/projects/") else ""
+        assert f'name="project_id" value="{default}"' in window, path
+
+
 def test_quick_add_takes_a_description_with_subtasks(client, db) -> None:
     row = client.post(
         "/ui/tasks/quick-add",

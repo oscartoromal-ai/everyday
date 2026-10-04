@@ -1,7 +1,9 @@
 {#
   One sheet for writing a task, in three modes (task-sheet.js):
   - compose: the last row of a list card. Context comes from the include:
-    target (the list a new row joins), planned_for, project_id, placeholder.
+    target (the list a new row joins), planned_for, project_id, placeholder;
+    and file_into, in the New task window: the projects and workstreams to
+    file it into, chosen at its foot (Project › Workstream) or with #.
   - edit: the task in place of its row, from sheet_ctx() (views.py).
   - page: the task on its own page (task.html), from task_page_ctx().
   The title wraps like a line of a document and the do-date, due, repeat,
@@ -103,7 +105,10 @@
   {% endfor %}
   {% if editing %}
   <input type="hidden" name="workstream_id" value="{{ s.workstream_id }}">
-  {% elif planned_for %}
+  {% elif file_into %}
+  <input type="hidden" name="workstream_id" value="" data-default="">
+  {% endif %}
+  {% if not editing and planned_for %}
   {# The list's own day: a task dated elsewhere regroups the page instead of joining it. #}
   <input type="hidden" name="list_day" value="{{ planned_for.isoformat() }}">
   {% endif %}
@@ -150,7 +155,17 @@
       <script type="application/json" data-sheet-projects>{{ s.projects | tojson }}</script>
       {% else %}
       <div class="sheet-actions">
-        <span class="hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to add</span>
+        {% if file_into %}
+        {# Where it goes, named in full: No project, a project, or Project › Workstream. #}
+        <button type="button" class="prop file-into" data-prop="project" data-label="full" aria-haspopup="menu"
+                title="Project and workstream (#)">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
+          <span class="prop-value" data-empty="No project"></span>
+          <svg class="file-into__chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+        </button>
+        <script type="application/json" data-sheet-projects>{{ file_into | tojson }}</script>
+        {% endif %}
+        <span class="hint">{% if file_into %}<kbd>#</kbd> project · {% endif %}<kbd>Ctrl</kbd>+<kbd>Enter</kbd> to add</span>
         <span class="spacer"></span>
         <button type="button" class="btn quiet" data-composer-cancel>Cancel</button>
         <button type="submit" class="btn primary">Add task</button>

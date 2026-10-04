@@ -33,14 +33,14 @@ def test_a_task_written_on_the_sheet_opens_to_be_written_out(page, live, app_db)
     page.keyboard.press("Control+Enter")
     page.wait_for_url(f"{live}/tasks/*")
     # The description takes the caret: the task is there to be written out.
-    editor = page.locator("[data-notes-editor]")
+    editor = page.locator(".main [data-notes-editor]")
     assert editor.evaluate("el => el.contains(document.activeElement)")
     page.keyboard.type("Flights first, then the rail pass.")
     page.locator("[data-page-state]", has_text="Saved").wait_for()
     assert stored(app_db, "Plan the trip").notes == "Flights first, then the rail pass."
 
     # The title is the page's heading, and its trailing words its fields.
-    page.locator(".sheet-title").click()
+    page.locator(".main .sheet-title").click()
     page.keyboard.press("End")
     page.keyboard.type(" to Japan tomorrow ")
     page.keyboard.press("Escape")
@@ -62,7 +62,7 @@ def test_a_title_on_the_sheet_opens_its_page(page, live, app_db) -> None:
     page.goto(f"{live}/calendar?view=sheet")
     plan_cell(page).locator("a.ds-title", has_text="Taxes").click()
     page.wait_for_url(f"{live}/tasks/{task.id}")
-    page.locator("[data-notes-editor]").click()
+    page.locator(".main [data-notes-editor]").click()
     page.keyboard.type("- receipts")
     page.keyboard.press("Enter")
     page.keyboard.type("payslips")

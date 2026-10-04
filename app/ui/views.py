@@ -105,6 +105,17 @@ def rail_projects(request: Request) -> list[Project]:
 templates.env.globals["rail_projects"] = rail_projects
 
 
+def capture_projects(request: Request) -> list[dict[str, Any]]:
+    """The projects a task written in the New task window can be filed
+    into, with their workstreams (the sheet's project menu). None for a page
+    rendered outside a UI route."""
+    db = getattr(request.state, "db", None)
+    return [] if db is None else project_choices(db)
+
+
+templates.env.globals["capture_projects"] = capture_projects
+
+
 def rail_layout(request: Request) -> list[rail_svc.PlacedSection]:
     """The sidebar's sections and modules, as Oscar laid them out."""
     return rail_svc.layout(getattr(request.state, "db", None))

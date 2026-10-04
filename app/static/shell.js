@@ -416,6 +416,12 @@
 
   // One with an action (Undo) stays longer, and while the pointer is on it.
   let toastTimer = 0;
+  // A window closing hands its toast back to the page, to finish its moment
+  // ("close" does not bubble; caught on the way down).
+  document.addEventListener("close", (e) => {
+    const el = e.target.querySelector?.(":scope > .cal-toast");
+    if (el) document.body.appendChild(el);
+  }, true);
   window.toast = (message, { action = "", run = null } = {}) => {
     let el = document.querySelector(".cal-toast");
     if (!el) {
@@ -426,8 +432,11 @@
       el.addEventListener("pointerleave", () => {
         toastTimer = setTimeout(() => el.classList.remove("show"), 1500);
       });
-      document.body.appendChild(el);
     }
+    // Over an open window (the New task window), in it: the page under a
+    // window is out of reach, and its action with it.
+    const host = document.querySelector("dialog[open]:modal") || document.body;
+    if (el.parentElement !== host) host.appendChild(el);
     el.textContent = message;
     if (action && run) {
       const button = document.createElement("button");
@@ -451,17 +460,21 @@
      pages showing, top to bottom (from a field too, which saves as the page
      goes), and holding Alt shows their numbers; ? shows every key
      (#keys-dialog), and N or Shift+N writes a new task (on Projects, tasks.js
-     puts it in the page's own list; elsewhere it opens #capture-dialog).
+     puts it in the page's own list; elsewhere it opens #capture-dialog, as the
+     sidebar's New task does on every page).
      Never over a dialog, and the single keys never while typing. ---- */
 
   const TYPING = "input, textarea, select, [contenteditable]";
   const openCapture = () => {
     const capture = document.getElementById("capture-dialog");
     if (!capture) return false;
-    capture.showModal();
-    window.TaskSheet.compose(capture.querySelector(".task-sheet"));
+    if (!capture.open) capture.showModal();
+    window.TaskSheet.capture(capture.querySelector(".task-sheet"));
     return true;
   };
+  document.addEventListener("click", (e) => {
+    if (e.target.closest?.("[data-capture-open]")) openCapture();
+  });
   const showKeys = (on) => root.toggleAttribute("data-nav-keys", on);
   document.addEventListener("keydown", (e) => {
     // Still held through Alt+Up/Down, so a module moved shows its new number.

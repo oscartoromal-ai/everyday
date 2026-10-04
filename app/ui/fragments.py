@@ -106,6 +106,7 @@ def quick_add(
     due: Annotated[str, Form()] = "",
     repeat: Annotated[str, Form()] = "none",
     project_id: Annotated[str, Form()] = "",
+    workstream_id: Annotated[str, Form()] = "",
     list_day: Annotated[str, Form()] = "",
     estimate: Annotated[str, Form()] = "",
     priority: Annotated[str, Form()] = "",
@@ -115,7 +116,7 @@ def quick_add(
         return HTMLResponse("")
     task = _add_task(
         db, title=title, notes=notes, planned_for=planned_for, due=due, repeat=repeat,
-        project_id=project_id, estimate=estimate, priority=priority,
+        project_id=project_id, workstream_id=workstream_id, estimate=estimate, priority=priority,
     )
     db.commit()
     if list_day and task.planned_for != date.fromisoformat(list_day):
