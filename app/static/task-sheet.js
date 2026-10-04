@@ -235,6 +235,14 @@
     todo: "To do", in_progress: "In progress", blocked: "Blocked",
     needs_review: "Needs review", done: "Done", cancelled: "Cancelled",
   };
+  // The box steps a task on, as Gantt's does: to do, in progress, review,
+  // done, and round to to do again; a blocked task starts.
+  const NEXT_STATUS = { todo: "in_progress", blocked: "in_progress", in_progress: "needs_review", needs_review: "done", done: "todo" };
+  const CHECK_TITLES = {
+    todo: "To do: a click starts it", in_progress: "In progress: a click puts it to review",
+    needs_review: "Needs review: a click makes it done", done: "Done: a click opens it again",
+    blocked: "Blocked: a click starts it", cancelled: "Cancelled: a click opens it again",
+  };
   const OWNER_LABELS = { oscar: "Oscar", claude: "Claude" };
   // A habit's days: Monday 0 to Sunday 6, "" for any day.
   const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -323,7 +331,15 @@
       button.setAttribute("aria-label", spoken);
     }
     const check = form.querySelector("[data-sheet-check]");
-    if (check) check.checked = valueOf(form, "status") === "done";
+    if (check) {
+      const status = valueOf(form, "status");
+      check.checked = status === "done";
+      // Started but not done: neither ticked nor empty (app.css draws which).
+      check.indeterminate = status === "in_progress" || status === "needs_review";
+      check.dataset.status = status;
+      check.title = CHECK_TITLES[status];
+      check.setAttribute("aria-label", `Status: ${STATUS_LABELS[status]}`);
+    }
   };
 
   const setField = (form, name, value) => {
@@ -892,7 +908,7 @@
   document.addEventListener("change", (e) => {
     if (!e.target.matches?.("[data-sheet-check]")) return;
     const form = sheetOf(e.target);
-    setField(form, "status", e.target.checked ? "done" : "todo");
+    setField(form, "status", NEXT_STATUS[valueOf(form, "status")] || "todo");
   });
 
   /* ---- a task's page: saved as it is written ---- */
