@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.dates import monday, week_label
 from app.models import Project, Task, TaskStatus, Workstream, WorkstreamStatus
 from app.services import gantt as gantt_svc
-from app.ui.views import DUE_SOON_DAYS
+from app.services.tasks import DUE_SOON_DAYS
 
 WEEK = timedelta(days=7)
 SCALES = ("weeks", "days")

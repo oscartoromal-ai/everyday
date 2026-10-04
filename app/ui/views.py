@@ -50,8 +50,6 @@ CHIPS = {
     TaskStatus.blocked: ("Blocked", "blocked"),
 }
 
-DUE_SOON_DAYS = 3
-
 
 STATIC_DIR = TEMPLATES_DIR.parent / "static"
 
@@ -245,7 +243,9 @@ def row_ctx(task: Task, now: datetime) -> dict[str, Any]:
         ),
         "chip_class": CHIPS[task.status][1] if task.status in CHIPS else "",
         "due_label": f"due {short_date(task.due, today)}" if task.due else None,
-        "due_soon": bool(task.due and task.due <= today + timedelta(days=DUE_SOON_DAYS)),
+        "due_soon": bool(
+            task.due and task.due <= today + timedelta(days=tasks_svc.DUE_SOON_DAYS)
+        ),
         "project": task.project,
     }
 
@@ -354,7 +354,7 @@ def project_glance(db: Session, project: Project, today: date) -> dict[str, Any]
         health = ("Done", "neutral")
     elif overdue:
         health = (f"{overdue} overdue", "err")
-    elif upcoming and upcoming.due <= today + timedelta(days=DUE_SOON_DAYS):
+    elif upcoming and upcoming.due <= today + timedelta(days=tasks_svc.DUE_SOON_DAYS):
         health = ("Due soon", "warn")
     elif not open_tasks:
         health = ("Nothing open", "neutral")

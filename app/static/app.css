@@ -2910,6 +2910,21 @@ tr.is-folded .ds-plan-list li:first-child .ds-title { min-width: 0; overflow: hi
 .ds-task .ds-title { color: var(--ink); text-decoration: none; }
 .ds-task .ds-title:hover { text-decoration: underline; text-underline-offset: 3px; }
 .ds-task.is-done .ds-title { color: var(--pewter); text-decoration: line-through; text-decoration-thickness: 1px; }
+/* a task in a project: its line a band in the project's colour, edged in
+   the colour itself, so a day's work reads by project at a glance (a 1px
+   gap between lines; quieter once done) */
+.ds-task.in-project {
+  --band: color-mix(in srgb, var(--project) 16%, transparent);
+  --band-edge: var(--project);
+  margin: 0 -4px; padding: 0 4px;
+  background:
+    linear-gradient(var(--band-edge), var(--band-edge)) 0 0 / 2px calc(100% - 1px) no-repeat,
+    linear-gradient(var(--band), var(--band)) 0 0 / 100% calc(100% - 1px) no-repeat;
+}
+.ds-task.in-project.is-done {
+  --band: color-mix(in srgb, var(--project) 7%, transparent);
+  --band-edge: color-mix(in srgb, var(--project) 45%, transparent);
+}
 .ds-check {
   flex: none; align-self: center; display: grid; place-content: center; width: 14px; height: 14px;
   border: 1.5px solid var(--steel); cursor: pointer;
@@ -2936,10 +2951,13 @@ tr.is-folded .ds-plan-list li:first-child .ds-title { min-width: 0; overflow: hi
 /* its priority's bars, before its title (the word on hover); a slot kept
    empty without one, so the titles start in one column */
 .ds-priority { flex: none; align-self: center; display: inline-grid; place-content: center; width: 14px; height: 18px; }
+/* "due" on a deadline: graphite words while it is far, the warn badge once
+   it is due soon or past, as a task row's due */
 .ds-due {
   flex: none; padding: 0 var(--s-2); font-size: var(--t-caption); font-weight: 500; line-height: 18px;
-  color: var(--warn-fg); background: var(--badge-warn-glass);
+  color: var(--graphite);
 }
+.ds-due.soon { color: var(--warn-fg); background: var(--badge-warn-glass); }
 /* a task's bin at the line's end: quiet until the line is hovered (always on touch), err-tinted on hover */
 .ds-delete {
   flex: none; align-self: center; display: grid; place-content: center;

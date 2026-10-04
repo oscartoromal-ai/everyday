@@ -10,7 +10,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from sqlalchemy import or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models import EventSource, NotebookPage, Task, TaskOwner, TaskStatus
 from app.services import events as events_svc
@@ -59,10 +59,13 @@ def _stay_columns(
     return list(names.values()) or notebook_svc.last_stay_items(db, first)
 
 
-def _tasks(db: Session, first: date, last: date) -> dict[date, list[dict[str, Any]]]:
+def _tasks(
+    db: Session, first: date, last: date, today: date
+) -> dict[date, list[dict[str, Any]]]:
     """Each day's tasks: Oscar's planned for it (done ones too), then those
-    still open due on it, a deadline still open saying so; each by priority,
-    then as written."""
+    still open due on it, a deadline still open saying so (urgent once it is
+    past or due soon, as everywhere else); each by priority, then as written,
+    and each in its project's colour."""
     found = db.scalars(
         select(Task)
         .where(
@@ -70,8 +73,10 @@ def _tasks(db: Session, first: date, last: date) -> dict[date, list[dict[str, An
             Task.status != TaskStatus.cancelled,
             or_(Task.planned_for.between(first, last), Task.due.between(first, last)),
         )
+        .options(selectinload(Task.project))
         .order_by(Task.created_at)
     )
+    soon = today + timedelta(days=tasks_svc.DUE_SOON_DAYS)
     out: dict[date, list[dict[str, Any]]] = {}
     for task in found:
         done = task.status == TaskStatus.done
@@ -80,6 +85,11 @@ def _tasks(db: Session, first: date, last: date) -> dict[date, list[dict[str, An
             "priority": task.priority.value if task.priority else "",
             "priority_label": task.priority.label if task.priority else "",
             "rank": tasks_svc.priority_rank(task),
+            "due_soon": bool(task.due and task.due <= soon),
+            "project": (
+                {"name": task.project.name, "color": task.project.color}
+                if task.project else None
+            ),
         }
         if task.planned_for and first <= task.planned_for <= last:
             out.setdefault(task.planned_for, []).append(
@@ -125,7 +135,7 @@ def day_sheet_ctx(db: Session, first: date, today: date, days: int = SHEET_DAYS)
     last = first + timedelta(days=days - 1)
     stays = _stays(db, first, last)
     columns = _stay_columns(db, first, stays)
-    tasks = _tasks(db, first, last)
+    tasks = _tasks(db, first, last, today)
     events = _events(db, first, last)
     habits = habits_svc.grid(db, first, days)
     rows = []

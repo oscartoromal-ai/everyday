@@ -7,6 +7,7 @@ from app.models import HabitCheck, Task, TaskStatus
 from app.services import events as events_svc
 from app.services import habits as habits_svc
 from app.services import notebook
+from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 from app.ui.day_sheet_view import day_sheet_ctx, home_start
 
@@ -200,3 +201,30 @@ def test_a_task_is_deleted_from_the_sheet(client, db) -> None:
     assert "Cancel gym" not in answer.text
     assert f'data-delete-task="{kept.id}"' in answer.text
     assert [t.title for t in db.query(Task).all()] == ["Pay rent"]
+
+
+def test_a_deadline_is_urgent_only_once_due_soon_and_a_task_wears_its_projects_colour(
+    client, db,
+) -> None:
+    # Oscar's report on 2026-10-04: deadlines weeks out read as urgent as
+    # tomorrow's. "due" warns only once a deadline is due soon (or past), as
+    # a task row's due does.
+    project = projects_svc.create_project(db, name="Garden Planner", color=8)
+    soon_day = TODAY + timedelta(days=tasks_svc.DUE_SOON_DAYS)
+    later_day = soon_day + timedelta(days=1)
+    tasks_svc.create_task(db, title="Ship the beta", due=soon_day, project_id=project.id)
+    tasks_svc.create_task(db, title="Ship docs", due=later_day)
+    sheet = day_sheet_ctx(db, home_start(TODAY), TODAY)
+    [soon] = row(sheet, soon_day)["tasks"]
+    [later] = row(sheet, later_day)["tasks"]
+    assert (soon["due"], soon["due_soon"]) == (True, True)
+    assert (later["due"], later["due_soon"]) == (True, False)
+    # Each task in its project's colour, the project named on hover.
+    assert soon["project"] == {"name": "Garden Planner", "color": 8}
+    assert later["project"] is None
+
+    page = client.get("/calendar?view=sheet").text
+    assert page.count('<span class="ds-due soon">due</span>') == 1
+    assert page.count('<span class="ds-due">due</span>') == 1
+    assert 'class="ds-task in-project" style="--project: var(--hue-8)"' in page
+    assert 'title="Project: Garden Planner"' in page
