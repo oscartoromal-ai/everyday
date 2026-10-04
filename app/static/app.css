@@ -929,6 +929,8 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .notes-editor .cm-editor, .notes-editor .cm-editor.cm-focused { outline: none; }
 .notes-editor .cm-scroller { font-family: inherit; line-height: inherit; overflow: visible; }
 .notes-editor .cm-content { padding: 0; caret-color: var(--ink); }
+/* written on the line, as the notepad is: no ring round the words being written */
+.notes-editor .cm-content:is(:focus, :focus-visible) { outline: none; box-shadow: none; }
 .notes-editor .cm-content .cm-line { padding: 0; }
 .notes-editor .cm-placeholder { color: var(--pewter); }
 .notes-editor .cm-cursor, .notes-editor .cm-dropCursor { border-left: 1.5px solid var(--ink); }

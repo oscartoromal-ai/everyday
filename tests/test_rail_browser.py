@@ -18,6 +18,9 @@ def drag(page, source, target, *, below: bool = False) -> None:
     """Press on source, move in steps to target's top (or bottom) quarter, let go,
     once the last drop's slides are over (they move what is measured)."""
     page.wait_for_function("() => document.getAnimations().length === 0")
+    # A rail taller than the window scrolls its nav: both in sight, as a hand would have them.
+    target.scroll_into_view_if_needed()
+    source.scroll_into_view_if_needed()
     start = source.bounding_box()
     end = target.bounding_box()
     page.mouse.move(start["x"] + 30, start["y"] + start["height"] / 2)

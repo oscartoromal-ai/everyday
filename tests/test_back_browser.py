@@ -74,7 +74,7 @@ def test_a_task_opened_from_the_gantt_comes_back_to_its_cursor(page, live, app_d
     assert _back(page).inner_text() == "Back to Beta · Gantt"
 
     # Written out on its page, then back with Alt+Left.
-    page.locator(".sheet-title").click()
+    page.locator(".main .sheet-title").click()
     page.keyboard.press("End")
     page.keyboard.type(" done right")
     page.keyboard.press("Escape")

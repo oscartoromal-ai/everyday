@@ -3,3 +3,4 @@
   On a project's pages it starts in that project; it stays open for the next task, filed in the same place, and the toast that says where each went opens it.
 - Fix: A menu opened from the New task window's icons (a date, a priority) no longer sits behind the window's shade
 - Fix: A project's Gantt shows a task added from the New task window without a reload
+- Fix: Writing a task's description no longer draws a pink ring round the words

@@ -72,7 +72,7 @@ Field names are 12px/500 graphite Inter, as the notes' "Task" label is: Inter is
 The shell is a 240px matte sidebar plus a content column on the canvas.
 The wordmark is Brasa's pattern: the name in 600 followed by a spark period, "Personal Calendar.".
 At night the name carries a faint halo (`--ink-glow-text`) and the period glows and strikes once on load, three stutters and then steady, like a tube coming on (`--spark-entrance`).
-Under the wordmark, New task is the sidebar's one action, from any page: an 18px spark disc with a plus in `--on-spark` (pink is you; glowing at night), then "New task" in 14px/500 ink and its key ("N") in a hairline box at the right, on a nav item's metrics; it opens the capture window (see Capture window).
+Under the wordmark and Back, New task is the sidebar's one action, from any page: an 18px spark disc with a plus in `--on-spark` (pink is you; glowing at night), then "New task" in 14px/500 ink and its key ("N") in a hairline box at the right, on a nav item's metrics; it opens the capture window (see Capture window).
 The icon rail keeps the disc alone, and the phone's tab bar ends its tabs with it, 28px in a 44px target, before the foot's hairline.
 Nav items are 14px/500 graphite; the active one is ink 600 with Brasa's 3px spark bar, glowing at night, inset 8px from the viewport edge.
 Nav is grouped in the Brasa manner: the planning pages (Today, Calendar) sit under a 12px pewter "Planner" group label, Today first since the app opens on it; Projects follows as a second group, Health (Nutrition, Me, Garmin) a third, Finances (Spending, Accounts, Bills, Goals) a fourth, and Code (Repositories) a fifth, each under its own label.
