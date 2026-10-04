@@ -49,7 +49,10 @@ def create_project(
     if not name.strip():
         raise DomainError("Project name must not be empty")
     color = next_color(db) if color is None else _check_color(color)
-    project = Project(name=name.strip(), notes=notes, color=color)
+    last = db.scalar(select(func.max(Project.position)))
+    project = Project(
+        name=name.strip(), notes=notes, color=color, position=0 if last is None else last + 1
+    )
     # Every project has its AGENTS.md, empty until written.
     project.docs.append(ProjectDoc(name=AGENTS_DOC))
     db.add(project)
@@ -95,11 +98,38 @@ def list_projects(db: Session, *, status: ProjectStatus | None = None) -> list[P
     stmt = (
         select(Project)
         .options(selectinload(Project.workstreams))
-        .order_by(Project.created_at)
+        .order_by(Project.position, Project.created_at)
     )
     if status is not None:
         stmt = stmt.where(Project.status == status)
     return list(db.scalars(stmt))
+
+
+def reorder_projects(db: Session, project_ids: list[int]) -> None:
+    """The projects named, in this order, as dragged in the sidebar. They
+    swap the places they held among themselves, so the projects not named
+    (the shelved, under the active ones) keep theirs."""
+    if len(set(project_ids)) != len(project_ids):
+        raise DomainError("A project is named twice")
+    projects = {p.id: p for p in db.scalars(select(Project).where(Project.id.in_(project_ids)))}
+    missing = [i for i in project_ids if i not in projects]
+    if missing:
+        raise DomainError(f"No project {missing[0]}")
+    places = sorted(p.position for p in projects.values())
+    # Places shared (projects made before positions) are spread out first.
+    if len(set(places)) != len(places):
+        _renumber(db)
+        places = sorted(p.position for p in projects.values())
+    for project_id, place in zip(project_ids, places, strict=True):
+        projects[project_id].position = place
+    db.flush()
+
+
+def _renumber(db: Session) -> None:
+    for place, project in enumerate(
+        db.scalars(select(Project).order_by(Project.position, Project.created_at, Project.id))
+    ):
+        project.position = place
 
 
 def create_workstream(db: Session, *, project_id: int, name: str) -> Workstream:

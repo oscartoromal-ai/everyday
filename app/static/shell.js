@@ -85,6 +85,258 @@
   });
   applyRailProjects(root.dataset.railProjects === "folded");
 
+  /* ---- the sidebar's layout (app/services/rail.py): a module hidden by its
+     eye and brought back from Settings; a module dragged within its section,
+     a section by its name (or its one module), a project among the projects;
+     Alt+Up/Down moves the focused one (with Shift, its section). The page
+     changes at once, and the server keeps it. ---- */
+
+  const railNav = document.querySelector(".nav");
+  if (railNav) {
+    // One save after another, so the server keeps the last state, not
+    // whichever of two quick moves' saves landed last.
+    let saving = Promise.resolve();
+    const send = (url, body) => (saving = saving.then(() =>
+      fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-CSRF": window.csrfToken() },
+        body: JSON.stringify(body),
+      })
+        .then((res) => { if (!res.ok) throw new Error(res.statusText); })
+        .catch(() => window.toast("Could not save the sidebar. Try again?"))));
+
+    const groups = () => [...railNav.querySelectorAll(":scope > .nav-group[data-section]")];
+    const modulesOf = (group) => [...group.querySelectorAll(":scope > .nav-item")];
+    const saveLayout = () => send("/ui/rail", {
+      sections: groups().map((g) => g.dataset.section),
+      modules: Object.fromEntries(groups().map((g) => [g.dataset.section, modulesOf(g).map((i) => i.dataset.module)])),
+      hidden: [...railNav.querySelectorAll(".nav-item[hidden]")].map((i) => i.dataset.module),
+    });
+    // The projects' order is Projects' too: its lists, and this one, are drawn
+    // again in it (the link that had focus keeps it).
+    const saveProjects = (focusHref = null) => {
+      const ids = [...document.querySelectorAll("#rail-projects > li")].map((li) => Number(li.dataset.projectId));
+      send("/ui/projects/order", { ids }).then(() => {
+        if (focusHref) {
+          document.body.addEventListener("htmx:afterSettle", function refocus(e) {
+            if (e.detail.elt.id !== "rail-projects") return;
+            document.body.removeEventListener("htmx:afterSettle", refocus);
+            document.querySelector(`#rail-projects a[href="${focusHref}"]`)?.focus();
+          });
+        }
+        htmx.trigger(document.body, "projects:changed");
+      });
+    };
+
+    const label = (item) => item.querySelector(".nav-label").textContent.trim();
+    const setHidden = (item, hidden) => {
+      item.hidden = hidden;
+      saveLayout();
+    };
+
+    // The module below slides up under the pointer: its eye waits for the
+    // pointer to move on, so a second click does not hide that one too.
+    let settling = null;
+    document.addEventListener("pointermove", (e) => {
+      if (settling && Math.hypot(e.clientX - settling.x, e.clientY - settling.y) > 6) {
+        settling = null;
+        delete railNav.dataset.settling;
+      }
+    });
+    document.addEventListener("click", (e) => {
+      const hide = e.target.closest("[data-nav-hide]");
+      if (!hide) return;
+      const item = hide.closest(".nav-item");
+      if (e.detail) {
+        settling = { x: e.clientX, y: e.clientY };
+        railNav.dataset.settling = "";
+      }
+      // From the keyboard, focus goes on to the next module showing.
+      const next = e.detail ? null : [...railNav.querySelectorAll(".nav-item:not([hidden])")]
+        .filter((i) => i !== item && item.compareDocumentPosition(i) & Node.DOCUMENT_POSITION_FOLLOWING)[0];
+      setHidden(item, true);
+      if (!e.detail) (next?.querySelector("a") || document.querySelector("[data-settings-open]")).focus();
+      window.toast(`${label(item)} hidden. Settings brings it back.`, { action: "Undo", run: () => setHidden(item, false) });
+    });
+
+    /* Settings: the hidden modules, each with its section and Show. */
+    const settings = document.getElementById("settings-dialog");
+    const listHidden = () => {
+      const list = settings.querySelector("[data-hidden-modules]");
+      list.replaceChildren(...[...railNav.querySelectorAll(".nav-item[hidden]")].map((item) => {
+        const row = document.createElement("li");
+        row.className = "settings-module";
+        const name = document.createElement("span");
+        name.className = "settings-module__name";
+        name.textContent = label(item);
+        const section = document.createElement("span");
+        section.className = "settings-module__section";
+        section.textContent = item.closest(".nav-group").querySelector(".nav-group-label")?.textContent.trim() || "";
+        const show = document.createElement("button");
+        show.type = "button";
+        show.className = "btn quiet";
+        show.textContent = "Show";
+        show.setAttribute("aria-label", `Show ${label(item)} in the sidebar`);
+        show.addEventListener("click", () => {
+          setHidden(item, false);
+          const next = row.nextElementSibling?.querySelector("button") || row.previousElementSibling?.querySelector("button");
+          row.remove();
+          settings.toggleAttribute("data-empty", !list.children.length);
+          (next || settings.querySelector("header .btn")).focus();
+        });
+        row.append(item.querySelector("a svg").cloneNode(true), name, section, show);
+        return row;
+      }));
+      settings.toggleAttribute("data-empty", !list.children.length);
+    };
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest("[data-settings-open]")) return;
+      listHidden();
+      settings.showModal();
+      settings.focus(); // the dialog itself, so no control starts out ringed
+    });
+
+    /* What a grab at the target moves: its element, the elements it moves
+       among (the visible ones, in its container) and how the order is kept. */
+    const sectionUnit = (group) => ({
+      el: group, container: railNav, save: saveLayout,
+      peers: () => groups().filter((g) => getComputedStyle(g).display !== "none"),
+    });
+    const unitAt = (target) => {
+      const project = target.closest("#rail-projects > li");
+      if (project) {
+        return {
+          el: project, container: project.parentElement, save: saveProjects,
+          peers: () => [...project.parentElement.children],
+        };
+      }
+      const labelEl = target.closest(".nav-group-label");
+      if (labelEl) return sectionUnit(labelEl.parentElement);
+      const item = target.closest(".nav-item");
+      if (!item) return null;
+      const group = item.parentElement;
+      const visible = () => modulesOf(group).filter((i) => !i.hidden);
+      // A section's one module heads it: grabbing it moves the section.
+      if (visible().length < 2) return sectionUnit(group);
+      return { el: item, container: group, save: saveLayout, peers: visible };
+    };
+
+    // An element's top on the screen as laid out, before any transform: its
+    // container is positioned (app.css), so offsetTop measures from it.
+    const layoutTop = (el, container) =>
+      container.getBoundingClientRect().top + container.clientTop + el.offsetTop - container.scrollTop;
+
+    // The peers slide to their new places (FLIP), the one in hand stays put;
+    // with reduced motion, they are just there.
+    const still = matchMedia("(prefers-reduced-motion: reduce)");
+    const slide = (el, keyframes) => {
+      if (!still.matches) el.animate(keyframes, { duration: 160, easing: "ease-out" });
+    };
+    const reorder = (unit, place) => {
+      const peers = unit.peers();
+      const before = new Map(peers.map((p) => [p, p.getBoundingClientRect().top]));
+      place();
+      for (const p of peers) {
+        if (p === unit.el) continue;
+        const dy = before.get(p) - p.getBoundingClientRect().top;
+        if (dy) slide(p, [{ transform: `translateY(${dy}px)` }, { transform: "none" }]);
+      }
+    };
+
+    // Up or down one place among its peers, as Alt+Up/Down asks.
+    const step = (unit, by) => {
+      const peers = unit.peers();
+      const target = peers[peers.indexOf(unit.el) + by];
+      if (!target) return false;
+      reorder(unit, () => (by < 0 ? target.before(unit.el) : target.after(unit.el)));
+      return true;
+    };
+
+    railNav.addEventListener("keydown", (e) => {
+      if (!e.altKey || e.ctrlKey || e.metaKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+      const link = e.target.closest("a");
+      if (!link) return;
+      e.preventDefault();
+      let unit = unitAt(link);
+      if (e.shiftKey && unit.container !== railNav) unit = sectionUnit(link.closest(".nav-group"));
+      if (!step(unit, e.key === "ArrowUp" ? -1 : 1)) return;
+      link.focus();
+      if (unit.save === saveProjects) saveProjects(link.getAttribute("href"));
+      else unit.save();
+    });
+
+    /* The pointer: a press that moves 5px picks the thing up; it follows the
+       pointer, the others making room as it passes their middles; let go, it
+       lands (and the click it would have made is not one). Esc puts it back. */
+    let drag = null;
+    const phone = matchMedia("(max-width: 720px)");
+    railNav.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || phone.matches || e.target.closest("button")) return;
+      const unit = unitAt(e.target);
+      if (!unit) return;
+      drag = { ...unit, id: e.pointerId, x: e.clientX, y: e.clientY, started: false };
+    });
+
+    const follow = (y) => {
+      drag.el.style.translate = "";
+      drag.el.style.translate = `0 ${y - drag.grab - drag.el.getBoundingClientRect().top}px`;
+    };
+    const finish = (cancelled) => {
+      const d = drag;
+      drag = null;
+      if (!d?.started) return;
+      // It lands from where it is in hand into its place (home, if put back).
+      const held = d.el.getBoundingClientRect().top;
+      d.el.style.translate = "";
+      if (cancelled) reorder(d, () => d.home.parent.insertBefore(d.el, d.home.next));
+      slide(d.el, [{ translate: `0 ${held - d.el.getBoundingClientRect().top}px` }, { translate: "0 0" }]);
+      d.el.classList.remove("is-dragging");
+      delete railNav.dataset.dragging;
+      // The click a link would get from this press is the drop, not a visit.
+      const swallow = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+      window.addEventListener("click", swallow, { capture: true, once: true });
+      setTimeout(() => window.removeEventListener("click", swallow, { capture: true }));
+      if (!cancelled && d.el.nextElementSibling !== d.home.next) d.save();
+    };
+
+    document.addEventListener("pointermove", (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      if (!drag.started) {
+        if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 5) return;
+        drag.started = true;
+        drag.grab = drag.y - drag.el.getBoundingClientRect().top;
+        drag.home = { parent: drag.el.parentElement, next: drag.el.nextElementSibling };
+        drag.el.classList.add("is-dragging");
+        railNav.dataset.dragging = "";
+      }
+      e.preventDefault();
+      // Near the rail's edges, a rail that scrolls scrolls along.
+      const edge = railNav.getBoundingClientRect();
+      if (e.clientY < edge.top + 24) railNav.scrollTop -= 8;
+      else if (e.clientY > edge.bottom - 24) railNav.scrollTop += 8;
+      // It passes another once the pointer passes that one's middle (sections
+      // differ in height; a tall one landing never puts it back over).
+      const y = e.clientY;
+      const middle = (p) => layoutTop(p, drag.container) + p.offsetHeight / 2;
+      const peers = drag.peers();
+      const at = peers.indexOf(drag.el);
+      let to = at;
+      while (to > 0 && y < middle(peers[to - 1])) to--;
+      if (to === at) while (to < peers.length - 1 && y > middle(peers[to + 1])) to++;
+      if (to < at) reorder(drag, () => peers[to].before(drag.el));
+      else if (to > at) reorder(drag, () => peers[to].after(drag.el));
+      follow(e.clientY);
+    });
+    document.addEventListener("pointerup", (e) => { if (drag && e.pointerId === drag.id) finish(false); });
+    document.addEventListener("pointercancel", (e) => { if (drag && e.pointerId === drag.id) finish(true); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape" || !drag?.started) return;
+      e.preventDefault();
+      e.stopPropagation();
+      finish(true);
+    }, true);
+  }
+
   /* ---- compact rows: a two-way toggle (and C), remembered ---- */
 
   const applyDensity = (compact) => {
@@ -179,7 +431,7 @@
     toastTimer = setTimeout(() => el.classList.remove("show"), action && run ? 6000 : 2600);
   };
 
-  /* ---- keys that work on every page: 1-9 go to the nav's pages that have a key, in order,
+  /* ---- keys that work on every page: 1-9 go to the nav's pages that have that key,
      ? shows every key (#keys-dialog), and N or Shift+N writes a new task (on
      Projects, tasks.js puts it in the page's own list; elsewhere it opens
      #capture-dialog). Never while typing, or over a dialog. ---- */
@@ -211,7 +463,8 @@
       dialog.focus(); // the dialog itself, so no control starts out ringed
       return;
     }
-    const link = /^[1-9]$/.test(e.key) && document.querySelectorAll(".nav a[aria-keyshortcuts]")[Number(e.key) - 1];
+    // A page keeps its key wherever it is dragged, and hidden too.
+    const link = /^[1-9]$/.test(e.key) && document.querySelector(`.nav a[aria-keyshortcuts="${e.key}"]`);
     if (link && link.getAttribute("aria-current") !== "page") {
       e.preventDefault();
       link.click();

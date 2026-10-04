@@ -141,8 +141,40 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
   width: 3px; border-radius: 0; background: var(--spark); box-shadow: var(--spark-glow);
 }
 
+/* the modules, laid out as Oscar dragged them (shell.js): a hidden one stays in
+   the page for its key; a section with none showing goes too. Containers are
+   positioned, so a drag measures its peers from them. */
+.nav, .nav-group, .nav-sub { position: relative; }
+.nav-item { position: relative; }
+.nav-item[hidden] { display: none; }
+.nav-group:not(:has(> .nav-item:not([hidden]))) { display: none; }
+.nav-group-label { cursor: grab; user-select: none; }
+.nav[data-dragging], .nav[data-dragging] * { cursor: grabbing; user-select: none; }
+/* the one in hand, lifted over the rail on the page's paper */
+.nav .is-dragging {
+  z-index: 2; border-radius: var(--r-ctl);
+  background: var(--paper); box-shadow: var(--shadow-dropdown);
+}
+.nav .is-dragging a:hover { background: none; }
+/* its eye, at its right on hover or focus: hides it (Settings brings it back) */
+.nav-hide {
+  position: absolute; top: 50%; right: 4px; translate: 0 -50%;
+  display: grid; place-content: center; width: 24px; height: 24px;
+  border-radius: var(--r-tag); color: var(--steel);
+  visibility: hidden; opacity: 0;
+  transition: opacity var(--dur) var(--ease), visibility var(--dur) var(--ease),
+    background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.nav-item:is(:hover, :focus-within) .nav-hide { visibility: visible; opacity: 1; }
+.nav:is([data-dragging], [data-settling]) .nav-hide { visibility: hidden; opacity: 0; transition: none; }
+.nav-hide:hover { color: var(--ink); background: var(--glass-hover); }
+.nav-hide svg {
+  width: 14px; height: 14px; fill: none; stroke: currentColor;
+  stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+}
+.nav-parent .nav-hide { right: 30px; }
+
 /* Projects, its chevron at its right folding away the active projects under it */
-.nav-parent { position: relative; }
 .nav-parent > a { padding-right: 36px; }
 .nav-fold {
   position: absolute; top: 50%; right: 4px; translate: 0 -50%;
@@ -216,6 +248,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 :root[data-theme="dark"] .theme-toggle__icon--moon { opacity: 1; transform: rotate(0deg) scale(1); }
 .rail-button__label { font-size: var(--t-caption); font-weight: 500; }
 .command-open__icon { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.settings-open__icon { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
 /* its key, at the button's right, as the keys dialog draws keys */
 .rail-button__key {
   margin-left: auto; padding: 0 4px;
@@ -233,6 +266,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 :root[data-rail="collapsed"] .rail-button__key { display: none; }
 /* the icon rail and the phone's tab bar: Projects alone, its projects a page away */
 :root[data-rail="collapsed"] .nav-fold,
+:root[data-rail="collapsed"] .nav-hide,
 :root[data-rail="collapsed"] .nav-sub { display: none; }
 :root[data-rail="collapsed"] .nav-parent > a { padding-right: 0; }
 :root[data-rail="collapsed"] .nav-group-label { height: 0; margin: 0 var(--s-1) var(--s-3); padding: 0; border-top: 1px solid var(--chrome-flank-border); font-size: 0; }
@@ -262,8 +296,8 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
     background: var(--glass-tab-bar);
     border-right: none; border-top: 1px solid var(--chrome-flank-border);
   }
-  .rail-head, .nav-group-label, .nav-fold, .nav-sub { display: none; }
-  .nav-parent { display: contents; }
+  .rail-head, .nav-group-label, .nav-fold, .nav-hide, .nav-sub { display: none; }
+  .nav-item { display: contents; }
   .rail-foot { display: flex; align-self: center; margin: 0; padding: 0 0 0 var(--s-1); border-top: none; border-left: 1px solid var(--chrome-flank-border); }
   .rail-button { width: 44px; height: 44px; padding: 0; justify-content: center; }
   .update-button__dot { position: absolute; top: calc(50% - 9px); left: calc(50% + 4px); margin: 0; }
@@ -978,6 +1012,36 @@ dialog.command-dialog::backdrop { background: var(--scrim); }
   font: inherit; font-weight: 500; color: var(--graphite); text-align: center;
   border: 1px solid var(--hairline); border-radius: var(--r-tag);
 }
+
+/* Settings, from the rail's foot (shell.js): the keys dialog's paper; its
+   modules section lists the hidden ones, each with its icon, its section and Show */
+dialog.settings-dialog {
+  width: min(480px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow-y: auto;
+  margin: auto; padding: var(--s-6);
+  color: var(--ink); background: var(--paper);
+  border: 1px solid var(--hairline); border-radius: var(--r-ctl); box-shadow: var(--shadow-modal);
+}
+dialog.settings-dialog[open] { animation: confirm-in 220ms var(--ease); }
+dialog.settings-dialog::backdrop { background: var(--scrim); }
+dialog.settings-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal); }
+.settings-dialog header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--s-4); }
+.settings-dialog h2 { font-size: var(--t-sub); }
+.settings-dialog header .btn { padding: 4px 10px; font-size: var(--t-caption); }
+.settings-section h3 { margin: 0; font-size: var(--t-caption); font-weight: 600; color: var(--pewter); }
+.settings-hint, .settings-empty { margin: var(--s-1) 0 0; font-size: var(--t-body-sm); line-height: 1.5; color: var(--graphite); }
+.settings-dialog:not([data-empty]) .settings-empty,
+.settings-dialog[data-empty] :is(.settings-hint, .settings-modules) { display: none; }
+.settings-modules { margin: var(--s-3) 0 0; padding: 0; list-style: none; border-top: 1px solid var(--hairline); }
+.settings-module {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 48px; padding: var(--s-1) 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: var(--t-body-sm);
+}
+.settings-module svg { flex: none; width: 18px; height: 18px; stroke: var(--graphite); }
+.settings-module__name { font-weight: 500; }
+.settings-module__section { flex: 1; font-size: var(--t-caption); color: var(--pewter); }
+.settings-module .btn { padding: 4px 12px; font-size: var(--t-caption); }
 
 /* every key, behind ? (shell.js): the confirm dialog's paper, two columns of pairs */
 dialog.keys-dialog {

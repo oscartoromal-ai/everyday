@@ -108,6 +108,9 @@ class Project(Base):
     # Its card folded to its header (Projects, Tasks by project): kept here,
     # so it holds through the lists' re-renders and on every device.
     folded: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Its place among the projects (Projects, the sidebar): a new one last,
+    # moved by dragging it in the sidebar.
+    position: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     workstreams: Mapped[list[Workstream]] = relationship(back_populates="project")
@@ -771,3 +774,13 @@ class MoneyMessage(Base):
     text: Mapped[str] = mapped_column(Text)
     failed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class Setting(Base):
+    """One of the app's own settings, kept by name, so it holds on every
+    device: the sidebar's layout ("rail", app/services/rail.py)."""
+
+    __tablename__ = "settings"
+
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    value: Mapped[Any] = mapped_column(JSON)

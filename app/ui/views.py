@@ -33,6 +33,7 @@ from app.services import habits as habits_svc
 from app.services import health as health_svc
 from app.services import notebook as notebook_svc
 from app.services import projects as projects_svc
+from app.services import rail as rail_svc
 from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
 from app.ui.calendar_view import link_host
@@ -93,6 +94,14 @@ def rail_projects(request: Request) -> list[Project]:
 
 
 templates.env.globals["rail_projects"] = rail_projects
+
+
+def rail_layout(request: Request) -> list[rail_svc.PlacedSection]:
+    """The sidebar's sections and modules, as Oscar laid them out."""
+    return rail_svc.layout(getattr(request.state, "db", None))
+
+
+templates.env.globals["rail_layout"] = rail_layout
 
 
 def description_blocks(notes: str) -> list[dict[str, Any]]:
