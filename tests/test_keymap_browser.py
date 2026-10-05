@@ -217,3 +217,27 @@ def test_a_mark_key_chosen_writes_the_mark_in_a_description(page, live, app_db, 
     assert page.locator("main textarea[name=notes]").input_value() == "the rail pass"
     page.keyboard.press("Alt+b")
     assert page.locator("main textarea[name=notes]").input_value() == "the rail **pass**"
+
+
+def test_the_open_keys_chosen_open_a_task_on_its_page(page, live, app_db, keys_file) -> None:
+    with app_db() as db:
+        task_id = tasks_svc.create_task(db, title="Mow").id
+        db.commit()
+    keys_file.write_text(
+        '[keys]\n"today.openTask" = "Alt+Shift+O"\n"writing.openPage" = "Alt+Shift+O"\n',
+        encoding="utf-8",
+    )
+    # A task written in Today's notes: added, and opened on its page.
+    page.goto(f"{live}/today")
+    page.locator(".pad-editor .cm-content").click()
+    page.keyboard.type("- [ ] Renew the passport")
+    page.keyboard.press("Alt+Shift+O")
+    page.wait_for_url(f"{live}/tasks/*")
+    assert not page.url.endswith(f"/tasks/{task_id}")
+
+    # The task being edited in its list: opened on its page.
+    page.goto(f"{live}/plan")
+    page.locator(".task-title-btn", has_text="Mow").click()
+    page.locator(".task-sheet[data-sheet=edit][data-ready]").wait_for()
+    page.keyboard.press("Alt+Shift+O")
+    page.wait_for_url(f"{live}/tasks/{task_id}")
