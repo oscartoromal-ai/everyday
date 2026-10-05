@@ -5,6 +5,12 @@ job here is keeping *browsers* honest: reject requests whose Host or Origin is
 not the app's own (DNS rebinding, cross-site XHR against localhost), and
 require a double-submit CSRF token on unsafe browser-path requests.
 
+The REST API (/api) is also for clients that are not browsers: agents
+reporting on their tasks with one HTTP call (SPEC.md, Agent runs), which hold
+no cookie to echo. A JSON body stands in for the token there: a browser can
+send one to another site only after a CORS preflight, which the app never
+answers, so a page elsewhere still cannot post to it.
+
 Raw ASGI middleware: BaseHTTPMiddleware would buffer the MCP streaming mount.
 """
 
@@ -18,6 +24,8 @@ CSRF_COOKIE = "csrf"
 CSRF_HEADER = b"x-csrf"
 # Browser-facing unsafe paths that need the CSRF check; /mcp is cookie-less.
 CSRF_PATH_PREFIXES = ("/ui", "/api")
+# Where a JSON body does instead (see above).
+JSON_PATH_PREFIXES = ("/api",)
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
 
@@ -26,6 +34,12 @@ def _header(scope, name: bytes) -> str | None:  # noqa: ANN001
         if key == name:
             return value.decode("latin-1")
     return None
+
+
+def _json(scope) -> bool:  # noqa: ANN001
+    """The request's body is JSON, by its Content-Type."""
+    kind = (_header(scope, b"content-type") or "").split(";", 1)[0].strip().lower()
+    return kind == "application/json"
 
 
 def _hostname(netloc_or_host: str) -> str:
@@ -60,7 +74,11 @@ class BrowserGuardMiddleware:
             return
 
         path = scope["path"]
-        needs_csrf = method in UNSAFE_METHODS and path.startswith(CSRF_PATH_PREFIXES)
+        needs_csrf = (
+            method in UNSAFE_METHODS
+            and path.startswith(CSRF_PATH_PREFIXES)
+            and not (path.startswith(JSON_PATH_PREFIXES) and _json(scope))
+        )
         if needs_csrf:
             cookie_token = self._cookie_token(scope)
             header_token = _header(scope, CSRF_HEADER)

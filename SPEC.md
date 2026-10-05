@@ -143,6 +143,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   The line to add one offers his GitHub repositories (Oscar's call on 2026-10-04: "make this easy"): focused, it lists those synced from GitHub, last pushed first, and written on, those holding its words, or the one its GitHub URL names; those already the project's are left out.
   Up and Down move through them, Enter or a click adds the one picked as its URL on GitHub, and words nothing holds are added as written.
   The context is the documents an agent working on the project reads, in Markdown: its AGENTS.md first, which every project has and which keeps its name and its place at the top, then any others Oscar adds and names.
+  They are files, in the project's folder of the everyday files, its folders folders on disk there, and so are its repositories (see [Agent runs](#agent-runs)): the page writes them there, and shows them as they are there.
   He files them in folders and subfolders (Oscar's call on 2026-10-04: "allow to create folders and subfolders"), as a folder on disk holds files: a name is unique among what sits beside it in its folder, documents and folders alike and in any case, and holds no slash; the same name can be in two folders.
   The context reads as a tree: AGENTS.md, then at each level its folders, then its documents, each by name (its numbers as numbers).
   A folder folds by its row, remembered for it on every device; folding it hides what it holds.
@@ -150,7 +151,7 @@ Per [Planning model](tracker/tickets/001-planning-model.md), decided against int
   A document or a folder is moved by dragging it onto a folder, or out to the top, never into itself or a folder inside it; a document is also moved from its own page.
   A new document's name written as a path ("decisions/adr/0001.md") makes the folders it names, as they are missing.
   Each document opens on a page of its own (`/projects/<id>/docs/<doc>`), written on a ruled, numbered sheet as Today's notes are and saved as it is written; any but AGENTS.md is renamed in its heading, moved to another folder in the line under it, and deleted from its bin.
-  The context is what the app will hand a Claude session it starts on the project (to come); for now Claude reads it over MCP (`get_project_context`), and the API serves it at `/api/projects/<id>/context`.
+  The context is what the app hands a run it launches on one of the project's tasks (see [Agent runs](#agent-runs)); Claude reads it over MCP (`get_project_context`), and the API serves it at `/api/projects/<id>/context`.
 - **A project as a Gantt chart** (Oscar's call on 2026-09-30: "I work in weeks", "a kind of Excel interface"): each project opens (`/projects/<id>/gantt`, the Gantt tab of its page, or its card's bars icon) as a spreadsheet of its plan by week.
   A row per workstream, its tasks under it and a row to write one more; then a row to write a workstream, the tasks in none under it and a row to write one more; a column per week (the ISO week, over its Monday), frozen beside Task, Priority, Start, Wks and Due.
   It drills down to days (Oscar's call on 2026-10-01): a Weeks / Days switch (or V) for the whole sheet, remembered, the same days kept in view; in Days a column per day, weekends tinted, the length in days, and every move by days.
@@ -196,17 +197,29 @@ Per [Domain model](tracker/tickets/008-domain-model.md). All v1 entities below; 
 Flat, no nesting.
 v3 adds a Goal entity plus a nullable goal reference on Project.
 
+A project has its folder in the everyday files' `projects/` (see [Agent runs](#agent-runs)), named after it when it was made; the database keeps the folder's name, and the folder's `project.toml` the project's id.
+
 **Project repository** (2026-10-04): belongs to one project; its location, a local path or a URL, as written.
 Its name is read from the location, never stored.
+The project's `project.toml` is its master copy (`repos`), the database's rows a copy of it.
 
-**Project document** (2026-10-04): belongs to one project; name (unique within the project, in any case), body (Markdown), when its body last changed.
-Every project has one named AGENTS.md, created with it, which cannot be renamed or deleted.
+**Project document folder** (2026-10-04): belongs to one project; name, the folder it is in (none at the context's top), folded or not on the project's page.
+A folder on disk in the project's folder, its master copy; its name is a name Windows allows for a folder.
+
+**Project document** (2026-10-04): belongs to one project, at its context's top or in one of its folders; name, body (Markdown), when its body last changed.
+Its file in the project's folder (in the folder on disk its folder is) is its master copy (Oscar's call on 2026-10-04), the database's row a copy of it, read again as the file changes.
+Its name is its file's: unique among what sits beside it in its folder, documents and folders alike, in any case; a name Windows allows for a file; and ending in `.md`, which the app adds when it is not written.
+Every project has one named AGENTS.md at its top, created with it, which cannot be renamed, moved or deleted.
+
+**Project document revision** (2026-10-04): one step in a document's history: when, who (oscar, claude, or file: written in its file outside the app, by an editor or an agent), and its body after it.
+Edits in a row by the same hand within ten minutes are one step, as a task's are; a document's revisions go with it.
+It is the history git would have kept, without git's merges: `projects/` is not a repository.
 
 **Workstream** (Oscar's call on 2026-10-01, replacing milestones: "I manage it that way"): belongs to one project; name, status (open / done), position (its place among its project's workstreams).
 A stream of the project's work run beside its others, a lane of its tasks with no date of its own: its span is its tasks', and its progress is computable from them.
 Deleting one leaves its tasks in the project, in none.
 
-**Task**: title, notes, status, owner (oscar / claude), optional project, optional workstream (only of its own project), optional planned_for (do-date), optional due (deadline), optional starts_on (its start week on its project's Gantt), optional position (its place among its group's rows there), optional written_on (the notebook page it was written on), optional estimate (how long its work is thought to take, a minute to a day), optional priority (urgent, high, medium or low).
+**Task**: title, notes, status, owner (oscar / claude), optional project, optional workstream (only of its own project), optional planned_for (do-date), optional due (deadline), optional starts_on (its start week on its project's Gantt), optional position (its place among its group's rows there), optional written_on (the notebook page it was written on), optional estimate (how long its work is thought to take, a minute to a day), optional priority (urgent, high, medium or low), acceptance criteria and outcome (Markdown, "" for none; see [Agent runs](#agent-runs)).
 An estimate is set in the task sheet (its stopwatch icon, or "45m", "1h30" or "2 hours" as the title is written), in Today's notes the same way, and by Claude; it is the task's weight in a day's plan.
 A priority (Oscar's call on 2026-10-04: "visible in GANTT and everywhere we see tasks") is how much a task matters against the others, Linear's four levels, none by default.
 It is set in the task sheet (its bars icon, or "p1" to "p4" as the title is written, as Todoist writes them), in Today's notes the same way, with "!" on a task list's row, in the Gantt's Priority column, and by Claude.
@@ -220,7 +233,15 @@ planned_for is the day Oscar intends to work it and drives the daily list; due i
 Backlog tasks have neither.
 starts_on always comes with a due, never after it: its span is its start day to its due, a start given alone ends that week's Friday (or on itself at a weekend), a due cleared takes the start with it, and a due moved before the start pulls the start back to its week's Monday.
 
-**TaskRevision**: one step in a task's history: when, who (oscar, claude or system), the kind of change (created, updated, deleted), and the task's fields as they stood after it.
+**Task repository** (2026-10-04): a repository a task is worked in, one of its project's, by its location (so the link holds however `project.toml` lists them).
+
+**Task pull request** (2026-10-04): belongs to one task; its repository (`owner/name`) and number, and as GitHub last had it: its title and state (unknown, draft, open, merged or closed), when it was read and why it could not be.
+
+**Task run** (2026-10-05): a task launched as an agent run: the runner, the run's id there, its branch and workspace, when it started, and how it stands as the runner last had it (working, waiting, finished, failed, gone), with when it was asked and why it could not answer; and whether its worktrees were removed, once its task settled.
+
+**Task update** (2026-10-04): belongs to one task; when, who (oscar, claude, agent or system), and a word on its work: a note an agent reported, or what the app saw (its pull requests merged).
+
+**TaskRevision**: one step in a task's history: when, who (oscar, claude, an agent through the API, or system), the kind of change (created, updated, deleted), and the task's fields as they stood after it.
 Recorded by the ORM on every flush that touches a task, whatever path made the change, and kept after the task is deleted; the history started on 2026-09-26 with a baseline of every task as it stood.
 It is shown under the task's sheet and read by Claude through `get_task_history`.
 A description written over a while is one step: an edit to the description alone, by the same hand within ten minutes of that task's last step, itself such an edit, folds into it, so a page saving as it is written leaves one "Description edited".
@@ -305,7 +326,7 @@ Hook commands need a short HTTP timeout so a down app never delays sessions.
 - `get_project_context(project_id or name)` reads a project's context: the project, its repositories, and its documents in full, AGENTS.md first, in the tree's order.
   Each document carries its path among the folders ("decisions/adr/0001.md"), and `folders` lists every folder's path, empty ones too.
   `list_projects` names each project's repositories too, so a session can tell which project its folder belongs to.
-  The context is read-only to Claude for now: Oscar writes it on the project's page.
+  Over MCP the context is read-only; Claude writes it as any agent does, in the project's folder of the everyday files, and Oscar on the project's page.
 
 ### Nutrition chat
 
@@ -417,6 +438,60 @@ Oscar's call on 2026-10-04: before the app grows features of its own that call a
 - **The page**, Models (`/models`, from Settings and the command menu), is a ruled sheet: each provider's group (its state, its CLI and version, who it is signed in as, where its CLI is, written on the line, and its models, a row each with what it is for and its id; or what to install or run to sign it in), then what each use runs on (a model, then an effort the model takes), then when it was checked.
   Settings carries a row of each provider's state, opening the page.
 
+### Agent runs
+
+Oscar's call on 2026-10-04: a task planned in the app is handed to a coding agent in one click, with all it needs, and the agent's work comes back to the task.
+His projects span several repositories, so a project's context lives apart from any one of them.
+And the agent system behind a run is a part that plugs in, not the app's shape ("do it generic, with an API we connect, so I can use other systems too").
+Built in three steps, all on 2026-10-04 and 05: the everyday files and the context as files, then a task's run fields and its reporting, then Launch and the runs followed.
+
+- **The everyday files.** Setup makes a folder for agentic work, `C:\everyday-files` unless another is chosen on its page, with three folders in it.
+  `repos/` holds each repository's main clone, once, however many projects use it; `projects/` a folder for each project, its context; and `work/` the folders runs work in.
+  The choice is the installer's `install.toml` (`[everyday_files] dir`), remembered by Setup; a run from the repo uses `everyday-files/` in it (git-ignored), so the dev server never writes to the real one.
+  The app makes any of the folders that is missing as it starts; uninstalling keeps them.
+  A short path at a drive's root keeps deep worktrees under Windows' 260-character path limit.
+- **A project's context is files** (Oscar's call: the master copy lives in the files, synced to the database).
+  `projects/<folder>/` holds its documents, each a Markdown file named as the document is (`AGENTS.md`, `Architecture.md`), in folders and subfolders on disk as the context files them (`decisions/adr/0001.md`), and `project.toml`: the project's id, the app's link to the folder, and its repositories (`repos`, their locations as written).
+  A folder or file whose name starts with a dot (`.git`) is not the context's.
+  The database keeps a copy of each, for the pages, search, Claude and the API.
+  It is read again from the files as the app starts, as a project's page or its context is read, and, while the desktop app runs, as the folder changes (a watcher).
+  A file written, added, renamed, moved or deleted, by Oscar's editor or an agent, is that document written, added, renamed or moved (the same words at another path, so it keeps its history) or deleted; a folder made or deleted there is a folder of the context made or deleted, with what it holds; AGENTS.md deleted is written back, as every project keeps it.
+  In the app, a folder made, renamed, moved or deleted is so on disk too, with everything in it.
+  A folder made in `projects/` without a `project.toml` is a new project, named after the folder.
+  A folder moved or renamed is followed by the id in its `project.toml`; a project whose folder is gone gets it written again from the database's copy.
+  The project's name, status, colour and notes stay the database's, as its tasks do; a project renamed keeps its folder.
+  Written in the app, a document goes to its file first.
+  A save names the version it was made from (its words' hash), and one made from an older copy is refused, so an agent's edit is never silently overwritten: the page says the document was changed elsewhere and offers that version or keeping its own, as Today's notes do.
+  `projects/` is not a git repository: what a document was before is in its revisions, so nothing merges and nothing conflicts (Oscar's old projects repository broke on merge conflicts, its tasks and outcomes written by several agents at once).
+- **Tasks stay in the database.** Their state changes many times a day, from Oscar, agents and the app's own checks, and is never a file.
+- **A task's work** (2026-10-04).
+  A task names the repositories it is worked in (one or several of its project's), its acceptance criteria (what done means, apart from its description), and, once worked, its outcome (what came of it), its pull requests and the updates reported as it went.
+  Its page has them under the description, as Agent work: its project's repositories as toggles, the acceptance criteria and outcome written on the line and saved as they are written, the pull requests as GitHub last had them (a chip each: not read yet, draft, open, merged or closed), one added by its URL or `owner/name#number` and taken off from its bin, Check to read them from GitHub at once, and the updates, newest first.
+  The API gives them with the task (`repos`, `acceptance`, `outcome`, `pull_requests`) and takes them (`PATCH /api/tasks/<id>`); Claude sets the acceptance criteria and repositories through `upsert_tasks`.
+- **A task as a run** (`app/services/task_launch.py`).
+  A task is handed to an agent from its page: Launch, under Agent work, there once it is in a project and names its repositories, and while no run of it is going; the API's `POST /api/tasks/<id>/launch` does the same.
+  Each of its repositories is its main clone: the folder its location names, or, for one on GitHub, its clone in `repos/`, cloned there first (through the GitHub CLI's sign-in) when it is not there yet.
+  Its workspace is `work/<id>-<words>/` on a branch of the task's own, `task/<id>-<words>`, from each repository's default branch as fetched then: one repository's is a worktree of it; several's a folder holding a worktree of each, all on the branch.
+  So one run works across several repositories, and two runs never share a checkout; a task launched again goes on in its workspace, or on its branch when that is gone.
+  The run is given the brief: the task (its id, title, description and acceptance criteria), its project's AGENTS.md and where its other documents are, where to work, to open a pull request on each repository changed naming the task, and the one HTTP call to report with.
+  The task keeps its runs (`task_runs`): the runner, the run's id there, its branch and workspace, when it started, and how it stands; the page lists them, newest first.
+- **Any agent system, behind one interface** (`app/services/agent_runs.py`, shared with the daily improvement scan).
+  A runner launches a brief (a title, its text, the folder worked in and, for a repository, its worktree and branch) and answers how its runs stand: working, waiting on Oscar, finished, failed, or gone.
+  T3 Code is the first; headless Claude Code or the Codex CLI would be others (`[runs] runner`), with nothing else changing.
+- **T3 Code, the first runner** (`app/sources/t3.py`; its API tried against T3 Code 0.0.45 on 2026-10-04).
+  Each use takes a token T3's own command line issues (`auth session issue`) and revokes after, traded for a WebSocket ticket (`POST /api/auth/websocket-ticket`), and speaks T3's RPC over `/ws` (Effect RPC, in JSON).
+  `orchestration.dispatchCommand` with `thread.create`, then `thread.turn.start`, launches a thread on the T3 project whose folder is the one worked in, made with `project.create` when T3 has none (a repository's main clone, or a workspace of several, which T3 works in as a plain folder); `orchestration.subscribeShell` reads every thread as it stands.
+  Runs are launched with full access, `[runs] model` their model: no one is there to approve each step.
+  That API is T3's own app's, not a published one, and it changes between releases (`orchestration.launchThread` came after 0.0.45), so all of it sits in that one module.
+- **Reporting back, mostly without the agent.**
+  What a runner can see is read from it, at no cost to the agent: every `[runs] follow_minutes` (2) a job asks each runner how its runs going stand, and a run working puts its task in progress, one waiting on Oscar blocks it, one finished asks for his review, and one failed blocks it, each but the first with an update saying so.
+  The pull requests its branch made are found on GitHub, on each of the task's repositories, and linked to the task; and once the task is settled its worktrees are removed, those with nothing uncommitted, their branches kept.
+  What only the agent knows it reports itself over the API, one HTTP call with a JSON body and nothing else (`POST /api/tasks/<id>/report`: `status`, `note`, `outcome`, `pull_requests`, any of them), a fraction of an MCP tool's tokens (Oscar's call: "reporting back via MCP costs tokens"); MCP's `report_task` does the same, for agents that would rather.
+  A note is kept as an update, the outcome is written over the one the task had, and the pull requests are added to its own; history names the hand an agent's.
+  An agent takes a task as far as needs review (in progress, blocked, needs review), never to done or cancelled: a report saying so is refused whole, and a task already done or cancelled keeps its status whatever is reported.
+- **Done when its pull requests merge.** Done is the app's to say: a task whose pull requests are all merged is done, with an update saying so, and one without any is done when Oscar says so; a closed or draft one keeps its task open.
+  A job reads every open task's pull requests not merged yet from GitHub every `[github].pull_request_minutes` (3), whether Code is installed or not: asked as each connected account that reaches the repository first, then as the others, then as no one (a public repository), so a pull request GitHub will not show says why under it.
+
 ### Plan truth
 
 - The app database is canonical for cross-project plan state.
@@ -480,6 +555,9 @@ APScheduler inside the FastAPI process; jobs share app code and database session
   The agent is an agent run (`app/services/agent_runs.py`): a brief launched by a runner, T3 Code first, into a worktree on a branch of its own, its state read from the runner and its pull request found from its branch, never reported by the agent.
   Around the scan, and every hour between, the picks being fixed are followed: each pull request's newest commit is gated by master's lint and tests and the outcome commented on it; merged settles the pick as done, closed unmerged as ignored, and a run ending without one opens the pick again, twice at most.
   One pick is fixed at a time by default, so a pull request waiting on Oscar holds the next.
+- Open tasks' pull requests read from GitHub every three minutes; a task whose pull requests all merged made done.
+- Task runs going followed every two minutes: their state read from their runners, their tasks moved with them, their branches' pull requests linked, and settled tasks' worktrees removed.
+- The everyday files' `projects/` read into the database as the app starts, then watched while it runs.
 
 ### Deployment and backups
 
@@ -500,6 +578,7 @@ APScheduler inside the FastAPI process; jobs share app code and database session
 - **Tailscale overlay**: the app binds localhost plus the Tailscale interface; Oscar's phone joins the tailnet and gets the full web UI anywhere.
   WireGuard-authenticated, zero public exposure, no port forwarding.
 - **No app-level login**: localhost and the tailnet are the trust boundary; MCP and REST stay authless locally.
+  The REST API takes a JSON body in place of the CSRF token (2026-10-04), so an agent reports with one HTTP call: a browser sends JSON to another site only after a CORS preflight the app never answers, and the Origin check still refuses another site's page; the pages' own paths keep needing the token.
 - **Browser-side hardening**: middleware rejects requests whose Origin/Host headers are not the app's own (closing DNS rebinding and cross-site XHR against localhost); standard CSRF tokens on HTMX form posts.
 - **Push relay**: managed ntfy.sh with an unguessable topic name plus access token.
   Task titles transiting ntfy's server is accepted for personal use; self-hosting ntfy on the tailnet is a drop-in swap later.

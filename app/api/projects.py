@@ -14,6 +14,7 @@ from app.api.schemas import (
 )
 from app.db import DbSession
 from app.models import ProjectStatus
+from app.services import project_files
 from app.services import projects as projects_svc
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -43,9 +44,11 @@ def update_project(
 @router.get("/{project_id}/context")
 def project_context(project_id: int, db: DbSession) -> dict[str, Any]:
     """What an agent working on the project is given: the project, its
-    repositories, its folders, and its documents in full, AGENTS.md first,
-    each with its path among the folders."""
-    return projects_svc.project_context(projects_svc.get_project(db, project_id))
+    folder, its repositories, its folders, and its documents in full,
+    AGENTS.md first, each with its path among the folders."""
+    project = projects_svc.get_project(db, project_id)
+    project_files.refresh(db, project)
+    return projects_svc.project_context(project)
 
 
 @router.get("/{project_id}/workstreams")

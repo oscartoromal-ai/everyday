@@ -64,7 +64,8 @@ PyInstaller freezes the app with its own Python (`desktop/personal-calendar.spec
 Python and the libraries are frozen; the app's own code and files (`app/`, and the ones `desktop/app-files.txt` lists) go in as they are, so that an update can put them in a copy of the running version (`build.ps1 -Reuse`).
 Every build then checks itself (`--self-check`, `app/selfcheck.py`): it compiles the app's code, imports all of it, and makes sure every module it imports anywhere is in the build.
 Its first page, Modules, ticks the modules the machine should have: Health, Finances and Code can be left out (Planner and Projects are always in), and the app then has nothing of them, neither pages nor Claude's tools for them.
-Setup writes the choice to `install.toml` in the app's home and remembers it for the next install, a silent one included; run Setup again to change it.
+Its next page, Everyday files, chooses the folder for agentic work, `C:\everyday-files` to start with (see [Where the data lives](#where-the-data-lives)), and makes it.
+Setup writes both choices to `install.toml` in the app's home and remembers them for the next install, a silent one included; run Setup again to change them.
 The installer puts the app in `%LOCALAPPDATA%\Programs\Personal Calendar`, adds it to the Start menu, and, unless unticked, starts it in the tray when Oscar signs in (the `Personal Calendar` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).
 That folder holds the launcher, `Personal Calendar.exe`, which the shortcuts start, and each version in a folder of its own, `app-<commit>`; the launcher starts the one `current.txt` names.
 An update stages the next version in a folder beside the running one, and the new version rewrites `current.txt` once its window is up; the version before it goes at the next update.
@@ -92,10 +93,18 @@ Everything the app keeps lives under its home, `%LOCALAPPDATA%\Personal Calendar
 - `backups/`: the daily snapshots (see [Backups and restore](#backups-and-restore)).
 - `local/`: the machine's secrets (work-calendar feed, ntfy, Garmin's token, a GitHub token if one was pasted), git-ignored in a repo checkout.
 - `config.toml`: this machine's settings, over the defaults in the repo's `config.toml` that the app is built with, key by key; relative paths in either resolve against the home.
-- `install.toml`: the modules this machine was installed without (`[install] without`), written by Setup on every install, over both.
+- `install.toml`: the modules this machine was installed without (`[install] without`) and the everyday files' folder (`[everyday_files] dir`), written by Setup on every install, over both.
 - `keys.toml`: the keys chosen over the defaults (see [Keys](#keys)), git-ignored in a repo checkout.
 
 `PC_HOME` names another home, and run from the repo the home is the repo itself.
+
+The everyday files live outside the home, in `C:\everyday-files` unless another folder was chosen on Setup's Everyday files page (SPEC.md, Agent runs):
+
+- `repos/`: each repository's main clone, once.
+- `projects/`: a folder for each project, its context: its documents as Markdown files (AGENTS.md first), in folders on disk as the project files them, and `project.toml` (its id and repositories). These files are the master copy: the app reads them into the database as it starts, as a project's page opens, and as they change while it runs, so an editor or an agent may write them; a folder made there is a new project.
+- `work/`: the folders agents work in.
+
+Run from the repo, the app keeps its own `everyday-files/` in it (git-ignored), never the real one.
 On Oscar's machine the home's `config.toml` keeps Nutrition's files in the repo (`[nutrition].dir`), where git keeps their history.
 
 ## Keys
@@ -188,8 +197,30 @@ With the app running, add it as a user-level MCP server:
 claude mcp add --scope user --transport http personal-calendar http://127.0.0.1:8377/mcp/
 ```
 
-This gives any Claude Code session the planner tools (list/upsert projects and tasks, update task status, get the agenda, read the day's notes, a task's history and a project's context, add an event, list the GitHub repositories) against the same database the web UI uses.
+This gives any Claude Code session the planner tools (list/upsert projects and tasks, update task status, report on a task, get the agenda, read the day's notes, a task's history and a project's context, add an event, list the GitHub repositories) against the same database the web UI uses.
 No auth is required locally; the trust boundary is the network (localhost and the tailnet), not a token.
+
+## Agents reporting on a task
+
+An agent working on a task reports on it with one HTTP call, any agent system, MCP or not (SPEC.md, Agent runs):
+
+```
+curl -X POST http://127.0.0.1:8377/api/tasks/62/report -H "Content-Type: application/json" \
+  -d '{"status": "needs_review", "note": "Ready for a look.", "outcome": "Added the window.", "pull_requests": ["https://github.com/me/app/pull/41"]}'
+```
+
+Every field is optional.
+`status` goes as far as `needs_review` (`in_progress`, `blocked`, `needs_review`), never `done`: a task is done once its pull requests all merge, which the app reads from GitHub every few minutes, or when Oscar says so.
+A note is kept as one of the task's updates, and the outcome is written over the one it had; all of it shows on the task's page, under Agent work.
+The JSON body stands in for the pages' CSRF token, so no cookie is needed; MCP's `report_task` does the same.
+
+## Launching a task
+
+A task in a project, with its repositories chosen under Agent work on its page, is launched there: Launch on T3 Code (or `POST /api/tasks/<id>/launch`).
+The app needs T3 Code installed and running, and, for a repository on GitHub not yet in the everyday files' `repos/`, the GitHub CLI signed in to clone it.
+It prepares the task's workspace in `work/<id>-<words>/` on the branch `task/<id>-<words>` and starts a T3 thread there with the brief: the task, what done means, the project's AGENTS.md, and the report call above.
+Every two minutes after, it reads how the run stands from T3, moving the task with it (in progress, blocked when waiting on you, needs review once finished), links the pull requests the branch made, and removes the worktrees once the task is done or cancelled.
+`[runs]` in the home's `config.toml` sets the agent system (`runner`), its `model`, and how often runs are followed (`follow_minutes`).
 
 ## Models and the chats
 

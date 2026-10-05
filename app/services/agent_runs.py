@@ -41,9 +41,12 @@ class RunState(enum.StrEnum):
 class Brief:
     title: str
     text: str
-    # The repo the work is on, its worktree and branch made by prepare_worktree.
+    # The folder the work is on, the runner's project: a repo, its worktree
+    # and branch made by prepare_worktree; or, with no worktree, a folder
+    # worked in as it is (a task's workspace holding a worktree of each of
+    # its repos, each on the branch).
     repo: Path
-    worktree: Path
+    worktree: Path | None
     branch: str
 
 
@@ -136,7 +139,18 @@ class T3Runner:
                     None,
                 )
                 if project is None:
-                    raise RunError(f"T3 Code has no project for {brief.repo}")
+                    # One made for it, as T3's own Add project would.
+                    project = {"id": str(uuid4())}
+                    t3.dispatch(
+                        {
+                            "type": "project.create",
+                            "commandId": str(uuid4()),
+                            "projectId": project["id"],
+                            "title": brief.repo.name,
+                            "workspaceRoot": str(brief.repo),
+                            "createdAt": _now(),
+                        }
+                    )
                 t3.dispatch(
                     {
                         "type": "thread.create",
@@ -146,8 +160,8 @@ class T3Runner:
                         "title": brief.title,
                         "modelSelection": selection,
                         **modes,
-                        "branch": brief.branch,
-                        "worktreePath": str(brief.worktree),
+                        "branch": brief.branch if brief.worktree else None,
+                        "worktreePath": str(brief.worktree) if brief.worktree else None,
                         "createdAt": _now(),
                     }
                 )

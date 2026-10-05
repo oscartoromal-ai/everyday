@@ -64,6 +64,24 @@ def test_same_origin_allowed(client) -> None:
     assert response.status_code == 200
 
 
+def test_the_api_takes_json_from_a_client_without_a_cookie(client) -> None:
+    # An agent's one call: no cookie, no token, a JSON body.
+    response = client.post("/api/tasks", json={"title": "From an agent"})
+    assert response.status_code == 201
+    # A form or plain text, which a page elsewhere could send, still needs the token.
+    assert client.post("/api/tasks", data={"title": "x"}).status_code == 403
+    assert client.post(
+        "/api/tasks", content='{"title": "x"}', headers={"Content-Type": "text/plain"}
+    ).status_code == 403
+    # And JSON from another site's page is refused by its Origin.
+    refused = client.post(
+        "/api/tasks", json={"title": "x"}, headers={"Origin": "https://evil.example.com"}
+    )
+    assert refused.status_code == 403
+    # The pages' own paths keep needing the token, JSON or not.
+    assert client.post("/ui/notebook/2026-10-04", json={}).status_code == 403
+
+
 def test_mcp_exempt_from_csrf(app_db) -> None:
     with TestClient(create_app()) as client:
         response = client.post(

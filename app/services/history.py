@@ -30,9 +30,16 @@ FIELDS = (
     "starts_on",
     "estimate_minutes",
     "priority",
+    "acceptance",
+    "outcome",
 )
 
-ACTORS = ("oscar", "claude", "system")
+# A field's value in a snapshot from before the field was kept.
+BEFORE_KEPT = {"acceptance": "", "outcome": ""}
+
+# Who: Oscar (the pages), Claude (MCP), an agent (its reports over the API),
+# or the app itself.
+ACTORS = ("oscar", "claude", "agent", "system")
 
 # A description written over a while (a task's page saves as it is written)
 # is one step: edits to it alone by the same hand, each within this long of
@@ -57,9 +64,13 @@ def _moved(task: Task) -> set[str]:
     return {name for name in FIELDS if state.attrs[name].history.has_changes()}
 
 
+def _field(snapshot: dict[str, Any], field: str) -> Any:
+    return snapshot.get(field, BEFORE_KEPT.get(field))
+
+
 def _apart_from_notes(a: dict[str, Any], b: dict[str, Any]) -> bool:
     """The two snapshots differ in the description, if at all."""
-    return all(a.get(f) == b.get(f) for f in FIELDS if f != "notes")
+    return all(_field(a, f) == _field(b, f) for f in FIELDS if f != "notes")
 
 
 def _continues(session: Session, task: Task, actor: str, now: datetime) -> bool:
@@ -163,9 +174,9 @@ def changes(db: Session, task_id: int) -> list[dict[str, Any]]:
         fields = []
         if rev.change == "updated" and before is not None:
             fields = [
-                {"field": f, "from": shown(f, before.get(f)), "to": shown(f, after.get(f))}
+                {"field": f, "from": shown(f, _field(before, f)), "to": shown(f, _field(after, f))}
                 for f in FIELDS
-                if before.get(f) != after.get(f)
+                if _field(before, f) != _field(after, f)
             ]
         out.append(
             {"at": rev.at, "actor": rev.actor, "change": rev.change, "fields": fields,

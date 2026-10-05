@@ -6,6 +6,7 @@ the page is saved as it is written, the page going back to where it was
 opened. Today's notes open it too (test_notepad_browser.py). The `live`, `page` and
 `app_db` fixtures are conftest.py's."""
 
+import re
 import time
 from datetime import date, timedelta
 
@@ -15,6 +16,9 @@ from app.models import Task
 from app.services import tasks as tasks_svc
 
 pytest.importorskip("playwright.sync_api")
+
+# "Saved" alone, not "Not saved".
+SAVED = re.compile("^Saved$")
 
 TODAY = date.today()
 
@@ -38,7 +42,7 @@ def test_a_task_written_on_the_sheet_opens_to_be_written_out(page, live, app_db)
     editor = page.locator(".main [data-notes-editor]")
     assert editor.evaluate("el => el.contains(document.activeElement)")
     page.keyboard.type("Flights first, then the rail pass.")
-    page.locator("[data-page-state]", has_text="Saved").wait_for()
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
     assert stored(app_db, "Plan the trip").notes == "Flights first, then the rail pass."
 
     # The title is the page's heading, and its trailing words its fields.
@@ -90,7 +94,7 @@ def test_its_box_steps_it_through_progress_and_review_to_done(page, live, app_db
     box = page.locator("[data-sheet-check]")
     for status in ["in_progress", "needs_review", "done", "todo"]:
         box.click()
-        page.locator("[data-page-state]", has_text="Saved").wait_for()
+        page.locator("[data-page-state]", has_text=SAVED).wait_for()
         deadline = time.monotonic() + 5
         while True:
             with app_db() as db:
@@ -122,7 +126,7 @@ def test_its_description_is_read_drawn_and_its_mode_remembered(page, live, app_d
     assert modes.locator('[aria-pressed="true"]').inner_text() == "Reading"
     assert editor.get_attribute("contenteditable") == "false"
     editor.locator(".cm-md-box").first.click()
-    page.locator("[data-page-state]", has_text="Saved").wait_for()
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
     assert stored(app_db, "Trip").notes == "## Packing\n- [x] passport\n- adapter"
 
     # Opened again, it is read; Source shows its Markdown as written.
@@ -193,3 +197,48 @@ def test_a_nudge_opens_its_task_s_page(page, live, app_db) -> None:
     page.wait_for_url(f"{live}/tasks/{task.id}")
     page.locator(".page-back", has_text="Today").click()
     page.wait_for_url(f"{live}/today")
+
+
+def work(app_db) -> dict:  # noqa: ANN001
+    """The work of the one task in a project, read in a session of its own."""
+    with app_db() as db:
+        task = db.query(Task).filter(Task.project_id.is_not(None)).one()
+        return {
+            "repos": [r.location for r in task.repos],
+            "acceptance": task.acceptance,
+            "prs": [p.url for p in task.pull_requests],
+        }
+
+
+def test_a_tasks_work_is_written_on_its_page(page, live, app_db) -> None:
+    from app.services import projects as projects_svc
+
+    app = "https://github.com/oscartoromal-ai/everyday-app"
+    with app_db() as db:
+        project = projects_svc.create_project(db, name="Everyday")
+        projects_svc.add_repo(db, project_id=project.id, location=app)
+        task = tasks_svc.create_task(db, title="Add a task from anywhere", project_id=project.id)
+        db.commit()
+        task_id = task.id
+    page.goto(f"{live}/tasks/{task_id}")
+    run = page.locator("#task-run")
+
+    # A repository of its project's, pressed to work the task in it.
+    run.locator(".run-repo", has_text="everyday-app").click()
+    run.locator('.run-repo[aria-pressed="true"]').wait_for()
+    assert work(app_db)["repos"] == [app]
+
+    # What done means, saved as it is written; the header says so.
+    page.locator("#task-run textarea[name=acceptance]").fill("It opens with N.")
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
+    assert work(app_db)["acceptance"] == "It opens with N."
+
+    # A pull request, by its URL; then taken off.
+    page.locator("#task-run .run-add input").fill(f"{app}/pull/41")
+    page.keyboard.press("Enter")
+    page.locator("#task-run .run-pr", has_text="everyday-app#41").wait_for()
+    assert page.locator("#task-run .run-pr .chip").inner_text() == "Not read yet"
+    page.locator("#task-run .run-pr").hover()
+    page.locator("#task-run .run-pr .task-delete").click()
+    page.locator("#task-run .run-pr").wait_for(state="detached")
+    assert work(app_db)["prs"] == []

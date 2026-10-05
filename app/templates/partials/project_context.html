@@ -81,6 +81,18 @@
 <section class="list-section ov-card project-context" id="project-context" aria-labelledby="context-head"
          data-project="{{ project.id }}">
   <h2 id="context-head">Context <span class="count">What an agent working on it reads, AGENTS.md first</span></h2>
+  {# Where its files are, the master copy: an editor or an agent writes them there too. #}
+  {% if files_folder %}
+  <div class="ov-item ov-folder">
+    {#- The tree's chevron column, empty, so its icon stands over theirs. #}
+    <span class="ctx-chevron" aria-hidden="true"></span>
+    <span class="ov-icon">{{ folder_icon() }}</span>
+    <span class="ov-text">
+      <span class="item-name">Files</span>
+      <span class="doc-summary folder-path" title="{{ files_folder }}"><bdi>{{ files_folder }}</bdi></span>
+    </span>
+  </div>
+  {% endif %}
   <ul class="ov-list ctx-tree" data-ctx-root>
     {% for n in tree %}{{ node(n, 0) }}{% endfor %}
   </ul>

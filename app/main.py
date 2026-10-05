@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -31,6 +32,7 @@ from app.ui import nutrition as ui_nutrition
 from app.ui import pages as ui_pages
 from app.ui import project as ui_project
 from app.ui import repositories as ui_repositories
+from app.ui import task_run as ui_task_run
 from app.ui.views import keep_db
 from app.usage import UsageMiddleware
 
@@ -53,8 +55,12 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         from app.jobs.scheduler import create_scheduler, run_usage_flush
+        from app.services import project_files
 
         scheduler = create_scheduler() if with_scheduler else None
+        # The everyday files read in, then watched (with the jobs, as the dev
+        # server may share the desktop app's database).
+        watching = threading.Event()
         if scheduler:
             scheduler.start()
             # The model providers as they stand, checked in the background
@@ -64,8 +70,12 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
             with factory() as db:
                 if llm_svc.stale(db):
                     llm_svc.checking.start(lambda: llm_svc.run_check(factory))
+            threading.Thread(
+                target=project_files.watch, args=(watching,), name="everyday-files", daemon=True
+            ).start()
         async with mcp_app.lifespan(app):
             yield
+        watching.set()
         if scheduler:
             scheduler.shutdown(wait=False)
             # The last minute's use, before the app goes.
@@ -88,6 +98,7 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     app.include_router(ui_fragments.router, dependencies=ui)
     app.include_router(ui_gantt.router, dependencies=ui)
     app.include_router(ui_project.router, dependencies=ui)
+    app.include_router(ui_task_run.router, dependencies=ui)
     app.include_router(ui_models.router, dependencies=ui)
     app.include_router(ui_agent_window.router, dependencies=ui)
     app.include_router(ui_keys.router, dependencies=ui)

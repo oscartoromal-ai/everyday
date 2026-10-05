@@ -126,13 +126,27 @@ def test_a_run_is_a_thread_in_its_worktree_on_the_repos_project(tmp_path) -> Non
     )
 
 
-def test_a_repo_t3_has_no_project_for_is_not_launched(tmp_path) -> None:
+def test_a_folder_t3_has_no_project_for_gets_one(tmp_path) -> None:
     t3 = FakeT3({"projects": [], "threads": []})
     brief = Brief("Improve: x", "Fix x.", tmp_path, tmp_path / "wt", "improve/x")
 
-    with pytest.raises(RunError, match="no project"):
-        T3Runner(t3).launch(brief)
-    assert t3.dispatched == []
+    T3Runner(t3).launch(brief)
+
+    project, create, _turn = t3.dispatched
+    assert (project["type"], project["workspaceRoot"], project["title"]) == (
+        "project.create",
+        str(tmp_path),
+        tmp_path.name,
+    )
+    assert create["projectId"] == project["projectId"]
+
+
+def test_a_folder_worked_in_as_it_is_has_no_worktree(tmp_path) -> None:
+    # A task's workspace holding a worktree of each of its repositories.
+    t3 = FakeT3({"projects": [{"id": "ws", "workspaceRoot": str(tmp_path)}], "threads": []})
+    T3Runner(t3).launch(Brief("Two repos", "Fix x.", tmp_path, None, "task/1-x"))
+    create = t3.dispatched[0]
+    assert (create["projectId"], create["branch"], create["worktreePath"]) == ("ws", None, None)
 
 
 def test_runs_states_are_read_from_their_threads() -> None:

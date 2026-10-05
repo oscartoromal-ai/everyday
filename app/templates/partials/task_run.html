@@ -1,0 +1,112 @@
+{# A task's work as an agent does it (task_run_view.run_ctx), on its page
+   under its description: a row each, its label at the left. The
+   repositories it is worked in (its project's, each a toggle), what done
+   means and what came of it (saved as they are written), its pull requests
+   as GitHub last had them (a task whose pull requests all merged is done),
+   and the updates reported as it went, newest first. Drawn again whole after
+   a change to its repositories or pull requests. #}
+<section class="task-run" id="task-run" aria-labelledby="task-run-head" data-says-saved>
+  <h2 class="task-run-head" id="task-run-head">Agent work</h2>
+
+  <div class="run-row">
+    <span class="run-label" id="run-repos">Repositories</span>
+    <div class="run-value run-repos" role="group" aria-labelledby="run-repos">
+      {% for r in run.repos %}
+      <button type="button" class="run-repo{% if r.gone %} is-gone{% endif %}" aria-pressed="{{ 'true' if r.on else 'false' }}"
+              title="{{ r.location }}{% if r.gone %} (no longer one of its project's){% endif %}"
+              hx-post="/ui/tasks/{{ run.task.id }}/repos" hx-vals='{{ {"location": r.location, "on": not r.on} | tojson }}'
+              hx-target="#task-run" hx-swap="outerHTML">
+        <svg class="item-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="6" cy="4.5" r="1.75"/><circle cx="6" cy="15.5" r="1.75"/><circle cx="14" cy="6.5" r="1.75"/><path d="M6 6.25v7.5"/><path d="M14 8.25c0 3.5-8 2.5-8 5.5"/></svg>
+        {{ r.name }}
+      </button>
+      {% else %}
+      <span class="run-empty">{% if run.in_project %}Its project has no repositories yet: add them on the project's page.{% else %}In no project: a task's repositories are its project's.{% endif %}</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <label class="run-row">
+    <span class="run-label">Acceptance criteria</span>
+    <textarea class="run-text" name="acceptance" rows="1" autocomplete="off"
+              placeholder="What done means: how it will be checked"
+              hx-post="/ui/tasks/{{ run.task.id }}/run" hx-trigger="input changed delay:700ms, change" hx-swap="none">{{ run.task.acceptance }}</textarea>
+  </label>
+
+  <label class="run-row">
+    <span class="run-label">Outcome</span>
+    <textarea class="run-text" name="outcome" rows="1" autocomplete="off"
+              placeholder="What came of it, once worked"
+              hx-post="/ui/tasks/{{ run.task.id }}/run" hx-trigger="input changed delay:700ms, change" hx-swap="none">{{ run.task.outcome }}</textarea>
+  </label>
+
+  <div class="run-row">
+    <span class="run-label">Pull requests
+      {% if run.pull_requests %}
+      <button type="button" class="run-check" title="Read them from GitHub now"
+              hx-post="/ui/tasks/{{ run.task.id }}/pull-requests/check" hx-target="#task-run" hx-swap="outerHTML">Check</button>
+      {% endif %}
+    </span>
+    <div class="run-value">
+      <ul class="run-prs">
+        {% for p in run.pull_requests %}
+        <li class="run-pr">
+          <span class="chip {{ p.chip }}">{{ p.state }}</span>
+          <a href="{{ p.pr.url }}" target="_blank" rel="noopener" class="run-pr-link">{{ p.label }}</a>
+          {% if p.pr.title %}<span class="run-pr-title" title="{{ p.pr.title }}">{{ p.pr.title }}</span>{% endif %}
+          {% if p.error %}<span class="run-pr-error" title="{{ p.error }}">Not read: {{ p.error }}</span>{% endif %}
+          <button type="button" class="task-delete" title="Take it off" aria-label="Take {{ p.label }} off the task"
+                  hx-post="/ui/pull-requests/{{ p.pr.id }}/delete" hx-target="#task-run" hx-swap="outerHTML">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5.5 5.5l9 9"/><path d="M14.5 5.5l-9 9"/></svg>
+          </button>
+        </li>
+        {% endfor %}
+      </ul>
+      <form class="run-add" hx-post="/ui/tasks/{{ run.task.id }}/pull-requests" hx-target="#task-run" hx-swap="outerHTML">
+        <input name="url" required autocomplete="off" spellcheck="false" aria-label="Add a pull request"
+               placeholder="Add one: its URL on GitHub, or owner/name#number">
+      </form>
+    </div>
+  </div>
+
+  <div class="run-row">
+    <span class="run-label">Runs</span>
+    <div class="run-value">
+      {% if run.runs %}
+      <ul class="run-prs">
+        {% for r in run.runs %}
+        <li class="run-pr">
+          <span class="chip {{ r.chip }}">{{ r.state }}</span>
+          <span class="run-pr-link">{{ r.runner }}</span>
+          <span class="run-pr-title" title="{{ r.workspace_full }}">{{ r.when }} · <bdi>{{ r.workspace }}</bdi></span>
+          {% if r.error %}<span class="run-pr-error" title="{{ r.error }}">Not read: {{ r.error }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {# Launching prepares its workspace and hands it to the agent: a few seconds. #}
+      <div class="run-launch-row">
+        <button type="button" class="btn quiet run-launch" hx-post="/ui/tasks/{{ run.task.id }}/launch" hx-swap="none"
+                hx-disabled-elt="this"{% if run.why_not %} disabled{% endif %}>
+          <span class="run-launch-idle">{{ 'Launch again' if run.runs else 'Launch' }} on {{ run.runner }}</span>
+          <span class="run-launch-busy">Launching…</span>
+        </button>
+        {% if run.why_not %}<span class="run-empty">{{ run.why_not }}</span>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="run-row">
+    <span class="run-label">Updates</span>
+    <div class="run-value">
+      {% if run.updates %}
+      <ol class="run-updates">
+        {% for u in run.updates %}
+        <li><span class="run-when">{{ u.when }} · {{ u.who }}</span><span class="run-update">{{ u.text }}</span></li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <span class="run-empty">None yet. An agent working on it reports here: POST /api/tasks/{{ run.task.id }}/report.</span>
+      {% endif %}
+    </div>
+  </div>
+</section>

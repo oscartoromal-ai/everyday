@@ -113,6 +113,10 @@ class Project(Base):
     # Its place among the projects (Projects, the sidebar): a new one last,
     # moved by dragging it in the sidebar.
     position: Mapped[int] = mapped_column(Integer, default=0)
+    # Its folder in the everyday files' projects/ (app.services.project_files):
+    # its context's files, named after it when it was made. None until the
+    # folder is first written.
+    folder: Mapped[str | None] = mapped_column(String(200), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     workstreams: Mapped[list[Workstream]] = relationship(
@@ -132,7 +136,7 @@ class Project(Base):
 
 class ProjectRepo(Base):
     """A repository the project's work lives in: where it is, a local path
-    or a URL, as written."""
+    or a URL, as written. A copy of its project.toml's `repos`."""
 
     __tablename__ = "project_repos"
 
@@ -149,8 +153,9 @@ AGENTS_DOC = "AGENTS.md"
 
 
 class ProjectDocFolder(Base):
-    """A folder of the project's context, as a folder on disk: its documents
-    and its subfolders, named once among what sits beside it."""
+    """A folder of the project's context, a folder on disk in the project's
+    folder of the everyday files (its master copy): its documents and its
+    subfolders, named once among what sits beside it."""
 
     __tablename__ = "project_doc_folders"
 
@@ -183,7 +188,8 @@ class ProjectDocFolder(Base):
 class ProjectDoc(Base):
     """A document of the project's context, in Markdown, for Oscar and the
     agents working on it: its AGENTS.md, and any others he writes, at the
-    context's top or in a folder."""
+    context's top or in a folder. A copy of its file in the project's folder
+    of the everyday files, the master copy; its name is the file's."""
 
     __tablename__ = "project_docs"
 
@@ -198,6 +204,12 @@ class ProjectDoc(Base):
 
     project: Mapped[Project] = relationship(back_populates="docs")
     folder: Mapped[ProjectDocFolder | None] = relationship(back_populates="docs")
+    revisions: Mapped[list[ProjectDocRevision]] = relationship(
+        back_populates="doc",
+        order_by="ProjectDocRevision.id",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     @property
     def is_agents(self) -> bool:
@@ -207,6 +219,24 @@ class ProjectDoc(Base):
     def path(self) -> str:
         """Where it is in the context, as a path: "decisions/adr/0001.md"."""
         return f"{self.folder.path}/{self.name}" if self.folder else self.name
+
+
+class ProjectDocRevision(Base):
+    """One step in a document's history: its words after a change, when, and
+    by whom: oscar, claude, or file (its file written outside the app, by an
+    editor or an agent). app.services.project_files writes them; edits in a
+    row by the same hand fold into one step."""
+
+    __tablename__ = "project_doc_revisions"
+    __table_args__ = (Index("ix_project_doc_revisions_doc", "doc_id", "at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    doc_id: Mapped[int] = mapped_column(ForeignKey("project_docs.id", ondelete="CASCADE"))
+    at: Mapped[datetime] = mapped_column(DateTime)
+    actor: Mapped[str] = mapped_column(String(20))  # oscar / claude / file / system
+    body: Mapped[str] = mapped_column(Text)
+
+    doc: Mapped[ProjectDoc] = relationship(back_populates="revisions")
 
 
 class Workstream(Base):
@@ -267,12 +297,113 @@ class Task(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     # When the current status was entered; drives the needs_review-age nudge.
     status_changed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    # What done means, apart from its description (SPEC.md, Agent runs), and,
+    # once worked, what came of it; both Markdown, "" for none.
+    acceptance: Mapped[str] = mapped_column(Text, default="")
+    outcome: Mapped[str] = mapped_column(Text, default="")
 
     project: Mapped[Project | None] = relationship(back_populates="tasks")
     workstream: Mapped[Workstream | None] = relationship(back_populates="tasks")
     # A nudge is about its task; deleting the task retires its nudges with it.
     nudges: Mapped[list[Nudge]] = relationship(back_populates="task", cascade="all, delete-orphan")
     recurrence_template: Mapped[RecurrenceTemplate | None] = relationship()
+    # The work's trail (SPEC.md, Agent runs): the repositories it is worked
+    # in, its pull requests, and what was reported of it as it went.
+    repos: Mapped[list[TaskRepo]] = relationship(
+        order_by="TaskRepo.id", cascade="all, delete-orphan", passive_deletes=True
+    )
+    pull_requests: Mapped[list[TaskPullRequest]] = relationship(
+        order_by="TaskPullRequest.id", cascade="all, delete-orphan", passive_deletes=True
+    )
+    updates: Mapped[list[TaskUpdate]] = relationship(
+        order_by="TaskUpdate.id", cascade="all, delete-orphan", passive_deletes=True
+    )
+    runs: Mapped[list[TaskRun]] = relationship(
+        order_by="TaskRun.id", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class TaskRepo(Base):
+    """A repository a task is worked in: one of its project's, by where it
+    is (its location, as the project writes it), so the link holds however
+    project.toml lists them."""
+
+    __tablename__ = "task_repos"
+    __table_args__ = (UniqueConstraint("task_id", "location"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    location: Mapped[str] = mapped_column(String(1000))
+
+
+class PullRequestState(enum.StrEnum):
+    """A pull request as GitHub last had it; unknown until first read."""
+
+    unknown = "unknown"
+    draft = "draft"
+    open = "open"
+    merged = "merged"
+    closed = "closed"
+
+
+class TaskPullRequest(Base):
+    """A pull request of a task's work, as GitHub last had it: a task whose
+    pull requests are all merged is done (app.services.task_runs)."""
+
+    __tablename__ = "task_pull_requests"
+    __table_args__ = (UniqueConstraint("task_id", "repo", "number"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    # owner/name, as written in its URL, and its number there.
+    repo: Mapped[str] = mapped_column(String(200))
+    number: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(Text, default="")
+    state: Mapped[PullRequestState] = mapped_column(
+        _enum(PullRequestState), default=PullRequestState.unknown
+    )
+    # When GitHub was last asked, and why it could not answer ("" when it did).
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    check_error: Mapped[str] = mapped_column(Text, default="")
+
+    @property
+    def url(self) -> str:
+        return f"https://github.com/{self.repo}/pull/{self.number}"
+
+
+class TaskRun(Base):
+    """A task launched as an agent run (app.services.task_launch): on which
+    runner, its id there, the branch and workspace it works in, and its state
+    as the runner last had it (agent_runs.RunState)."""
+
+    __tablename__ = "task_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    runner: Mapped[str] = mapped_column(String(40))
+    run_id: Mapped[str] = mapped_column(String(200))
+    branch: Mapped[str] = mapped_column(String(255))
+    workspace: Mapped[str] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(String(20), default="working")
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    # When the runner was last asked, and why it could not answer ("" when it did).
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    check_error: Mapped[str] = mapped_column(Text, default="")
+    # Its worktrees removed, its task settled.
+    cleaned: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class TaskUpdate(Base):
+    """A word on a task's work as it went: a note an agent reported, or what
+    the app saw (a pull request merged). Who: oscar, claude, agent or system."""
+
+    __tablename__ = "task_updates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    actor: Mapped[str] = mapped_column(String(20))
+    text: Mapped[str] = mapped_column(Text)
 
 
 class Event(Base):

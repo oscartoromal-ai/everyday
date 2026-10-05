@@ -104,6 +104,8 @@ class GitHubConfig(BaseModel):
     cli: str = ""
     # How often the repositories are fetched again while connected.
     sync_minutes: int = 60
+    # How often open tasks' pull requests are read again, to see them merge.
+    pull_request_minutes: int = 3
 
 
 class ImproveConfig(BaseModel):
@@ -122,6 +124,31 @@ class ImproveConfig(BaseModel):
     runner: str = "t3"
     model: str = "claude-opus-5-5"
     max_open: int = 1
+
+
+def _everyday_default() -> str:
+    """The everyday files unless Setup chose a folder: the system drive's
+    everyday-files (C:\\everyday-files), as for an install from before Setup
+    asked, which updates in place; a run from the repo keeps its own in it,
+    so the dev server never writes to the real one."""
+    if HOME == REPO_ROOT:
+        return "everyday-files"
+    return os.environ.get("SYSTEMDRIVE", "C:") + "\\everyday-files"
+
+
+class RunsConfig(BaseModel):
+    # A task launched as an agent run (SPEC.md, Agent runs): the agent system
+    # it is handed to (app/services/agent_runs.py's RUNNERS), the model it
+    # runs, and how often runs are looked at (their state, their pull requests).
+    runner: str = "t3"
+    model: str = "claude-opus-5-5"
+    follow_minutes: int = 2
+
+
+class EverydayFilesConfig(BaseModel):
+    # The folder for agentic work (SPEC.md, Agent runs): repos/, projects/
+    # and work/. The installer writes the one chosen in Setup to install.toml.
+    dir: str = _everyday_default()
 
 
 # The modules an install can leave out, each a section of the sidebar
@@ -163,6 +190,8 @@ class Settings(BaseSettings):
     garmin: GarminConfig = GarminConfig()
     github: GitHubConfig = GitHubConfig()
     improve: ImproveConfig = ImproveConfig()
+    everyday_files: EverydayFilesConfig = EverydayFilesConfig()
+    runs: RunsConfig = RunsConfig()
     install: InstallConfig = InstallConfig()
 
     @classmethod
@@ -206,6 +235,10 @@ class Settings(BaseSettings):
     @property
     def github_tokens_dir(self) -> Path:
         return self.resolve(self.github.tokens_dir)
+
+    @property
+    def everyday_dir(self) -> Path:
+        return self.resolve(self.everyday_files.dir)
 
     @property
     def ics_url(self) -> str | None:

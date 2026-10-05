@@ -23,6 +23,7 @@ from app.services import github as github_svc
 from app.services import nudges as nudges_svc
 from app.services import push as push_svc
 from app.services import recurrence as recurrence_svc
+from app.services import task_runs
 from app.services import work_calendar as work_calendar_svc
 
 log = logging.getLogger(__name__)
@@ -112,6 +113,31 @@ def _snapshot_due() -> datetime | None:
     return datetime.now() + timedelta(seconds=90)
 
 
+def run_pull_request_check() -> None:
+    """Open tasks' pull requests read from GitHub; those all merged, done."""
+    from app.sources.github import account
+
+    task_runs.checking.run_here(lambda: task_runs.run_check(get_session_factory(), account()))
+
+
+def runners() -> dict:
+    """The agent systems runs are launched on, each with the model set."""
+    from app.services.agent_runs import RUNNERS
+
+    model = get_settings().runs.model
+    return {name: cls(model=model) for name, cls in RUNNERS.items()}
+
+
+def run_task_follow() -> None:
+    """Every task run going asked how it stands, its task moved with it."""
+    from app.services import task_launch
+    from app.sources.github import account
+
+    task_launch.following.run_here(
+        lambda: task_launch.run_follow(get_session_factory(), runners(), account())
+    )
+
+
 def create_scheduler() -> BackgroundScheduler:
     # A run missed while the machine slept (APScheduler's default gives it
     # one second) runs once on waking, however late.
@@ -171,6 +197,20 @@ def create_scheduler() -> BackgroundScheduler:
         scheduler.add_job(
             run_improvement_follow, IntervalTrigger(hours=1), id="improvement_follow"
         )
+    scheduler.add_job(
+        run_task_follow,
+        IntervalTrigger(minutes=get_settings().runs.follow_minutes),
+        id="task_follow",
+        next_run_time=datetime.now() + timedelta(seconds=40),  # catch up at startup too
+    )
+    # A task's pull requests merging makes it done, Code installed or not:
+    # GitHub answers for public repositories without an account.
+    scheduler.add_job(
+        run_pull_request_check,
+        IntervalTrigger(minutes=get_settings().github.pull_request_minutes),
+        id="pull_request_check",
+        next_run_time=datetime.now() + timedelta(seconds=75),  # catch up at startup too
+    )
     # A next_run_time of None would pause the job, so it is only given when due.
     catch_up = {"next_run_time": due} if (due := _snapshot_due()) else {}
     scheduler.add_job(
