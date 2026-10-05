@@ -4,10 +4,10 @@ from datetime import date
 
 from fastapi import APIRouter
 
-from app.api.schemas import ReportIn, TaskIn, TaskOut, TaskPatch
+from app.api.schemas import LaunchIn, ReportIn, TaskIn, TaskOut, TaskPatch
 from app.db import DbSession
 from app.models import Task, TaskOwner, TaskStatus
-from app.services import task_runs
+from app.services import DomainError, task_launch, task_runs
 from app.services import tasks as tasks_svc
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -55,6 +55,28 @@ def update_task(task_id: int, body: TaskPatch, db: DbSession) -> TaskOut:
     if repos is not None:
         task = task_runs.set_repos(db, task_id, repos)
     return task_out(task)
+
+
+def get_runner(name: str | None = None):  # noqa: ANN201
+    """The agent system a task is launched on: the one named, or the
+    configured one ([runs] runner)."""
+    from app.config import get_settings
+    from app.jobs.scheduler import runners
+
+    name = name or get_settings().runs.runner
+    found = runners().get(name)
+    if found is None:
+        raise DomainError(f"No agent system is called {name}")
+    return found
+
+
+@router.post("/{task_id}/launch")
+def launch(task_id: int, db: DbSession, body: LaunchIn | None = None) -> TaskOut:
+    """The task handed to an agent (SPEC.md, Agent runs): its workspace
+    prepared in the everyday files' work/, and the brief launched on the
+    runner. Answers the task, its run last among its runs."""
+    task_launch.launch(db, task_id, get_runner(body.runner if body else None))
+    return task_out(tasks_svc.get_task(db, task_id))
 
 
 @router.post("/{task_id}/report")

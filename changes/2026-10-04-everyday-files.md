@@ -9,3 +9,6 @@
 - Feature: Let any agent report on a task in one call, `POST /api/tasks/<id>/report`, or MCP's `report_task`
   A note, the outcome, its pull requests, and how far it got, never further than needs review.
 - Feature: Mark a task done once its pull requests all merge, read from GitHub every few minutes
+- Feature: Launch a task on T3 Code from its page, in a workspace of its own across its repositories
+  Its repositories are cloned into the everyday files when needed, a worktree of each made on the task's branch, and the agent given the task, what done means, the project's AGENTS.md and how to report back.
+  The run is followed from T3: working, waiting on you, finished or failed moves the task with it, its pull requests are linked, and its worktrees go once the task is settled.

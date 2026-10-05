@@ -173,6 +173,12 @@ class GitHub:
         (open or closed), whether it is a draft, and whether it merged."""
         return self.get(f"/repos/{repo}/pulls/{number}")
 
+    def pull_requests_from(self, repo: str, branch: str) -> list[dict[str, Any]]:
+        """The pull requests (open or not) made from a branch of the
+        repository itself (owner/name), newest first."""
+        owner = repo.split("/", 1)[0]
+        return self.get(f"/repos/{repo}/pulls", head=f"{owner}:{branch}", state="all")
+
     def repositories(self) -> list[dict[str, Any]]:
         """Every repository the account can reach: its own, those it
         collaborates on, and its organizations'; last pushed first."""

@@ -67,6 +67,8 @@ class FakeGitHub:
         # by anyone when that repository is in `public`.
         self.pulls: dict[tuple[str, int], dict[str, Any]] = {}
         self.public: set[str] = set()
+        # The pull requests made from each branch, by (owner/name, branch).
+        self.branch_pulls: dict[tuple[str, str], list[dict[str, Any]]] = {}
         self.fail: httpx.Response | Exception | None = None
         self.requests: list[httpx.Request] = []
 
@@ -83,6 +85,8 @@ class FakeGitHub:
         user = self.users.get(token)
         if request.url.path.startswith("/repos/") and "/pulls/" in request.url.path:
             return self._pull(request, user if token else None)
+        if request.url.path.startswith("/repos/") and request.url.path.endswith("/pulls"):
+            return self._pulls_from(request, user if token else None)
         if user is None:
             return httpx.Response(401, json={"message": "Bad credentials"})
         if request.url.path == "/user":
@@ -105,6 +109,20 @@ class FakeGitHub:
                    "draft": False, "merged": False, "merged_at": None, **fields}
         self.pulls[(repo.lower(), number)] = payload
         return payload
+
+    def _reaches(self, repo: str, user: dict[str, Any] | None) -> bool:
+        return repo in self.public or (user is not None and any(
+            r["full_name"].lower() == repo
+            for r in (self.repos if user["login"] == LOGIN else self.work_repos)
+        ))
+
+    def _pulls_from(self, request: httpx.Request, user: dict[str, Any] | None) -> httpx.Response:
+        _, _, owner, name, _ = request.url.path.split("/")
+        repo = f"{owner}/{name}".lower()
+        if not self._reaches(repo, user):
+            return httpx.Response(404, json={"message": "Not Found"})
+        branch = request.url.params.get("head", "").split(":", 1)[-1]
+        return httpx.Response(200, json=self.branch_pulls.get((repo, branch), []))
 
     def _pull(self, request: httpx.Request, user: dict[str, Any] | None) -> httpx.Response:
         _, _, owner, name, _, number = request.url.path.split("/")

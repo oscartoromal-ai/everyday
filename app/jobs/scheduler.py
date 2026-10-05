@@ -120,6 +120,24 @@ def run_pull_request_check() -> None:
     task_runs.checking.run_here(lambda: task_runs.run_check(get_session_factory(), account()))
 
 
+def runners() -> dict:
+    """The agent systems runs are launched on, each with the model set."""
+    from app.services.agent_runs import RUNNERS
+
+    model = get_settings().runs.model
+    return {name: cls(model=model) for name, cls in RUNNERS.items()}
+
+
+def run_task_follow() -> None:
+    """Every task run going asked how it stands, its task moved with it."""
+    from app.services import task_launch
+    from app.sources.github import account
+
+    task_launch.following.run_here(
+        lambda: task_launch.run_follow(get_session_factory(), runners(), account())
+    )
+
+
 def create_scheduler() -> BackgroundScheduler:
     # A run missed while the machine slept (APScheduler's default gives it
     # one second) runs once on waking, however late.
@@ -179,6 +197,12 @@ def create_scheduler() -> BackgroundScheduler:
         scheduler.add_job(
             run_improvement_follow, IntervalTrigger(hours=1), id="improvement_follow"
         )
+    scheduler.add_job(
+        run_task_follow,
+        IntervalTrigger(minutes=get_settings().runs.follow_minutes),
+        id="task_follow",
+        next_run_time=datetime.now() + timedelta(seconds=40),  # catch up at startup too
+    )
     # A task's pull requests merging makes it done, Code installed or not:
     # GitHub answers for public repositories without an account.
     scheduler.add_job(

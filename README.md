@@ -214,6 +214,14 @@ Every field is optional.
 A note is kept as one of the task's updates, and the outcome is written over the one it had; all of it shows on the task's page, under Agent work.
 The JSON body stands in for the pages' CSRF token, so no cookie is needed; MCP's `report_task` does the same.
 
+## Launching a task
+
+A task in a project, with its repositories chosen under Agent work on its page, is launched there: Launch on T3 Code (or `POST /api/tasks/<id>/launch`).
+The app needs T3 Code installed and running, and, for a repository on GitHub not yet in the everyday files' `repos/`, the GitHub CLI signed in to clone it.
+It prepares the task's workspace in `work/<id>-<words>/` on the branch `task/<id>-<words>` and starts a T3 thread there with the brief: the task, what done means, the project's AGENTS.md, and the report call above.
+Every two minutes after, it reads how the run stands from T3, moving the task with it (in progress, blocked when waiting on you, needs review once finished), links the pull requests the branch made, and removes the worktrees once the task is done or cancelled.
+`[runs]` in the home's `config.toml` sets the agent system (`runner`), its `model`, and how often runs are followed (`follow_minutes`).
+
 ## Models and the chats
 
 The app reaches models through the CLIs signed in on this machine, never an API key of its own: Claude through Claude Code, OpenAI through the Codex CLI.

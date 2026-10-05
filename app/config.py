@@ -136,6 +136,15 @@ def _everyday_default() -> str:
     return os.environ.get("SYSTEMDRIVE", "C:") + "\\everyday-files"
 
 
+class RunsConfig(BaseModel):
+    # A task launched as an agent run (SPEC.md, Agent runs): the agent system
+    # it is handed to (app/services/agent_runs.py's RUNNERS), the model it
+    # runs, and how often runs are looked at (their state, their pull requests).
+    runner: str = "t3"
+    model: str = "claude-opus-5-5"
+    follow_minutes: int = 2
+
+
 class EverydayFilesConfig(BaseModel):
     # The folder for agentic work (SPEC.md, Agent runs): repos/, projects/
     # and work/. The installer writes the one chosen in Setup to install.toml.
@@ -182,6 +191,7 @@ class Settings(BaseSettings):
     github: GitHubConfig = GitHubConfig()
     improve: ImproveConfig = ImproveConfig()
     everyday_files: EverydayFilesConfig = EverydayFilesConfig()
+    runs: RunsConfig = RunsConfig()
     install: InstallConfig = InstallConfig()
 
     @classmethod

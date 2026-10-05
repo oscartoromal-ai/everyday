@@ -213,21 +213,26 @@ def _links_for(db: Session, repo: str) -> list[GitHubLink]:
     return first + rest
 
 
-def _read(db: Session, accounts: Accounts, pr: TaskPullRequest) -> dict:
-    """The pull request as GitHub has it, asked as each account that may
-    reach its repository in turn, then signed in as none (a public one)."""
+def ask[T](db: Session, accounts: Accounts, repo: str, question: Callable[[GitHub], T]) -> T:
+    """GitHub asked about a repository (owner/name) as each account that may
+    reach it in turn, then signed in as none (a public one)."""
     last: GitHubError | None = None
-    for link in _links_for(db, pr.repo):
+    for link in _links_for(db, repo):
         try:
             with accounts.api(link) as api:
-                return api.pull_request(pr.repo, pr.number)
+                return question(api)
         except GitHubError as exc:
             last = exc
     try:
         with accounts.anonymous() as api:
-            return api.pull_request(pr.repo, pr.number)
+            return question(api)
     except GitHubError as exc:
         raise last or exc from None
+
+
+def _read(db: Session, accounts: Accounts, pr: TaskPullRequest) -> dict:
+    """The pull request as GitHub has it."""
+    return ask(db, accounts, pr.repo, lambda api: api.pull_request(pr.repo, pr.number))
 
 
 def settle(db: Session, task: Task) -> bool:

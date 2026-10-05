@@ -10,9 +10,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import Response
 
+from app.api.tasks import get_runner
 from app.db import DbSession
 from app.models import TaskStatus
-from app.services import task_runs
+from app.services import task_launch, task_runs
 from app.services import tasks as tasks_svc
 from app.sources.github import GitHubAccount, account
 from app.ui.task_run_view import run_ctx
@@ -76,6 +77,16 @@ def remove_pull_request(request: Request, db: DbSession, pr_id: int):
     task = task_runs.remove_pull_request(db, pr_id)
     db.commit()
     return _section(request, db, task.id)
+
+
+@router.post("/ui/tasks/{task_id}/launch")
+def launch(db: DbSession, task_id: int):
+    """The task handed to an agent: the page drawn again, its status moved."""
+    task_launch.launch(db, task_id, get_runner())
+    db.commit()
+    response = Response(status_code=204)
+    response.headers["HX-Refresh"] = "true"
+    return response
 
 
 @router.post("/ui/tasks/{task_id}/pull-requests/check")

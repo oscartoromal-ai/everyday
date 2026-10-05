@@ -105,6 +105,19 @@ class PullRequestOut(BaseModel):
     state: PullRequestState
 
 
+class RunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    # The agent system it was launched on, and its id there.
+    runner: str
+    run_id: str
+    # working, waiting (on Oscar), finished, failed or gone, as the runner last had it.
+    state: str
+    branch: str
+    workspace: str
+    started_at: datetime
+
+
 class TaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -124,6 +137,7 @@ class TaskOut(BaseModel):
     outcome: str = ""
     repos: list[str] = []
     pull_requests: list[PullRequestOut] = []
+    runs: list[RunOut] = []
 
     @field_validator("repos", mode="before")
     @classmethod
@@ -144,6 +158,13 @@ class ReportIn(BaseModel):
     outcome: str | None = None
     # Its pull requests, each a URL on GitHub (or owner/name#number).
     pull_requests: list[str] | str | None = None
+
+
+class LaunchIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # The agent system to hand it to; the configured one ([runs] runner) when left out.
+    runner: str | None = None
 
 
 class EventIn(BaseModel):

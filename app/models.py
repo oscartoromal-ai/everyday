@@ -318,6 +318,9 @@ class Task(Base):
     updates: Mapped[list[TaskUpdate]] = relationship(
         order_by="TaskUpdate.id", cascade="all, delete-orphan", passive_deletes=True
     )
+    runs: Mapped[list[TaskRun]] = relationship(
+        order_by="TaskRun.id", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class TaskRepo(Base):
@@ -366,6 +369,28 @@ class TaskPullRequest(Base):
     @property
     def url(self) -> str:
         return f"https://github.com/{self.repo}/pull/{self.number}"
+
+
+class TaskRun(Base):
+    """A task launched as an agent run (app.services.task_launch): on which
+    runner, its id there, the branch and workspace it works in, and its state
+    as the runner last had it (agent_runs.RunState)."""
+
+    __tablename__ = "task_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    runner: Mapped[str] = mapped_column(String(40))
+    run_id: Mapped[str] = mapped_column(String(200))
+    branch: Mapped[str] = mapped_column(String(255))
+    workspace: Mapped[str] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(String(20), default="working")
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    # When the runner was last asked, and why it could not answer ("" when it did).
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    check_error: Mapped[str] = mapped_column(Text, default="")
+    # Its worktrees removed, its task settled.
+    cleaned: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class TaskUpdate(Base):

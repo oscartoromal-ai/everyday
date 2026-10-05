@@ -1177,6 +1177,11 @@ a.attention-link:hover { text-decoration: underline; text-underline-offset: 3px;
 }
 .run-add input::placeholder { color: var(--pewter); opacity: 1; }
 .run-add input:is(:focus, :focus-visible) { outline: none; box-shadow: none; }
+.run-launch-row { display: flex; align-items: center; gap: var(--s-3); min-height: 32px; }
+.run-launch { padding: 4px 14px; }
+.run-launch .run-launch-busy, .run-launch.htmx-request .run-launch-idle { display: none; }
+.run-launch.htmx-request .run-launch-busy { display: inline; }
+.run-prs + .run-launch-row { margin-top: var(--s-2); }
 .run-updates { margin: 0; padding: 2px 0 0; list-style: none; display: grid; gap: var(--s-2); }
 .run-updates li { display: grid; gap: 2px; }
 .run-when { font-size: var(--t-caption); line-height: 18px; color: var(--pewter); font-variant-numeric: tabular-nums; }
