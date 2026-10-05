@@ -102,6 +102,7 @@ def _commit(checkout: Path) -> str:
     out = subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"],
         cwd=checkout,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
     )

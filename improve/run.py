@@ -68,7 +68,8 @@ def _gh(args: list[str], cwd: Path, stdin: str | None = None) -> str:
         capture_output=True,
         text=True,
         encoding="utf-8",
-        input=stdin,
+        # Never the caller's input: empty when there is nothing to give it.
+        input=stdin or "",
         timeout=120,
         env={**os.environ, "GH_PROMPT_DISABLED": "1"},
     )
@@ -112,6 +113,7 @@ def gate(repo: Path, checkout: Path, branch: str) -> tuple[bool, str]:
     run = lambda *args, cwd: subprocess.run(  # noqa: E731
         [*git, *args],
         cwd=cwd,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         check=True,
@@ -249,6 +251,8 @@ def follow(
                     continue
                 entry.gated = pr.head
                 said.append(f"gated {'ok' if passed else 'FAILED'}: {entry.title} ({pr.url})")
+            else:
+                said.append(f"waiting on review: {entry.title} ({pr.url})")
             continue
         if states is None:
             continue

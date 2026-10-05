@@ -55,6 +55,8 @@ def run_tool(cmd: list[str], cwd: Path, timeout: float) -> subprocess.CompletedP
             timeout=timeout,
             env=env,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            # Nothing it runs ever waits on input: there is no one to give it.
+            stdin=subprocess.DEVNULL,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise SourceFailed(f"{' '.join(cmd[:3])}: {exc}") from exc

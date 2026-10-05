@@ -129,8 +129,9 @@ def test_a_pull_request_opened_is_gated_once_for_each_commit(ledger, tmp_path) -
     assert (entry.pr, entry.gated, entry.status) == (pr.url, "abc123", "picked")
     assert said == [f"gated ok: {entry.title} ({pr.url})"]
 
-    _, gated, posted = _follow(ledger, tmp_path, runner, pr)
+    said, gated, posted = _follow(ledger, tmp_path, runner, pr)
     assert gated == [] and posted == []
+    assert said == [f"waiting on review: {entry.title} ({pr.url})"]
 
     newer = PullRequest(pr.url, "OPEN", "def456")
     _, gated, _ = _follow(ledger, tmp_path, runner, newer, gate=(False, "red"))
