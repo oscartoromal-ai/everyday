@@ -115,6 +115,13 @@ class ImproveConfig(BaseModel):
     after: str = "02:30"
     # The project the app's work is planned on, when no project lists its repo.
     project: str = ""
+    # The agent system the pick is handed to for fixing (app/services/
+    # agent_runs.py), "t3", or "" to only scan; the model it runs; and the
+    # most picks being fixed at once (one pull request waiting on Oscar's
+    # review holds the next).
+    runner: str = "t3"
+    model: str = "claude-opus-5-5"
+    max_open: int = 1
 
 
 # The modules an install can leave out, each a section of the sidebar

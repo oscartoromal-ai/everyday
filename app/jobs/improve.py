@@ -10,6 +10,12 @@ database and log, and writes its report, ledger and brief into improve/
 (improve/scan.py). It runs at low priority with no window, what it prints
 going to improve/scan.log.
 
+Around the scan, the picks are fixed by agents (improve/run.py): first the
+picks being fixed are followed (a pull request gated, merged or closed),
+then after the scan the next pick is handed to an agent, when [improve]
+runner names one and fewer than max_open are being fixed. Between days the
+follow runs on its own every hour, so a pull request opened is gated soon.
+
 The installed app finds its repo in build-info.json (app/desktop/update.py);
 run from the repo, it is the repo.
 """
@@ -20,6 +26,7 @@ import logging
 import os
 import shutil
 import subprocess
+import threading
 from datetime import date, datetime, time
 from pathlib import Path
 
@@ -35,6 +42,8 @@ CREATE_NO_WINDOW = 0x08000000
 BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
 GIT_TIMEOUT = 300
 SCAN_TIMEOUT = 4 * 3600
+# The day's run and the follows between, one at a time.
+_lock = threading.Lock()
 
 
 def folder() -> Path:
@@ -119,6 +128,39 @@ def checkout_master(repo: Path, checkout: Path, git: str, output) -> None:  # no
         )
 
 
+def _steps(settings, checkout: Path) -> dict[str, list[str]]:  # noqa: ANN001
+    """The scan's commands, run in the checkout: following the picks being
+    fixed, the scan, and handing the next pick to an agent."""
+    from app.serve import log_path
+
+    data = [
+        "--db",
+        str(settings.db_path),
+        "--logs",
+        str(log_path().parent),
+        "--out",
+        str(folder()),
+        "--project",
+        settings.improve.project,
+    ]
+    runs = [
+        "--repo",
+        str(repo()),
+        "--runner",
+        settings.improve.runner or "none",
+        "--model",
+        settings.improve.model,
+        "--max-open",
+        str(settings.improve.max_open),
+    ]
+    python = [shutil.which("uv") or "uv", "run", "--quiet", "python", "-m"]
+    return {
+        "follow": [*python, "improve.run", "follow", *data, *runs],
+        "scan": [*python, "improve.scan", "--home", str(HOME), *data],
+        "launch": [*python, "improve.run", "launch", *data, *runs],
+    }
+
+
 def run(now: datetime | None = None) -> bool:
     """The day's scan run, when it is due; whether it ran."""
     settings = get_settings()
@@ -130,43 +172,57 @@ def run(now: datetime | None = None) -> bool:
     if not source or not git or not uv:
         log.info("Improvement scan skipped: no repo, git or uv on this machine")
         return False
-    from app.serve import log_path
 
-    folder().mkdir(parents=True, exist_ok=True)
-    # Once a day, failed or not: a scan that fails is not tried again all day.
-    marker.write_text(now.date().isoformat(), encoding="utf-8")
+    with _lock:
+        folder().mkdir(parents=True, exist_ok=True)
+        # Once a day, failed or not: a scan that fails is not tried again all day.
+        marker.write_text(now.date().isoformat(), encoding="utf-8")
+        checkout = folder() / "checkout"
+        log.info("Improvement scan starting, from %s's %s/%s", source, REMOTE, BRANCH)
+        steps = _steps(settings, checkout)
+        with (folder() / "scan.log").open("w", encoding="utf-8") as output:
+            try:
+                checkout_master(source, checkout, git, output)
+                for name in ("follow", "scan", "launch"):
+                    output.write(f"\n== {name}\n")
+                    output.flush()
+                    _run(
+                        steps[name],
+                        SCAN_TIMEOUT,
+                        cwd=checkout,
+                        stdout=output,
+                        stderr=subprocess.STDOUT,
+                    )
+            except (OSError, subprocess.SubprocessError):
+                log.warning("Improvement scan failed; see %s", folder() / "scan.log", exc_info=True)
+                return True
+    log.info("Improvement scan done: %s", folder() / "reports" / f"{now.date()}.md")
+    return True
+
+
+def follow() -> bool:
+    """The picks being fixed followed between days: a pull request opened
+    is gated, one merged or closed settles its pick. Whether it ran: not
+    before the first day's scan has made the checkout, nor while it runs."""
+    settings = get_settings()
     checkout = folder() / "checkout"
-    log.info("Improvement scan starting, from %s's %s/%s", source, REMOTE, BRANCH)
-    with (folder() / "scan.log").open("w", encoding="utf-8") as output:
-        try:
-            checkout_master(source, checkout, git, output)
-            output.flush()
+    if not settings.improve.enabled or not (checkout / ".git").exists() or not repo():
+        return False
+    if not _lock.acquire(blocking=False):
+        return False
+    try:
+        with (folder() / "follow.log").open("w", encoding="utf-8") as output:
             _run(
-                [
-                    uv,
-                    "run",
-                    "--quiet",
-                    "python",
-                    "-m",
-                    "improve.scan",
-                    "--home",
-                    str(HOME),
-                    "--db",
-                    str(settings.db_path),
-                    "--logs",
-                    str(log_path().parent),
-                    "--out",
-                    str(folder()),
-                    "--project",
-                    settings.improve.project,
-                ],
+                _steps(settings, checkout)["follow"],
                 SCAN_TIMEOUT,
                 cwd=checkout,
                 stdout=output,
                 stderr=subprocess.STDOUT,
             )
-        except (OSError, subprocess.SubprocessError):
-            log.warning("Improvement scan failed; see %s", folder() / "scan.log", exc_info=True)
-            return True
-    log.info("Improvement scan done: %s", folder() / "reports" / f"{now.date()}.md")
+    except (OSError, subprocess.SubprocessError):
+        log.warning(
+            "Following the improvements failed; see %s", folder() / "follow.log", exc_info=True
+        )
+    finally:
+        _lock.release()
     return True

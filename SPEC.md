@@ -474,6 +474,9 @@ APScheduler inside the FastAPI process; jobs share app code and database session
 - The daily improvement scan (decided 2026-10-04): once a day, after 02:30 or as soon as the app is next up and awake, master's `improve/` scan runs in a checkout of its own over the app's log and use, master's tests, lint and dependencies, and the tasks Oscar gave Claude on the app's project.
   Its ledger remembers each finding across days, and it writes the day's report and a brief for the most pressing one.
   Everything up to the fix is scripted; an agent fixes the brief's finding and opens a pull request, which Oscar reviews (daily, his call on 2026-10-04: nothing merges on its own).
+  The agent is an agent run (`app/services/agent_runs.py`): a brief launched by a runner, T3 Code first, into a worktree on a branch of its own, its state read from the runner and its pull request found from its branch, never reported by the agent.
+  Around the scan, and every hour between, the picks being fixed are followed: each pull request's newest commit is gated by master's lint and tests and the outcome commented on it; merged settles the pick as done, closed unmerged as ignored, and a run ending without one opens the pick again, twice at most.
+  One pick is fixed at a time by default, so a pull request waiting on Oscar holds the next.
 
 ### Deployment and backups
 

@@ -52,6 +52,12 @@ backfill_days = 30
 enabled = true
 after = "02:30"
 project = ""
+# The agent system the day's pick is handed to for fixing, "t3" (T3 Code),
+# or "" to only scan; the model it runs; and the most picks being fixed at
+# once, each a pull request for Oscar's review.
+runner = "t3"
+model = "claude-opus-5-5"
+max_open = 1
 
 [github]
 # GitHub, connected from Repositories: through the GitHub CLI's own sign-in

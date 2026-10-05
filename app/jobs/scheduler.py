@@ -91,6 +91,11 @@ def run_improvement_scan() -> None:
     improve_job.run()
 
 
+def run_improvement_follow() -> None:
+    """The picks being fixed followed: their pull requests gated or settled."""
+    improve_job.follow()
+
+
 def run_github_sync() -> None:
     """Fetch the repositories from GitHub, while connected."""
     from app.sources.github import account
@@ -162,6 +167,9 @@ def create_scheduler() -> BackgroundScheduler:
             IntervalTrigger(minutes=10),
             id="improvement_scan",
             next_run_time=datetime.now() + timedelta(minutes=2),  # catch up at startup too
+        )
+        scheduler.add_job(
+            run_improvement_follow, IntervalTrigger(hours=1), id="improvement_follow"
         )
     # A next_run_time of None would pause the job, so it is only given when due.
     catch_up = {"next_run_time": due} if (due := _snapshot_due()) else {}

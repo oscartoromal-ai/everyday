@@ -1,12 +1,14 @@
 """The gate a fix passes before its pull request: lint, then the tests, green.
 
-    uv run python -m improve.check [--build] [--json]
+    uv run python -m improve.check [--build] [--json] [--repo <checkout>]
 
 Each step's outcome is printed, a failing one with the end of its output;
 it exits 1 when any step fails. --build also builds the desktop app
 (desktop/build.ps1, never installing it), for a change that could break the
 frozen app: a new file it must bundle, a new dependency. --json prints the
-whole as JSON instead, for a script to read.
+whole as JSON instead, for a script to read. --repo checks another checkout
+(a pull request's) with this one's gate, which that pull request cannot
+change.
 """
 
 from __future__ import annotations
@@ -16,12 +18,13 @@ import json
 import shutil
 import sys
 import time
+from pathlib import Path
 
 from improve import sources
 from improve.scan import CHECKOUT
 
 
-def steps(build: bool) -> list[tuple[str, list[str]]]:
+def steps(build: bool, repo: Path = CHECKOUT) -> list[tuple[str, list[str]]]:
     uv = shutil.which("uv") or "uv"
     found = [
         ("lint", [uv, "run", "ruff", "check", "."]),
@@ -37,19 +40,19 @@ def steps(build: bool) -> list[tuple[str, list[str]]]:
                     "-ExecutionPolicy",
                     "Bypass",
                     "-File",
-                    str(CHECKOUT / "desktop" / "build.ps1"),
+                    str(repo / "desktop" / "build.ps1"),
                 ],
             )
         )
     return found
 
 
-def check(build: bool = False) -> list[dict]:
+def check(build: bool = False, repo: Path = CHECKOUT) -> list[dict]:
     outcomes = []
-    for name, cmd in steps(build):
+    for name, cmd in steps(build, repo):
         started = time.monotonic()
         try:
-            out = sources.run_tool(cmd, CHECKOUT, timeout=3 * 3600)
+            out = sources.run_tool(cmd, repo, timeout=3 * 3600)
             ok, output = out.returncode == 0, out.stdout + out.stderr
         except sources.SourceFailed as exc:
             ok, output = False, str(exc)
@@ -70,8 +73,9 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument("--build", action="store_true", help="also build the desktop app")
     parser.add_argument("--json", action="store_true", help="print the outcome as JSON")
+    parser.add_argument("--repo", type=Path, default=CHECKOUT, help="the checkout to check")
     args = parser.parse_args(argv)
-    outcomes = check(args.build)
+    outcomes = check(args.build, args.repo)
     passed = all(o["ok"] for o in outcomes)
     if args.json:
         print(json.dumps({"ok": passed, "steps": outcomes}, indent=2))
