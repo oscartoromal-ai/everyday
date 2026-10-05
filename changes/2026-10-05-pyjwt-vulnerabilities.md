@@ -1,0 +1,1 @@
+- Fix: The JWT library the MCP server comes with (pyjwt) is updated past its 13 known vulnerabilities
