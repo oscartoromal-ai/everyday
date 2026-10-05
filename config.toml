@@ -43,6 +43,16 @@ token_dir = "local/garmin"
 sync_minutes = 30
 backfill_days = 30
 
+[improve]
+# The daily scan for what to improve in the app (improve/ in the repo), run
+# by the installed app from a checkout of origin's master after this time, or
+# when it is next up and awake. Its report, ledger and brief go to improve/
+# beside the app's database (data/improve/). project names the project the
+# app's work is planned on, when no project lists the repo.
+enabled = true
+after = "02:30"
+project = ""
+
 [github]
 # GitHub, connected from Repositories: through the GitHub CLI's own sign-in
 # (the app keeps no copy), or a token pasted there, kept in tokens_dir, a

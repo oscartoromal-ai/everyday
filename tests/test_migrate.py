@@ -1,3 +1,4 @@
+import gc
 import sqlite3
 
 import pytest
@@ -24,6 +25,9 @@ def test_a_start_on_a_current_database_changes_nothing(tmp_path) -> None:
     path = tmp_path / "app.db"
     migrate.upgrade(path)
     revisions, before = migrate.current_revisions(path), path.read_bytes()
+    # A connection the upgrade left open would be closed now, and its write
+    # ahead log checkpointed into the file: the upgrade must close its own.
+    gc.collect()
     migrate.upgrade(path)
     assert migrate.current_revisions(path) == revisions
     assert path.read_bytes() == before
@@ -53,8 +57,11 @@ def test_the_migrations_end_in_one_head(tmp_path) -> None:
 @pytest.mark.parametrize("branch", ["d4b7e9a2c1f5", "f3b6d0a2c8e1"])
 def test_a_database_on_either_side_of_a_merge_comes_up_to_head(tmp_path, branch) -> None:
     from alembic import command
+    from alembic.script import ScriptDirectory
 
     path = tmp_path / "app.db"
     command.upgrade(migrate._config(path), branch)
     migrate.upgrade(path)
-    assert migrate.current_revisions(path) == {"f4d0a341d1cc"}
+    # The head, whichever migration it is by now.
+    heads = ScriptDirectory.from_config(migrate._config(path)).get_heads()
+    assert migrate.current_revisions(path) == set(heads)

@@ -13,8 +13,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from app import usage
 from app.config import get_settings
 from app.db import get_session_factory, session_scope
+from app.jobs import improve as improve_job
 from app.services import backup as backup_svc
 from app.services import garmin as garmin_svc
 from app.services import github as github_svc
@@ -78,6 +80,17 @@ def run_garmin_sync() -> None:
     )
 
 
+def run_usage_flush() -> None:
+    """The app's use since the last flush written to the database (app/usage.py)."""
+    with session_scope() as db:
+        usage.recorder.flush(db)
+
+
+def run_improvement_scan() -> None:
+    """The day's scan for what to improve in the app, once it is due."""
+    improve_job.run()
+
+
 def run_github_sync() -> None:
     """Fetch the repositories from GitHub, while connected."""
     from app.sources.github import account
@@ -139,6 +152,16 @@ def create_scheduler() -> BackgroundScheduler:
             IntervalTrigger(minutes=get_settings().github.sync_minutes),
             id="github_sync",
             next_run_time=datetime.now() + timedelta(seconds=60),  # catch up at startup too
+        )
+    scheduler.add_job(run_usage_flush, IntervalTrigger(minutes=1), id="usage_flush")
+    if get_settings().improve.enabled:
+        # Looked at often, so the day's scan starts soon after its time, or
+        # after the machine wakes; it runs once a day (app/jobs/improve.py).
+        scheduler.add_job(
+            run_improvement_scan,
+            IntervalTrigger(minutes=10),
+            id="improvement_scan",
+            next_run_time=datetime.now() + timedelta(minutes=2),  # catch up at startup too
         )
     # A next_run_time of None would pause the job, so it is only given when due.
     catch_up = {"next_run_time": due} if (due := _snapshot_due()) else {}

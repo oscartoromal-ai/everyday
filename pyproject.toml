@@ -54,6 +54,8 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The improve/ scripts, imported by their tests as run from the repo.
+pythonpath = ["."]
 addopts = "-q"
 asyncio_mode = "auto"
 

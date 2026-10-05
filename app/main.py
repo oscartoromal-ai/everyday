@@ -32,6 +32,7 @@ from app.ui import pages as ui_pages
 from app.ui import project as ui_project
 from app.ui import repositories as ui_repositories
 from app.ui.views import keep_db
+from app.usage import UsageMiddleware
 
 APP_DIR = Path(__file__).resolve().parent
 
@@ -51,7 +52,7 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        from app.jobs.scheduler import create_scheduler
+        from app.jobs.scheduler import create_scheduler, run_usage_flush
 
         scheduler = create_scheduler() if with_scheduler else None
         if scheduler:
@@ -67,6 +68,8 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
             yield
         if scheduler:
             scheduler.shutdown(wait=False)
+            # The last minute's use, before the app goes.
+            run_usage_flush()
 
     app = FastAPI(
         title="Personal Calendar",
@@ -99,6 +102,8 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
         return JSONResponse(status_code=422, content={"detail": str(exc)})
 
     allowed_hosts = {"127.0.0.1", "localhost", *settings.server.extra_hosts}
+    # Innermost, so it sees the route that answered (app/usage.py).
+    app.add_middleware(UsageMiddleware)
     app.add_middleware(FreshPagesMiddleware)
     app.add_middleware(BrowserGuardMiddleware, allowed_hosts=allowed_hosts)
 

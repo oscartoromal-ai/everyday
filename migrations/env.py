@@ -33,15 +33,20 @@ def run_migrations_online() -> None:
     # The app's own engine: same URL resolution, same SQLite pragmas.
     connectable = make_engine(config.get_main_option("sqlalchemy.url") or None)
 
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            render_as_batch=True,  # SQLite ALTERs need batch mode
-        )
+    try:
+        with connectable.connect() as connection:
+            context.configure(
+                connection=connection,
+                target_metadata=target_metadata,
+                render_as_batch=True,  # SQLite ALTERs need batch mode
+            )
 
-        with context.begin_transaction():
-            context.run_migrations()
+            with context.begin_transaction():
+                context.run_migrations()
+    finally:
+        # Closed now, not when collected: its last connection closing is
+        # what checkpoints the write-ahead log into the database file.
+        connectable.dispose()
 
 
 if context.is_offline_mode():
