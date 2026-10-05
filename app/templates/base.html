@@ -56,7 +56,10 @@
     document.querySelector('meta[name="theme-color"]').content =
       getComputedStyle(document.documentElement).getPropertyValue("--paper").trim() || "#ffffff";
   </script>
+  {# Every action's keys, as keys.toml has them over the defaults (app/services/keys.py), for keys.js. #}
+  <script type="application/json" id="keymap">{{ keys_client() | tojson }}</script>
   <script src="{{ asset('htmx.min.js') }}" defer></script>
+  <script src="{{ asset('keys.js') }}" defer></script>
   <script src="{{ asset('shell.js') }}" defer></script>
   <script src="{{ asset('vendor/codemirror.js') }}" defer></script>
   <script src="{{ asset('markdown-live.js') }}" defer></script>
@@ -76,10 +79,10 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
   {% set agent_ctx = agent_window(request) %}
   {# The sidebar's modules, each a page, in the sections and order Oscar laid them out
      (app/services/rail.py); shell.js drags them within their section, hides them, and
-     brings them back from Settings. The ones showing are Alt+1 to Alt+9 top to bottom,
-     each its number just left of its name; shell.js numbers them again as they move.
-     A hidden one stays in the page for Ctrl+K; a section with every module hidden goes
-     too (app.css). #}
+     brings them back from Settings. The ones showing are the sidebar's pages 1 to 9
+     top to bottom (Alt+1 to Alt+9, unless their keys were changed), each its key just
+     left of its name; shell.js numbers them again as they move. A hidden one stays in
+     the page for Ctrl+K; a section with every module hidden goes too (app.css). #}
   {% set nav_icons = {
     "today": '<rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M3 8h14"/><circle cx="10" cy="12.5" r="1.4" fill="currentColor" stroke="none"/>',
     "calendar": '<rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/>',
@@ -105,15 +108,15 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       </button>
     </div>
     {# Back to the page before, named, as it was left (shell.js); faint with none. #}
-    <button type="button" class="rail-button rail-back" data-back disabled title="Nothing to go back to" aria-keyshortcuts="Alt+ArrowLeft">
+    <button type="button" class="rail-button rail-back" data-back disabled title="Nothing to go back to" aria-keyshortcuts="{{ keys.aria('app.back') }}">
       <svg class="rail-back__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
       <span class="rail-button__label" data-back-label>Back</span>
     </button>
     {# New task, from any page: the New task window (#capture-dialog, shell.js). #}
-    <button type="button" class="rail-new" data-capture-open aria-haspopup="dialog" aria-keyshortcuts="N" title="New task (N)">
+    <button type="button" class="rail-new" data-capture-open aria-haspopup="dialog" aria-keyshortcuts="{{ keys.aria('task.new') }}" title="{{ keys.title('New task', 'task.new') }}">
       <span class="rail-new__icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 5v10"/><path d="M5 10h10"/></svg></span>
       <span class="rail-new__label">New task</span>
-      <kbd class="rail-button__key">N</kbd>
+      {% if keys.of("task.new") %}<kbd class="rail-button__key">{{ keys.text("task.new") | replace("+", " ") }}</kbd>{% endif %}
     </button>
     <nav class="nav" id="main-nav" aria-label="Main">
       {% for placed in rail_layout(request) %}{% set section = placed.section %}
@@ -123,9 +126,10 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         {# Its page's link (the page's is current; on a project's page, Projects is "true",
            the project's own link under it the page), and its hide button on hover. #}
         <div class="nav-item{% if m.key == "projects" %} nav-parent{% endif %}" data-module="{{ m.key }}"{% if item.hidden %} hidden{% endif %}>
-          <a href="{{ m.href }}" title="{{ m.label }}" draggable="false"{% if item.number %} aria-keyshortcuts="Alt+{{ item.number }}"{% endif %} {% if active == m.key %}aria-current="page"{% elif m.key == "projects" and active == "project" %}aria-current="true"{% endif %}>
+          {% set slot = "nav.slot" ~ item.number if item.number else "" %}
+          <a href="{{ m.href }}" title="{{ m.label }}" draggable="false" data-slot="{{ item.number }}"{% if slot and keys.of(slot) %} aria-keyshortcuts="{{ keys.aria(slot) }}"{% endif %} {% if active == m.key %}aria-current="page"{% elif m.key == "projects" and active == "project" %}aria-current="true"{% endif %}>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ nav_icons[m.key] | safe }}</svg>
-            <span class="nav-key" aria-hidden="true">{{ item.number }}</span>
+            <span class="nav-key" aria-hidden="true">{{ keys.cap(slot) if slot }}</span>
             <span class="nav-label">{{ m.label }}</span>
           </a>
           <button type="button" class="nav-hide" data-nav-hide aria-label="Hide {{ m.label }}" title="Hide {{ m.label }} (bring it back in Settings)">
@@ -148,23 +152,23 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       {# Its own box, for Settings' Check for updates to swap (out of band). #}
       <div id="rail-update" class="rail-update">{% with update = app_update() %}{% include "partials/update_button.html" %}{% endwith %}</div>
       {% if agent_ctx %}
-      {# The agent window, open or closed (A); a spark dot while an answer is on its way (app.css). #}
+      {# The agent window, open or closed (its key, A); a spark dot while an answer is on its way (app.css). #}
       <button type="button" class="rail-button agent-open" data-agent-toggle aria-controls="agent-panel" aria-expanded="false"
-              aria-keyshortcuts="A" title="Agent (A)">
+              aria-keyshortcuts="{{ keys.aria('app.agent') }}" title="{{ keys.title('Agent', 'app.agent') }}">
         <svg class="agent-open__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 3.5c.5 4.4 2.1 6 6.5 6.5-4.4.5-6 2.1-6.5 6.5-.5-4.4-2.1-6-6.5-6.5 4.4-.5 6-2.1 6.5-6.5z"/><path d="M18 15.5c.25 1.9.85 2.5 2.5 2.75-1.65.25-2.25.85-2.5 2.75-.25-1.9-.85-2.5-2.5-2.75 1.65-.25 2.25-.85 2.5-2.75z"/></svg>
         <span class="rail-button__label">Agent</span>
         <span class="agent-open__dot" aria-hidden="true"></span>
-        <kbd class="rail-button__key">A</kbd>
+        {% if keys.of("app.agent") %}<kbd class="rail-button__key">{{ keys.text("app.agent") | replace("+", " ") }}</kbd>{% endif %}
       </button>
       {% endif %}
       {# The command menu (Ctrl+K): search, go to a page or a day, or do (command.js). #}
-      <button type="button" class="rail-button command-open" data-command-open title="Search, go or do (Ctrl+K)">
+      <button type="button" class="rail-button command-open" data-command-open title="{{ keys.title('Search, go or do', 'app.search') }}">
         <svg class="command-open__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>
         <span class="rail-button__label">Search</span>
-        <kbd class="rail-button__key">Ctrl K</kbd>
+        {% if keys.of("app.search") %}<kbd class="rail-button__key">{{ keys.text("app.search") | replace("+", " ") }}</kbd>{% endif %}
       </button>
       {# Compact rows (C): more of the ruled sheets and Today's notes on screen, the text its size. #}
-      <button type="button" class="rail-button density-toggle" aria-pressed="false" title="Compact rows (C)">
+      <button type="button" class="rail-button density-toggle" aria-pressed="false" title="{{ keys.title('Compact rows', 'app.density') }}">
         <svg class="density-toggle__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
         <span class="rail-button__label density-toggle__label--roomy">Roomy</span>
         <span class="rail-button__label density-toggle__label--compact">Compact</span>
@@ -180,7 +184,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         <span class="rail-button__label theme-toggle__label--dark">{{ ds.modes.dark }}</span>
       </button>
       {# Settings: the modules hidden from the sidebar, to bring back (shell.js). #}
-      <button type="button" class="rail-button settings-open" data-settings-open aria-haspopup="dialog" title="Settings">
+      <button type="button" class="rail-button settings-open" data-settings-open aria-haspopup="dialog" title="{{ keys.title('Settings', 'app.settings') }}">
         <svg class="settings-open__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h9"/><path d="M17 7h3"/><circle cx="15" cy="7" r="2"/><path d="M4 17h3"/><path d="M11 17h9"/><circle cx="9" cy="17" r="2"/></svg>
         <span class="rail-button__label">Settings</span>
       </button>
@@ -255,6 +259,15 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         <span class="settings-version__open">Set up</span>
       </a>
     </section>
+    {# Every key, changed on Keyboard's page or in keys.toml (app/services/keys.py). #}
+    <section class="settings-section" aria-labelledby="settings-keys">
+      <h3 id="settings-keys">Keyboard</h3>
+      <a class="settings-version" href="/keys">
+        <span class="settings-version__number">Keys</span>
+        <span class="settings-version__commit">every action's{% if keys.chosen %}, {{ keys.chosen | length }} of them changed{% endif %}</span>
+        <span class="settings-version__open">Change</span>
+      </a>
+    </section>
     {# The app's version, opening the Changelog (app/changelog.py). #}
     {% set running = app_version() %}
     <section class="settings-section" aria-labelledby="settings-version">
@@ -275,131 +288,31 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       <h2 id="keys-title">Keyboard</h2>
       <button class="btn ghost" value="close" aria-label="Close">Esc</button>
     </header>
+    {# Every scope's keys as they are now (app/services/keys.py): the actions', which
+       Keyboard changes, among the ones that stay as they are. #}
     <div class="keys-columns">
+      {% for column in (1, 2) %}
       <section>
-        <h3>Anywhere</h3>
+        {% for scope in keys_scopes if scope.column == column and (not scope.module or installed(scope.module)) %}
+        <h3>{{ scope.title }}</h3>
         <dl>
+          {% for entry in scope.entries %}
+          {% if entry.id is not defined %}
+          <dt>{{ entry.keys | key_caps }}</dt><dd>{{ entry.label | with_caps }}</dd>
+          {% elif entry.id == "nav.slot1" and keys.slots_are_alt() %}
+          {# The sidebar's pages, one line while their keys run Alt+1 to Alt+9. #}
           <dt><kbd>Alt</kbd> <kbd>1</kbd>–<kbd>9</kbd></dt><dd>The sidebar's pages, by the numbers beside their names</dd>
-          <dt><kbd>N</kbd> <span class="or">or</span> <kbd>Shift</kbd> <kbd>N</kbd></dt><dd>New task (the sidebar's New task too, from any page)</dd>
-          <dt><kbd>Alt</kbd> <kbd>←</kbd></dt><dd>Back to the page before, as you left it (or the mouse's back button; on a sheet's cell, Alt ← is the sheet's)</dd>
-          <dt><kbd>?</kbd></dt><dd>These keys</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd>Search tasks, projects, events and notes; go to a page or a day ("friday", "12 oct"); or do (new task or event, theme)</dd>
-          <dt><kbd>C</kbd></dt><dd>Compact rows, or roomy again (the ruled sheets, Today's notes)</dd>
-          <dt><kbd>A</kbd></dt><dd>The agent window: open it, at its message, or collapse it</dd>
+          {% elif keys.of(entry.id) and (not entry.module or installed(entry.module))
+                  and not (entry.id.startswith("nav.slot") and keys.slots_are_alt()) %}
+          <dt>{{ keys.kbd(entry.id) }}</dt><dd>{{ entry.label }}</dd>
+          {% endif %}
+          {% endfor %}
         </dl>
-        <h3>Agent window</h3>
-        <dl>
-          <dt><kbd>Enter</kbd></dt><dd>Send the message (<kbd>Shift</kbd> <kbd>Enter</kbd>: a new line)</dd>
-          <dt><kbd>Esc</kbd></dt><dd>Out of the message, back to the page</dd>
-        </dl>
-        <h3>Sidebar</h3>
-        <dl>
-          <dt>Drag</dt><dd>A page within its section, a project among the projects, or a section by its name (Projects by itself)</dd>
-          <dt><kbd>Alt</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dt><dd>On a page or project: up or down a place; with <kbd>Shift</kbd>, its whole section</dd>
-          <dt>The eye</dt><dd>Hides a page from the sidebar (its section goes once all its pages do); Settings brings it back</dd>
-        </dl>
-        <h3>Writing a task</h3>
-        <dl>
-          <dt><kbd>Enter</kbd></dt><dd>From the title to the description</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>Enter</kbd></dt><dd>Add the task, or save it</dd>
-          <dt><kbd>Esc</kbd></dt><dd>Back to the list (an edit saves)</dd>
-          <dt><kbd>Tab</kbd></dt><dd>Through the fields; in the description, nests a sub-task</dd>
-          <dt><kbd>-</kbd> <kbd>Space</kbd></dt><dd>In the description, at a line's start: a sub-task (<kbd>Shift</kbd> <kbd>Enter</kbd> writes a note under it)</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>L</kbd></dt><dd>A line into a sub-task; a sub-task ticked, or unticked</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>B</kbd> <kbd>I</kbd></dt><dd>Bold, italic: the description is Markdown (# heading, `code`, [words](link), &gt; quote), shown as it reads, its marks where the caret is</dd>
-          <dt><kbd>Ctrl</kbd> click</dt><dd>Opens a link in the description</dd>
-          <dt>friday <kbd>Space</kbd></dt><dd>Words become fields: today, tomorrow, a weekday, next week; at 3pm, 15:00-16:30; due friday; every day, weekday, week or month; 45m, 1h30, 2 hours (the estimate); p1 to p4 (the priority, urgent to low)</dd>
-          <dt><kbd>Backspace</kbd></dt><dd>Right after, turns them back into words</dd>
-          <dt><kbd>#</kbd> name</dt><dd>Files it in a project or workstream: <kbd>↑</kbd> <kbd>↓</kbd> pick, <kbd>Enter</kbd> or <kbd>Tab</kbd> take it; a few letters of the project's name and the workstream's will do</dd>
-        </dl>
-        <h3>Today</h3>
-        <dl>
-          <dt><kbd>-</kbd> <kbd>[</kbd> <kbd>]</kbd> <kbd>Space</kbd></dt><dd>At a row's start: a task, written in the notes</dd>
-          <dt>/reflection</dt><dd>At a row's start: a reflection, free text</dd>
-          <dt>/habit name</dt><dd>At a row's start: the habit, done today (untick: skipped)</dd>
-          <dt>/stay</dt><dd>At a row's start: where you stay today, its items (place, accommodation) ticked once sorted</dd>
-          <dt><kbd>Tab</kbd></dt><dd>From a task's title to the row under it; a row into the task above it, or into a sub-task</dd>
-          <dt><kbd>Shift</kbd> <kbd>Tab</kbd></dt><dd>A step back out: a sub-task to a row, a row out of its task</dd>
-          <dt>friday <kbd>Space</kbd></dt><dd>In a task's title, as in the task sheet: words become its fields (a title's last words as it is closed, the toast saying what they became, with Undo); Backspace right after, or <kbd>Ctrl</kbd> <kbd>Z</kbd> any time, puts the words back</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>Enter</kbd> <span class="or">or</span> <kbd>Esc</kbd></dt><dd>Close the task (it is added), onto the next row or where it is</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>Enter</kbd></dt><dd>Close a reflection, onto the next row</dd>
-          <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>The day before or after (outside the notes)</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>\</kbd></dt><dd>Fold the timeline away, the notes taking its room, or back (in the notes too)</dd>
-          <dt><kbd>Esc</kbd></dt><dd>Out of the notes (in a task, once it is saved: Esc again)</dd>
-        </dl>
-        <h3>Calendar</h3>
-        <dl>
-          <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>The days before or after (it opens on today's)</dd>
-          <dt><kbd>D</kbd> <kbd>X</kbd> <kbd>W</kbd> <kbd>S</kbd></dt><dd>A day, three days, the week, or the sheet</dd>
-          <dt><kbd>E</kbd></dt><dd>New event; or draw its time on the grid, or click an hour there</dd>
-          <dt><kbd>G</kbd></dt><dd>Go to a date</dd>
-          <dt>friday <kbd>Space</kbd></dt><dd>In an event's title, words set its day, time and repeat ("friday", "at 3pm", "every week"); Backspace right after puts them back</dd>
-          <dt><kbd>Esc</kbd></dt><dd>Close an event's card or the new event</dd>
-        </dl>
-        <h3>Calendar's sheet</h3>
-        <dl>
-          <dt><kbd>S</kbd></dt><dd>The sheet: four weeks of days as rows, where you stay, the day's plan and your habits</dd>
-          <dt>Arrows</dt><dd>Cell to cell (outside the sheet, Left and Right step four weeks); with <kbd>Shift</kbd>, a range</dd>
-          <dt>Typing <span class="or">or</span> <kbd>Enter</kbd></dt><dd>Write in the cell: where you stay, or a task for the day (Plan); <kbd>Enter</kbd> writes it and goes down, <kbd>Esc</kbd> lets it go</dd>
-          <dt><kbd>Space</kbd></dt><dd>Tick a habit done, or accommodation sorted (the range too)</dd>
-          <dt>Drag</dt><dd>Down a habit's column (or accommodation's), paints the days it crosses</dd>
-          <dt><kbd>Alt</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>Fold a day to its plan's first line, or open it (Alt+click a day's chevron: every day)</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>D</kbd></dt><dd>Fill down from the range's first row (one cell: from the row above)</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>C</kbd> <kbd>V</kbd></dt><dd>Copy the range; paste from the cursor (one cell fills the range), a Plan cell's lines as tasks; a spreadsheet's cells paste too</dd>
-          <dt><kbd>Delete</kbd></dt><dd>Clear the range's stay, untick its habits and boxes</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>Enter</kbd></dt><dd>Open a Plan cell's first task on its page (or click its title); writing a task, write it and open it, to write it out</dd>
-        </dl>
-        <h3>A task's page</h3>
-        <dl>
-          <dt>Writing</dt><dd>Saved as you write, a moment after you pause, and as you leave</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>S</kbd> <span class="or">or</span> <kbd>Ctrl</kbd> <kbd>Enter</kbd></dt><dd>Save now</dd>
-          <dt><kbd>Esc</kbd></dt><dd>Save, and step out of the writing</dd>
-        </dl>
-        {% if installed("health") %}
-        <h3>Nutrition</h3>
-        <dl>
-          <dt><kbd>Enter</kbd></dt><dd>Send the message to Claude</dd>
-          <dt><kbd>Shift</kbd> <kbd>Enter</kbd></dt><dd>A new line in the message</dd>
-          <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>The day before or after (outside the message)</dd>
-        </dl>
-        {% endif %}
+        {% endfor %}
       </section>
-      <section>
-        <h3>Task lists (a project's Tasks, Plan)</h3>
-        <dl>
-          <dt><kbd>↑</kbd> <kbd>↓</kbd> <span class="or">or</span> <kbd>K</kbd> <kbd>J</kbd></dt><dd>Move between tasks</dd>
-          <dt><kbd>Shift</kbd> + move</dt><dd>Previous or next list</dd>
-          <dt><kbd>Home</kbd> <kbd>End</kbd></dt><dd>First or last task</dd>
-          <dt><kbd>Enter</kbd> <span class="or">or</span> <kbd>E</kbd></dt><dd>Edit</dd>
-          <dt><kbd>N</kbd></dt><dd>New task, in the cursor's list where it has its own, else the page's</dd>
-          <dt><kbd>X</kbd></dt><dd>Done, or not done</dd>
-          <dt><kbd>T</kbd> <kbd>M</kbd></dt><dd>Do today, tomorrow</dd>
-          <dt><kbd>D</kbd></dt><dd>Pick a day, or none</dd>
-          <dt><kbd>P</kbd></dt><dd>Project and workstream</dd>
-          <dt><kbd>!</kbd></dt><dd>Priority</dd>
-          <dt><kbd>Space</kbd></dt><dd>Show the description; opens Done</dd>
-          <dt><kbd>Delete</kbd></dt><dd>Delete, after asking</dd>
-          <dt><kbd>Esc</kbd></dt><dd>Leave the list</dd>
-        </dl>
-        <h3>A project's Gantt</h3>
-        <dl>
-          <dt><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> <span class="or">or</span> <kbd>Tab</kbd></dt><dd>Move between cells; with Shift, hold a range. Right from Due goes to the row's own days</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>To the end of the bars (or words) the cursor is on, else the next ones, else the sheet's edge</dd>
-          <dt>Typing, <kbd>Enter</kbd> <span class="or">or</span> <kbd>F2</kbd></dt><dd>Write in the cell: a task, a priority (urgent, high, medium, low, or 1 to 4), W42, 12 Oct or next week, a length (3, 3w, 10d); Enter keeps it and goes down, Tab across, Esc drops it. On Priority, Enter opens its menu</dd>
-          <dt><kbd>V</kbd></dt><dd>Weeks or days (outside the sheet's cells)</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>Tab</kbd></dt><dd>The tasks shown: all, all but done, in progress, review; with Shift, back</dd>
-          <dt><kbd>Alt</kbd> <kbd>W</kbd></dt><dd>Add a workstream: write its name, Enter keeps it</dd>
-          <dt><kbd>Space</kbd></dt><dd>On the time: the bar over the weeks or days held; on the box: a task to its next status (in progress, review, done, to do)</dd>
-          <dt><kbd>Alt</kbd> <kbd>←</kbd> <kbd>→</kbd></dt><dd>Bars a week (or a day) earlier or later; with Shift, their ends; on a workstream's row, fold it or open it</dd>
-          <dt><kbd>Alt</kbd> <kbd>↑</kbd> <kbd>↓</kbd></dt><dd>The task a row up or down, into the workstream above or below; on a workstream's row, the workstream above or below the next; or drag either by its number</dd>
-          <dt><kbd>Delete</kbd></dt><dd>On Task: delete the tasks held, after asking (or a task's bin, on hover); elsewhere: clear the priorities, bars or dues held</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>-</kbd></dt><dd>Delete the tasks held, or a workstream (its tasks stay), after asking</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>Enter</kbd></dt><dd>Open the cursor's task on its page (or the arrow at its Task cell's end, on hover)</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>Z</kbd> <span class="or">or</span> <kbd>Y</kbd></dt><dd>Undo, redo</dd>
-          <dt><kbd>Ctrl</kbd> <kbd>C</kbd> <kbd>V</kbd></dt><dd>Copy cells; paste lines onto Task as new tasks (Task, Priority, Start, Wks, Due in columns)</dd>
-        </dl>
-      </section>
+      {% endfor %}
     </div>
+    <p class="keys-foot">Every action, and the keys you chose: <a href="/keys">Keyboard</a>, or keys.toml in a text editor.</p>
   </form>
 </dialog>
 </body>

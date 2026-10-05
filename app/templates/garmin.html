@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/keys_hint.html" import part %}
 {% block title %}Garmin · {% if is_today %}Today{% else %}{{ day.strftime("%a") }} {{ day.day }} {{ day.strftime("%b") }}{% endif %} · Personal Calendar{% endblock %}
 {% block content %}
 {# Health > Garmin: what Oscar's Garmin measured, a day at a time, synced
@@ -23,7 +24,7 @@
       </nav>
     </div>
     <div class="rest">{% if is_today %}{{ day.strftime("%A") }} {% endif %}{{ day.day }} {{ day.strftime("%B %Y") }}</div>
-    <p class="keys-hint"><kbd>←</kbd><kbd>→</kbd> days · <kbd>?</kbd> all keys</p>
+    <p class="keys-hint">{{ part("days", "day.prev", "day.next") }}{{ part("sync", "page.sync") }}{{ part("all keys", "app.keys") }}</p>
   </header>
   {% else %}
   <header class="page-header garmin-header">

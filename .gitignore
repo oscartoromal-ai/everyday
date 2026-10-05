@@ -29,3 +29,7 @@ node_modules/
 
 # The desktop app's build (desktop/build.ps1).
 /build/
+
+# The keys chosen over the defaults (app/services/keys.py), in the home: the
+# repo itself when the app runs from it.
+/keys.toml

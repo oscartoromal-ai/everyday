@@ -89,9 +89,26 @@ Everything the app keeps lives under its home, `%LOCALAPPDATA%\Personal Calendar
 - `local/`: the machine's secrets (work-calendar feed, ntfy, Garmin's token, a GitHub token if one was pasted), git-ignored in a repo checkout.
 - `config.toml`: this machine's settings, over the defaults in the repo's `config.toml` that the app is built with, key by key; relative paths in either resolve against the home.
 - `install.toml`: the modules this machine was installed without (`[install] without`), written by Setup on every install, over both.
+- `keys.toml`: the keys chosen over the defaults (see [Keys](#keys)), git-ignored in a repo checkout.
 
 `PC_HOME` names another home, and run from the repo the home is the repo itself.
 On Oscar's machine the home's `config.toml` keeps Nutrition's files in the repo (`[nutrition].dir`), where git keeps their history.
+
+## Keys
+
+Every action a key does is listed in `app/services/keys.py`, with an id, where it works and its default keys.
+The keys chosen over them live in `keys.toml` in the app's home, an action a line:
+
+```toml
+[keys]
+"app.search" = "Ctrl+P"          # one key
+"task.new" = ["N", "Shift+N"]    # several
+"app.theme" = []                 # none
+```
+
+Keyboard (Settings, or Ctrl+K "Change the keys") writes it, and so can any text editor: the app reads it again as it changes, and lists there what in it could not be used.
+`GET /ui/keys` returns every action, its keys and its defaults as JSON, `PUT /ui/keys/<action>` with `{"keys": [...]}` sets an action's, and `DELETE /ui/keys/<action>` (or `/ui/keys`, every one) puts the defaults back.
+`uv run python -m app.services.keys` prints them all.
 
 ## Recording a change
 

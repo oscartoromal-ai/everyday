@@ -1389,12 +1389,15 @@
 
   /* ---- the page around it ---- */
 
-  // Left and Right, outside the text, change the day.
+  // Left and Right (their keys), outside the text, change the day, what is
+  // written saved first.
   document.addEventListener("keydown", (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    if (e.target.closest?.("input, textarea, select, [contenteditable]") || document.querySelector("dialog[open]")) return;
-    const link = document.querySelector(`[data-day-step="${e.key === "ArrowLeft" ? "prev" : "next"}"]`);
+    if (e.isComposing || e.defaultPrevented) return;
+    const prev = window.Keys.is(e, "day.prev");
+    if (!prev && !window.Keys.is(e, "day.next")) return;
+    const single = !e.ctrlKey && !e.metaKey && !e.altKey;
+    if ((single && e.target.closest?.("input, textarea, select, [contenteditable]")) || document.querySelector("dialog[open]")) return;
+    const link = document.querySelector(`[data-day-step="${prev ? "prev" : "next"}"]`);
     if (!link) return;
     e.preventDefault();
     flush();

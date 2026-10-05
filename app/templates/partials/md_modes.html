@@ -3,8 +3,8 @@
    MarkdownLive.bindSwitch presses the one in use. #}
 {% macro md_modes() %}
 <div class="segmented md-modes" role="group" aria-label="View" data-md-modes>
-  <button type="button" data-md-mode="live" aria-pressed="false" title="Write it, drawn as it reads">Live</button>
-  <button type="button" data-md-mode="source" aria-pressed="false" title="Write its Markdown">Source</button>
-  <button type="button" data-md-mode="reading" aria-pressed="false" title="Read it (Ctrl+E)">Reading</button>
+  <button type="button" data-md-mode="live" aria-pressed="false" title="{{ keys.title('Write it, drawn as it reads', 'editor.live') }}">Live</button>
+  <button type="button" data-md-mode="source" aria-pressed="false" title="{{ keys.title('Write its Markdown', 'editor.source') }}">Source</button>
+  <button type="button" data-md-mode="reading" aria-pressed="false" title="{{ keys.title('Read it', 'editor.reading') }}">Reading</button>
 </div>
 {% endmacro %}

@@ -1,0 +1,8 @@
+{# A part of a page's hint of its keys (<p class="keys-hint">, app.css puts the
+   dots between parts): its words, after the keys of the actions named, as
+   they are now (app/services/keys.py), the part left out when one has none.
+   With no action, the words alone, [Key] a key cap. #}
+{% macro part(label) -%}
+{%- set caps = keys.hint(*varargs) if varargs else "" -%}
+{%- if caps or not varargs %}<span>{% if caps %}{{ caps }} {% endif %}{{ label | with_caps }}</span>{% endif -%}
+{%- endmacro %}

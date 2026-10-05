@@ -20,11 +20,12 @@
 
   // A list works from the keyboard alone; it marks its area with
   // data-cursor. The cursor is the focused row (or Done's header, which
-  // Enter or Space opens), drawn as the nav's spark bar. Up/Down or J/K move
-  // it, Shift jumps a list, Home/End go to the ends; Enter or E edits, N
-  // writes a new task (into the cursor's list), X done, T today, M tomorrow,
-  // D picks a day and P a project (the task sheet's menus), Space opens the
-  // description, Delete deletes after asking, Esc leaves. The lists re-render
+  // Enter or Space opens), drawn as the nav's spark bar. Its keys are
+  // keys.py's (the defaults said here): Up/Down or J/K move it, Shift jumps
+  // a list, Home/End go to the ends; Enter or E edits, N writes a new task
+  // (into the cursor's list), X done, T today, M tomorrow, D picks a day and
+  // P a project (the task sheet's menus), Space opens the description,
+  // Ctrl+Enter opens its page, Delete deletes after asking, Esc leaves. The lists re-render
   // from the server after every change, and the cursor lands where it
   // belongs: on the row that followed one acted on, and on the same task
   // after an edit.
@@ -99,6 +100,19 @@
     settleTimer = setTimeout(settled, 100);
   });
 
+  // A new task (its key, N, from shell.js; or the command menu): into the
+  // cursor's list where it has a composer; else the page's first. False off
+  // a task list.
+  const compose = () => {
+    if (!onCursorPage()) return false;
+    const stop = document.activeElement?.closest?.(STOPS);
+    const composer = (stop && groupOf(stop)?.querySelector(".task-sheet[data-composer]"))
+      || [...document.querySelectorAll(".task-sheet[data-composer]")].find((form) => !form.closest("dialog"));
+    if (!composer) return false;
+    window.TaskSheet.compose(composer);
+    return true;
+  };
+
   // For task-sheet.js: where the keyboard goes when writing is done.
   window.TaskCursor = {
     // After the list settles, land here (a row's id).
@@ -107,55 +121,61 @@
     restore() { return onCursorPage() && focusStop(byId(last) || stops()[0]); },
     // A task just added: the cursor's next stop.
     remember(id) { last = id; },
+    compose,
   };
 
+  // What the keys do to the cursor's row (keys.py's ids).
+  const ROW_ACTIONS = [
+    "task.done", "task.today", "task.tomorrow", "task.pickDay", "task.project", "task.priority",
+    "task.edit", "task.notes", "task.delete", "task.openPage",
+  ];
+
   document.addEventListener("keydown", (e) => {
-    if (!onCursorPage() || e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
+    if (!onCursorPage() || e.isComposing || e.defaultPrevented) return;
     if (e.target.closest?.(TYPING) || document.querySelector("dialog[open]")) return;
+    const keys = window.Keys;
     let stop = e.target.closest?.(STOPS);
     if (!stop && e.target === document.body && settling && byId(settling)) {
       stop = byId(settling);
       stop.focus();
     }
     const row = stop?.matches(".task-row") ? stop : null;
-    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
 
-    if (key === "ArrowDown" || key === "j" || key === "ArrowUp" || key === "k") {
+    const down = keys.is(e, "list.down");
+    const list = keys.is(e, "list.nextProject") ? 1 : keys.is(e, "list.prevProject") ? -1 : 0;
+    if (down || list || keys.is(e, "list.up")) {
       e.preventDefault();
-      const step = key === "ArrowDown" || key === "j" ? 1 : -1;
-      if (e.shiftKey) jump(stop, step);
-      else move(stop, step);
+      if (list) jump(stop, list);
+      else move(stop, down ? 1 : -1);
       return;
     }
-    if (key === "Home" || key === "End") {
+    if (plain && (e.key === "Home" || e.key === "End")) {
       e.preventDefault();
       const all = stops();
-      focusStop(key === "Home" ? all[0] : all[all.length - 1]);
+      focusStop(e.key === "Home" ? all[0] : all[all.length - 1]);
       return;
     }
-    if (key === "n") {
-      e.preventDefault();
-      // Into the cursor's list where it has a composer; else the page's first.
-      const composer = (stop && groupOf(stop)?.querySelector(".task-sheet[data-composer]"))
-        || [...document.querySelectorAll(".task-sheet[data-composer]")].find((form) => !form.closest("dialog"));
-      window.TaskSheet.compose(composer);
-      return;
-    }
-    if (key === "Escape" && stop) {
+    if (plain && e.key === "Escape" && stop) {
       stop.blur();
       return;
     }
     if (!row) return;
+    const action = ROW_ACTIONS.find((id) => keys.is(e, id));
+    if (!action) return;
+    e.preventDefault();
     // A key for a row while its list is being re-rendered waits for the new
     // list, and acts on the row there: the row it was pressed on is about to
     // be replaced (a change often re-renders a list twice, for the task and
     // for the calendar).
-    if (ROW_KEYS.has(key) && listBusy()) {
-      e.preventDefault();
-      waiting = { id: row.id, key, shiftKey: e.shiftKey };
+    if (listBusy()) {
+      waiting = { id: row.id, action };
       return;
     }
+    act(row, action);
+  });
 
+  function act(row, action) {
     const click = (selector) => {
       const target = row.querySelector(selector);
       if (!target) return false;
@@ -164,38 +184,34 @@
     };
     const leaving = () => { landOn = neighbour(row)?.id ?? null; };
 
-    if (key === "t" || key === "m") {
-      e.preventDefault();
+    if (action === "task.today" || action === "task.tomorrow") {
+      const today = action === "task.today";
       leaving();
       // A row's do-date button takes it; a done row has none, so the key posts it.
-      if (click(`[data-plan="${key === "t" ? "today" : "tomorrow"}"]`)) return;
+      if (click(`[data-plan="${today ? "today" : "tomorrow"}"]`)) return;
       htmx.ajax("POST", `/ui/tasks/${row.dataset.taskId}/plan`, {
-        source: row, swap: "none", values: { planned_for: isoDay(key === "t" ? 0 : 1) },
+        source: row, swap: "none", values: { planned_for: isoDay(today ? 0 : 1) },
       });
-    } else if (key === "d" || key === "p") {
-      e.preventDefault();
+    } else if (action === "task.pickDay" || action === "task.project") {
       // The sheet opens on the field's menu; a change lands on the next row.
-      window.TaskSheet.edit(row, key === "d" ? "planned_for" : "project", neighbour(row)?.id ?? null);
-    } else if (key === "!") {
-      e.preventDefault();
+      window.TaskSheet.edit(row, action === "task.pickDay" ? "planned_for" : "project", neighbour(row)?.id ?? null);
+    } else if (action === "task.priority") {
       // Its priority's menu; the cursor stays on the task.
       window.TaskSheet.edit(row, "priority", null);
-    } else if (key === "x") {
-      e.preventDefault();
+    } else if (action === "task.done") {
       leaving();
       click(".task-check");
-    } else if (key === "e" || key === "Enter") {
-      e.preventDefault();
+    } else if (action === "task.edit") {
       click(".task-title-btn");
-    } else if (key === " ") {
-      e.preventDefault();
+    } else if (action === "task.notes") {
       click(".notes-toggle");
-    } else if (key === "Delete" || key === "Backspace") {
-      e.preventDefault();
+    } else if (action === "task.delete") {
       leaving();
       click(".task-delete"); // asks first; Cancel leaves the cursor where it was
+    } else if (action === "task.openPage") {
+      window.location.href = `/tasks/${row.dataset.taskId}`;
     }
-  });
+  }
 
   // Reaching for the mouse means the keyboard pass is over (and a cancelled
   // date picker must not leave a landing spot for some later refresh).
@@ -227,17 +243,16 @@
 
   // A row's key pressed while its list was re-rendering, done once it has
   // settled, on the row as it is now.
-  const ROW_KEYS = new Set(["t", "m", "d", "p", "!", "x", "e", "Enter", " ", "Delete", "Backspace"]);
   const listBusy = () => !!document.querySelector("[hx-trigger*='tasks:changed'].htmx-request");
-  let waiting = null; // {id, key, shiftKey}
+  let waiting = null; // {id, action}
   document.addEventListener("htmx:afterSettle", () => {
     if (!waiting || listBusy()) return;
-    const { id, key, shiftKey } = waiting;
+    const { id, action } = waiting;
     waiting = null;
     const row = byId(id);
     if (!row) return;
     focusStop(row);
-    row.dispatchEvent(new KeyboardEvent("keydown", { key, shiftKey, bubbles: true, cancelable: true }));
+    act(row, action);
   });
 
   // Arriving from the command menu, the cursor lands on the task found.

@@ -1,0 +1,52 @@
+{# Keyboard's list (keys.html), drawn again after each change: what in
+   keys.toml could not be used, then a card per scope, its actions with
+   their keys and the keys that stay as they are. The new map rides along
+   for keys.js (keys-page.js loads it). #}
+<script type="application/json" data-keymap>{{ listing.map | tojson }}</script>
+{% if listing.problems %}
+<section class="list-section keys-problems" role="alert" aria-labelledby="keys-problems">
+  <h2 id="keys-problems">keys.toml</h2>
+  <ul>
+    {% for problem in listing.problems %}<li>{{ problem }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% for scope in listing.scopes %}
+<section class="list-section keys-scope" data-scope="{{ scope.id }}" aria-labelledby="keys-{{ scope.id }}">
+  <h2 id="keys-{{ scope.id }}">{{ scope.title }}{% if scope.where %} <span class="count">{{ scope.where }}</span>{% endif %}</h2>
+  <ul class="keys-actions">
+    {% for e in scope.entries %}
+    {% if e.fixed %}
+    <li class="keys-action is-fixed" data-find="{{ e.label }} {{ e['keys'] }}">
+      <span class="keys-label">{{ e.label | with_caps }}</span>
+      <span class="keys-bound">{{ e['keys'] | key_caps }}</span>
+      <span class="keys-note">Stays</span>
+    </li>
+    {% else %}
+    <li class="keys-action{% if e.changed %} is-changed{% endif %}{% if e.conflicts %} has-conflict{% endif %}"
+        data-action="{{ e.id }}" data-keys='{{ e["keys"] | tojson }}'
+        data-find="{{ e.label }} {{ e.id }} {{ e['keys'] | join(' ') }}">
+      <span class="keys-label">{{ e.label }}<span class="keys-id">{{ e.id }}</span></span>
+      <span class="keys-bound">
+        {% for k in e['keys'] %}<span class="keys-key">{{ k | key_cap }}<button type="button" class="keys-remove" data-remove="{{ k }}"
+            aria-label="Take {{ k | key_text }} away from {{ e.label }}" title="Take {{ k | key_text }} away">×</button></span>{% endfor %}
+        <button type="button" class="keys-add" data-record aria-label="Add a key to {{ e.label }}" title="Press a new key">+</button>
+      </span>
+      <span class="keys-note">
+        {% if e.changed %}
+        <button type="button" class="btn quiet keys-reset" data-reset
+                title="Back to {{ e.default | map('key_text') | join(', ') or 'no key' }}">Default</button>
+        {% elif not e['keys'] %}No key{% endif %}
+      </span>
+      {% if e.conflicts %}
+      <p class="keys-conflict">Shares a key with {{ e.conflicts | map(attribute="label") | join("; ") }}. The key does only one of them.</p>
+      {% endif %}
+    </li>
+    {% endif %}
+    {% endfor %}
+  </ul>
+</section>
+{% endfor %}
+<p class="keys-foot">
+  <button type="button" class="btn quiet" data-reset-all{% if not listing.changed %} disabled{% endif %}>Every key back to its default</button>
+</p>

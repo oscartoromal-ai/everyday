@@ -34,6 +34,7 @@ from app.services import events as events_svc
 from app.services import garmin as garmin_svc
 from app.services import habits as habits_svc
 from app.services import health as health_svc
+from app.services import keys as keys_svc
 from app.services import notebook as notebook_svc
 from app.services import projects as projects_svc
 from app.services import rail as rail_svc
@@ -144,6 +145,15 @@ templates.env.globals["agent_window"] = agent_window
 # The modules this machine has, for what a page shows of the optional ones.
 templates.env.globals["installed"] = lambda module: get_settings().installed(module)
 templates.env.globals["not_installed"] = rail_svc.not_installed
+# The keys in use (app/services/keys.py): their key caps and titles in the
+# pages, the keys dialog (?), and every action's keys for keys.js.
+templates.env.globals["keys"] = keys_svc.current
+templates.env.globals["keys_scopes"] = keys_svc.SCOPES
+templates.env.globals["keys_client"] = lambda: keys_svc.client_map(keys_svc.load())
+templates.env.filters["key_caps"] = keys_svc.fixed_keys
+templates.env.filters["with_caps"] = keys_svc.with_caps
+templates.env.filters["key_cap"] = keys_svc.caps
+templates.env.filters["key_text"] = keys_svc.text
 
 
 _FENCE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})")

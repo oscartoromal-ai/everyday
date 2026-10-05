@@ -41,7 +41,7 @@
       {% for row in sheet.rows %}
       <tr data-day="{{ row.iso }}" class="{% if row.is_today %}is-today{% endif %}{% if row.is_weekend %} is-weekend{% endif %}{% if row.week_start %} week-start{% endif %}"{% if row.plan_count > 1 %} data-foldable{% endif %}>
         <th class="ds-cell ds-day" scope="row" data-col="0" data-kind="day" tabindex="-1">
-          {%- if row.plan_count > 1 %}<button type="button" class="ds-fold" data-fold tabindex="-1" aria-label="Fold {{ row.dow }} {{ row.label }}" title="Fold or open the day (Alt+Left, Alt+Right)">{{ chevron() }}</button>{% endif -%}
+          {%- if row.plan_count > 1 %}<button type="button" class="ds-fold" data-fold tabindex="-1" aria-label="Fold {{ row.dow }} {{ row.label }}" title="{{ keys.title('Fold the day', 'sheet.fold') }}; {{ keys.title('open it', 'sheet.unfold') }}">{{ chevron() }}</button>{% endif -%}
           <a href="/day/{{ row.iso }}" tabindex="-1" title="The day's notes"><span class="ds-dow">{{ row.dow }}</span> {{ row.label }}</a>
         </th>
         {% for c in sheet.columns %}

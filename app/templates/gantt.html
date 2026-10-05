@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/keys_hint.html" import part %}
 {% from "partials/project_flag.html" import project_flag %}
 {% from "partials/priority.html" import priority_icon %}
 {% block title %}{{ project.name }} · Gantt · Personal Calendar{% endblock %}
@@ -16,7 +17,7 @@
       <div class="rest" id="gantt-rest">{% include "partials/gantt_rest.html" %}</div>
       {% include "partials/project_tabs.html" %}
       <p class="keys-hint">
-        <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> move · type to write · <kbd>Space</kbd> fill · <kbd>Alt</kbd><kbd>←</kbd><kbd>→</kbd> move a bar · <kbd>Alt</kbd><kbd>↑</kbd><kbd>↓</kbd> move a row · <kbd>Ctrl</kbd><kbd>Z</kbd> undo · <kbd>Ctrl</kbd><kbd>Enter</kbd> open a task · <kbd>V</kbd> weeks or days · <kbd>Ctrl</kbd><kbd>Tab</kbd> tasks shown · <kbd>?</kbd> all keys
+        {{ part("[↑][↓][←][→] move") }}{{ part("type to write") }}{{ part("[Space] fill") }}{{ part("move a bar", "gantt.earlier", "gantt.later") }}{{ part("move a row", "gantt.rowUp", "gantt.rowDown") }}{{ part("undo", "gantt.undo") }}{{ part("open a task", "task.openPage") }}{{ part("weeks or days", "gantt.scale") }}{{ part("tasks shown", "gantt.shown") }}{{ part("all keys", "app.keys") }}
       </p>
     </div>
     <div class="gantt-controls">
@@ -29,8 +30,8 @@
       {# The tasks shown, by status, chosen from its menu; gantt.js
          remembers it and names the choice. #}
       <button type="button" class="btn quiet gantt-show" data-gantt-show aria-haspopup="menu" aria-expanded="false"
-              title="Show tasks by status"><span data-gantt-show-label>All tasks</span><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-      <button type="button" class="btn quiet gantt-this-week" data-gantt-this-week>{{ "This week" if scale == "weeks" else "Today" }}</button>
+              title="{{ keys.title('Show tasks by status', 'gantt.show') }}"><span data-gantt-show-label>All tasks</span><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+      <button type="button" class="btn quiet gantt-this-week" data-gantt-this-week title="{{ keys.title('Back to now', 'day.today') }}">{{ "This week" if scale == "weeks" else "Today" }}</button>
     </div>
   </header>
 

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/keys_hint.html" import part %}
 {% from "partials/priority.html" import priority_icon %}
 {% block title %}{% if is_today %}Today{% else %}{{ day.strftime("%a") }} {{ day.day }} {{ day.strftime("%b") }}{% endif %} · Personal Calendar{% endblock %}
 {% block content %}
@@ -11,17 +12,17 @@
         <div class="weekday">{% if is_today %}Today{% else %}{{ day.strftime("%A") }}{% endif %}</div>
         <nav class="day-nav" aria-label="Days">
           <a class="day-step" href="/day/{{ prev_day.isoformat() }}" data-day-step="prev"
-             aria-label="Previous day" title="Previous day">
+             aria-label="Previous day" title="{{ keys.title('Previous day', 'day.prev') }}">
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5 6.5 10l5.5 5.5"/></svg>
           </a>
           {% if not is_today %}<a class="day-today" href="/today">Today</a>{% endif %}
           <a class="day-step" href="/day/{{ next_day.isoformat() }}" data-day-step="next"
-             aria-label="Next day" title="Next day">
+             aria-label="Next day" title="{{ keys.title('Next day', 'day.next') }}">
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4.5 13.5 10 8 15.5"/></svg>
           </a>
         </nav>
-        {# Folds the timeline away, the notes taking its room (Ctrl+\, shell.js). #}
-        <button type="button" class="timeline-toggle" aria-pressed="false" aria-label="Fold the timeline away" title="Fold the timeline away (Ctrl+\)">
+        {# Folds the timeline away, the notes taking its room (its key, Ctrl+\; shell.js). #}
+        <button type="button" class="timeline-toggle" aria-pressed="false" aria-label="Fold the timeline away" title="{{ keys.title('Fold the timeline away', 'today.timeline') }}">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.75" y="3.75" width="14.5" height="12.5" rx="2"/><path d="M12.5 3.75v12.5"/></svg>
         </button>
       </div>
@@ -30,7 +31,7 @@
       {# Where Oscar stays this day, from the notes' /stay: each item, sorted or
          not; a click goes to its row (notepad.js). #}
       <ul class="day-stay" id="day-stay" aria-label="Stay" hidden></ul>
-      <p class="keys-hint"><kbd>- [ ]</kbd> task · <kbd>/reflection</kbd> · <kbd>/habit</kbd> · <kbd>/stay</kbd> ·<kbd>Ctrl</kbd><kbd>Enter</kbd> close it · <kbd>←</kbd><kbd>→</kbd> days · <kbd>?</kbd> all keys</p>
+      <p class="keys-hint">{{ part("[- [ ]] task") }}{{ part("[/reflection]") }}{{ part("[/habit]") }}{{ part("[/stay]") }}{{ part("[Ctrl][Enter] close it") }}{{ part("days", "day.prev", "day.next") }}{{ part("all keys", "app.keys") }}</p>
     </header>
 
     {# What asks for attention today: dues, reviews, bills (today's page only). #}

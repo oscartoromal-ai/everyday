@@ -1,7 +1,8 @@
-/* The command menu (#command-dialog, Ctrl+K or Cmd+K anywhere): one line to
-   go to a page or a day, search tasks, projects, events and the days' notes
-   (/ui/search), or do something (a new task or event, the theme, compact
-   rows). Up and Down move, Enter opens, Esc closes. */
+/* The command menu (#command-dialog, Ctrl+K anywhere, or the key chosen for
+   it): one line to go to a page or a day, search tasks, projects, events and
+   the days' notes (/ui/search), or do any of the actions keys.py lists that
+   the page can do now, each with its key. Up and Down move, Enter opens,
+   Esc closes. */
 
 (() => {
   const dialog = document.getElementById("command-dialog");
@@ -58,63 +59,41 @@
   /* ---- what the menu offers ---- */
 
   const go = (href) => () => { window.location.href = href; };
-  const press = (selector) => () => document.querySelector(selector)?.click();
+  const keys = window.Keys;
 
-  // Every page in the nav, and the things to do from anywhere.
+  // Every page in the nav (hidden ones too), the Changelog, and every
+  // action of keys.py's the page can do now (its button there, its own
+  // script ready), each with its key.
   const commands = () => [
     ...[...document.querySelectorAll(".nav a[href]")].map((a) => ({
       kind: "Page",
       label: a.querySelector(".nav-label")?.textContent.trim() || a.textContent.trim(),
       words: "go to",
-      hint: a.getAttribute("aria-keyshortcuts") || "",
+      hint: a.dataset.slot ? keys.text(`nav.slot${a.dataset.slot}`) : "",
       run: go(a.getAttribute("href")),
     })),
-    // Settings' Changelog, which no nav item opens.
-    { kind: "Page", label: "Changelog", words: "go to version release what's new history", run: go("/changelog") },
+    { kind: "Page", label: "Changelog", words: `go to ${keys.actions["app.changelog"]?.words || ""}`, run: go("/changelog") },
     // Settings' Models, likewise.
     { kind: "Page", label: "Models", words: "go to ai llm claude openai codex provider model", run: go("/models") },
-    {
-      kind: "Do", label: "New task", words: "add write capture", hint: "N",
-      // As N would: the page's own list, or the capture window.
-      run: () => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "n", bubbles: true })),
-    },
-    {
-      kind: "Do", label: "New event", words: "add calendar meeting", hint: document.querySelector("[data-new-event]") ? "E" : "",
-      run: () => (document.querySelector("[data-new-event]") ? press("[data-new-event]")() : go("/calendar?new=1")()),
-    },
-    { kind: "Do", label: "Switch to the other theme", words: "dark light day night mode", run: press(".theme-toggle") },
-    { kind: "Do", label: "Compact or roomy rows", words: "density", hint: "C", run: press(".density-toggle") },
-    ...(document.getElementById("agent-panel")
-      ? [{
-          kind: "Do",
-          label: document.documentElement.dataset.agent === "open" ? "Collapse the agent window" : "Open the agent window",
-          words: "agent chat ask claude codex ai assistant expand",
-          hint: "A",
-          run: press(".rail-button[data-agent-toggle]"),
-        }]
-      : []),
+    ...Object.entries(keys.actions)
+      .filter(([id, a]) => a.menu && keys.available(id))
+      .map(([id, a]) => ({
+        kind: "Do",
+        label: a.label,
+        words: `${a.words || ""} ${id}`,
+        hint: keys.text(id),
+        run: () => keys.run(id),
+      })),
     ...(document.querySelector("button.update-button")
-      ? [{
-          kind: "Do",
-          label: {
-            ready: "Update the app to master's latest commit",
-            staged: "Restart the app on its update",
-            failed: "Retry the app's update",
-          }[document.querySelector("button.update-button").dataset.update],
-          words: "upgrade install build release restart",
-          run: press("button.update-button"),
-        }]
+      ? [{ kind: "Do", label: updateLabel(), words: keys.actions["app.update"]?.words, hint: keys.text("app.update"),
+          run: () => keys.run("app.update") }]
       : []),
-    // Settings' Check for updates, in the installed app: Settings opened on it, looking.
-    ...(document.getElementById("update-check")
-      ? [{
-          kind: "Do", label: "Check for updates", words: "upgrade download new version release latest",
-          run: () => { press("[data-settings-open]")(); press("[data-update-check]")(); },
-        }]
-      : []),
-    { kind: "Do", label: "Every key", words: "keyboard shortcuts help", hint: "?",
-      run: () => { const keys = document.getElementById("keys-dialog"); keys.showModal(); keys.focus(); } },
   ];
+  const updateLabel = () => ({
+    ready: "Update the app to master's latest commit",
+    staged: "Restart the app on its update",
+    failed: "Retry the app's update",
+  })[document.querySelector("button.update-button")?.dataset.update] || "Update the app";
 
   const matches = (item, q) => {
     if (!q) return true;
@@ -241,13 +220,30 @@
 
   /* ---- keys ---- */
 
+  // Its key (Ctrl+K) opens it from anywhere, a field and a sheet's cell
+  // too (so before them), and closes it again.
   document.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {
-      e.preventDefault();
-      if (dialog.open) dialog.close();
-      else if (!document.querySelector("dialog[open]")) open();
-    }
+    if (e.isComposing || !keys.is(e, "app.search")) return;
+    e.preventDefault();
+    if (dialog.open) dialog.close();
+    else if (!document.querySelector("dialog[open]")) open();
   }, true);
+  // Settings' Check for updates, in the installed app: Settings opened on it, looking.
+  keys.handle("app.checkUpdates", () => {
+    document.querySelector("[data-settings-open]")?.click();
+    document.querySelector("[data-update-check]")?.click();
+  }, () => !!document.getElementById("update-check"));
+  // Find on the page where it has a field to find in, else this.
+  keys.handle("page.find", () => {
+    const selector = keys.actions["page.find"]?.focus;
+    const field = selector && document.querySelector(selector);
+    if (field) {
+      field.focus();
+      field.select?.();
+    } else {
+      open();
+    }
+  });
 
   input.addEventListener("input", update);
   input.addEventListener("keydown", (e) => {

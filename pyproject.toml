@@ -24,6 +24,7 @@ dependencies = [
     "pystray>=0.19.5",
     "pillow>=12.3.0",
     "linkify-it-py>=2.2.0",
+    "tomlkit>=0.15.1",
 ]
 
 [project.scripts]

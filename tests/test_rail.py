@@ -137,8 +137,9 @@ def test_the_rail_route_keeps_the_layout_and_the_page_draws_it(client, db) -> No
     accounts = nav.split('data-module="accounts"')[1].split(">")[0]
     assert "hidden" in accounts
     # The numbers follow the places: Spending, Bills and Goals before Calendar and Today.
-    assert 'href="/calendar" title="Calendar" draggable="false" aria-keyshortcuts="Alt+4"' in nav
-    assert 'href="/today" title="Today" draggable="false" aria-keyshortcuts="Alt+5"' in nav
+    link = 'href="{}" title="{}" draggable="false" data-slot="{}" aria-keyshortcuts="Alt+{}"'
+    assert link.format("/calendar", "Calendar", 4, 4) in nav
+    assert link.format("/today", "Today", 5, 5) in nav
     assert '<span class="nav-key" aria-hidden="true">5</span>' in nav.split('href="/today"')[1]
 
     refused = client.put(

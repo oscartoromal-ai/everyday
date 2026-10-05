@@ -16,6 +16,17 @@ from app import models  # noqa: F401, E402  (registers models on Base.metadata)
 from app.db import Base, make_engine  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def keys_file(tmp_path, monkeypatch):
+    """The keys chosen (app/services/keys.py) in a keys.toml of the test's
+    own, never the one in the home the tests run from."""
+    from app.services import keys as keys_svc
+
+    path = tmp_path / "keys.toml"
+    monkeypatch.setattr(keys_svc, "keys_file", lambda: path)
+    return path
+
+
 @pytest.fixture
 def db(tmp_path) -> Generator[Session, None, None]:
     engine = make_engine(f"sqlite:///{tmp_path / 'test.db'}")

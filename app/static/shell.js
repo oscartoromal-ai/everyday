@@ -53,7 +53,7 @@
     button.setAttribute("aria-expanded", String(!collapsed));
     const label = collapsed ? "Expand sidebar" : "Collapse sidebar";
     button.setAttribute("aria-label", label);
-    button.title = label;
+    button.title = window.Keys.title(label, "app.sidebar");
   };
 
   document.addEventListener("click", (e) => {
@@ -153,16 +153,20 @@
 
     const groups = () => [...railNav.querySelectorAll(":scope > .nav-group[data-section]")];
     const modulesOf = (group) => [...group.querySelectorAll(":scope > .nav-item")];
-    // Alt+1 to Alt+9 are the modules showing, top to bottom: numbered again
-    // as one is hidden, shown or moved (as app/services/rail.py numbers them).
+    // The modules showing, top to bottom, are the sidebar's pages 1 to 9
+    // (Alt+1 to Alt+9, unless the keys were changed): numbered again as one
+    // is hidden, shown or moved (as app/services/rail.py numbers them), each
+    // with its key's last part on its icon.
     const renumber = () => {
       const shown = [...railNav.querySelectorAll(".nav-item")].filter((i) => !i.hidden);
       for (const item of railNav.querySelectorAll(".nav-item")) {
         const link = item.querySelector("a");
         const n = item.hidden ? 0 : shown.indexOf(item) + 1;
-        const key = n && n <= 9 ? String(n) : "";
-        item.querySelector(".nav-key").textContent = key;
-        if (key) link.setAttribute("aria-keyshortcuts", `Alt+${key}`);
+        const slot = n && n <= 9 ? String(n) : "";
+        const keys = slot ? window.Keys.keys(`nav.slot${slot}`) : [];
+        item.querySelector(".nav-key").textContent = keys.length ? window.Keys.parts(keys[0]).at(-1) : "";
+        link.dataset.slot = slot;
+        if (keys.length) link.setAttribute("aria-keyshortcuts", window.Keys.aria(`nav.slot${slot}`));
         else link.removeAttribute("aria-keyshortcuts");
       }
     };
@@ -315,13 +319,24 @@
     };
 
     railNav.addEventListener("keydown", (e) => {
-      if (!e.altKey || e.ctrlKey || e.metaKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
       const link = e.target.closest("a");
-      if (!link) return;
+      if (!link || e.isComposing) return;
+      const keys = window.Keys;
+      // A page hidden from the keyboard, as its eye does (focus going on).
+      if (keys.is(e, "rail.hide")) {
+        const eye = link.closest(".nav-item")?.querySelector("[data-nav-hide]");
+        if (!eye) return;
+        e.preventDefault();
+        eye.click();
+        return;
+      }
+      const section = keys.is(e, "rail.sectionUp") ? -1 : keys.is(e, "rail.sectionDown") ? 1 : 0;
+      const by = section || (keys.is(e, "rail.up") ? -1 : keys.is(e, "rail.down") ? 1 : 0);
+      if (!by) return;
       e.preventDefault();
       let unit = unitAt(link);
-      if (e.shiftKey && unit.container !== railNav) unit = sectionUnit(link.closest(".nav-group"));
-      if (!step(unit, e.key === "ArrowUp" ? -1 : 1)) return;
+      if (section && unit.container !== railNav) unit = sectionUnit(link.closest(".nav-group"));
+      if (!step(unit, by)) return;
       link.focus();
       if (unit.save === saveProjects) saveProjects(link.getAttribute("href"));
       else unit.save();
@@ -399,7 +414,7 @@
     }, true);
   }
 
-  /* ---- compact rows: a two-way toggle (and C), remembered ---- */
+  /* ---- compact rows: a two-way toggle (its key presses it), remembered ---- */
 
   const applyDensity = (compact) => {
     if (compact) root.dataset.density = "compact";
@@ -420,7 +435,7 @@
   });
   applyDensity(root.dataset.density === "compact");
 
-  /* ---- Today's timeline: folded away (Ctrl+\, or its button), remembered ---- */
+  /* ---- Today's timeline: folded away (its key, or its button), remembered ---- */
 
   const applyTimeline = (folded) => {
     if (folded) root.dataset.timeline = "folded";
@@ -428,7 +443,7 @@
     const button = document.querySelector(".timeline-toggle");
     if (!button) return;
     button.setAttribute("aria-pressed", String(folded));
-    button.title = folded ? "Show the timeline (Ctrl+\\)" : "Fold the timeline away (Ctrl+\\)";
+    button.title = window.Keys.title(folded ? "Show the timeline" : "Fold the timeline away", "today.timeline");
     button.setAttribute("aria-label", folded ? "Show the timeline" : "Fold the timeline away");
     document.dispatchEvent(new CustomEvent("density:change"));
   };
@@ -437,15 +452,9 @@
     store("pc-timeline", folded ? "folded" : "shown");
     applyTimeline(folded);
   };
+  // Its key presses it (keys.js), anywhere on Today, writing in the notes too.
   document.addEventListener("click", (e) => {
     if (e.target.closest(".timeline-toggle")) toggleTimeline();
-  });
-  // Anywhere on Today, writing in the notes too.
-  document.addEventListener("keydown", (e) => {
-    if (e.key !== "\\" || !(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
-    if (!document.querySelector(".today-page")) return;
-    e.preventDefault();
-    toggleTimeline();
   });
   applyTimeline(root.dataset.timeline === "folded");
 
@@ -502,16 +511,14 @@
     toastTimer = setTimeout(() => el.classList.remove("show"), action && run ? 6000 : 2600);
   };
 
-  /* ---- keys that work on every page: Alt+1 to Alt+9 go to the sidebar's
-     pages showing, top to bottom, each its number beside its name (from a
-     field too, which saves as the page goes); ? shows every key
-     (#keys-dialog), and N or Shift+N writes a new task (on a task list, a
-     project's Tasks or Plan, tasks.js puts it in the page's own list;
-     elsewhere it opens #capture-dialog, as the sidebar's New task does on
-     every page).
-     Never over a dialog, and the single keys never while typing. ---- */
+  /* ---- keys that work on every page and need a script (keys.js does the
+     rest, such as compact rows, or stepping a page of days by its
+     [data-day-step] links): the sidebar's pages 1 to 9 as it shows them,
+     each its number beside its name (from a field too, which saves as the
+     page goes); every key (#keys-dialog); and a new task (on a task list,
+     a project's Tasks or Plan, tasks.js puts it in the page's own list; elsewhere it opens
+     #capture-dialog, as the sidebar's New task does on every page). ---- */
 
-  const TYPING = "input, textarea, select, [contenteditable]";
   const openCapture = () => {
     const capture = document.getElementById("capture-dialog");
     if (!capture) return false;
@@ -522,52 +529,23 @@
   document.addEventListener("click", (e) => {
     if (e.target.closest?.("[data-capture-open]")) openCapture();
   });
-  document.addEventListener("keydown", (e) => {
-    if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing || e.defaultPrevented) return;
-    if (!/^Digit[1-9]$/.test(e.code) || document.querySelector("dialog[open]")) return;
-    // The key, not its character: on a Mac, Alt+1 types "¡".
-    const link = document.querySelector(`.nav a[aria-keyshortcuts="Alt+${e.code.slice(5)}"]`);
-    if (!link) return;
-    e.preventDefault();
-    if (link.getAttribute("aria-current") !== "page") link.click();
-  });
+  window.Keys.handle("task.new", () => !!window.TaskCursor?.compose() || openCapture());
 
-  document.addEventListener("keydown", (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
-    if (e.target.closest?.(TYPING) || document.querySelector("dialog[open]")) return;
-    if ((e.key === "n" || e.key === "N") && !document.querySelector("[data-cursor]")) {
-      if (openCapture()) e.preventDefault();
-      return;
-    }
-    if (e.key === "c" || e.key === "C") {
-      e.preventDefault();
-      toggleDensity();
-      return;
-    }
-    if ((e.key === "a" || e.key === "A") && agentPanel) {
-      e.preventDefault();
-      toggleAgent();
-      return;
-    }
-    if (e.key === "?") {
-      e.preventDefault();
-      const dialog = document.getElementById("keys-dialog");
-      dialog.showModal();
-      dialog.focus(); // the dialog itself, so no control starts out ringed
-    }
-  });
+  for (let n = 1; n <= 9; n++) {
+    window.Keys.handle(`nav.slot${n}`, () => {
+      const link = document.querySelector(`.nav a[data-slot="${n}"]`);
+      if (!link) return false;
+      if (link.getAttribute("aria-current") !== "page") link.click();
+      return true;
+    });
+  }
+  // The agent window (A, or the sidebar's Agent), where the page has one.
+  window.Keys.handle("app.agent", () => toggleAgent(), () => !!agentPanel);
 
-  // Left and Right, outside a field, step a page of days a day, or
-  // Calendar a week (its [data-day-step] links). On the window, so it runs after a page's
-  // own handler (Today's saves its notes first) and leaves what that took.
-  window.addEventListener("keydown", (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
-    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-    if (e.target.closest?.(TYPING) || document.querySelector("dialog[open]")) return;
-    const link = document.querySelector(`[data-day-step="${e.key === "ArrowLeft" ? "prev" : "next"}"]`);
-    if (!link) return;
-    e.preventDefault();
-    link.click();
+  window.Keys.handle("app.keys", () => {
+    const dialog = document.getElementById("keys-dialog");
+    dialog.showModal();
+    dialog.focus(); // the dialog itself, so no control starts out ringed
   });
 
   /* ---- Back: to the page before, named, and as it was left. The window's
@@ -624,15 +602,11 @@
   const goBack = () => {
     if (before()) sessionHistory.back();
   };
-  // Alt+Left, where the page has no use of its own for it (a sheet moves
-  // its bars with it), and the mouse's back button. On the window, so a
-  // page's own handler goes first.
-  window.addEventListener("keydown", (e) => {
-    if (e.key !== "ArrowLeft" || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.defaultPrevented) return;
-    if (!before()) return;
-    e.preventDefault();
-    goBack();
-  });
+  // Its key (Alt+Left), where the page has no use of its own for it (a
+  // sheet moves its bars with it: keys.js lets the page go first), and the
+  // mouse's back button. Forward has a key of its own.
+  window.Keys.handle("app.back", goBack, () => !!before());
+  window.Keys.handle("app.forward", () => sessionHistory.forward(), () => !!sessionHistory?.canGoForward);
   window.addEventListener("mouseup", (e) => {
     if (e.button !== 3 || !before()) return;
     e.preventDefault();
@@ -645,7 +619,7 @@
     const label = to?.name ? `Back to ${to.name}` : "Back";
     back.disabled = !to;
     back.querySelector("[data-back-label]").textContent = label;
-    back.title = to ? `${label} (Alt+←)` : "Nothing to go back to";
+    back.title = to ? window.Keys.title(label, "app.back") : "Nothing to go back to";
     back.addEventListener("click", goBack);
   }
 

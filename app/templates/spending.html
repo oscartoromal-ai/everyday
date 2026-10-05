@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/keys_hint.html" import part %}
 {% block title %}Spending · {% if is_current %}This month{% else %}{{ month.strftime("%B %Y") }}{% endif %} · Personal Calendar{% endblock %}
 {% block content %}
 {# Finances > Spending: a month of money, its figures against the budgets
@@ -22,7 +23,7 @@
       </nav>
     </div>
     <div class="rest">{{ month.strftime("%B %Y") }}</div>
-    <p class="keys-hint"><kbd>Enter</kbd> send · <kbd>Shift</kbd><kbd>Enter</kbd> new line · <kbd>←</kbd><kbd>→</kbd> months · <kbd>?</kbd> all keys</p>
+    <p class="keys-hint">{{ part("write", "chat.focus") }}{{ part("[Enter] send") }}{{ part("[Shift][Enter] new line") }}{{ part("months", "day.prev", "day.next") }}{{ part("all keys", "app.keys") }}</p>
   </header>
 
   <div class="money-sheet ruled-sheet" id="money-sheet"

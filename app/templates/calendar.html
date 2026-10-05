@@ -1,43 +1,44 @@
 {% extends "base.html" %}
+{% from "partials/keys_hint.html" import part %}
 {% block title %}Calendar · Personal Calendar{% endblock %}
 {% block content %}
 <div class="calendar-page">
   <header class="page-header calendar-header">
     <h1>{{ label }} <span class="week-number" title="ISO week">{{ nav.weeks }}</span></h1>
     <nav class="week-nav" aria-label="Days shown">
-      {# D, X, W and S switch them too (calendar.js); the choice is remembered. #}
+      {# Their keys (D, X, W and S) switch them too (keys.js); the choice is remembered. #}
       <div class="segmented" role="group" aria-label="View">
         {% for v in nav.views %}
         <a href="/calendar?view={{ v.key }}&start={{ v.start }}" data-calendar-view="{{ v.key }}"
-           aria-keyshortcuts="{{ v.shortcut }}" title="{{ v.label }} ({{ v.shortcut }})"
+           aria-keyshortcuts="{{ keys.aria(v.action) }}" title="{{ keys.title(v.label, v.action) }}"
            {% if v.key == nav.view %}aria-current="true"{% endif %}>{{ v.label }}</a>
         {% endfor %}
       </div>
-      {# Left and Right step the days too (shell.js, [data-day-step]). #}
-      <a class="week-arrow" href="/calendar?start={{ nav.prev }}" aria-label="Earlier" aria-keyshortcuts="ArrowLeft" data-day-step="prev">
+      {# Left and Right step the days too (keys.js, [data-day-step]). #}
+      <a class="week-arrow" href="/calendar?start={{ nav.prev }}" aria-label="Earlier" aria-keyshortcuts="{{ keys.aria('day.prev') }}" title="{{ keys.title('Earlier', 'day.prev') }}" data-day-step="prev">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg>
       </a>
-      <a class="week-today" href="/calendar">Today</a>
-      <a class="week-arrow" href="/calendar?start={{ nav.next }}" aria-label="Later" aria-keyshortcuts="ArrowRight" data-day-step="next">
+      <a class="week-today" href="/calendar" title="{{ keys.title('Today', 'day.today') }}">Today</a>
+      <a class="week-arrow" href="/calendar?start={{ nav.next }}" aria-label="Later" aria-keyshortcuts="{{ keys.aria('day.next') }}" title="{{ keys.title('Later', 'day.next') }}" data-day-step="next">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5"/></svg>
       </a>
-      {# Any day, from the native picker (G, calendar.js). #}
-      <span class="week-arrow week-jump" title="Go to a date (G)">
+      {# Any day, from the native picker (its key, G; calendar.js). #}
+      <span class="week-arrow week-jump" title="{{ keys.title('Go to a date', 'calendar.date') }}">
         <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/></svg>
-        <input type="date" data-jump-date value="{{ nav.start }}" aria-label="Go to a date" aria-keyshortcuts="G">
+        <input type="date" data-jump-date value="{{ nav.start }}" aria-label="Go to a date" aria-keyshortcuts="{{ keys.aria('calendar.date') }}">
       </span>
     </nav>
   </header>
 
   <div class="calendar-tools">
     {% if sheet %}
-    <p class="keys-hint sheet-hint">Type to write · <kbd>Enter</kbd> down · <kbd>Space</kbd> tick · drag down a habit to paint its days · <kbd>Ctrl</kbd><kbd>D</kbd> fill down · <kbd>Ctrl</kbd><kbd>C</kbd><kbd>V</kbd> copy, paste ·<kbd>Alt</kbd><kbd>←</kbd><kbd>→</kbd> fold a day · <kbd>Ctrl</kbd><kbd>Enter</kbd> open a task</p>
+    <p class="keys-hint sheet-hint">{{ part("Type to write") }}{{ part("[Enter] down") }}{{ part("[Space] tick") }}{{ part("drag down a habit to paint its days") }}{{ part("fill down", "sheet.fillDown") }}{{ part("[Ctrl][C][V] copy, paste") }}{{ part("fold a day", "sheet.fold", "sheet.unfold") }}{{ part("open a task", "task.openPage") }}</p>
     {% else %}
-    {# E opens it too; drawing on the grid opens it over the time drawn (calendar.js). #}
-    <button type="button" class="add-inline event-add" data-new-event aria-keyshortcuts="E">New event</button>
+    {# Its key (E) opens it too; drawing on the grid opens it over the time drawn (calendar.js). #}
+    <button type="button" class="add-inline event-add" data-new-event aria-keyshortcuts="{{ keys.aria('event.new') }}" title="{{ keys.title('New event', 'event.new') }}">New event</button>
     {% endif %}
     <span id="sync-note"></span>
-    <button type="button" class="week-today" title="Fetch the work calendar now"
+    <button type="button" class="week-today" title="{{ keys.title('Fetch the work calendar now', 'page.sync') }}"
             hx-post="/ui/work-sync" hx-target="#sync-note" hx-swap="innerHTML">
       Sync work
     </button>

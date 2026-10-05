@@ -1,7 +1,8 @@
 /* The calendar island, on Calendar's grid and Today's timeline: move and
    resize Oscar's own events; draw on the grid (or click it) to write an event
-   there; click an event for its card. On Calendar, D, X and W switch the days
-   shown (S to the sheet of days, day-sheet.js) and E writes an event.
+   there; click an event for its card. On Calendar, the header's keys (D, X
+   and W the days shown, S the sheet of days, E an event; keys.js) press its
+   links and buttons.
    The grid is server-rendered and re-rendered via htmx (calendar:refresh);
    all listeners live on document so they survive swaps. */
 
@@ -523,31 +524,13 @@
 
   const jump = document.querySelector("[data-jump-date]");
   if (jump) {
-    jump.addEventListener("click", () => { try { jump.showPicker(); } catch { /* the input takes it */ } });
+    jump.addEventListener("click", () => { try { jump.showPicker(); } catch { jump.focus(); } });
     jump.addEventListener("change", () => {
       if (jump.value) window.location.href = `/calendar?start=${jump.value}`;
     });
   }
 
-  /* ---- 6. Calendar's keys: D, X, W and S the days shown, E a new event, G a date ---- */
-
-  document.addEventListener("keydown", (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.defaultPrevented) return;
-    if (e.target.closest?.("input, textarea, select, [contenteditable]") || document.querySelector("dialog[open]")) return;
-    if (!document.querySelector(".calendar-page")) return;
-    const key = e.key.toUpperCase();
-    const view = document.querySelector(`[data-calendar-view][aria-keyshortcuts="${key}"]`);
-    if (view) {
-      e.preventDefault();
-      if (!view.hasAttribute("aria-current")) view.click();
-      return;
-    }
-    if (key === "E" && grid()) {
-      e.preventDefault();
-      newEvent(document.querySelector("[data-new-event]"));
-    } else if (key === "G" && jump) {
-      e.preventDefault();
-      try { jump.showPicker(); } catch { jump.focus(); }
-    }
-  });
+  /* Calendar's keys (D, X, W and S the days shown, E a new event, G a date,
+     unless chosen otherwise) press the header's links and buttons: keys.js
+     does them, with no script here. */
 })();

@@ -296,9 +296,18 @@ The ok, warn and err badges are `.chip.ok`, `.chip.warn` and `.chip.err`.
 On a project's Tasks it is the last card, noting "last 14 days".
 Which folds are open is remembered per tab (`sessionStorage` key `pc-open-folds`).
 
-**Keys dialog.** `?` on any page opens every key, grouped Anywhere, Writing a task and Lists, on the confirm dialog's paper, 760px wide in two columns (one under 640px).
+**Keys dialog.** `?` on any page opens every key, grouped by where it works, on the confirm dialog's paper, 760px wide in two columns (one under 640px).
+It is drawn from `keys.py`: each action with its keys as they are now, among the keys that stay as they are, and an action with no key is left out.
 Each column is one grid, so all its descriptions start on one line; keys are 12px graphite in hairline boxes.
+A 12px pewter foot links Keyboard.
 The dialog takes focus itself, so no control opens ringed; Esc closes it.
+
+**Keyboard** (`keys.html`, `keys-page.js`). A page as the Changelog is: its heading, a line saying where the keys are kept, and a find field on its line at the right, as Repositories' is; then a list card per scope, an action a 48px row.
+A row is its name in ink with its id under it in 12px pewter, its keys at the right as the keys dialog draws them, each with a pewter ×, and a dashed + after them; then, at the far right, Default (a quiet button) for an action chosen over its defaults, or "No key".
+Recording, the + says "Press a key…" in spark, as focus is, in a solid spark box, and no other key does anything until one is pressed or Esc lets it go.
+Two actions of one scope on one key each say so under their row, after a warn badge, "Clash".
+The keys that stay as they are are rows too, all in pewter, saying "Stays".
+On a phone the keys go under the name.
 
 **Command menu** (`app/static/command.js`, Ctrl+K). The capture window's paper, 640px wide and 12vh from the top over the scrim: a 16px line to write on, ruled off from what it finds, then the results grouped under 12px/600 pewter names (Days, Pages, Do, Tasks, Projects, Events, Notes), at most 70% of the window tall, and a foot of keys.
 A result is a 36px row: its name in 14px/500 ink (a done task or cancelled meeting pewter and struck through, a project after an 8px square of its colour) and its detail at the right in 12px pewter figures (a do-date or due, a meeting's day and time, a page's or action's key in a hairline box); a day's notes give the words found the row's room.
@@ -469,7 +478,8 @@ A height-capped grid opens on the usual day, 06:00 at its top, or with now in vi
 **Writing tasks** (`app/static/task-sheet.js`, `app/static/tasks.js` and `app/static/notes-editor.js`, vanilla, listeners on `document`; the description on CodeMirror 6 and `markdown-live.js`).
 `task-sheet.js` runs the task sheet: the title line, its field icons and their menus, typed words becoming fields, adding, and saving an edit when focus leaves it.
 Every field is a hidden input the form posts, so the icons and menus only read and write those inputs; the menus live in the body, since list cards clip what overflows them.
-`tasks.js` runs the row disclosures, the folds (Done's, and the timeline's projects), the cursor on the task lists, and filing by drag; `shell.js` the keys that work on every page, Alt+1 to Alt+9 for the nav's pages (from a field too) and ? for the keys dialog, and Left and Right (outside a field) on a page of days, a day back or on, and on Calendar, the days it shows.
+`tasks.js` runs the row disclosures, the folds (Done's, and the timeline's projects), the cursor on the task lists, and filing by drag; `shell.js` the keys that work on every page and need a script, the sidebar's pages 1 to 9 (Alt+1 to Alt+9, from a field too) and ? for the keys dialog.
+Every key is an action's in `app/services/keys.py`, and `keys.js` holds them as the page was drawn with them: a page's own script asks `Keys.is(e, "task.done")` of a key it has the context for, and `keys.js` does the rest itself, on the window after every page's own listener, by clicking the page's button for it, focusing its field, going to its page, or calling a handler a script handed over (`Keys.handle`), such as Left and Right (outside a field) on a page of days.
 The list keys: Up/Down or J/K move (Done's header is a stop, opened by Enter or Space), Shift jumps a list, Home and End go to the ends; Enter or E edits, N writes a new task (into the cursor's list where it has a composer, else the page's first), X done, T today, M tomorrow (posted directly on a done row, which has no do-date buttons), D and P open the task sheet on its day or project menu, Space opens the description, Delete deletes after asking, Esc leaves.
 The cursor lands where the work leaves it: on the row that followed one dated, filed, finished or deleted away; on the same task after an edit, wherever it regrouped to; on a task just added when Esc leaves the composer; and on the same task across V's reload (`sessionStorage` key `pc-task-cursor`).
 htmx wires up swapped-in content in the same step as the swap (`defaultSettleDelay: 0`, in base.html): with its default 20ms settle, a re-rendered list missed a refresh fired in that gap, and keys and submits met controls not yet wired up. Keys are never queued, since a replayed key cannot type; a sheet htmx has not taken over never submits natively and leaves the page; an open edit caught in a list's re-render keeps its sheet, words, fields and caret where the task's new row lands.

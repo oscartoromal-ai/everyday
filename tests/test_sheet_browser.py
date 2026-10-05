@@ -116,10 +116,14 @@ def test_an_edit_goes_with_a_page_chosen_from_the_keys(page, live, app_db, leave
     with a task's sheet still open: what is written is saved as it goes."""
     import time
 
+    # A task is written in its list: its project's Tasks.
     with app_db() as db:
-        task_id = tasks_svc.create_task(db, title="Mow", planned_for=date.today()).id
+        home = projects_svc.create_project(db, name="Home")
+        task_id = tasks_svc.create_task(
+            db, title="Mow", planned_for=date.today(), project_id=home.id
+        ).id
         db.commit()
-    page.goto(f"{live}/projects")
+    page.goto(f"{live}/projects/{home.id}/tasks")
     page.locator(".task-title-btn", has_text="Mow").click()
     page.locator(".task-sheet[data-sheet=edit][data-ready]").wait_for()
     page.keyboard.type(" the lawn")

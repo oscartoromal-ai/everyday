@@ -105,7 +105,8 @@
         placeholder(source.dataset.placeholder || ""),
         EditorView.contentAttributes.of({ "aria-label": source.getAttribute("aria-label") || "Document" }),
         keymap.of([
-          { key: "Mod-s", preventDefault: true, run: () => { save(); return true; } },
+          // Save now: Ctrl+S, or the keys chosen for it (keys.py).
+          ...window.Keys.cm("save.now").map((key) => ({ key, preventDefault: true, run: () => { save(); return true; } })),
           ...defaultKeymap,
           ...historyKeymap,
         ]),

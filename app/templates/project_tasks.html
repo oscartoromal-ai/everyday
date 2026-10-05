@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/keys_hint.html" import part %}
 {% block title %}{{ project.name }} · Tasks · Personal Calendar{% endblock %}
 {% block content %}
 {# A project's Tasks tab, where its tasks are planned: a list card a
@@ -10,7 +11,7 @@
     {% include "partials/project_head.html" %}
   </header>
   <p class="keys-hint">
-    <kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> edit · <kbd>N</kbd> new · <kbd>X</kbd> done · <kbd>T</kbd> today · <kbd>?</kbd> all keys
+    {{ part("move", "list.up", "list.down") }}{{ part("edit", "task.edit") }}{{ part("new", "task.new") }}{{ part("done", "task.done") }}{{ part("today", "task.today") }}{{ part("all keys", "app.keys") }}
   </p>
 
   {# Drawn again whenever a task or a project changes; task-sheet.js carries
