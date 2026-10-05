@@ -1,3 +1,8 @@
+import base64
+import hashlib
+import hmac
+
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 
@@ -76,3 +81,20 @@ def test_mcp_exempt_from_csrf(app_db) -> None:
             headers={"accept": "application/json, text/event-stream"},
         )
         assert response.status_code == 200
+
+
+def test_jwt_library_rejects_known_forgeries() -> None:
+    """pyjwt comes in through mcp, which verifies tokens with it; the version
+    locked must have the fixes for its advisories (PYSEC-2026-4147, -4143)."""
+    token = jwt.encode({"sub": "oscar"}, "a-secret-of-thirty-two-bytes-long", algorithm="HS256")
+    with pytest.raises(jwt.InvalidTokenError):
+        jwt.decode(token + "!!!!", "a-secret-of-thirty-two-bytes-long", algorithms=["HS256"])
+
+    # Signed with an empty key, as anyone can.
+    signing_input = token.rsplit(".", 1)[0]
+    mac = hmac.new(b"", signing_input.encode(), hashlib.sha256).digest()
+    forged = f"{signing_input}.{base64.urlsafe_b64encode(mac).rstrip(b'=').decode()}"
+    with pytest.raises(jwt.PyJWTError):
+        jwt.decode(
+            forged, jwt.PyJWK({"kty": "oct", "k": ""}, algorithm="HS256"), algorithms=["HS256"]
+        )
