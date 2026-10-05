@@ -56,6 +56,7 @@ def _launch(ledger: Ledger, tmp_path: Path, runner: FakeRunner, **kwargs) -> obj
         tmp_path / "worktrees",
         tmp_path / "logs",
         prepare=lambda repo, worktree, branch: prepared.append((worktree, branch)),
+        existing=kwargs.pop("existing", lambda repo, fingerprint: None),
         **kwargs,
     )
     return entry, prepared
@@ -242,3 +243,22 @@ def test_the_projects_agents_doc_goes_with_the_brief(tmp_path) -> None:
     assert improve_run.agents_doc(path, "o/everyday-app", "") == "# AGENTS.md\n\nRules."
     assert improve_run.agents_doc(path, "o/other", "") == ""
     assert improve_run.agents_doc(tmp_path / "none.db", "o/everyday-app", "") == ""
+
+
+def test_a_pick_a_pull_request_already_improves_is_taken_up_not_launched(ledger, tmp_path) -> None:
+    runner = FakeRunner({})
+    url = "https://github.com/o/r/pull/47"
+
+    entry, prepared = _launch(
+        ledger,
+        tmp_path,
+        runner,
+        existing=lambda repo, fingerprint: (url, f"improve/2026-10-04-{fingerprint}"),
+    )
+
+    assert runner.launched == [] and prepared == []
+    assert (entry.status, entry.pr, entry.run) == ("picked", url, "")
+    assert entry.branch.startswith("improve/2026-10-04-")
+    # Followed from there by its branch, as a launched one is.
+    said, _, _ = _follow(ledger, tmp_path, runner, PullRequest(url, "MERGED", "abc"))
+    assert entry.status == "done" and said[0].startswith("done:")

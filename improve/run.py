@@ -102,6 +102,30 @@ def find_pull_request(repo: Path, branch: str) -> PullRequest | None:
     return PullRequest(found[0]["url"], found[0]["state"], found[0]["headRefOid"])
 
 
+def find_improving(repo: Path, fingerprint: str) -> tuple[str, str] | None:
+    """An open pull request already saying it improves `fingerprint` (its
+    body's "Improves:" line, as the brief asks): its URL and branch."""
+    search = f'"Improves: {fingerprint}" in:body'
+    found = json.loads(
+        _gh(
+            [
+                "pr",
+                "list",
+                "--state",
+                "open",
+                "--search",
+                search,
+                "--limit",
+                "1",
+                "--json",
+                "url,headRefName",
+            ],
+            repo,
+        )
+    )
+    return (found[0]["url"], found[0]["headRefName"]) if found else None
+
+
 def comment(repo: Path, url: str, body: str) -> None:
     _gh(["pr", "comment", url, "--body-file", "-"], repo, stdin=body)
 
@@ -309,13 +333,21 @@ def launch(
     agents: str = "",
     max_open: int = 1,
     prepare: Callable = agent_runs.prepare_worktree,
+    existing: Callable = find_improving,
 ) -> Entry | None:
-    """The next pick handed to an agent, when there is room; it, or None."""
+    """The next pick handed to an agent, when there is room; it, or None.
+    One a pull request already improves (the ledger lost, or kept elsewhere)
+    is taken up as picked with that pull request, and nothing is launched."""
     in_flight = [e for e in ledger.entries.values() if e.status == "picked"]
     candidates = ledger.candidates(today)
     if len(in_flight) >= max_open or not candidates:
         return None
     entry = candidates[0]
+    if found := existing(repo, entry.fingerprint):
+        url, branch = found
+        ledger.mark(entry.fingerprint, "picked", today, pr=url, note="its pull request was open")
+        entry.branch, entry.runner, entry.run, entry.worktree = branch, "", "", ""
+        return entry
     branch = branch_for(entry, today)
     worktree = worktrees / branch.replace("/", "-")
     prepare(repo, worktree, branch)
