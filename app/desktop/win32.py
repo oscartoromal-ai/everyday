@@ -1,5 +1,6 @@
 """The Windows calls the desktop app makes, through ctypes: one instance at a
-time, handing over to an updated one, its taskbar identity, its title bar's
+time, handing over to an updated one (signals between the two, and waiting
+for a process to end), its taskbar identity, its title bar's
 colours, the number on its taskbar button, and no console windows for the
 programs it runs."""
 
@@ -117,24 +118,58 @@ class Signal:
     def reset(self) -> None:
         kernel32.ResetEvent(self.handle)
 
+    def is_set(self) -> bool:
+        return kernel32.WaitForSingleObject(self.handle, 0) == 0
+
     def wait_unless_exited(self, pid: int, timeout: float) -> bool:
         """Whether it was set before the process `pid` exited and within
         `timeout` seconds."""
-        kernel32.OpenProcess.restype = wintypes.HANDLE
-        process = kernel32.OpenProcess(SYNCHRONIZE, False, pid)
-        handles = (wintypes.HANDLE * 2)(self.handle, process)
+        process = Process(pid)
         try:
-            # The event first: set as the process exits still counts as set.
-            index = kernel32.WaitForMultipleObjects(
-                2 if process else 1, handles, False, round(timeout * 1000)
-            )
+            return wait_first([self], process, timeout) == 0
         finally:
-            if process:
-                kernel32.CloseHandle(process)
-        return index == 0
+            process.close()
 
     def close(self) -> None:
         kernel32.CloseHandle(self.handle)
+
+
+kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+kernel32.WaitForSingleObject.restype = wintypes.DWORD
+INFINITE = 0xFFFFFFFF
+
+
+class Process:
+    """Another process, to wait for its end. Opened at once, so that its
+    number taken by a later process never stands in for it."""
+
+    def __init__(self, pid: int) -> None:
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        # None when it has ended already.
+        self.handle = kernel32.OpenProcess(SYNCHRONIZE, False, pid)
+
+    def close(self) -> None:
+        if self.handle:
+            kernel32.CloseHandle(self.handle)
+            self.handle = None
+
+
+def wait_first(signals: list[Signal], process: Process | None, timeout: float | None) -> int | None:
+    """Which of `signals` was set first (its index), len(signals) should
+    `process` end first, or None once `timeout` seconds have passed (None:
+    no end). The signals come first: one set as the process ends counts as
+    set."""
+    handles = [s.handle for s in signals]
+    if process is not None:
+        if not process.handle:
+            # Ended already; a signal set before it still counts.
+            index = next((i for i, s in enumerate(signals) if s.is_set()), None)
+            return len(signals) if index is None else index
+        handles.append(process.handle)
+    array = (wintypes.HANDLE * len(handles))(*handles)
+    wait = INFINITE if timeout is None else round(timeout * 1000)
+    index = kernel32.WaitForMultipleObjects(len(handles), array, False, wait)
+    return index if index < len(handles) else None
 
 
 def session_ending() -> bool:

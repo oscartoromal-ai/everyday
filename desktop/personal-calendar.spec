@@ -2,6 +2,13 @@
 # runtime (templates, static files, migrations, the default config.toml),
 # in one folder the installer ships (desktop/installer.iss). Built by
 # desktop/build.ps1.
+#
+# The app's own code goes in as source files beside its templates and static
+# files (app/ whole, in _internal/app), not into the archive with Python and
+# the libraries: an update whose libraries are the same puts its app/ and
+# its other files (app-files.txt) in a copy of the running version rather
+# than freeze anew (build.ps1 -Reuse), and the build's self-check compiles
+# them (app/selfcheck.py).
 # ruff: noqa
 
 from pathlib import Path
@@ -9,19 +16,18 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 
 ROOT = Path(SPECPATH).parent
+APP = ROOT / "app"
 
+# app/ but its code, which goes in through the analysis (module_collection_mode).
 datas = [
-    (str(ROOT / "app" / "templates"), "app/templates"),
-    (str(ROOT / "app" / "static"), "app/static"),
-    (str(ROOT / "migrations"), "migrations"),
-    (str(ROOT / "config.toml"), "."),
-    # Written by build.ps1: the commit and repo it was built from.
-    (str(ROOT / "build" / "build-info.json"), "."),
-    # Written by build.ps1 too: every version and what it changed (app/changelog.py).
-    (str(ROOT / "build" / "changelog.json"), "."),
-    # What the Update button runs (app/desktop/update.py).
-    (str(ROOT / "desktop" / "update.ps1"), "desktop"),
+    (str(path), str(path.parent.relative_to(ROOT)))
+    for path in APP.rglob("*")
+    if path.is_file() and path.suffix not in (".py", ".pyc") and "__pycache__" not in path.parts
 ]
+for line in (ROOT / "desktop" / "app-files.txt").read_text(encoding="utf-8").splitlines():
+    if line.strip() and not line.startswith("#"):
+        source, folder = line.split()
+        datas.append((str(ROOT / source), folder))
 datas += collect_data_files("tzdata")
 datas += collect_data_files("webview")
 datas += collect_data_files("fastmcp")
@@ -46,8 +52,14 @@ a = Analysis(
     pathex=[str(ROOT)],
     datas=datas,
     hiddenimports=hiddenimports,
-    # Development only.
-    excludes=["pytest", "playwright", "ruff", "tkinter"],
+    module_collection_mode={"app": "py"},
+    excludes=[
+        # Development only.
+        "pytest", "playwright", "ruff", "tkinter",
+        # httpx's command line, which `import httpx` would load (rich,
+        # pygments, click) only to offer `httpx` in a terminal.
+        "httpx._main",
+    ],
 )
 pyz = PYZ(a.pure)
 exe = EXE(
@@ -58,6 +70,6 @@ exe = EXE(
     name="Personal Calendar",
     icon=str(ROOT / "app" / "static" / "icons" / "app.ico"),
     console=False,
-    version=str(ROOT / "build" / "version.txt"),
+    version=str(ROOT / "desktop" / "version-info.txt"),
 )
 coll = COLLECT(exe, a.binaries, a.datas, name="Personal Calendar")

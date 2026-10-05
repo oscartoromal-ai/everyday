@@ -1,0 +1,13 @@
+# The app's own files besides app/ (its code, templates and static files),
+# each with the folder it goes in, in the bundle: what an update puts in a
+# copy of the running version, with app/, when its libraries are the same.
+# Read by desktop/personal-calendar.spec, which bundles them, and by
+# desktop/build.ps1 (-Reuse).
+migrations              migrations
+config.toml             .
+# Written by build.ps1: the commit and repo it was built from (app/desktop/update.py).
+build/build-info.json   .
+# Written by build.ps1 too: every version and what it changed (app/changelog.py).
+build/changelog.json    .
+# What the app's updates run (app/desktop/update.py).
+desktop/update.ps1      desktop

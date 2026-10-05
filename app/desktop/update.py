@@ -3,23 +3,28 @@
 The installed app knows the commit it was built from and the repo it came
 from (build-info.json, written by desktop/build.ps1). Changes reach master
 through pull requests merged on GitHub, so the commit to be at is the repo's
-origin/master, fetched in the background, not whatever the repo has checked
-out. When it is past the installed one, an update is ready: the Update
-button (the rail's foot, partials/update_button.html) starts the app's own
-copy of desktop/update.ps1 (bundled with it, so it always takes what the app
-passes it), which builds that commit in the background and stages it, while
-the app carries on. Uncommitted work is never part of an update. Settings'
-Check for updates (partials/update_check.html) does both at once: it
-fetches now rather than at the next background fetch, and starts the update
-when master is past the installed commit.
+origin/master, not whatever the repo has checked out. The app watches it
+(tick(), on a thread of its own, app/desktop): it fetches every
+FETCH_SECONDS, and once
+master is past the installed commit it starts the update itself, so that by
+the time Oscar looks it is built. The update runs the app's own copy of
+desktop/update.ps1 (bundled with it, so it always takes what the app passes
+it), which builds that commit in the background and stages it, while the
+app carries on. Uncommitted work is never part of an update. The Update
+button (the rail's foot, partials/update_button.html) starts it by hand,
+should the watch not have, and retries a failure, which the watch leaves to
+Oscar until master moves on. Settings' Check for updates
+(partials/update_check.html) fetches now rather than at the next fetch, and
+starts the update when master is past the installed commit.
 
 The install's folder (desktop/installer.iss) holds a launcher, the
 `Personal Calendar.exe` its shortcuts start, and each version in a folder of
 its own beside it (app-<commit>); the launcher starts the one current.txt
 names. Staging puts the new version in its folder beside the running one.
 The button then offers Restart: this app hands over to the staged one
-(Shell.restart in app/desktop), which takes the install as its own once its
-window is up (take_over).
+(Shell.restart in app/desktop, through the standby it starts ahead,
+app/desktop/standby.py), which takes the install as its own once its window
+is up (take_over). A newer master while one is staged is built in its place.
 
 Its progress lives in a status file in the app's data folder, written here as
 the update starts and by the script as it stages or fails; the new app clears
@@ -37,6 +42,7 @@ import sys
 import threading
 import time
 import winreg
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -62,8 +68,9 @@ UNINSTALL_KEY = (
 )
 # How long master's latest commit is taken as known, between looks.
 CHECK_SECONDS = 20
-# How often the remote is fetched, in the background, while the app is used.
-FETCH_SECONDS = 300
+# How often the watch fetches the remote, and looks at the update under way.
+FETCH_SECONDS = 60
+WATCH_SECONDS = 2
 CREATE_NEW_PROCESS_GROUP = 0x00000200
 
 
@@ -139,11 +146,18 @@ class Updater:
         # The install's folder, where updates are staged; None in the layout
         # before versions had folders of their own, which the installer replaces.
         self.install = install
+        # What must let go of the staged version before a build replaces it:
+        # the standby started on it (app/desktop), whose files are in use.
+        self.before_build: Callable[[], None] | None = None
         self._head: str | None = None
         self._checked = float("-inf")
         self._fetched = float("-inf")
         self._lock = threading.Lock()
         self._fetching = threading.Lock()
+        # One start at a time, the watch's or a button's, and none at all
+        # while a restart is under way (hold()).
+        self._starting = threading.Lock()
+        self.held = False
 
     @classmethod
     def for_installed_app(cls, status_path: Path) -> Updater | None:
@@ -184,8 +198,7 @@ class Updater:
                 lines = why.splitlines()
                 fatal = [line for line in lines if line.startswith("fatal:")]
                 return (fatal or lines or [f"git fetch exited {out.returncode}"])[0]
-            with self._lock:
-                self._checked = float("-inf")
+            self.look_up()
             return None
 
     def check(self) -> tuple[UpdateState | None, str | None]:
@@ -195,18 +208,35 @@ class Updater:
         why = self.fetch()
         return (self.state() if why else self.start()), why
 
+    def tick(self) -> None:
+        """The watch's step (every WATCH_SECONDS): a fetch when one is due,
+        else master looked up again every CHECK_SECONDS (fetched by hand in
+        the repo, say), then the update started should master be past what is
+        installed, or what is staged."""
+        if time.monotonic() - self._fetched >= FETCH_SECONDS:
+            self.fetch()
+        elif time.monotonic() - self._checked > CHECK_SECONDS:
+            self.look_up()
+        self.start(automatic=True)
+
     def latest(self) -> str | None:
-        """The commit to be at: the remote's master as last fetched (fetched
-        again every FETCH_SECONDS, in the background), looked up at most every
-        CHECK_SECONDS; the installed one while master is not past it."""
-        if time.monotonic() - self._fetched > FETCH_SECONDS:
-            self._fetched = time.monotonic()
-            threading.Thread(target=self.fetch, name="fetch updates", daemon=True).start()
+        """The commit to be at: the remote's master as last fetched (tick()),
+        as last looked up; the installed one while master is not past it.
+        Looked up here only the first time: a page drawing the Update button
+        runs no git."""
         with self._lock:
-            if time.monotonic() - self._checked > CHECK_SECONDS:
-                self._checked = time.monotonic()
-                self._head = self._look_up()
+            if self._checked == float("-inf"):
+                self._look_up_locked()
             return self._head
+
+    def look_up(self) -> None:
+        """Master's latest commit read again, from the repo as fetched."""
+        with self._lock:
+            self._look_up_locked()
+
+    def _look_up_locked(self) -> None:
+        self._checked = time.monotonic()
+        self._head = self._look_up()
 
     def _look_up(self) -> str | None:
         try:
@@ -258,16 +288,41 @@ class Updater:
             return None
         return UpdateState("ready", self.sha[:7], latest[:7])
 
-    def start(self) -> UpdateState | None:
-        """The update to master's latest commit started, unless one runs."""
+    def start(self, automatic: bool = False) -> UpdateState | None:
+        """The update to master's latest commit started, unless one runs or
+        that commit is staged already. Started by the watch (`automatic`), a
+        commit that failed is left for Oscar to retry."""
+        with self._starting:
+            return self._start(automatic)
+
+    def hold(self) -> Path | None:
+        """No update started from now on, for a restart: the staged version's
+        program to restart on. None, holding nothing, should none be staged
+        (a build started a moment ago in its place)."""
+        with self._starting:
+            exe = self.staged()
+            self.held = exe is not None
+            return exe
+
+    def release(self) -> None:
+        """The restart given up: updates start again."""
+        self.held = False
+
+    def _start(self, automatic: bool) -> UpdateState | None:
         current = self.state()
-        if current is None or current.state in ("updating", "staged"):
+        if current is None or current.state == "updating" or self.held:
             return current
+        if current.state in ("staged", "failed"):
+            building = (self.status() or {}).get("sha")
+            if (current.state == "staged" or automatic) and building == self.latest():
+                return current
         self._checked = float("-inf")
         sha = self.latest()
         if sha is None or sha == self.sha:
             self.clear()
             return None
+        if self.before_build:
+            self.before_build()
         # What the script says outside its own log (update.log), such as why
         # PowerShell would not run it at all: the button points here should
         # it end without a word.
