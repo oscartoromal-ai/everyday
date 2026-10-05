@@ -52,6 +52,15 @@ class Entry:
     reopened: int = 0
     pr: str = ""
     note: str = ""
+    # Its agent run, once picked (improve/run.py): the runner and its run's
+    # id, the branch and worktree it works in, and how many runs it has had.
+    runner: str = ""
+    run: str = ""
+    branch: str = ""
+    worktree: str = ""
+    attempts: int = 0
+    # The pull request's commit the gate last checked.
+    gated: str = ""
 
     @property
     def rank(self) -> int:

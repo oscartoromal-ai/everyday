@@ -150,6 +150,17 @@ The tasks are the project's that lists the repo on its page; `[improve] project`
 Each finding goes into a ledger, `data\improve\ledger.json`, which remembers it across days: open, picked (being fixed), done (its fix merged; it opens again should it come back) or ignored.
 The day's report is `data\improve\reports\<day>.md`, and the most pressing open finding is written up in `data\improve\brief.md`, a brief for an agent to fix it.
 
+The pick is then fixed by an agent (`improve/run.py`), and everything around the fix is scripted:
+
+- **Launch**, after the scan: when fewer than `[improve] max_open` picks are being fixed (one by default), the next is handed to the runner `[improve] runner` names (`t3`: T3 Code, `app/services/agent_runs.py`; empty only scans).
+  It gets a worktree of the repo on a branch of its own (`improve/<day>-<fingerprint>`, in T3 Code's worktrees folder), and a T3 thread in full-access mode with the brief, where to work, and the app project's AGENTS.md.
+- **Follow**, before the scan and every hour between: each pick's pull request is found from its branch on GitHub.
+  Its newest commit passes master's gate (`improve.check`, run on a checkout of it in `data\improve\gate`), which comments the outcome on the pull request once per commit, and says so loudly when the change touches the loop itself.
+  Merged, the pick is done; closed unmerged, it is ignored (Oscar turned it down).
+  A run that ended without a pull request opens its pick again, and after two such runs the pick is given up on.
+  The run's state comes from T3 itself (working, waiting on Oscar, finished, failed, gone), never from the agent.
+- Nothing merges on its own: Oscar reviews the pull requests (his call on 2026-10-04).
+
 For the routes, the app counts its own use (`app/usage.py`): each request by the route that answered it and the day, with whether it failed and how long its response took to start.
 It keeps routes only (`GET /projects/{project_id}`), never what was looked at.
 
@@ -160,9 +171,11 @@ uv run python -m improve.scan                 # over the live app's data; --only
 uv run python -m improve.ledger list
 uv run python -m improve.ledger mark <fingerprint> ignored --note "why"
 uv run python -m improve.check                # the gate a fix passes: lint and tests (--build builds the app too)
+uv run python -m improve.run follow --repo C:\Users\me\personal-calendar
+uv run python -m improve.run launch --repo C:\Users\me\personal-calendar
 ```
 
-`[improve] enabled = false` in the home's `config.toml` turns the daily scan off.
+`[improve] enabled = false` in the home's `config.toml` turns the daily scan off, and `runner = ""` keeps the scan but launches no agent.
 
 ## Connecting Claude Code to the MCP server
 

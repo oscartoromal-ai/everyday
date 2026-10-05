@@ -406,22 +406,54 @@ def test_the_app_runs_masters_scan_in_its_own_checkout(tmp_path, monkeypatch) ->
         ["worktree", "prune"],
         ["worktree", "add", "--detach", "--force", str(checkout), "origin/master"],
     ]
-    scan_cmd, cwd = ran[3]
-    assert cwd == checkout and scan_cmd[1:6] == ["run", "--quiet", "python", "-m", "improve.scan"]
+    # The picks being fixed followed, the scan, then the next pick launched.
+    steps = [(cmd[5:7], cwd) for cmd, cwd in ran[3:]]
+    assert steps == [
+        (["improve.run", "follow"], checkout),
+        (["improve.scan", "--home"], checkout),
+        (["improve.run", "launch"], checkout),
+    ]
+    scan_cmd = ran[4][0]
+    assert scan_cmd[1:6] == ["run", "--quiet", "python", "-m", "improve.scan"]
     assert scan_cmd[scan_cmd.index("--out") + 1] == str(folder)
+    launch_cmd = ran[5][0]
+    assert launch_cmd[launch_cmd.index("--repo") + 1] == str(tmp_path / "repo")
+    assert launch_cmd[launch_cmd.index("--runner") + 1] == "t3"
     assert (folder / "last-run.txt").read_text(encoding="utf-8") == "2026-10-05"
 
     # Once a day.
     assert not improve_job.run(datetime(2026, 10, 5, 9, 0))
 
 
+def test_between_days_the_picks_are_followed_from_the_checkout(tmp_path, monkeypatch) -> None:
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings().storage, "db_path", str(tmp_path / "data" / "app.db"))
+    monkeypatch.setattr(improve_job, "repo", lambda: tmp_path / "repo")
+    ran: list[list[str]] = []
+    monkeypatch.setattr(
+        improve_job.subprocess, "run",
+        lambda cmd, **kwargs: ran.append(cmd) or subprocess.CompletedProcess(cmd, 0),
+    )
+
+    # Not before the first day's scan has made the checkout.
+    assert not improve_job.follow()
+    (tmp_path / "data" / "improve" / "checkout" / ".git").mkdir(parents=True)
+    assert improve_job.follow()
+    assert [cmd[5:7] for cmd in ran] == [["improve.run", "follow"]]
+    # Nor while the day's run holds the lock.
+    with improve_job._lock:
+        assert not improve_job.follow()
+
+
 def test_turned_off_the_scan_never_runs(monkeypatch) -> None:
     from app.config import get_settings
     from app.jobs.scheduler import create_scheduler
 
-    assert "improvement_scan" in {j.id for j in create_scheduler().get_jobs()}
+    jobs = {"improvement_scan", "improvement_follow"}
+    assert jobs <= {j.id for j in create_scheduler().get_jobs()}
     monkeypatch.setattr(get_settings().improve, "enabled", False)
-    assert "improvement_scan" not in {j.id for j in create_scheduler().get_jobs()}
+    assert not jobs & {j.id for j in create_scheduler().get_jobs()}
     assert not improve_job.run(datetime(2026, 10, 5, 3, 0))
 
 
