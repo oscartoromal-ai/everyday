@@ -1,10 +1,13 @@
 {% extends "base.html" %}
 {% from "partials/keys_hint.html" import part %}
 {% from "partials/priority.html" import priority_icon %}
+{% from "partials/open_task.html" import open_icon %}
+{% from "partials/md_modes.html" import md_modes %}
 {% block title %}{% if is_today %}Today{% else %}{{ day.strftime("%a") }} {{ day.day }} {{ day.strftime("%b") }}{% endif %} · Personal Calendar{% endblock %}
 {% block content %}
 {# A day's page: a notepad for the day on the left, the day's timeline on
-   the right. The notepad is plain text, saved as it is written (notepad.js). #}
+   the right. The notepad is Markdown, drawn as it reads and saved as it is
+   written (notepad.js, on markdown-live.js). #}
 <div class="today-page">
   <div class="today-pad">
     <header class="day-header">
@@ -21,6 +24,8 @@
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4.5 13.5 10 8 15.5"/></svg>
           </a>
         </nav>
+        {# The notes' Markdown modes, as a document's (editor.reading, notepad.js). #}
+        {{ md_modes() }}
         {# Folds the timeline away, the notes taking its room (its key, Ctrl+\; shell.js). #}
         <button type="button" class="timeline-toggle" aria-pressed="false" aria-label="Fold the timeline away" title="{{ keys.title('Fold the timeline away', 'today.timeline') }}">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.75" y="3.75" width="14.5" height="12.5" rx="2"/><path d="M12.5 3.75v12.5"/></svg>
@@ -49,7 +54,8 @@
     </section>
     {# A task row's controls, after its title (notepad.js clones one
        per task): the task sheet's icons and menus alone (task-sheet.js,
-       data-sheet="props"), over the task's fields, and Delete. #}
+       data-sheet="props"), over the task's fields, then a way to its page
+       once it is added, and Delete. #}
     <template id="pad-props-template">
       <form class="task-sheet pad-props" data-sheet="props" onsubmit="return false">
         {% for name in ["planned_for", "due", "repeat", "estimate", "priority", "project_id", "workstream_id", "status", "owner"] %}
@@ -78,6 +84,7 @@
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
           <span class="prop-value" data-empty=""></span>
         </button>
+        <a class="prop pad-open" href="" data-open-task hidden title="{{ keys.title('Open the task on its page', 'today.openTask') }}" aria-label="Open the task on its page">{{ open_icon() }}</a>
         <button type="button" class="task-delete" data-pad-remove title="Delete task" aria-label="Delete task">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>
         </button>

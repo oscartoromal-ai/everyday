@@ -97,9 +97,9 @@ def test_editing_saves_when_focus_leaves_the_sheet(page, live, app_db) -> None:
     page.keyboard.type(" the lawn")
     page.locator(".main .prop[data-prop=project]").click()
     page.locator(".sheet-menu [role=menuitemradio]", has_text="Garden").click()
-    # Tab walks the icons (estimate the last), the description, and the end line,
-    # then out: a save.
-    for _ in range(11):
+    # Tab walks the icons (estimate the last), the description, and the end line
+    # (its Open among them), then out: a save.
+    for _ in range(12):
         page.keyboard.press("Tab")
     sheet.wait_for(state="detached")
 

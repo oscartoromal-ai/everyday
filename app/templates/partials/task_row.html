@@ -1,5 +1,6 @@
 {% from "partials/project_flag.html" import project_flag %}
 {% from "partials/priority.html" import priority_tag %}
+{% from "partials/open_task.html" import open_icon %}
 <li class="task-row{% if row.done %} done{% endif %}{% if row.project %} in-project{% endif %}" id="task-{{ row.task.id }}"
     {%- if row.project %} style="--project: var(--hue-{{ row.project.color }})"{% endif %}
     data-task-id="{{ row.task.id }}" data-task-title="{{ row.task.title }}" tabindex="-1">
@@ -85,6 +86,9 @@
     </span>
   </div>
   {% endif %}
+  {# The task on its own page (Ctrl+Enter on the row, tasks.js). #}
+  <a class="task-open" href="/tasks/{{ row.task.id }}" data-open-task tabindex="-1"
+     title="{{ keys.title('Open the task on its page', 'task.openPage') }}" aria-label="Open “{{ row.task.title }}”">{{ open_icon() }}</a>
   <button type="button" class="task-delete" title="Delete task"
           aria-label="Delete “{{ row.task.title }}”"
           hx-post="/ui/tasks/{{ row.task.id }}/delete"

@@ -872,10 +872,22 @@ def me_ctx(db: Session, today: date) -> dict[str, Any]:
     }
 
 
+# The app's pages a task's page can be opened from (the command menu opens
+# one from anywhere), by their path's first part: the sidebar's, by its
+# names, then Plan and those Settings opens.
+_PAGE_NAMES = {
+    **{module.href.strip("/"): module.label for s in rail_svc.SECTIONS for module in s.modules},
+    "plan": "Plan",
+    "models": "Models",
+    "changelog": "Changelog",
+}
+
+
 def back_link(url: str, today: date | None = None) -> dict[str, str]:
     """Where a task's page goes back to: the page it was opened from (its
     path, never another site), named; Projects when that is not one of
-    the app's pages."""
+    the app's pages, or is another task's (two tasks' pages would only lead
+    back to each other)."""
     from urllib.parse import urlsplit
 
     parts = urlsplit(url or "")
@@ -885,15 +897,15 @@ def back_link(url: str, today: date | None = None) -> dict[str, str]:
     label = None
     if path in ("/", "/today"):
         label = "Today"
-    elif path == "/calendar":
-        label = "Calendar"
-    elif path == "/projects":
-        label = "Projects"
-    elif path == "/plan":
-        label = "Plan"
     elif segments[0] == "projects" and segments[1:2] and segments[1].isdigit():
-        # A project's page, its Tasks, or its Gantt.
-        label = {(): "Project", ("tasks",): "Tasks", ("gantt",): "Gantt"}.get(tuple(segments[2:]))
+        # A project's page, its Tasks, its Gantt, or one of its documents.
+        rest = tuple(segments[2:])
+        label = {(): "Project", ("tasks",): "Tasks", ("gantt",): "Gantt"}.get(rest)
+        if len(rest) == 2 and rest[0] == "docs":
+            label = "Document"
+    elif segments[0] in _PAGE_NAMES and (len(segments) == 1 or segments[0] != "projects"):
+        # One of the app's pages, or a day or month of it (Garmin's, Spending's).
+        label = _PAGE_NAMES[segments[0]]
     elif segments[0] == "day" and len(segments) == 2:
         try:
             label = upper_first(short_date(date.fromisoformat(segments[1]), today or date.today()))

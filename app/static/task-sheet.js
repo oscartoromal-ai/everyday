@@ -922,6 +922,13 @@
       return;
     }
 
+    if (isEdit(form) && window.Keys.is(e, "writing.openPage")) {
+      // Its key (Ctrl+Shift+Enter): the task on its own page, saved first.
+      e.preventDefault();
+      openPage(form);
+      return;
+    }
+
     if (SUBMIT(e)) {
       e.preventDefault();
       if (isEdit(form)) save(form, { keyboard: true });
@@ -1094,6 +1101,37 @@
     }
   };
 
+  // Its Open: the task on its own page, once what is written is saved (the
+  // title's trailing words taken as fields, as a save takes them); with
+  // Ctrl or Shift, the browser's own (a new tab).
+  const openPage = async (form) => {
+    if (!form.isConnected || form.dataset.saving != null) return;
+    form.dataset.saving = "";
+    closeMenu(false);
+    convertTrailing(form);
+    if (!titleText(form)) setTitle(form, titleOf(form).dataset.original);
+    const id = form.closest("[id^='task-']").id.slice(5);
+    if (snapshot(form) !== form._initial) {
+      const res = await fetch(`/ui/tasks/${id}`, {
+        method: "POST",
+        headers: { "X-CSRF": window.csrfToken() },
+        body: new URLSearchParams(new FormData(form)),
+      }).catch(() => null);
+      if (!res?.ok) {
+        delete form.dataset.saving;
+        window.toast("Could not save that task, so it stays here.");
+        return;
+      }
+    }
+    window.location.href = `/tasks/${id}`;
+  };
+  document.addEventListener("click", (e) => {
+    const open = e.target.closest?.(".task-sheet[data-sheet='edit'] [data-open-task]");
+    if (!open || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    e.preventDefault();
+    openPage(sheetOf(open));
+  });
+
   const outside = (form, el) => el && !form.contains(el) && !menu?.el.contains(el) && !el.closest("dialog");
 
   document.addEventListener("pointerdown", (e) => {
@@ -1129,7 +1167,7 @@
 
   // Tab past a sheet's last control leaves it, even where nothing on the
   // page comes after it to take the focus (it would go to the browser).
-  const TABBABLE = "button:not([hidden]), input:not([type='hidden']), [contenteditable], [tabindex='0']";
+  const TABBABLE = "button:not([hidden]), a[href]:not([hidden]), input:not([type='hidden']), [contenteditable], [tabindex='0']";
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Tab" || e.shiftKey || e.defaultPrevented) return;
     const form = sheetOf(e.target);

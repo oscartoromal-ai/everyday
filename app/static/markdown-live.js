@@ -40,6 +40,14 @@
    - openLink(href): opens a link (beside the app, as a chat's link does).
    - imageSrc(url): the src an image is drawn from, or null to leave its
      Markdown showing (web and data images).
+   - owns(line): whether the page draws this line itself (Today's notepad
+     its tasks, reflections, habits and stays, and the rows tabbed under
+     them). The engine then draws only the line's inline Markdown (emphasis,
+     code, links, images, escapes): never its lead, its block (a heading, a
+     quote, a rule, a fence, a table) or its keys, which are the page's.
+   - plain(line): whether a line the page owns is drawn exactly as written,
+     no Markdown in it at all (Today's task titles: a title is plain words
+     wherever it shows).
    Its keys: Enter, Shift+Enter, Backspace, Tab and Shift+Tab for lists,
    Ctrl+L an item's box, Ctrl+B, Ctrl+I, Ctrl+Shift+X and Ctrl+` the marks.
    Ctrl+E (toggleReading) is the page's to bind: reading is not editable, so
@@ -424,6 +432,7 @@
   }
 
   // The tables, and those drawn as tables (the ones not showing their marks).
+  // One starting on a line the page owns is its words.
   function tableField(options) {
     const build = (state) => {
       const tables = [];
@@ -434,6 +443,7 @@
             if (node.name !== "Table") return undefined;
             const from = state.doc.lineAt(node.from).from;
             const to = state.doc.lineAt(node.to).to;
+            if (options.owns(state.doc.lineAt(from))) return false;
             if (!shows(state, from, to)) {
               tables.push({ from, to });
               widgets.push(Decoration.replace({
@@ -468,6 +478,8 @@
     const mode = state.field(modeField);
     const rendering = mode !== "source";
     const inTable = (pos) => tables.some((t) => pos >= t.from && pos <= t.to);
+    // A line the page draws itself: only its inline Markdown is the engine's.
+    const owned = (pos) => options.owns(doc.lineAt(pos));
 
     const decos = [];
     const atomic = [];
@@ -497,7 +509,7 @@
         enter: (node) => {
           const name = node.name;
           if (name === "Table") {
-            if (inTable(node.from)) return false;
+            if (inTable(node.from) || owned(node.from)) return false;
             // Written, a table is its Markdown, every mark in it showing.
             for (let n = doc.lineAt(node.from).number; n <= doc.lineAt(node.to).number; n++) {
               codeLines.add(n);
@@ -514,10 +526,11 @@
           }
           const heading = /^ATXHeading(\d)$/.exec(name);
           if (heading) {
-            onLine(node.from, "h", lineDeco(`cm-md-h cm-md-h${heading[1]}`));
+            if (!owned(node.from)) onLine(node.from, "h", lineDeco(`cm-md-h cm-md-h${heading[1]}`));
             return undefined;
           }
           if (name === "HeaderMark") {
+            if (owned(node.from)) return undefined;
             const line = doc.lineAt(node.from);
             const text = line.text;
             let a = node.from - line.from;
@@ -590,6 +603,7 @@
             return undefined;
           }
           if (name === "QuoteMark") {
+            if (owned(node.from)) return undefined;
             onLine(node.from, "quote", lineDeco("cm-md-quote"));
             const line = doc.lineAt(node.from);
             const space = node.to < line.to && doc.sliceString(node.to, node.to + 1) === " " ? 1 : 0;
@@ -600,7 +614,7 @@
           if (name === "HorizontalRule") {
             // "---" drawn as the rule it makes, written as itself. "- - -"
             // in a checklist is a sub-task, as the server counts it.
-            if (checklist && leadOf(doc.lineAt(node.from).text, true).item) return false;
+            if (owned(node.from) || (checklist && leadOf(doc.lineAt(node.from).text, true).item)) return false;
             if (lineShows(state, node.from)) {
               decos.push(MARK.range(node.from, node.to));
             } else {
@@ -611,7 +625,9 @@
           }
           if (name === "FencedCode") {
             // Its fences ("```js") fold to the block's edges until the caret
-            // is in the block, its language at its top right.
+            // is in the block, its language at its top right. One opened on
+            // a line the page owns is its words.
+            if (owned(node.from)) return false;
             const first = doc.lineAt(node.from).number;
             const last = doc.lineAt(node.to).number;
             const shown = shows(state, node.from, node.to);
@@ -650,7 +666,7 @@
       for (let pos = from; pos <= to;) {
         const line = doc.lineAt(pos);
         pos = line.to + 1;
-        if (inTable(line.from) || (codeLines.has(line.number) && !checklist)) continue;
+        if (inTable(line.from) || (codeLines.has(line.number) && !checklist) || options.owns(line)) continue;
         const l = leadOf(line.text, checklist);
         if (!l.lead) continue;
         const end = line.from + l.lead.length;
@@ -670,12 +686,17 @@
       }
     }
 
+    // A line drawn as written keeps nothing of the Markdown's.
+    const drawn = (r) => !options.plain(doc.lineAt(r.from));
+    const shown = options.plain === NONE ? decos : decos.filter(drawn);
+    const steps = options.plain === NONE ? atomic : atomic.filter(drawn);
+
     // Spelling is marked only in the line being written.
     const main = state.selection.main;
     if (view.hasFocus && doc.lineAt(main.from).number === doc.lineAt(main.to).number) {
-      decos.push(SPELLED.range(doc.lineAt(main.head).from));
+      shown.push(SPELLED.range(doc.lineAt(main.head).from));
     }
-    return { decos: Decoration.set(decos, true), atomic: Decoration.set(atomic, true) };
+    return { decos: Decoration.set(shown, true), atomic: Decoration.set(steps, true) };
   }
 
   const livePlugin = (checklist, options, tables) => ViewPlugin.fromClass(class {
@@ -698,13 +719,14 @@
   // A caret landing at a list item's (or indented line's) very start goes
   // to its first word, and a selection drawn back to a line's start
   // (Shift+Home) stops there: typing over it keeps the item. In source the
-  // lead is text like any other.
-  const offTheLead = (checklist) => EditorState.transactionFilter.of((tr) => {
+  // lead is text like any other, and on a line the page owns, the page's.
+  const offTheLead = (checklist, owns) => EditorState.transactionFilter.of((tr) => {
     if (!tr.selection || tr.state.field(modeField) === "source") return tr;
     const { doc, selection } = tr.state;
     let moved = false;
     const ranges = selection.ranges.map((r) => {
       const line = doc.lineAt(r.head);
+      if (owns(line)) return r;
       const end = line.from + leadOf(line.text, checklist).lead.length;
       if (r.head >= end) return r;
       if (!r.empty) {
@@ -898,23 +920,29 @@
   };
 
   // The engine's keys, then lang-markdown's (Enter going on with a quote or
-  // a numbered list, Backspace taking their marks away).
+  // a numbered list, Backspace taking their marks away). On a line the page
+  // owns, its lead is the page's, and so are the keys that write leads: only
+  // the marks' keys stay the engine's there. The marks' keys are the app's
+  // (keys.py, keys.js), else the defaults.
   const bound = (action, otherwise, run) =>
     (window.Keys ? window.Keys.cm(action) : [otherwise]).map((key) => ({ key, run, preventDefault: true }));
-  const writingKeys = (checklist) => {
+  const writingKeys = (checklist, owns) => {
     const c = commands(checklist);
-    return Prec.high(keymap.of([
+    const free = (run) => run && ((view) => !owns(view.state.doc.lineAt(view.state.selection.main.head)) && run(view));
+    const leads = [
       { key: "Enter", run: c.enter },
       { key: "Shift-Enter", run: c.softEnter },
       { key: "Backspace", run: c.backspace },
       { key: "Tab", run: c.nest(1), shift: c.nest(-1) },
-      // The marks' keys: the app's (keys.py, keys.js), else these.
       ...bound("editor.checklist", "Mod-l", c.cycle),
+      ...markdownKeymap,
+    ].map((b) => ({ ...b, run: free(b.run), shift: free(b.shift) }));
+    return Prec.high(keymap.of([
       ...bound("editor.bold", "Mod-b", wrap("**")),
       ...bound("editor.italic", "Mod-i", wrap("*")),
       ...bound("editor.strike", "Mod-Shift-x", wrap("~~")),
       ...bound("editor.code", "Mod-`", wrap("`")),
-      ...markdownKeymap,
+      ...leads,
     ]));
   };
 
@@ -980,11 +1008,15 @@
 
   /* ---- the engine ---- */
 
+  const NONE = () => false;
+
   function extensions(options = {}) {
     const checklist = Boolean(options.checklist);
     const opts = {
       openLink: options.openLink || openBeside,
       imageSrc: options.imageSrc || ((url) => (/^(https?:|data:image\/)/i.test(url) ? url : null)),
+      owns: options.owns || NONE,
+      plain: options.plain || NONE,
     };
     const mode = MODES.includes(options.mode) ? options.mode : "live";
     const tables = tableField(opts);
@@ -998,8 +1030,8 @@
       syntaxHighlighting(codeTokens),
       tables,
       livePlugin(checklist, opts, tables),
-      offTheLead(checklist),
-      writingKeys(checklist),
+      offTheLead(checklist, opts.owns),
+      writingKeys(checklist, opts.owns),
       handlers(opts),
       EditorView.lineWrapping,
       EditorView.contentAttributes.of({ spellcheck: "false" }),

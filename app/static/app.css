@@ -647,6 +647,18 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .task-row:hover .task-delete, .task-delete:focus-visible { opacity: 1; }
 .task-delete:hover { color: var(--err-fg); background: var(--err-bg); }
 @media (hover: none) { .task-delete { opacity: 1; } }
+/* before it, the way to the task's own page: as quiet, in ink when hovered */
+.task-open {
+  flex: none; display: grid; place-content: center;
+  width: 28px; height: 28px; margin: -5px 0;
+  border-radius: var(--r-tag); color: var(--steel);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.task-open svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.task-row:hover .task-open, .task-open:focus-visible { opacity: 1; }
+.task-open:hover { color: var(--ink); background: var(--glass-hover); }
+@media (hover: none) { .task-open { opacity: 1; } }
 
 .task-meta {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3);
@@ -1633,7 +1645,6 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 }
 .nudge-dismiss:hover { color: var(--ink); background: var(--fog); }
 .nudge-dismiss svg { stroke: currentColor; }
-#nudge-editor-slot:empty { display: none; }
 
 /* ---------- ruled sheets: Me, Garmin, Finances and the rest, ruled as Today's notepad is ---------- */
 
@@ -1925,7 +1936,10 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .task-row[draggable="true"] { cursor: grab; }
 .task-row[draggable="true"] :is(button, input) { cursor: pointer; }
 
-.day-title { display: flex; align-items: center; gap: var(--s-3); }
+.day-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+/* at its right, the notes' Markdown modes, then the timeline's fold */
+.day-title .md-modes { margin-left: auto; }
+.day-title .md-modes + .timeline-toggle { margin-left: 0; }
 /* at the day's header's right: fold the timeline away, and back */
 .timeline-toggle {
   display: grid; place-content: center; width: 32px; height: 32px; margin-left: auto;
@@ -2009,6 +2023,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   --pad-rows: 44px;
   --pad-gap: var(--s-3);
   --pad-tab: 76px;
+  --pad-words: color-mix(in srgb, var(--ink) 55%, var(--graphite));
   --bracket: var(--graphite);
   position: relative; display: flex; flex: 1; min-height: 420px; overflow: hidden;
   background: color-mix(in srgb, var(--paper) 35%, transparent);
@@ -2037,6 +2052,23 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
    pewter (its box, the word Task and its icons stand apart, not struck) */
 .pad-editor .cm-line.pad-struck { color: var(--pewter); text-decoration: line-through; text-decoration-color: var(--pewter); }
 .pad-indent { display: inline-block; width: var(--pad-tab); }
+
+/* the notes' Markdown (markdown-live.js) on the notepad's rows: each keeps
+   its gap after the numbers, its rule and its 22px lines. A list's bullet
+   or box and an indented note hang from that gap, a quote's bar stands in
+   it, a fenced block is tinted from it, and a fence stays a row of its own,
+   empty but for the block's language */
+.pad-editor .cm-content .cm-line.cm-md-li { padding-left: calc(var(--pad-gap) + (var(--md-depth, 0) + 1) * 22px); }
+.pad-editor .cm-content .cm-line.cm-md-li:not(.cm-md-done) { color: var(--pad-words); }
+.pad-editor .cm-content .cm-line.cm-md-indented { padding-left: calc(var(--pad-gap) + var(--md-depth, 0) * 22px); }
+.pad-editor .cm-content .cm-line.cm-md-quote {
+  padding-left: calc(var(--pad-gap) + 12px); box-shadow: none;
+  background: linear-gradient(var(--steel), var(--steel)) var(--pad-gap) 0 / 2px 100% no-repeat;
+}
+.pad-editor .cm-content .cm-line.cm-md-codeblock { padding-inline: calc(var(--pad-gap) + 8px) var(--s-4); }
+.pad-editor .cm-content .cm-line.cm-md-fence-folded { font-size: inherit; line-height: inherit; }
+.pad-editor .cm-md-code-lang { top: var(--pad-above); right: var(--s-4); line-height: var(--pad-text); }
+.pad-editor .cm-md-table-wrap { padding: var(--pad-above) var(--s-4) var(--pad-below) var(--pad-gap); border-bottom: 1px solid var(--hairline); }
 /* the box, the word Task and the icons are not text: never selected as it */
 .pad-editor :is(.pad-kind, .pad-props) { user-select: none; }
 

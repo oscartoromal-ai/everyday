@@ -1,7 +1,17 @@
-/* A day's notepad (today.html): plain text in rows, like a spreadsheet, the
-   rows numbered down the left. A CodeMirror 6 editor (vendor/codemirror.js,
+/* A day's notepad (today.html): text in rows, like a spreadsheet, the rows
+   numbered down the left. A CodeMirror 6 editor (vendor/codemirror.js,
    window.CM) over the page's textarea, which holds the notes as the server
    sends them. A row too long for the box wraps inside its row.
+
+   The notes are Markdown, drawn as they read by the app's one Markdown
+   engine (markdown-live.js), as a task's description and a project's
+   documents are: headings, emphasis, code, links, lists, quotes, rules,
+   fenced code and tables, their marks showing where the caret is. Its
+   modes (Live, Source, Reading) are switched at the day's header (Ctrl+E
+   in and out of Reading), remembered for the notes. The rows below are the
+   notepad's own: on them the engine draws only the words' Markdown (bold,
+   code, a link), never the row's lead or shape, nor its keys; and a task's
+   title none at all, being plain words wherever the task shows.
 
    A task is written in the notes. "- [ ] " at a row's start makes the row a
    task: its "- [ ] " is drawn as the task's checkbox and the word Task (one
@@ -33,7 +43,9 @@
    Ctrl+Enter then going on to a fresh plain row. Ticking a task's box ticks
    its task; its controls write to it straight away once it is added.
    Delete takes its rows out of the notes, and an added task, once
-   confirmed, out of the plan.
+   confirmed, out of the plan. An added task's Open control, after its
+   icons, opens it on its page (Ctrl+Shift+Enter in it too, adding it first
+   when it is not yet), once what is written of it is saved.
 
    "/reflection" at a row's start makes the row a reflection, free text:
    its "/reflection" drawn as the word Reflection in the indent, its rows
@@ -111,6 +123,13 @@
   const isReflection = (line) => REFLECTION.test(line.text);
   const isHabit = (line) => HABIT.test(line.text);
   const isStay = (line) => STAY.test(line.text);
+  // The rows the notepad draws itself: its tasks, reflections, habits and
+  // stays, and every tabbed row (theirs). On these the Markdown engine
+  // draws only the words' marks.
+  const owns = (line) => line.text.startsWith(TAB) || isTask(line) || isReflection(line) || isHabit(line) || isStay(line);
+  // A row that is Markdown's own to go on from (a list item, an indented
+  // note under one, a numbered item, a quote): Enter is the engine's there.
+  const MARKUP = /^(?: +\S|[-*+][ \t]|\d{1,9}[.)](?:[ \t]|$)|>)/;
   // What a stay written here starts with (the last stay's items).
   let stayItems = ["place", "accommodation"];
   const stayTemplate = () => stayItems.map((name) => `\n\t- [ ] ${name}: `).join("");
@@ -365,6 +384,17 @@
   // their menus (task-sheet.js takes them up), and Delete. One per task,
   // kept while it is a task, so a menu open on it stays open.
   const controls = new WeakMap(); // task -> its form
+  // Its Open control: there once the task is added, to its page.
+  const showOpen = (m) => {
+    const open = controls.get(m)?.querySelector("[data-open-task]");
+    if (!open) return;
+    open.hidden = !m.id;
+    if (m.id) open.href = `/tasks/${m.id}`;
+  };
+  const setId = (m, id) => {
+    m.id = id;
+    showOpen(m);
+  };
   const controlsOf = (m) => {
     let form = controls.get(m);
     if (form) return form;
@@ -372,6 +402,7 @@
     for (const [name, value] of Object.entries(m.fields)) if (form.elements[name]) form.elements[name].value = value;
     form._m = m;
     controls.set(m, form);
+    showOpen(m);
     document.dispatchEvent(new CustomEvent("htmx:load", { detail: { elt: form } }));
     return form;
   };
@@ -525,6 +556,20 @@
       });
     }
   });
+
+  // A block the Markdown draws over rows (a table): numbered as its first row.
+  class BlockNumber extends GutterMarker {
+    constructor(number) {
+      super();
+      this.number = number;
+    }
+    eq(other) {
+      return other.number === this.number;
+    }
+    toDOM() {
+      return document.createTextNode(String(this.number));
+    }
+  }
 
   class RowClass extends GutterMarker {
     constructor(name) {
@@ -781,7 +826,12 @@
         return true;
       }
     } else if (!line.text.startsWith(TAB)) {
-      return false;
+      // A plain row: a list (or a quote) goes on as Markdown has it; any
+      // other row starts a plain row, never one Markdown would take into a
+      // task right above it (a line under a list is that list's).
+      if (MARKUP.test(line.text)) return false;
+      v.dispatch(state.replaceSelection("\n"), { scrollIntoView: true, userEvent: "input" });
+      return true;
     } else if (isItem(state, line) || isSub(state, line)) {
       if (range.empty && /^\t- \[[ xX]\] $/.test(line.text)) {
         // An empty item (or sub-task): a plain tabbed row (Enter again steps out).
@@ -804,6 +854,8 @@
   // (to its first row, a new one when it has none); on a plain row right
   // under one, the row joins it; on a task's or stay's row, the row takes a
   // box (a sub-task, an item). Shift+Tab takes a box away, else a row's tab.
+  // On any other row, Tab and Shift+Tab are Markdown's (a list item nests,
+  // or steps back out), and otherwise do nothing (keepTab).
   const blockOfLine = (state, n) =>
     [...blocksOf(state), ...writtenOf(state)].find((b) => n >= b.first && n <= b.last) || null;
   const tab = (v) => {
@@ -829,9 +881,11 @@
     }
     if (!line.text.startsWith(TAB) && blockOfLine(state, line.number - 1)) {
       v.dispatch({ changes: { from: line.from, insert: TAB }, scrollIntoView: true, userEvent: "input" });
+      return true;
     }
-    return true;
+    return false;
   };
+  const keepTab = Prec.low(keymap.of([{ key: "Tab", run: () => true, shift: () => true }]));
   // A row deleted from inside a task (or reflection, habit, stay) goes
   // whole: its words, box and tab deleted (by Backspace, Delete or a cut),
   // it would be left an empty plain row between two of the task's rows,
@@ -876,7 +930,7 @@
     const { state } = v;
     if (state.selection.ranges.length > 1) return true;
     const line = state.doc.lineAt(state.selection.main.head);
-    if (!line.text.startsWith(TAB) || !blockOfLine(state, line.number)) return true;
+    if (!line.text.startsWith(TAB) || !blockOfLine(state, line.number)) return false;
     const boxed = SUB.test(line.text);
     const change = boxed ? { from: line.from + 1, to: line.from + ITEM_LEAD } : { from: line.from, to: line.from + 1 };
     v.dispatch({ changes: change, scrollIntoView: true, userEvent: "delete" });
@@ -1019,6 +1073,17 @@
         return true;
       },
     },
+    // In a task, its key (Ctrl+Shift+Enter): open it on its page, added
+    // first when it is not yet.
+    ...window.Keys.cm("today.openTask").map((key) => ({
+      key,
+      run: (v) => {
+        const block = blockAt(v.state);
+        if (block?.kind !== "task") return false;
+        openTask(block.m);
+        return true;
+      },
+    })),
     { key: "Enter", run: enter },
     { key: "Tab", run: tab, shift: untab },
     { key: "Backspace", run: backToWords },
@@ -1257,7 +1322,7 @@
       window.toast("Could not add that task. Its words are still in the notes.");
       return;
     }
-    m.id = Number(/id="task-(\d+)"/.exec(html)?.[1]) || null;
+    setId(m, Number(/id="task-(\d+)"/.exec(html)?.[1]) || null);
     m.saved = { title, notes };
     told(`Task added: ${title}`);
     htmx.trigger(document.body, "calendar:refresh");
@@ -1379,12 +1444,38 @@
         window.toast("Could not delete that task.");
         return;
       }
-      m.id = null;
+      setId(m, null);
       m.saved = null;
       window.toast(`Task deleted: ${title}`);
       htmx.trigger(document.body, "calendar:refresh");
     }
     takeOut(m);
+  });
+
+  /* ---- a task's page ---- */
+
+  // A task on its page, once what is written of it here is saved: its
+  // title's last words taken as it closes, and a task not yet added, added.
+  // The notes follow as the page is left.
+  let opening = false;
+  async function openTask(m) {
+    const block = blocks().find((b) => b.m === m);
+    if (!block || opening) return;
+    opening = true;
+    try {
+      const closed = closing(view, block);
+      await saveTask(closed.block, { converted: closed.converted });
+      if (m.id) window.location.href = `/tasks/${m.id}`;
+    } finally {
+      opening = false;
+    }
+  }
+  document.addEventListener("click", (e) => {
+    const open = e.target.closest?.(".pad-props [data-open-task]");
+    const m = open?.closest(".pad-props")._m;
+    if (!m || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    e.preventDefault();
+    openTask(m);
   });
 
   /* ---- the page around it ---- */
@@ -1676,7 +1767,7 @@
     ".cm-line": {
       padding: "var(--pad-above) var(--s-4) var(--pad-below) var(--pad-gap)",
       borderBottom: "1px solid var(--hairline)",
-      color: "color-mix(in srgb, var(--ink) 55%, var(--graphite))",
+      color: "var(--pad-words)",
     },
     ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--ink)", borderLeftWidth: "1.5px" },
     "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
@@ -1716,12 +1807,20 @@
     ".cm-completionDetail": { marginLeft: "auto", fontStyle: "normal", fontSize: "var(--t-caption)", color: "var(--pewter)" },
   });
 
+  // The Markdown's mode: the one in use, else the one the notes were last
+  // left in.
+  const modeNow = () => (view && window.MarkdownLive.modeOf(view)) || window.MarkdownLive.rememberedMode("notes");
+
+  // The notepad's own first, so its rows' drawing and keys come before the
+  // engine's.
   const extensions = () => [
     tasksField, keepTasks, focusField, fillerField, drawField, offTheLead, unfoldFirst, wordsToFields,
     fieldHistory, setFields, pasteInside, rowsStayTogether,
     EditorView.focusChangeEffect.of((state, focusing) => setFocus.of(focusing)),
     lineNumbers(),
-    lineNumberWidgetMarker.of((v, widget) => (widget instanceof Filler ? new FillerNumbers(v.state.doc.lines + 1, widget.count) : null)),
+    lineNumberWidgetMarker.of((v, widget, block) => (widget instanceof Filler
+      ? new FillerNumbers(v.state.doc.lines + 1, widget.count)
+      : new BlockNumber(v.state.doc.lineAt(block.from).number))),
     fillToBottom,
     history(),
     drawSelection(),
@@ -1730,6 +1829,8 @@
     EditorView.contentAttributes.of({ "aria-label": "Notes", spellcheck: "true" }),
     escape,
     keys,
+    window.MarkdownLive.extensions({ mode: modeNow(), owns, plain: isTask }),
+    keepTab,
     keymap.of([...defaultKeymap, ...historyKeymap]),
     autocompletion({ override: [offer], icons: false }),
     EditorView.updateListener.of((u) => {
@@ -1795,6 +1896,9 @@
 
   const el = source();
   if (el) load(el);
+  // The day header's switch between the Markdown's modes, and Ctrl+E.
+  const modes = document.querySelector(".today-page [data-md-modes]");
+  if (el && modes) window.MarkdownLive.bindSwitch(modes, () => view, "notes");
   // For the page's tests: the notes as written.
   window.Notepad = { get view() { return view; }, text: () => view?.state.doc.toString() ?? "" };
 })();
