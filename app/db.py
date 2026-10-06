@@ -22,21 +22,58 @@ class Base(DeclarativeBase):
     pass
 
 
-def _set_sqlite_pragmas(dbapi_connection, connection_record) -> None:  # noqa: ANN001
+def _pragmas(dbapi_connection, *, foreign_keys: bool) -> None:  # noqa: ANN001
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute(f"PRAGMA foreign_keys={'ON' if foreign_keys else 'OFF'}")
     cursor.execute("PRAGMA busy_timeout=5000")
     cursor.close()
 
 
+def _set_sqlite_pragmas(dbapi_connection, connection_record) -> None:  # noqa: ANN001
+    _pragmas(dbapi_connection, foreign_keys=True)
+
+
+def _url(db_url: str | None) -> str:
+    if db_url is not None:
+        return db_url
+    settings = get_settings()
+    settings.db_path.parent.mkdir(parents=True, exist_ok=True)
+    return f"sqlite:///{settings.db_path}"
+
+
 def make_engine(db_url: str | None = None) -> Engine:
-    if db_url is None:
-        settings = get_settings()
-        settings.db_path.parent.mkdir(parents=True, exist_ok=True)
-        db_url = f"sqlite:///{settings.db_path}"
-    engine = create_engine(db_url)
+    engine = create_engine(_url(db_url))
     event.listen(engine, "connect", _set_sqlite_pragmas)
+    return engine
+
+
+def make_migration_engine(db_url: str | None = None) -> Engine:
+    """The engine the migrations run on (migrations/env.py), unlike the app's
+    in two ways.
+
+    Foreign keys are off, as SQLite's own way of changing a table asks:
+    Alembic changes one by copying it and dropping the original, and with
+    them on, the drop first deletes the table's rows, and on cascade the rows
+    that refer to them (a task's updates, pull requests and runs).
+
+    And its DDL is transactional: pysqlite left to itself runs each CREATE,
+    ALTER and DROP outside any transaction, so a migration that failed
+    halfway kept what it had done. Here the BEGIN is the engine's own
+    (SQLAlchemy's recipe for pysqlite), and everything an upgrade does
+    commits or rolls back together."""
+    engine = create_engine(_url(db_url))
+
+    @event.listens_for(engine, "connect")
+    def connect(dbapi_connection, connection_record) -> None:  # noqa: ANN001, ARG001
+        dbapi_connection.isolation_level = None
+        _pragmas(dbapi_connection, foreign_keys=False)
+
+    @event.listens_for(engine, "begin")
+    def begin(connection) -> None:  # noqa: ANN001
+        # The write lock at once: nothing else writes while the schema changes.
+        connection.exec_driver_sql("BEGIN IMMEDIATE")
+
     return engine
 
 

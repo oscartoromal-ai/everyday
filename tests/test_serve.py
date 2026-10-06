@@ -2,7 +2,60 @@ import logging
 import sys
 import threading
 
-from app import serve
+import pytest
+
+from app import migrate, serve
+from app.config import get_settings
+
+
+class StartedServers:
+    """Servers that come up (or not, `up`), and stop when told."""
+
+    up = True
+
+    def __init__(self, app) -> None:  # noqa: ANN001
+        self.stopped: list[str] = []
+
+    def start(self) -> None:
+        pass
+
+    def wait_started(self, timeout: float = 30, *, first: bool = False) -> bool:
+        assert first, "the app is up once its first server is"
+        return self.up
+
+    def stop(self, reason: str) -> None:
+        self.stopped.append(reason)
+
+    def join(self, timeout: float | None = None) -> None:
+        pass
+
+    def alive(self) -> bool:
+        return False
+
+
+@pytest.fixture
+def started(monkeypatch):  # noqa: ANN201
+    """serve.main over servers that pretend, and what it then did about the
+    migration its start made: confirmed it, or put it back."""
+    did: list[str] = []
+    monkeypatch.setattr(serve, "prepare", lambda: None)
+    monkeypatch.setattr(serve, "Servers", StartedServers)
+    monkeypatch.setattr(migrate, "confirm", lambda path: did.append(f"confirmed {path}"))
+    monkeypatch.setattr(migrate, "go_back", lambda path: did.append(f"put back {path}") or True)
+    return did
+
+
+def test_a_start_that_serves_confirms_what_it_migrated(started) -> None:
+    serve.main()
+    assert started == [f"confirmed {get_settings().db_path}"]
+
+
+def test_a_start_that_cannot_serve_puts_back_what_it_migrated(started, monkeypatch) -> None:
+    # The version before it can then start on the database, rather than
+    # find it migrated past what it knows.
+    monkeypatch.setattr(StartedServers, "up", False)
+    serve.main()
+    assert started == [f"put back {get_settings().db_path}"]
 
 
 def test_the_hidden_app_logs_to_a_file(tmp_path, monkeypatch) -> None:

@@ -33,6 +33,9 @@ from app.main import create_app
 
 log = logging.getLogger(__name__)
 
+# How long servers told to stop, having failed to start, have to.
+STOP_SECONDS = 10
+
 
 def _bind_hosts() -> list[str]:
     settings = get_settings()
@@ -100,14 +103,18 @@ class Servers:
         for thread in self.threads:
             thread.start()
 
-    def wait_started(self, timeout: float = 30) -> bool:
-        """Whether every server is answering; False when one gave up (its port
-        taken) or the time ran out."""
+    def wait_started(self, timeout: float = 30, *, first: bool = False) -> bool:
+        """Whether every server is answering (or the first, `first`: the one
+        on localhost, which runs the app's lifespan); False when one gave up
+        (its port taken, the app's start failed) or the time ran out."""
+        servers, threads = (
+            (self.servers[:1], self.threads[:1]) if first else (self.servers, self.threads)
+        )
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            if all(server.started for server in self.servers):
+            if all(server.started for server in servers):
                 return True
-            if not all(thread.is_alive() for thread in self.threads):
+            if not all(thread.is_alive() for thread in threads):
                 return False
             time.sleep(0.05)
         return False
@@ -120,9 +127,9 @@ class Servers:
         for server in self.servers:
             server.should_exit = True
 
-    def join(self) -> None:
+    def join(self, timeout: float | None = None) -> None:
         for thread in self.threads:
-            thread.join()
+            thread.join(timeout)
 
 
 def prepare() -> FastAPI:
@@ -135,6 +142,8 @@ def prepare() -> FastAPI:
 
 
 def main() -> None:
+    from app import migrate
+
     servers = Servers(prepare())
 
     # Windows delivers a closed console, logoff or shutdown as SIGBREAK.
@@ -144,6 +153,16 @@ def main() -> None:
         )
 
     servers.start()
+    db_path = get_settings().db_path
+    if servers.wait_started(first=True):
+        # Up on its database: a migration this start made is for good.
+        migrate.confirm(db_path)
+    else:
+        # Not up: what this start migrated is put back, for the version
+        # before it to start on (app/migrate.py).
+        servers.stop("could not serve")
+        servers.join(STOP_SECONDS)
+        migrate.go_back(db_path)
     try:
         while servers.alive():
             for t in servers.threads:

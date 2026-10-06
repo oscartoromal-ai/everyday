@@ -572,6 +572,9 @@ APScheduler inside the FastAPI process; jobs share app code and database session
   Windows only, built with PyInstaller and Inno Setup; a Tauri shell stays the alternative if WebView2 through pywebview falls short.
 - The in-app daily backup job uses SQLite's backup API to write dated snapshots into a cloud-synced folder; retain about 30.
 - Restore is quitting the app and copying a snapshot back over the database file.
+- Migrating as it starts (`app/migrate.py`) never loses data, as it runs unattended on every update.
+  An upgrade is one transaction, its DDL included, with foreign keys off and checked before it commits: Alembic changes a SQLite table by copying it and dropping the original, and with the keys on the drop deleted the rows that refer to it, on cascade.
+  The database is copied before it is migrated (the last five kept), and the migration stays unconfirmed until the version that made it has come up; should it not, that version puts the database back, or the version before it does on starting, rather than refuse a database it cannot read.
 
 ### Security and remote access
 

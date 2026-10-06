@@ -74,6 +74,44 @@ def test_the_installer_can_ask_it_to_quit() -> None:
     assert shell.quit_reason == "asked to (an installer)"
 
 
+def test_a_version_up_confirms_its_migration_and_outlives_a_failed_take_over(monkeypatch) -> None:
+    # The app it replaced is going by now: failing to take over the install
+    # must not take this one down too.
+    import app.desktop as desktop
+    from app import migrate
+
+    did: list[str] = []
+    monkeypatch.setattr(migrate, "confirm", lambda path: did.append("confirmed"))
+    monkeypatch.setattr(desktop.update, "build_info", lambda: {"commit": "2222222"})
+
+    def held(exe: Path, version: str) -> None:
+        raise PermissionError(13, "The process cannot access the file", "current.txt")
+
+    monkeypatch.setattr(desktop.update, "take_over", held)
+
+    desktop.Shell._settle_in(object.__new__(desktop.Shell))
+
+    assert did == ["confirmed"]
+
+
+def test_a_start_that_fails_puts_the_database_back(monkeypatch) -> None:
+    import app.desktop as desktop
+    from app import migrate
+    from app.config import get_settings
+
+    put_back: list[Path] = []
+    monkeypatch.setattr(migrate, "go_back", lambda path: put_back.append(path) or True)
+    desktop._put_back()
+    assert put_back == [get_settings().db_path]
+
+    # Nor does one that cannot put it back take the start's failure further.
+    def locked(path: Path) -> bool:
+        raise PermissionError(13, "The process cannot access the file", str(path))
+
+    monkeypatch.setattr(migrate, "go_back", locked)
+    desktop._put_back()
+
+
 def test_the_taskbar_badge_counts_to_nine_then_nine_plus() -> None:
     for count in (1, 9, 10, 99):
         image = win32.badge_image(count, 24)

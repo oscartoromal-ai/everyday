@@ -46,7 +46,7 @@ An update whose libraries are the running version's (`uv.lock` and the freezing 
 Pressing Restart restarts the app on the new version in about a second: the new version, started beforehand to stand by with its code and window loaded, comes up where the old window was, at the same page, over it, and the old one goes; its database migrates as it takes over.
 Only commits go into an update, never uncommitted work, which is built in a worktree of the app's own (`data/update-worktree`, kept between updates with its Python environment) by the app's own copy of `desktop/update.ps1`, bundled with it.
 If the build or the restart fails, the button says so and offers Retry (a commit that failed is not built again by itself, only once master moves on); why is in `data/logs/update.log` (the build), `data/logs/update-console.log` (a script that would not run at all) or `data/logs/personal-calendar.log` (the restart, and `standby.log` for the version standing by) in the app's home.
-A restart that fails comes back up on the version it was running.
+A restart that fails comes back up on the version it was running, with the database as that version left it: an update that migrated the database and then did not come up has it put back (see [Where the data lives](#where-the-data-lives)).
 **Update** shows only when the app has not started one itself; Settings' Check for updates looks at GitHub at once.
 Windows' Installed apps lists the version with the commit it was built from.
 
@@ -87,6 +87,9 @@ After changing `app/static/favicon.svg`, redraw the icons with `uv run python sc
 Everything the app keeps lives under its home, `%LOCALAPPDATA%\Personal Calendar`:
 
 - `data/personal-calendar.db`: the database, created and migrated by the app as it starts; an app older than its database refuses to start rather than touch it.
+  A migration is one transaction, with the links between tables off while it runs and checked before it commits, so one that fails leaves the database as it was.
+- `data/before-migrating/`: the database as it was before each of the last five migrations, copied first.
+  Until the version that migrated it has come up, `unconfirmed.json` there names the copy; should that version not come up, it puts the database back, and so does the version before it on starting, rather than refuse it.
 - `data/logs/personal-calendar.log`: what the app logs, rotated at 5 MB, five kept, including why it stopped.
 - `data/desktop.json` and `data/webview/`: the window's place and the window's own browser storage (theme, sidebar, compact rows).
 - `data/improve/`: the daily improvement scan's reports, ledger and brief, and its checkout of master (see [Improving itself](#improving-itself)).
@@ -317,6 +320,7 @@ The phone reaches the app over Tailscale, with no port forwarding and no public 
 A daily job (03:30 local time) snapshots the database with SQLite's backup API into the directory configured at `[backup].dir`, `backups/` in the app's home by default.
 Point `dir` at a cloud-synced folder for off-machine durability; the exact path is TBD, Oscar's to set.
 Snapshots are named `personal-calendar-YYYY-MM-DD.db`; the job keeps the newest `[backup].retain` of them (30 by default) and prunes the rest.
+The database is also copied just before each migration, into `data/before-migrating/` in the app's home (the last five kept), named after when and from which revision.
 
 To restore:
 

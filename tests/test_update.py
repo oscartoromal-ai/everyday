@@ -445,6 +445,31 @@ def test_the_version_coming_up_takes_over_the_install(tmp_path, installed_apps) 
     assert installed_apps["DisplayVersion"] == "0.1.0 (2222222)"
 
 
+def test_a_current_txt_held_a_moment_elsewhere_is_still_written(
+    tmp_path, installed_apps, monkeypatch
+) -> None:
+    # An antivirus or an indexer opening current.txt as it is replaced: the
+    # version coming up tries again, rather than fail with the app it
+    # replaced already gone.
+    install = installed_at(tmp_path, "app-1111111", "app-2222222")
+    installed_apps.update(InstallLocation=f"{install}\\", DisplayVersion="0.1.0 (1111111)")
+    replace, refused = update.os.replace, []
+
+    def held(source, target) -> None:  # noqa: ANN001
+        if len(refused) < 2:
+            refused.append(target)
+            raise PermissionError(13, "The process cannot access the file", str(target))
+        replace(source, target)
+
+    monkeypatch.setattr(update.os, "replace", held)
+    monkeypatch.setattr(update.time, "sleep", lambda seconds: None)
+
+    update.take_over(install / "app-2222222" / "Personal Calendar.exe", "0.1.0 (2222222)")
+
+    assert len(refused) == 2
+    assert (install / "current.txt").read_text(encoding="utf-8") == "app-2222222"
+
+
 def test_a_version_the_launcher_started_is_the_install_already(tmp_path, installed_apps) -> None:
     install = installed_at(tmp_path, "app-2222222")
     installed_apps.update(InstallLocation=f"{install}\\", DisplayVersion="as installed")

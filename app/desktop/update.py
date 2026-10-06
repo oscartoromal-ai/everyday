@@ -60,6 +60,8 @@ BRANCH = "master"
 # What the install's folder holds besides its versions (desktop/installer.iss).
 LAUNCHER = "Personal Calendar.exe"
 CURRENT = "current.txt"
+# Writes of current.txt tried, before taking over is given up.
+TAKE_OVER_TRIES = 10
 VERSION_PREFIX = "app-"
 # Inno Setup's entry for the app in Installed apps: its AppId, then _is1.
 UNINSTALL_KEY = (
@@ -118,10 +120,18 @@ def take_over(exe: Path, version: str) -> None:
             return
     except OSError:
         pass
-    # Whole or not at all, for a launcher reading it meanwhile.
+    # Whole or not at all, for a launcher reading it meanwhile; tried again
+    # a few times, should something else (an antivirus, an indexer) hold it.
     staging = current.with_suffix(".tmp")
-    staging.write_text(exe.parent.name, encoding="utf-8")
-    os.replace(staging, current)
+    for attempt in range(TAKE_OVER_TRIES):
+        try:
+            staging.write_text(exe.parent.name, encoding="utf-8")
+            os.replace(staging, current)
+            break
+        except OSError:
+            if attempt == TAKE_OVER_TRIES - 1:
+                raise
+            time.sleep(0.2)
     try:
         access = winreg.KEY_QUERY_VALUE | winreg.KEY_SET_VALUE
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY, 0, access) as key:

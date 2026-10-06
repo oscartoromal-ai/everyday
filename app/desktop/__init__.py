@@ -92,6 +92,17 @@ def claim(instance: str, timeout: float) -> bool:
     return True
 
 
+def _put_back() -> None:
+    """A start that failed after migrating the database puts it back as it
+    was, for the version before this one to start on (app/migrate.py)."""
+    from app import migrate
+
+    try:
+        migrate.go_back(get_settings().db_path)
+    except Exception:
+        log.exception("Could not put the database back as it was before migrating")
+
+
 class Shell:
     """The window and the tray icon, over the app's server at `url`."""
 
@@ -215,13 +226,28 @@ class Shell:
             handoff = win32.Signal(f"{self.instance}.Handoff")
             handoff.set()
             handoff.close()
-        info = update.build_info()
-        if info:
-            update.take_over(Path(sys.executable), info.get("version", info["commit"]))
+        self._settle_in()
         threading.Thread(target=self._count_nudges, name="taskbar-badge", daemon=True).start()
         if self.updater:
             threading.Thread(target=self._watch_updates, name="watch updates", daemon=True).start()
         self.tray.start()
+
+    def _settle_in(self) -> None:
+        """Up: the migration this start made, if any, confirmed, then this
+        version made the installed one. Neither may take the app down, as
+        the one it replaced is going: a failure is logged."""
+        from app import migrate
+
+        try:
+            migrate.confirm(get_settings().db_path)
+        except OSError:
+            log.exception("Could not confirm the database's migration")
+        info = update.build_info()
+        if info:
+            try:
+                update.take_over(Path(sys.executable), info.get("version", info["commit"]))
+            except OSError:
+                log.exception("Could not make this version the installed one")
 
     def _place(self, background: bool) -> None:
         placement = self.state.get("placement")
@@ -284,6 +310,7 @@ class Shell:
             self._fail(f"This version of {NAME} is older than its data.\n\n{exc}")
         except Exception as exc:
             log.exception("Could not start")
+            _put_back()
             self._fail(f"{NAME} could not start.\n\n{exc}")
         return False
 
@@ -308,6 +335,8 @@ class Shell:
         self.servers.start()
         if not self.servers.wait_started():
             self.servers.stop("could not serve")
+            self.servers.join(serve.STOP_SECONDS)
+            _put_back()
             self._fail(f"{NAME} could not serve on {self.url}: is another copy of it running?")
             return False
         return True
