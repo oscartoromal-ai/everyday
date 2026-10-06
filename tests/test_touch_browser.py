@@ -22,9 +22,20 @@ def finger(page, locator, *, swipe: float = 0) -> None:
     """A finger put on the middle of `locator` and lifted, `swipe` pixels
     higher (scrolling the page down), as the browser has it from a screen.
     A swiping finger stops before it is lifted, so the page does not glide
-    on: a finger put on a gliding page only stops it, as on a phone."""
+    on: a finger put on a gliding page only stops it, as on a phone.
+
+    The target is brought to the middle of the screen first, as a person
+    would before touching it: left where it was, it may sit under the
+    sheet's sticky headings or the tab bar, still "visible" to the browser,
+    and the finger would land on those instead (which day's row that
+    happens to depends on the date)."""
+    locator.evaluate(
+        "e => e.scrollIntoView({block: 'center', inline: 'center', behavior: 'instant'})"
+    )
     box = locator.bounding_box()
     x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    landed = locator.evaluate("(e, [x, y]) => e.contains(document.elementFromPoint(x, y))", [x, y])
+    assert landed, f"a finger at ({x:.0f}, {y:.0f}) lands on something covering {locator}"
     cdp = page.context.new_cdp_session(page)
 
     def touch(kind: str, *points: dict) -> None:
