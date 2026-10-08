@@ -49,7 +49,8 @@ def claim_single_instance(name: str) -> bool:
 
 def release_single_instance() -> None:
     """The claim given up while this process carries on, for the updated app
-    taking its place to make."""
+    taking its place to make, or, as this one fails to start, the app it
+    would have replaced."""
     global _mutex
     if _mutex:
         kernel32.CloseHandle(_mutex)

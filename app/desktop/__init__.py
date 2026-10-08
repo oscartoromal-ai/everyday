@@ -342,9 +342,13 @@ class Shell:
         return True
 
     def _fail(self, message: str) -> None:
-        """It cannot come up: says why, unless a standby (the app restarting
-        on it carries on, and tells), and quits."""
-        if not self.waiting:
+        """It cannot come up: lets go of its claim at once, says why, unless
+        started for a restart (the app restarting on it carries on, and
+        tells), and quits. Held behind the message, the claim kept the app
+        restarting from falling back to its own version, and the app was
+        down until the message was answered."""
+        win32.release_single_instance()
+        if not (self.waiting or self.replacing):
             from app import serve
 
             win32.message_box(NAME, f"{message}\n\nLog: {serve.log_path()}")
