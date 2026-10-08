@@ -37,7 +37,7 @@ import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import webview
 from fastapi import APIRouter, HTTPException, Request
@@ -161,7 +161,6 @@ class Shell:
         self.window = webview.create_window(
             NAME,
             html=PLACEHOLDER.format(paper=paper, name=NAME),
-            js_api=Api(self),
             width=1280,
             height=860,
             min_size=(400, 520),
@@ -175,6 +174,7 @@ class Shell:
         )
         self.window.events.closing += self._on_closing
         self.window.events.loaded += self._on_loaded
+        self.window.state += self._on_page_report
         return self.window
 
     def started(self, background: bool, page: str) -> None:
@@ -527,6 +527,18 @@ class Shell:
         self.tray.stop()
         self.window.destroy()
 
+    def _on_page_report(self, kind: str, key: str, value: Any) -> None:
+        """What the page reports, setting pywebview's state (shell.js): the
+        title bar it wants, and that a nudge was dismissed. The state's
+        changes go one way, where a call to a js_api is answered, and an
+        answer meant for a page left meanwhile throws in the next one."""
+        if kind != "change":
+            return
+        if key == "titleBar":
+            self.paint_title_bar(value["paper"], value["ink"], bool(value["dark"]), value["title"])
+        elif key == "nudgeDismissed":
+            self.badge_due.set()
+
     def paint_title_bar(self, paper: str, ink: str, dark: bool, title: str | None = None) -> None:
         win32.paint_title_bar(self.hwnd, paper, ink, dark)
         if title:
@@ -555,19 +567,6 @@ class Shell:
                 log.exception("Counting the nudges failed")
             self.badge_due.wait(BADGE_SECONDS)
             self.badge_due.clear()
-
-
-class Api:
-    """What the page calls (window.pywebview.api, from shell.js)."""
-
-    def __init__(self, shell: Shell) -> None:
-        self._shell = shell
-
-    def title_bar(self, paper: str, ink: str, dark: bool, title: str) -> None:
-        self._shell.paint_title_bar(paper, ink, dark, title)
-
-    def nudges_changed(self) -> None:
-        self._shell.badge_due.set()
 
 
 class OpenRequest(BaseModel):
