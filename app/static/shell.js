@@ -808,17 +808,26 @@
     document.addEventListener("DOMContentLoaded", openCapture);
   }
 
-  const desktop = () => window.pywebview?.api;
+  // The page tells the app by setting pywebview's state, which goes one way:
+  // a js_api call is answered, and an answer arriving after the page has
+  // gone throws in the next one.
+  const desktop = () => window.pywebview?.state;
   paintTitleBar = () => {
+    const app = desktop();
+    if (!app) return;
     const style = getComputedStyle(root);
-    desktop()?.title_bar(
-      style.getPropertyValue("--paper").trim(), style.getPropertyValue("--ink").trim(), isDark(), document.title,
-    );
+    app.titleBar = {
+      paper: style.getPropertyValue("--paper").trim(),
+      ink: style.getPropertyValue("--ink").trim(),
+      dark: isDark(),
+      title: document.title,
+    };
   };
   // pywebview's bridge usually comes in after this script has run.
-  if (desktop()?.title_bar) paintTitleBar();
+  if (desktop()) paintTitleBar();
   else window.addEventListener("pywebviewready", paintTitleBar);
   document.addEventListener("htmx:afterRequest", (e) => {
-    if (/\/ui\/nudges\/\d+\/dismiss$/.test(e.detail.pathInfo?.requestPath ?? "")) desktop()?.nudges_changed();
+    const app = desktop();
+    if (app && /\/ui\/nudges\/\d+\/dismiss$/.test(e.detail.pathInfo?.requestPath ?? "")) app.nudgeDismissed = Date.now();
   });
 })();

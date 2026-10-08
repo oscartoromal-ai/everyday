@@ -183,6 +183,52 @@ def test_the_handoff_wait_ends_when_the_new_app_exits_without_signalling() -> No
         signal.close()
 
 
+def test_the_page_reports_to_the_window_without_an_answer_to_miss(monkeypatch) -> None:
+    # Whatever the window evaluates lands in the page open then: an answer
+    # to a js_api call made from Today, arriving as Calendar opens, threw
+    # there (error:413a7f47bf31). The page's reports are pywebview's state,
+    # through its own bridge, which answers nothing back.
+    from webview.errors import JavascriptException
+    from webview.state import State
+    from webview.util import js_bridge_call
+
+    from app import desktop
+
+    evaluated: list[str] = []
+
+    class Window:
+        events = SimpleNamespace(loaded=threading.Event())
+
+        def run_js(self, script: str) -> None:
+            evaluated.append(script)
+
+        def evaluate_js(self, script: str) -> None:
+            evaluated.append(script)
+            raise JavascriptException({"message": "the page has gone"})
+
+    shell = object.__new__(desktop.Shell)
+    shell.badge_due = threading.Event()
+    painted = threading.Event()
+    calls: list[tuple] = []
+
+    def paint(*args) -> None:
+        calls.append(args)
+        painted.set()
+
+    monkeypatch.setattr(shell, "paint_title_bar", paint)
+    window = Window()
+    window.state = State(window)
+    window.state += shell._on_page_report
+
+    bar = {"paper": "#14111e", "ink": "#ece6f5", "dark": True, "title": "Calendar"}
+    js_bridge_call(window, "pywebviewStateUpdate", {"key": "titleBar", "value": bar}, "1")
+    js_bridge_call(window, "pywebviewStateUpdate", {"key": "nudgeDismissed", "value": 1}, "2")
+    assert painted.wait(5)
+    assert shell.badge_due.wait(5)
+    assert calls == [("#14111e", "#ece6f5", True, "Calendar")]
+    assert evaluated == []
+
+
 def test_title_bar_colours_are_windows_colorrefs() -> None:
     assert win32._colorref("#14111e") == 0x1E1114
     assert win32._colorref("#fff") == 0xFFFFFF
