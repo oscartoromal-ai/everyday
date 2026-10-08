@@ -6,6 +6,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -110,6 +111,33 @@ def test_a_start_that_fails_puts_the_database_back(monkeypatch) -> None:
 
     monkeypatch.setattr(migrate, "go_back", locked)
     desktop._put_back()
+
+
+def test_a_start_that_fails_lets_go_of_its_claim_before_any_message(monkeypatch) -> None:
+    # On 2026-10-08 an update that could not migrate held the claim behind
+    # its message, so the version it replaced could not start again, and
+    # the app was down until the message was answered.
+    import app.desktop as desktop
+
+    did: list[str] = []
+    monkeypatch.setattr(desktop.win32, "release_single_instance", lambda: did.append("let go"))
+    monkeypatch.setattr(desktop.win32, "message_box", lambda title, text: did.append("told"))
+
+    def failing(replacing: bool) -> desktop.Shell:
+        shell = object.__new__(desktop.Shell)
+        shell.waiting, shell.replacing = None, replacing
+        shell.window = SimpleNamespace(events=SimpleNamespace(shown=threading.Event()))
+        shell.window.events.shown.set()
+        shell.quit = lambda reason: did.append(reason)
+        return shell
+
+    failing(replacing=False)._fail("It could not start.")
+    assert did == ["let go", "told", "could not start"]
+
+    # Started by the version restarting on it, which carries on and tells.
+    did.clear()
+    failing(replacing=True)._fail("It could not start.")
+    assert did == ["let go", "could not start"]
 
 
 def test_the_taskbar_badge_counts_to_nine_then_nine_plus() -> None:
