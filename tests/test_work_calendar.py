@@ -1,12 +1,17 @@
+import logging
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import httpx
+import pytest
 from sqlalchemy import select
 
+from app.config import get_settings
+from app.jobs import scheduler as jobs
 from app.models import Event, EventSource
 from app.services import work_calendar as work_svc
 from app.sources import ExternalEvent
-from app.sources.ics import IcsWorkCalendarSource
+from app.sources.ics import IcsWorkCalendarSource, WorkCalendarUnreachable
 
 FIXTURE = Path(__file__).parent / "fixtures" / "work.ics"
 TODAY = date(2026, 8, 30)
@@ -77,3 +82,67 @@ def test_sync_upserts_and_deletes_cancellations(db) -> None:
     # Idempotent on a no-change run.
     stats = work_svc.sync(db, ListSource([retitled]), today=TODAY)
     assert stats == {"created": 0, "updated": 0, "deleted": 0}
+
+
+def test_an_unreachable_feed_says_so(monkeypatch) -> None:
+    # As on waking, before the network is back: the name does not resolve.
+    def offline(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        raise httpx.ConnectError("[Errno 11001] getaddrinfo failed")
+
+    monkeypatch.setattr(httpx, "get", offline)
+    source = IcsWorkCalendarSource("https://calendar.example/work.ics")
+    with pytest.raises(WorkCalendarUnreachable):
+        source.fetch(datetime(2026, 8, 30), datetime(2026, 9, 6))
+
+
+POLLS = ["06:30", "12:30", "16:30"]
+
+
+def test_a_poll_is_due_once_its_time_has_passed() -> None:
+    assert work_svc.poll_due(POLLS, None, datetime(2026, 10, 10, 9, 0))
+    morning = datetime(2026, 10, 10, 6, 31)
+    assert not work_svc.poll_due(POLLS, morning, datetime(2026, 10, 10, 12, 29))
+    assert work_svc.poll_due(POLLS, morning, datetime(2026, 10, 10, 12, 30))
+    # Asleep through the day's polls: one poll on waking, not one for each.
+    woke = datetime(2026, 10, 10, 19, 40)
+    assert work_svc.poll_due(POLLS, datetime(2026, 10, 9, 16, 31), woke)
+    assert not work_svc.poll_due(POLLS, woke, woke + timedelta(minutes=5))
+    # Past midnight, yesterday's last poll still counts.
+    assert work_svc.poll_due(POLLS, datetime(2026, 10, 9, 12, 31), datetime(2026, 10, 10, 1, 0))
+    assert not work_svc.poll_due([], None, datetime(2026, 10, 10, 9, 0))
+
+
+@pytest.fixture
+def work_feed(tmp_path, monkeypatch):  # noqa: ANN201
+    """A work calendar configured, its feed served from the fixture unless
+    `offline` is set, and the job's last poll forgotten."""
+    url_file = tmp_path / "ics-url.txt"
+    url_file.write_text("https://calendar.example/work.ics", encoding="utf-8")
+    monkeypatch.setattr(get_settings().work_calendar, "ics_url_file", str(url_file))
+    monkeypatch.setattr(jobs, "_work_calendar_polled", None)
+    feed = {"offline": False, "gets": 0}
+
+    def get(url, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        feed["gets"] += 1
+        if feed["offline"]:
+            raise httpx.ConnectError("[Errno 11001] getaddrinfo failed")
+        return httpx.Response(200, content=FIXTURE.read_bytes(), request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx, "get", get)
+    return feed
+
+
+def test_a_poll_on_waking_offline_is_tried_again_once_back(app_db, work_feed, caplog) -> None:
+    work_feed["offline"] = True
+    jobs.run_work_calendar_sync()
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert any("not reached" in r.getMessage() for r in caplog.records)
+
+    work_feed["offline"] = False
+    jobs.run_work_calendar_sync()
+    with app_db() as db:
+        assert db.scalars(select(Event).where(Event.source == EventSource.work)).first()
+
+    # Reached, it waits for the next poll time.
+    jobs.run_work_calendar_sync()
+    assert work_feed["gets"] == 2

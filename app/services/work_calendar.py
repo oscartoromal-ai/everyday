@@ -25,6 +25,20 @@ def sync_window(today: date) -> tuple[datetime, datetime]:
     return start, end
 
 
+def poll_due(poll_times: list[str], last_polled: datetime | None, now: datetime) -> bool:
+    """Whether a poll time ("HH:MM") has passed since the last poll, or the
+    app has not polled since it started."""
+    if not poll_times or last_polled is None:
+        return bool(poll_times)
+    for day in (now.date(), now.date() - timedelta(days=1)):
+        for poll_time in poll_times:
+            hour, minute = poll_time.split(":")
+            at = datetime.combine(day, time(int(hour), int(minute)))
+            if last_polled < at <= now:
+                return True
+    return False
+
+
 def sync(db: Session, source: WorkCalendarSource, *, today: date | None = None) -> dict[str, int]:
     today = today or date.today()
     window_start, window_end = sync_window(today)
