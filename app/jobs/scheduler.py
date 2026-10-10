@@ -28,6 +28,8 @@ from app.services import work_calendar as work_calendar_svc
 
 log = logging.getLogger(__name__)
 
+WORK_CALENDAR_LOOK_MINUTES = 5
+
 def run_materialize_recurrence() -> None:
     with session_scope() as db:
         created = recurrence_svc.materialize_all(db)
@@ -35,16 +37,38 @@ def run_materialize_recurrence() -> None:
             log.info("Materialized %d recurrence occurrence(s)", created)
 
 
+# When the work calendar was last polled, reached or not there to reach;
+# None until the first poll after starting.
+_work_calendar_polled: datetime | None = None
+
+
 def run_work_calendar_sync() -> None:
+    """The work calendar polled once a poll time has passed. Unreached (as on
+    waking, before the network is back), it is tried again at the next look."""
+    global _work_calendar_polled
+    now = datetime.now()
+    poll_times = get_settings().work_calendar.poll_times
+    if not work_calendar_svc.poll_due(poll_times, _work_calendar_polled, now):
+        return
     url = get_settings().ics_url
     if not url:
         log.info("Work-calendar sync skipped: no ICS URL configured")
+        _work_calendar_polled = now
         return
-    from app.sources.ics import IcsWorkCalendarSource
+    from app.sources.ics import IcsWorkCalendarSource, WorkCalendarUnreachable
 
-    with session_scope() as db:
-        stats = work_calendar_svc.sync(db, IcsWorkCalendarSource(url))
-        log.info("Work-calendar sync: %s", stats)
+    try:
+        with session_scope() as db:
+            stats = work_calendar_svc.sync(db, IcsWorkCalendarSource(url))
+    except WorkCalendarUnreachable as exc:
+        log.warning("Work calendar not reached, trying again shortly: %s", exc)
+        return
+    except Exception:
+        # Any other failure waits for the next poll time, not the next look.
+        _work_calendar_polled = now
+        raise
+    _work_calendar_polled = now
+    log.info("Work-calendar sync: %s", stats)
 
 
 def run_nudge_evaluation() -> None:
@@ -148,13 +172,14 @@ def create_scheduler() -> BackgroundScheduler:
         id="materialize_recurrence",
         next_run_time=datetime.now(),  # catch up at startup too
     )
-    for poll_time in get_settings().work_calendar.poll_times:
-        hour, minute = poll_time.split(":")
-        scheduler.add_job(
-            run_work_calendar_sync,
-            CronTrigger(hour=int(hour), minute=int(minute)),
-            id=f"work_calendar_sync_{poll_time.replace(':', '')}",
-        )
+    # Looked at often, so a poll runs soon after its time, after the machine
+    # wakes, and again soon when the calendar could not be reached.
+    scheduler.add_job(
+        run_work_calendar_sync,
+        IntervalTrigger(minutes=WORK_CALENDAR_LOOK_MINUTES),
+        id="work_calendar_sync",
+        next_run_time=datetime.now() + timedelta(seconds=50),  # catch up at startup too
+    )
     scheduler.add_job(
         run_nudge_evaluation,
         IntervalTrigger(minutes=15),

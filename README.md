@@ -294,6 +294,7 @@ The work calendar syncs in read-only, via a published ICS feed, subject/time/loc
 2. Save that URL, and nothing else, into `local/work-calendar-ics-url.txt` in the app's home.
    The app reads it at runtime and it never enters the repo or the tracker.
 3. Poll times are set in `config.toml` under `[work_calendar]`, morning-weighted by default (`06:30`, `12:30`, `16:30`).
+   The app also polls soon after it starts, once on waking for the polls it slept through, and again every few minutes while the feed cannot be reached.
 4. To sync outside the scheduled times, use the "Sync work" button on the calendar page.
 
 ## Phone push setup

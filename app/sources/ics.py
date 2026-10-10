@@ -11,6 +11,10 @@ from icalendar import Calendar
 from app.sources import ExternalEvent
 
 
+class WorkCalendarUnreachable(Exception):
+    """The feed could not be reached: offline, or the network not up yet."""
+
+
 def _to_local_naive(value: datetime | date) -> tuple[datetime, bool]:
     """(naive local datetime, is_all_day). Date-only values mean all-day."""
     if isinstance(value, datetime):
@@ -26,7 +30,10 @@ class IcsWorkCalendarSource:
         self._timeout = timeout
 
     def _download(self) -> bytes:
-        response = httpx.get(self._url, timeout=self._timeout, follow_redirects=True)
+        try:
+            response = httpx.get(self._url, timeout=self._timeout, follow_redirects=True)
+        except httpx.TransportError as exc:
+            raise WorkCalendarUnreachable(str(exc)) from exc
         response.raise_for_status()
         return response.content
 
