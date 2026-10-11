@@ -77,7 +77,8 @@ def test_it_expands_and_collapses_and_is_remembered(browser_page, served) -> Non
     page.goto(f"{served}/today")
     panel = page.locator("#agent-panel")
     assert not is_open(page) and not panel.is_visible()
-    assert page.evaluate("document.getElementById('agent-panel').inert")
+    # Collapsed, the sidebar's panes are out of the tab order.
+    assert page.evaluate("document.getElementById('agent-panel').closest('[inert]') !== null")
 
     # The sidebar's Agent: docked open, its message in focus.
     page.locator(".rail-button[data-agent-toggle]").click()

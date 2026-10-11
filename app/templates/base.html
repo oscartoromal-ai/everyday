@@ -193,13 +193,41 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
   <main class="main">
     {% block content %}{% endblock %}
   </main>
-  {% if agent_ctx %}
-  {# The agent window: a chat with Claude or Codex beside every page, docked at
-     the right (floating over a narrower window, the whole screen on a phone),
-     expanded or collapsed by the sidebar's Agent, its own Collapse, or A
-     (shell.js), remembered as pc-agent. Collapsed, it is out of the tab order. #}
-  <aside class="agent-panel" id="agent-panel" aria-label="Agent window">
-    {% with window = agent_ctx %}{% include "partials/agent_panel.html" %}{% endwith %}
+  {# A page's own panes' icons, drawn in the sidebar's strip below (never here). #}
+  {% if false %}{% block side_tabs %}{% endblock %}{% endif %}
+  {% set side_tabs = self.side_tabs() | trim %}
+  {% if agent_ctx or side_tabs %}
+  {# The sidebar at the right: the agent window, a chat with Claude or Codex
+     beside every page, and the page's own panes (a task's agent work, its
+     outline and history), docked at the right (floating over a narrower
+     window, the whole screen on a phone), expanded or collapsed by the
+     sidebar's Agent, a pane's Collapse, or A (shell.js), remembered as
+     pc-agent. A page with panes of its own has a strip of their icons down
+     the sidebar's edge, staying while the panes collapse: an icon shows its
+     pane, and the shown pane's icon collapses them (Oscar's call on
+     2026-10-11). Collapsed, the panes are out of the tab order. #}
+  <aside class="side" id="side" aria-label="Sidebar"{% if side_tabs %} data-tabbed{% endif %}>
+    {% if side_tabs %}
+    <div class="side-tabs" role="tablist" aria-label="Sidebar" aria-orientation="vertical">
+      {{ side_tabs | safe }}
+      {% if agent_ctx %}
+      <button type="button" class="side-tab" role="tab" id="side-tab-chat" data-side-tab="chat"
+              aria-controls="agent-panel" aria-selected="false" title="{{ keys.title('Agent', 'app.agent') }}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3.5c.5 4.4 2.1 6 6.5 6.5-4.4.5-6 2.1-6.5 6.5-.5-4.4-2.1-6-6.5-6.5 4.4-.5 6-2.1 6.5-6.5z"/><path d="M18 15.5c.25 1.9.85 2.5 2.5 2.75-1.65.25-2.25.85-2.5 2.75-.25-1.9-.85-2.5-2.5-2.75 1.65-.25 2.25-.85 2.5-2.75z"/></svg>
+        <span class="agent-open__dot" aria-hidden="true"></span>
+      </button>
+      {% endif %}
+    </div>
+    {% endif %}
+    <div class="side-panes">
+      {% if agent_ctx %}
+      <section class="agent-panel side-pane" id="agent-panel" data-side-pane="chat" aria-label="Agent window"
+               {%- if side_tabs %} role="tabpanel" aria-labelledby="side-tab-chat" hidden{% endif %}>
+        {% with window = agent_ctx %}{% include "partials/agent_panel.html" %}{% endwith %}
+      </section>
+      {% endif %}
+      {% block side_panes %}{% endblock %}
+    </div>
   </aside>
   {% endif %}
 </div>

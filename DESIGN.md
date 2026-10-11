@@ -270,7 +270,10 @@ The composer ends the card: the message written on the line (a textarea that gro
 Under 1100px the page is one column: the header, the chat (its messages up to half the window's height), then the log.
 
 **The agent window** (`partials/agent_panel.html`, in `base.html`, beside every page).
-A chat with Claude or Codex, expanded or collapsed by the sidebar's Agent, its own Collapse or A, remembered as `pc-agent` and applied before paint.
+A chat with Claude or Codex, the first pane of the sidebar at the right (`.side`), expanded or collapsed by the sidebar's Agent, its own Collapse or A, remembered as `pc-agent` and applied before paint.
+A page with panes of its own (a task's) adds them to the sidebar, one shown at a time, with a 44px strip of their 32px steel icons down the sidebar's left edge, the agent window's sparkle last (Oscar's call on 2026-10-11, so the chat and a task's work share the right instead of fighting for it).
+On a window 1100px or wider the strip stays when the panes collapse, the column 44px; an icon shows its pane (the sidebar opening on it), and the shown pane's icon, in ink on the glass hover with the sidebar's spark at its edge, collapses them; Up and Down step through the icons.
+The pane last shown is remembered (`pc-side-pane`); A and the sidebar's Agent show the chat.
 Expanded on a window 1100px or wider it docks as the shell's third column, 400px, the sidebar's matte flank mirrored (`--chrome-flank`, its edge a flank border on its left), the column opening and closing over the sidebar's 220ms; its parts keep their width as the column moves, so it slides rather than reflows, and the page's own column narrows beside it.
 Narrower, it floats over the page's right edge instead, 400px of opaque paper with the dropdown shadow, sliding in over the same 220ms; on a phone it takes the whole screen, over the tab bar.
 Collapsed it is hidden and inert, out of the tab order.
@@ -448,12 +451,27 @@ Then its account, where its CLI is, written on the line (its placeholder the com
 "Used for" follows, a row a use: its model and its effort as two selects on the line; then "Checked", when, and a quiet Check again.
 In Settings, between Modules and Version, a row as Version's is: each provider's name in 500 and its badge, and "Set up ›" at its right.
 
-**A task's page** (`task.html`, the task sheet in its page mode).
-At the page's 800px: a header of a pewter "‹ Calendar" (where it was opened from) and, at its right, a 12px pewter "Saved" once a save lands ("Not saved" and a toast if one fails), nothing while the writing is unsaved, so the page stays still as it is written.
+**A task's page** (`task.html`, the task sheet in its page mode; Oscar's pick of the prototypes on 2026-10-11, kept on the branch `prototype/task-page-map`).
+It takes the window's whole width: the map of its project down the left, a 272px column with a hairline at its right that scrolls on its own, and the task as a document over the rest, kept to 1040px and centred there.
+A content column narrower than 820px (the sidebar open on a smaller window, a phone) keeps the document alone.
+The map (`partials/task_map.html`): the project at its head (its flag in its colour, its name in 16px/600 ink, a way to its page), then "Context" and "Workstreams" as 12px/600 pewter headings.
+Context is the project's documents as its page's tree has them, AGENTS.md first, folders folded behind a steel chevron; Workstreams each a row (chevron, a three-line steel icon, the name in 14px graphite, its open tasks' count in pewter at the right), folded but for the task's own, each unfolding to its open tasks in the Tasks tab's order and, folded under them, "N done", the last two weeks' finished ones.
+A task's row is a 12px box drawn as its sheet's (in progress edged in blue and filled, in review in amber, blocked edged in red, done in ink with its tick) and its title on one line, Claude's with a steel robot after it; finished ones pewter, cancelled struck through.
+The task itself is in 600 ink on the hover fill with the map's one spark, a 3px bar at its left edge, as the sidebar's current page has.
+Rows are 28px, a level 16px in; folds are remembered (`pc-map-folds`), the task's own workstream always opening.
+The task itself has what it holds under it, a level in: Description (a document icon, the document open when it is), then its files as a tree (folders open, behind their chevrons; files by name), and last a line to add one, a steel plus and "New file" in pewter, written on in place.
+The document open, the description or a file, has the map's spark, the task's own row its 600 ink.
+A task in no project has "No project" at the head and itself alone.
+In the document: a header of a pewter "‹ Calendar" (where it was opened from) and, at its right, a 12px pewter "Saved" once a save lands ("Not saved" and a toast if one fails), nothing while the writing is unsaved, so the page stays still as it is written.
 Then the sheet with no row around it: the 18px box beside the title, the title as the page's heading (24px/600 display, 32px lines, wrapping), and under it, aligned with the title's words, every field on one line as the sheet's end line draws them (the four field icons, project, owner, status once it applies, History, and the bin at the line's right), above a hairline.
-History opens under that line, above another hairline.
-The description follows 16px below at reading size, 16px on 1.6 lines in graphite, at least 40% of the window tall and as long as it runs: the page scrolls, never the editor.
+History opens the sidebar's History pane.
+The description follows 16px below at reading size, 16px on 1.6 lines in graphite, at least half the window tall and as long as it runs: the page scrolls, never the editor.
 A new task opens with the caret in its empty description, whose placeholder asks for the context, the plan and what done looks like.
+Its agent work, its outline and its history are panes of the sidebar at the right (see The agent window): Agent work (a robot), Outline (three lines) and History (a clock), above the agent window's sparkle.
+Each pane's head is the agent window's: its name in 16px/600 ink, a 12px pewter line under it ("Claude's task, not launched yet", "Its description's headings", "How it changed, newest first") and Collapse.
+Agent work, for Oscar's own task, says it is his and has Hand to an agent, which makes it Claude's (the sheet's owner, saved as its menu saves it); for Claude's, its work in the order the work goes, each field its name in 12px graphite over its value on a flank border: Brief (Repositories as toggles, Acceptance criteria written on the line), the primary Launch (dimmed while it cannot), its runs once there are any, Pull requests (a chip and `owner/name#number` each, its title under it, and a line to add one), Outcome once it ran, and Updates.
+A file of the task's opens in the document's place, as a project's document is on its page: "‹" and the task's title back to it, "Saved" and the Markdown's modes at the header's right, its name as the heading written in place with its bin at the right, "A file of this task's" and where it is on disk in a pewter line, then its Markdown at reading size; renamed, its address and its row on the map follow.
+Outline lists the open document's headings, each a 28px row, a level 14px in, the top level in 500 ink; a heading's row puts the caret on its line, at the window's top.
 
 **Nudges.** A glass card of rows with graphite icons, a secondary "Open" action and a steel dismiss control.
 

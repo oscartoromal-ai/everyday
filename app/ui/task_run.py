@@ -12,7 +12,7 @@ from fastapi.responses import Response
 
 from app.api.tasks import get_runner
 from app.db import DbSession
-from app.models import TaskStatus
+from app.models import TaskOwner, TaskStatus
 from app.services import task_launch, task_runs
 from app.services import tasks as tasks_svc
 from app.sources.github import GitHubAccount, account
@@ -50,6 +50,13 @@ def save_text(
     fields = {k: v.replace("\r\n", "\n") for k, v in
               (("acceptance", acceptance), ("outcome", outcome)) if v is not None}
     tasks_svc.update_task(db, task_id, **fields)
+
+
+@router.post("/ui/tasks/{task_id}/owner", status_code=204)
+def save_owner(db: DbSession, task_id: int, owner: Annotated[TaskOwner, Form()]) -> None:
+    """Whose task it is, from its agent work pane where its page shows one
+    of its files, not its sheet (Hand to an agent; task-page.js)."""
+    tasks_svc.update_task(db, task_id, owner=owner)
 
 
 @router.post("/ui/tasks/{task_id}/repos")

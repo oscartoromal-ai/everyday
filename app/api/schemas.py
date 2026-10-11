@@ -138,6 +138,10 @@ class TaskOut(BaseModel):
     repos: list[str] = []
     pull_requests: list[PullRequestOut] = []
     runs: list[RunOut] = []
+    # Its files (app.services.task_files): the folder they are in, or will
+    # be in once it has one, and each one's path there.
+    files_folder: str = ""
+    files: list[str] = []
 
     @field_validator("repos", mode="before")
     @classmethod

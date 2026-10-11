@@ -12,7 +12,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.models import Task
+from app.models import Task, TaskOwner
 from app.services import tasks as tasks_svc
 
 pytest.importorskip("playwright.sync_api")
@@ -50,9 +50,7 @@ def test_a_task_written_on_the_sheet_opens_to_be_written_out(page, live, app_db)
     page.keyboard.press("End")
     page.keyboard.type(" to Japan tomorrow ")
     page.keyboard.press("Escape")
-    page.wait_for_function(
-        "() => document.title.startsWith('Plan the trip to Japan ·')"
-    )
+    page.wait_for_function("() => document.title.startsWith('Plan the trip to Japan ·')")
     task = stored(app_db, "Plan the trip to Japan")
     assert task.planned_for == TODAY + timedelta(days=1)
 
@@ -217,10 +215,14 @@ def test_a_tasks_work_is_written_on_its_page(page, live, app_db) -> None:
     with app_db() as db:
         project = projects_svc.create_project(db, name="Everyday")
         projects_svc.add_repo(db, project_id=project.id, location=app)
-        task = tasks_svc.create_task(db, title="Add a task from anywhere", project_id=project.id)
+        task = tasks_svc.create_task(
+            db, title="Add a task from anywhere", project_id=project.id, owner=TaskOwner.claude
+        )
         db.commit()
         task_id = task.id
     page.goto(f"{live}/tasks/{task_id}")
+    # Its work is a pane of the sidebar, shown by its icon.
+    page.locator('[data-side-tab="work"]').click()
     run = page.locator("#task-run")
 
     # A repository of its project's, pressed to work the task in it.
@@ -242,3 +244,104 @@ def test_a_tasks_work_is_written_on_its_page(page, live, app_db) -> None:
     page.locator("#task-run .run-pr .task-delete").click()
     page.locator("#task-run .run-pr").wait_for(state="detached")
     assert work(app_db)["prs"] == []
+
+
+def test_its_sidebar_panes_are_chosen_by_their_icons(page, live, app_db) -> None:
+    with app_db() as db:
+        task = tasks_svc.create_task(
+            db, title="Trip", notes="# Plan\nwords\n## Flights\n- [ ] book", planned_for=TODAY
+        )
+        db.commit()
+    page.goto(f"{live}/tasks/{task.id}")
+    is_open = "document.documentElement.dataset.agent === 'open'"
+    assert not page.evaluate(is_open)
+    # Oscar's task opens on its outline: the description's headings.
+    page.locator('[data-side-tab="outline"]').click()
+    assert page.evaluate(is_open)
+    assert page.locator(".outline button").all_inner_texts() == ["Plan", "Flights"]
+    # A heading's line takes the caret.
+    page.locator(".outline button", has_text="Flights").click()
+    assert page.evaluate("window.getSelection().anchorNode.textContent").startswith("Flights")
+    # Another icon shows its pane; the shown pane's icon collapses the sidebar.
+    page.locator('[data-side-tab="history"]').click()
+    page.locator("#side-history .history-step").first.wait_for()
+    page.locator('[data-side-tab="history"]').click()
+    assert not page.evaluate(is_open)
+
+
+def test_handed_to_an_agent_its_work_shows(page, live, app_db) -> None:
+    from app.services import projects as projects_svc
+
+    with app_db() as db:
+        project = projects_svc.create_project(db, name="Everyday")
+        task = tasks_svc.create_task(db, title="Widen the page", project_id=project.id)
+        db.commit()
+    # Wide enough for the map beside the document with the sidebar open.
+    page.set_viewport_size({"width": 1600, "height": 900})
+    page.goto(f"{live}/tasks/{task.id}")
+    page.locator('[data-side-tab="work"]').click()
+    pane = page.locator("#side-work")
+    assert not pane.locator("#task-run").is_visible()
+    pane.get_by_role("button", name="Hand to an agent").click()
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
+    assert stored(app_db, "Widen the page").owner == TaskOwner.claude
+    pane.locator("#task-run textarea[name=acceptance]").wait_for(state="visible")
+    assert not pane.get_by_role("button", name="Hand to an agent").is_visible()
+    # The map marks it Claude's.
+    assert page.locator('.map-task.is-here .map-agent').is_visible()
+
+
+def test_its_map_folds_are_remembered(page, live, app_db) -> None:
+    from app.services import projects as projects_svc
+
+    with app_db() as db:
+        project = projects_svc.create_project(db, name="Everyday")
+        lane = projects_svc.create_workstream(db, project_id=project.id, name="Usability")
+        other = projects_svc.create_workstream(db, project_id=project.id, name="Phone")
+        task = tasks_svc.create_task(db, title="Here", project_id=project.id, workstream_id=lane.id)
+        tasks_svc.create_task(db, title="Swipe", project_id=project.id, workstream_id=other.id)
+        db.commit()
+    page.goto(f"{live}/tasks/{task.id}")
+    swipe = page.locator(".map-task", has_text="Swipe")
+    assert not swipe.is_visible()
+    page.locator(".map-lane", has_text="Phone").click()
+    assert swipe.is_visible()
+    page.reload()
+    assert page.locator(".map-task", has_text="Swipe").is_visible()
+    # A task there opens its own page, its map the same.
+    page.locator(".map-task", has_text="Swipe").click()
+    page.wait_for_url(re.compile(r"/tasks/\d+$"))
+    assert page.locator('.map-task.is-here').inner_text() == "Swipe"
+
+
+def test_a_file_is_added_written_and_renamed_on_the_tasks_page(page, live, app_db) -> None:
+    from app.services import task_files
+
+    with app_db() as db:
+        task = tasks_svc.create_task(db, title="Plan the move")
+        db.commit()
+    # Wide enough for the map beside the document with the sidebar open.
+    page.set_viewport_size({"width": 1600, "height": 900})
+    page.goto(f"{live}/tasks/{task.id}")
+    # Written on the map's last line, a path naming its folder: opened to be written.
+    page.locator(".map-new input").fill("notes/plan")
+    page.keyboard.press("Enter")
+    page.wait_for_url(re.compile(r"/files/notes/plan\.md$"))
+    assert page.locator('.map-file[aria-current="page"] .map-name').inner_text() == "plan.md"
+    page.locator(".doc-body .cm-content").click()
+    page.keyboard.type("# Plan")
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
+    assert task_files.read(task.id, "notes/plan.md")[0] == "# Plan"
+    # The outline follows the file.
+    page.locator('[data-side-tab="outline"]').click()
+    assert page.locator(".outline button").all_inner_texts() == ["Plan"]
+    # Renamed in its heading: its address and its row follow.
+    page.locator("[data-doc-name]").fill("The plan")
+    page.keyboard.press("Enter")
+    page.wait_for_url(re.compile(r"/files/notes/The%20plan\.md$"))
+    assert page.locator('.map-file[aria-current="page"] .map-name').inner_text() == "The plan.md"
+    assert task_files.paths(task.id) == ["notes/The plan.md"]
+    # Its description, from the map.
+    page.locator(".map-file", has_text="Description").click()
+    page.wait_for_url(re.compile(rf"/tasks/{task.id}$"))
+    assert page.locator(".task-page .sheet-title").inner_text() == "Plan the move"

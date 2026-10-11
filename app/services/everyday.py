@@ -3,6 +3,7 @@ C:\\everyday-files unless Setup chose another ([everyday_files] dir).
 
     repos/       each repository's main clone, once
     projects/    a folder a project: its context's documents, and project.toml
+    tasks/       a folder a task with files: its documents (app.services.task_files)
     work/        the folders runs work in
 
 This module is the files alone: where they are, what a document's file is
@@ -47,13 +48,17 @@ def projects_dir() -> Path:
     return root() / "projects"
 
 
+def tasks_dir() -> Path:
+    return root() / "tasks"
+
+
 def work_dir() -> Path:
     return root() / "work"
 
 
 def ensure() -> None:
-    """The three folders, made where missing."""
-    for folder in (repos_dir(), projects_dir(), work_dir()):
+    """The four folders, made where missing."""
+    for folder in (repos_dir(), projects_dir(), tasks_dir(), work_dir()):
         folder.mkdir(parents=True, exist_ok=True)
 
 
@@ -128,6 +133,11 @@ def safe_doc_file_name(name: str, taken: set[str]) -> str:
         n += 1
         candidate = f"{stem} ({n}){DOC_SUFFIX}"
     return candidate
+
+
+def words(title: str) -> str:
+    """A title's words for a branch or a folder: lower case, hyphens, short."""
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:40].strip("-") or "task"
 
 
 def folder_name(name: str, taken: set[str]) -> str:

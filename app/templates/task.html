@@ -1,21 +1,130 @@
 {% extends "base.html" %}
 {% from "partials/md_modes.html" import md_modes %}
-{% block title %}{{ sheet.title }} · Personal Calendar{% endblock %}
+{% block title %}{% if file %}{{ file.name }} · {% endif %}{{ sheet.title }} · Personal Calendar{% endblock %}
 {% block content %}
 {# A task on its own page (views.task_page_ctx), for one too long for its
-   row: a way back to where it was opened, then its sheet as a document
-   (partials/task_sheet.html, mode "page"), saved as it is written
-   (task-sheet.js), what it last did said at the header's right, beside
-   its description's Markdown modes (notes-editor.js). #}
-<div class="task-page">
-  <header class="task-page-header">
-    <a class="page-back" href="{{ back.href }}">{{ back.label }}</a>
-    <div class="page-header-end">
-      <span class="task-page-state" data-page-state role="status" aria-live="polite"></span>
-      {{ md_modes() }}
+   row: the map of its project at the left (partials/task_map.html), and the
+   task as a document across the rest (Oscar's call on 2026-10-11): a way
+   back to where it was opened, then its sheet (partials/task_sheet.html,
+   mode "page"), saved as it is written (task-sheet.js), what it last did
+   said at the header's right, beside its description's Markdown modes
+   (notes-editor.js). Or, in its place, one of the task's files
+   (task_files.task_file_page): back to the task, its name as the heading
+   (renamed in place, its bin at the right), where it is on disk, then its
+   Markdown, saved as it is written over the version it was read at
+   (doc-editor.js; one written elsewhere since asks which to keep). Its agent
+   work, its outline and its history are panes of the sidebar at the right
+   (below; task-page.js). #}
+<div class="task-page" data-task-id="{{ sheet.id }}" data-owner="{{ sheet.owner }}">
+  {% include "partials/task_map.html" %}
+  <div class="task-doc">
+    {% if file %}
+    <div class="doc-page" data-save-url="/ui/tasks/{{ sheet.id }}/file" data-path="{{ file.path }}" data-version="{{ file.version }}">
+      <header class="task-page-header">
+        <a class="page-back" href="{{ back.href }}">{{ back.label }}</a>
+        <div class="page-header-end">
+          <span class="task-page-state" data-page-state role="status" aria-live="polite"></span>
+          {{ md_modes() }}
+        </div>
+      </header>
+      <div class="doc-title">
+        <h1><input class="doc-name" data-doc-name value="{{ file.name }}" aria-label="File name" autocomplete="off" spellcheck="false" maxlength="200"></h1>
+        <button type="button" class="task-delete" title="Delete this file" aria-label="Delete {{ file.name }}"
+                hx-post="/ui/tasks/{{ sheet.id }}/file/delete" hx-vals='{{ {"path": file.path} | tojson }}'
+                hx-confirm="Delete file?"
+                data-confirm-title="Delete file?"
+                data-confirm-name="{{ file.name }}"
+                data-confirm-detail="will be deleted from the task's folder. This can't be undone."
+                data-confirm-action="Delete">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>
+        </button>
+      </div>
+      <p class="rest doc-rest"><span>A file of this task's</span>{% if file.on_disk %}<span> · <span class="doc-file" data-doc-file>{{ file.on_disk }}</span></span>{% endif %}</p>
+      <div class="pad-stale doc-stale" data-doc-stale role="alert" hidden>
+        <span>This file was changed elsewhere.</span>
+        <button type="button" class="btn quiet" data-doc-reload>Show that version</button>
+        <button type="button" class="btn quiet" data-doc-keep>Keep mine</button>
+      </div>
+      <div class="doc-body notes-editor" data-doc-editor>
+        <textarea class="doc-source" data-doc-body aria-label="{{ file.name }}" data-placeholder="Write it in Markdown: a plan, research, notes." hidden>{{ file.body }}</textarea>
+      </div>
     </div>
-  </header>
-  {% with mode = "page" %}{% include "partials/task_sheet.html" %}{% endwith %}
-  {% include "partials/task_run.html" %}
+    {% else %}
+    <header class="task-page-header">
+      <a class="page-back" href="{{ back.href }}">{{ back.label }}</a>
+      <div class="page-header-end">
+        <span class="task-page-state" data-page-state role="status" aria-live="polite"></span>
+        {{ md_modes() }}
+      </div>
+    </header>
+    {% with mode = "page" %}{% include "partials/task_sheet.html" %}{% endwith %}
+    {% endif %}
+  </div>
 </div>
+{% if file %}<script src="{{ asset('doc-editor.js') }}" defer></script>{% endif %}
+<script src="{{ asset('task-page.js') }}" defer></script>
+{% endblock %}
+
+{% macro collapse() %}
+<button type="button" class="agent-tool" data-agent-toggle aria-controls="side" aria-expanded="true"
+        aria-label="Collapse the sidebar" title="Collapse">
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3.5" width="14" height="13" rx="2.5"/><path d="M12 3.5v13"/></svg>
+</button>
+{% endmacro %}
+
+{% block side_tabs %}
+<button type="button" class="side-tab" role="tab" id="side-tab-work" data-side-tab="work"
+        aria-controls="side-work" aria-selected="false" title="Agent work">
+  <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="6.5" width="12" height="9" rx="2.5"/><path d="M10 3.5v3"/><circle cx="7.75" cy="11" r=".9"/><circle cx="12.25" cy="11" r=".9"/></svg>
+</button>
+<button type="button" class="side-tab" role="tab" id="side-tab-outline" data-side-tab="outline"
+        aria-controls="side-outline" aria-selected="false" title="Outline">
+  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5h13"/><path d="M6.5 10h10"/><path d="M6.5 15h10"/></svg>
+</button>
+<button type="button" class="side-tab" role="tab" id="side-tab-history" data-side-tab="history"
+        aria-controls="side-history" aria-selected="false" title="History">
+  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 10a6.5 6.5 0 1 0 1.9-4.6"/><path d="M3.5 3.5v3.25h3.25"/><path d="M10 6.5V10l2.5 1.75"/></svg>
+</button>
+{% endblock %}
+
+{% block side_panes %}
+{# Its agent work: only once it is Claude's task (Oscar's call on 2026-10-11);
+   Oscar's own has a way to hand it to an agent, which makes it Claude's. #}
+<section class="side-pane" id="side-work" data-side-pane="work" role="tabpanel" aria-labelledby="side-tab-work"
+         data-owner="{{ sheet.owner }}" hidden>
+  <header class="side-head">
+    <div>
+      <h2 class="side-title">Agent work</h2>
+      <p class="agent-model">
+        <span class="when-claude">{% if run.runs %}{{ run.runs[0].state }} on {{ run.runs[0].runner }}{% else %}Claude's task, not launched yet{% endif %}</span>
+        <span class="when-oscar">Your task</span>
+      </p>
+    </div>
+    {{ collapse() }}
+  </header>
+  <div class="side-body">
+    <div class="work-hand">
+      <p>This task is yours. Handed to an agent, it becomes Claude's: then you choose where it is worked and what done means, and launch it.</p>
+      <button type="button" class="btn quiet" data-sheet-set="owner" data-value="claude">Hand to an agent</button>
+    </div>
+    {% include "partials/task_run.html" %}
+  </div>
+</section>
+<section class="side-pane" id="side-outline" data-side-pane="outline" role="tabpanel" aria-labelledby="side-tab-outline" hidden>
+  <header class="side-head">
+    <div><h2 class="side-title">Outline</h2><p class="agent-model">{{ file.name ~ "'s headings" if file else "Its description's headings" }}</p></div>
+    {{ collapse() }}
+  </header>
+  <div class="side-body">
+    <ol class="outline" data-outline aria-label="Headings"></ol>
+    <p class="side-empty" data-outline-empty>No headings yet: a line starting with # is one.</p>
+  </div>
+</section>
+<section class="side-pane" id="side-history" data-side-pane="history" role="tabpanel" aria-labelledby="side-tab-history" hidden>
+  <header class="side-head">
+    <div><h2 class="side-title">History</h2><p class="agent-model">How it changed, newest first</p></div>
+    {{ collapse() }}
+  </header>
+  <div class="side-body" hx-get="/ui/tasks/{{ sheet.id }}/history" hx-trigger="side:shown from:closest .side-pane" hx-swap="innerHTML"></div>
+</section>
 {% endblock %}

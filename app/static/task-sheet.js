@@ -356,6 +356,12 @@
     // Heard by a page that keeps the fields itself (Today's notepad).
     form.dispatchEvent(new CustomEvent("sheet:field", { bubbles: true, detail: { name, value } }));
   };
+  // Another part of a task's page sets one of its fields, as its menu would
+  // (task-page.js: the sidebar's Hand to an agent).
+  document.addEventListener("sheet:set", (e) => {
+    const form = e.target.closest?.(".task-sheet");
+    if (form) setField(form, e.detail.name, e.detail.value);
+  });
 
   /* ---- the title line ---- */
 
