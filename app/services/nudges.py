@@ -17,6 +17,7 @@ from app.dates import short_date
 from app.models import MoneyBill, Nudge, NudgeType, Task, TaskStatus
 from app.services import events as events_svc
 from app.services import money as money_svc
+from app.services import notebook as notebook_svc
 from app.services import tasks as tasks_svc
 
 DUE_LOOKAHEAD_DAYS = 3
@@ -174,6 +175,20 @@ def active_nudges(db: Session) -> list[Nudge]:
     return [
         n for n in nudges
         if (_bill_still_due(db, n) if n.type == NudgeType.bill_due else _still_holds(n))
+    ]
+
+
+def on_today(db: Session, today: date) -> list[Nudge]:
+    """The nudges today's page shows, and the taskbar counts: the active
+    ones, less a due of a task the page has already, written in its notes or
+    offered to bring there (tasks.for_day, notebook.still_open) with its due
+    beside it. Each task in one place."""
+    shown = {t.id for t in tasks_svc.for_day(db, today, today)}
+    shown |= {t.id for t in notebook_svc.still_open(db, today)[1]}
+    shown |= set(notebook_svc.task_ids_on(db, today))
+    return [
+        n for n in active_nudges(db)
+        if not (n.type == NudgeType.due_soon and n.task_id in shown)
     ]
 
 

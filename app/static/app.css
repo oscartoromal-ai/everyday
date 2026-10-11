@@ -1700,10 +1700,28 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .add-inline { font-size: var(--t-body-sm); color: var(--graphite); padding: var(--s-2) 0; transition: color var(--dur) var(--ease); }
 .add-inline:hover { color: var(--ink); }
 
+/* ---------- a day page's folds: the nudges, the strips under the notes ---------- */
+
+.today-fold-summary {
+  display: flex; align-items: center; gap: var(--s-2);
+  list-style: none; cursor: pointer;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.today-fold-summary::-webkit-details-marker { display: none; }
+.today-fold-summary:hover { color: var(--ink); }
+.today-fold-summary svg { flex: none; stroke: currentColor; }
+.today-fold[open] > .today-fold-summary svg { transform: rotate(90deg); }
+
 /* ---------- nudges ---------- */
 
 .nudge-center { margin-bottom: var(--s-6); overflow: clip; }
-.nudge-list { list-style: none; margin: 0; padding: 0; }
+/* its name and count, as a list's Done fold is */
+.nudge-center > .today-fold-summary {
+  padding: var(--s-3) var(--s-4);
+  font-size: var(--t-body-sm); font-weight: 500; color: var(--pewter);
+}
+.nudge-center > .today-fold-summary:hover { color: var(--ink); background: var(--glass-row-hover); }
+.nudge-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hairline-on-glass); }
 .nudge { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); font-size: var(--t-body-sm); }
 .nudge + .nudge { border-top: 1px solid var(--hairline-on-glass); }
 .nudge svg { flex: none; stroke: var(--graphite); }
@@ -2277,11 +2295,13 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .task-sheet .prop.file-into:is(:hover, [aria-expanded="true"]) svg.file-into__chevron { stroke: var(--ink); }
 .task-sheet.pad-props .task-delete { width: 24px; height: var(--pad-text); margin: 0; opacity: 1; }
 
-/* under the notes: the habits due this day not yet written, each a name
-   (writes its row) and its days' icon */
-.pad-habits { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-3); }
-.pad-habits[hidden] { display: none; }
-.pad-habits-label { font-size: var(--t-caption); color: var(--pewter); }
+/* under the notes, each strip a fold under its name and count: the habits
+   due this day not yet written, each a name (writes its row) and its days'
+   icon */
+.pad-strip { position: relative; margin-top: var(--s-3); }
+.pad-strip[hidden] { display: none; }
+.pad-strip > .today-fold-summary { padding: 5px 0; font-size: var(--t-caption); color: var(--pewter); }
+.pad-habits { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-1); }
 .pad-habits-list { display: flex; flex-wrap: wrap; gap: var(--s-2); margin: 0; padding: 0; list-style: none; }
 .pad-habits-list > li {
   display: flex; align-items: center; gap: 2px; padding: 0 4px 0 0;
@@ -2311,9 +2331,8 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 }
 .pad-carry-all:hover { color: var(--ink); text-decoration-color: currentColor; }
 .pad-carry-all[hidden] { display: none; }
-/* its name and Bring all on a line, the titles under them */
-.pad-carry .pad-carry-all { order: 1; margin-right: auto; }
-.pad-carry .pad-habits-list { order: 2; flex-basis: 100%; }
+/* Bring all on its name's line, at the right, while it is open */
+.pad-carry .pad-carry-all { position: absolute; top: 0; right: 0; }
 .pad-stale { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-3); font-size: var(--t-body-sm); color: var(--ink); }
 .pad-stale[hidden] { display: none; }
 .pad-stale span { margin-right: auto; }
