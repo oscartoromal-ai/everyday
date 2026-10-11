@@ -70,9 +70,12 @@
         <button type="button" class="prop" data-prop="status" aria-haspopup="menu" title="Status">
           <span class="prop-value"></span>
         </button>
-        <button type="button" class="prop" data-history aria-expanded="false" aria-controls="history-{{ s.id }}"
-                title="How it changed" hx-get="/ui/tasks/{{ s.id }}/history" hx-target="#history-{{ s.id }}"
-                hx-trigger="click once" hx-swap="innerHTML">
+        {# On its page, its history is a pane of the sidebar (task.html). #}
+        <button type="button" class="prop"
+                {%- if page %} data-side-show="history" aria-controls="side-history"
+                {%- else %} data-history aria-expanded="false" aria-controls="history-{{ s.id }}"
+                hx-get="/ui/tasks/{{ s.id }}/history" hx-target="#history-{{ s.id }}" hx-trigger="click once" hx-swap="innerHTML"
+                {%- endif %} title="How it changed">
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 10a6.5 6.5 0 1 0 1.9-4.6"/><path d="M3.5 3.5v3.25h3.25"/><path d="M10 6.5V10l2.5 1.75"/></svg>
           <span class="prop-value">History</span>
         </button>
@@ -144,7 +147,6 @@
       <span class="sheet-props">{{ field_props(s) }}
       </span>{{ end_props(s, page, back) }}
     </div>
-    <div class="sheet-history" id="history-{{ s.id }}" hidden></div>
     {% endif %}
 
     <div class="sheet-more">

@@ -1,0 +1,95 @@
+{# The map at a task page's left (task_map_view.map_ctx): its project, the
+   project's context (AGENTS.md, then its folders and documents, each a way
+   to its page), then its workstreams, each folding by its row with its open
+   tasks and, folded under them, the last two weeks' finished ones. The task
+   itself is marked where it stands and its workstream opened; Claude's
+   tasks carry the agent's mark. Folds are remembered (task-page.js). A task
+   in no project has a map of itself alone. #}
+{% macro chevron() %}<svg class="map-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 3 7.5 6 4.5 9"/></svg>{% endmacro %}
+{% macro gap() %}<span class="map-chevron-gap" aria-hidden="true"></span>{% endmacro %}
+{% macro doc_icon() %}<svg class="map-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.75h6.5L15 6.25v11H5z"/><path d="M11.25 2.75v3.75H15"/><path d="M7.75 10.25h4.5"/><path d="M7.75 13.25h4.5"/></svg>{% endmacro %}
+{% macro folder_icon() %}<svg class="map-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.75 5.25a1.5 1.5 0 0 1 1.5-1.5h3.4l1.75 2h6.35a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-1.5 1.5H4.25a1.5 1.5 0 0 1-1.5-1.5z"/></svg>{% endmacro %}
+{% macro lane_icon() %}<svg class="map-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M3.5 10h9"/><path d="M3.5 14.5h11"/></svg>{% endmacro %}
+{% macro agent_mark() %}<svg class="map-agent" viewBox="0 0 20 20" role="img" aria-label="Claude's"><rect x="4" y="6.5" width="12" height="9" rx="2.5"/><path d="M10 3.5v3"/><circle cx="7.75" cy="11" r=".9"/><circle cx="12.25" cy="11" r=".9"/></svg>{% endmacro %}
+{% macro box(status) %}<span class="map-box" data-status="{{ status }}" aria-hidden="true"></span>{% endmacro %}
+
+{% macro task_row(t, depth) %}
+<li>
+  <a class="map-row map-task" href="/tasks/{{ t.id }}" style="--depth: {{ depth }}"
+     {%- if t.here %} aria-current="page"{% endif %} title="{{ t.title }}">
+    {{ gap() }}{{ box(t.status) }}<span class="map-name">{{ t.title }}</span>
+    {#- The task itself carries the mark always, shown as it is Claude's (app.css), whose it is changing on its page. #}
+    {%- if t.claude or t.here %}{{ agent_mark() }}{% endif %}
+  </a>
+</li>
+{% endmacro %}
+
+{% macro context_rows(nodes, depth) %}
+{% for n in nodes %}
+{% if n.kind == "folder" %}
+<li class="map-fold" data-fold="folder-{{ n.folder.id }}">
+  <button type="button" class="map-row map-toggle" style="--depth: {{ depth }}" aria-expanded="false"
+          aria-controls="map-folder-{{ n.folder.id }}">
+    {{ chevron() }}{{ folder_icon() }}<span class="map-name">{{ n.folder.name }}</span><span class="map-meta">{{ n.count }}</span>
+  </button>
+  <ul class="map-group" id="map-folder-{{ n.folder.id }}" hidden>{{ context_rows(n.children, depth + 1) }}</ul>
+</li>
+{% else %}
+<li>
+  <a class="map-row" href="{{ n.href }}" style="--depth: {{ depth }}" title="{{ n.doc.name }}">
+    {{ gap() }}{{ doc_icon() }}<span class="map-name">{{ n.doc.name }}</span>
+  </a>
+</li>
+{% endif %}
+{% endfor %}
+{% endmacro %}
+
+<nav class="task-map" aria-label="Map" data-task-map{% if map.project %} data-project="{{ map.project.id }}"{% endif %}>
+  {% if map.project %}
+  <a class="map-project" href="/projects/{{ map.project.id }}" style="--project: var(--hue-{{ map.project.color }})"
+     title="{{ map.project.name }}: its page">
+    <svg class="map-icon map-flag" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
+    <span class="map-name">{{ map.project.name }}</span>
+  </a>
+
+  {% if map.context %}
+  <h2 class="map-section">Context</h2>
+  <ul class="map-tree">{{ context_rows(map.context, 0) }}</ul>
+  {% endif %}
+
+  <h2 class="map-section">Workstreams</h2>
+  <ul class="map-tree">
+    {% for lane in map.lanes %}
+    <li class="map-fold" data-fold="lane-{{ lane.key }}"{% if lane.here %} data-here{% endif %}>
+      <button type="button" class="map-row map-toggle map-lane" style="--depth: 0"
+              aria-expanded="{{ 'true' if lane.here else 'false' }}" aria-controls="map-lane-{{ lane.key }}">
+        {{ chevron() }}{{ lane_icon() }}<span class="map-name">{{ lane.name }}</span><span class="map-meta">{{ lane.open | length }}</span>
+      </button>
+      <ul class="map-group" id="map-lane-{{ lane.key }}"{% if not lane.here %} hidden{% endif %}>
+        {% for t in lane.open %}{{ task_row(t, 1) }}{% endfor %}
+        {% if lane.done %}
+        {% set here_done = lane.done | selectattr("here") | list %}
+        <li class="map-fold" data-fold="done-{{ lane.key }}"{% if here_done %} data-here{% endif %}>
+          <button type="button" class="map-row map-toggle map-done" style="--depth: 1"
+                  aria-expanded="{{ 'true' if here_done else 'false' }}" aria-controls="map-done-{{ lane.key }}">
+            {{ chevron() }}<span class="map-name">{{ lane.done | length }} done</span>
+          </button>
+          <ul class="map-group" id="map-done-{{ lane.key }}"{% if not here_done %} hidden{% endif %}>
+            {% for t in lane.done %}{{ task_row(t, 2) }}{% endfor %}
+          </ul>
+        </li>
+        {% elif not lane.open %}
+        <li class="map-empty" style="--depth: 1">No open tasks</li>
+        {% endif %}
+      </ul>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="map-project map-no-project">
+    <svg class="map-icon map-flag" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
+    <span class="map-name">No project</span>
+  </p>
+  <ul class="map-tree">{{ task_row(map.here, 0) }}</ul>
+  {% endif %}
+</nav>

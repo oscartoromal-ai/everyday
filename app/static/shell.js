@@ -64,38 +64,110 @@
   });
   applyRail(root.dataset.rail === "collapsed");
 
-  /* ---- the agent window: expanded at the page's side or collapsed away,
-     remembered per browser; the sidebar's Agent, its own Collapse and A
-     (below) switch it. Collapsed, it is inert, so neither Tab nor a screen
-     reader reaches into it. ---- */
+  /* ---- the sidebar at the right, the agent window in it: expanded at the
+     page's side or collapsed away, remembered per browser; the rail's
+     Agent, a pane's Collapse, the strip's icons and A (below) switch it.
+     Collapsed, its panes are inert, so neither Tab nor a screen reader
+     reaches into them. ---- */
 
+  /* The sidebar holds the agent window and, on a page with panes of its own
+     (a task's), those panes, one shown at a time, chosen by the strip of
+     their icons down its edge (base.html). The pane shown is remembered as
+     pc-side-pane; the agent window's key and buttons show the chat. */
+  const side = document.getElementById("side");
+  const panes = side?.querySelector(".side-panes");
   const agentPanel = document.getElementById("agent-panel");
+  const tabbed = side?.hasAttribute("data-tabbed");
+  const paneOf = (key) => side?.querySelector(`[data-side-pane="${key}"]`);
+  const shownPane = () => side?.querySelector("[data-side-pane]:not([hidden])");
+  const showPane = (key, remember = true) => {
+    if (!tabbed || !paneOf(key)) return;
+    side.querySelectorAll("[data-side-pane]").forEach((pane) => { pane.hidden = pane.dataset.sidePane !== key; });
+    side.querySelectorAll("[data-side-tab]").forEach((tab) => {
+      const on = tab.dataset.sideTab === key;
+      tab.setAttribute("aria-selected", String(on));
+      tab.tabIndex = on ? 0 : -1;
+    });
+    if (remember) store("pc-side-pane", key);
+    paneOf(key).dispatchEvent(new CustomEvent("side:shown"));
+  };
+  if (tabbed) {
+    // The pane last shown, else the page's first (a page may choose another: Side.select).
+    const first = saved("pc-side-pane");
+    showPane(paneOf(first) ? first : side.querySelector("[data-side-tab]")?.dataset.sideTab, false);
+  }
   const applyAgent = (open) => {
     if (open) root.dataset.agent = "open";
     else delete root.dataset.agent;
-    if (!agentPanel) return;
-    agentPanel.inert = !open;
+    if (!side) return;
+    panes.inert = !open;
     document.querySelectorAll("[data-agent-toggle]").forEach((button) => {
       button.setAttribute("aria-expanded", String(open));
     });
+    side.querySelectorAll("[data-side-tab]").forEach((tab) => tab.classList.toggle("is-open", open));
   };
-  const toggleAgent = (open = root.dataset.agent !== "open") => {
-    if (!agentPanel) return;
-    const had = agentPanel.contains(document.activeElement);
+  // The agent window's key and button: the chat shown, or the sidebar
+  // collapsed when it already is.
+  const chat = () => {
+    const showing = root.dataset.agent === "open" && (!tabbed || shownPane() === agentPanel);
+    toggleAgent(!showing, "chat");
+  };
+  // Opens or closes the sidebar; opened, on the pane `key` (the chat when
+  // none is shown), its first field taking the caret.
+  const toggleAgent = (open = root.dataset.agent !== "open", key = null) => {
+    if (!side) return;
+    const had = panes.contains(document.activeElement);
+    if (open && key) showPane(key);
     store("pc-agent", open ? "open" : "closed");
     applyAgent(open);
     if (open) {
-      const log = document.getElementById("agent-log");
-      if (log) log.scrollTop = log.scrollHeight;
-      agentPanel.querySelector("textarea:not(:disabled)")?.focus();
+      const pane = tabbed ? shownPane() : agentPanel;
+      if (pane === agentPanel) {
+        const log = document.getElementById("agent-log");
+        if (log) log.scrollTop = log.scrollHeight;
+        agentPanel.querySelector("textarea:not(:disabled)")?.focus();
+      }
+      pane?.dispatchEvent(new CustomEvent("side:shown"));
     } else if (had) {
-      // The focus was in the window going away: to the button that brings it back.
-      document.querySelector(".rail-button[data-agent-toggle]")?.focus();
+      // The focus was in the sidebar going away: to the button that brings it back.
+      (side.querySelector('[data-side-tab][aria-selected="true"]')
+        || document.querySelector(".rail-button[data-agent-toggle]"))?.focus();
     }
   };
   document.addEventListener("click", (e) => {
-    if (e.target.closest?.("[data-agent-toggle]")) toggleAgent();
+    const tab = e.target.closest?.("[data-side-tab]");
+    if (tab) {
+      // The shown pane's icon collapses the sidebar; another's shows its pane.
+      const shown = tab.getAttribute("aria-selected") === "true";
+      if (shown && root.dataset.agent === "open") toggleAgent(false);
+      else toggleAgent(true, tab.dataset.sideTab);
+      return;
+    }
+    const show = e.target.closest?.("[data-side-show]");
+    if (show) {
+      toggleAgent(true, show.dataset.sideShow);
+      return;
+    }
+    // A pane's Collapse; the sidebar's Agent, the chat (as A is).
+    if (e.target.closest?.("[data-agent-toggle]")) {
+      if (e.target.closest(".side-pane")) toggleAgent(false);
+      else chat();
+    }
   });
+  // Up and Down step through the strip's icons, as through any tab list.
+  side?.querySelector(".side-tabs")?.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const tabs = [...side.querySelectorAll("[data-side-tab]")];
+    const at = tabs.indexOf(document.activeElement);
+    if (at < 0) return;
+    e.preventDefault();
+    tabs[(at + (e.key === "ArrowDown" ? 1 : tabs.length - 1)) % tabs.length].focus();
+  });
+  window.Side = {
+    show: (key) => toggleAgent(true, key),
+    // The pane shown when the sidebar next opens, unless one was chosen before.
+    select: (key) => { if (!paneOf(saved("pc-side-pane"))) showPane(key, false); },
+  };
   // Esc in the message steps out of it, so the page's keys (A among them) work again.
   agentPanel?.addEventListener("keydown", (e) => {
     if (e.key !== "Escape" || e.isComposing || !e.target.matches("textarea")) return;
@@ -550,7 +622,7 @@
     });
   }
   // The agent window (A, or the sidebar's Agent), where the page has one.
-  window.Keys.handle("app.agent", () => toggleAgent(), () => !!agentPanel);
+  window.Keys.handle("app.agent", () => chat(), () => !!agentPanel);
 
   window.Keys.handle("app.keys", () => {
     const dialog = document.getElementById("keys-dialog");

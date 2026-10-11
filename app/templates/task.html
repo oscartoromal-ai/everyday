@@ -3,19 +3,89 @@
 {% block title %}{{ sheet.title }} · Personal Calendar{% endblock %}
 {% block content %}
 {# A task on its own page (views.task_page_ctx), for one too long for its
-   row: a way back to where it was opened, then its sheet as a document
-   (partials/task_sheet.html, mode "page"), saved as it is written
-   (task-sheet.js), what it last did said at the header's right, beside
-   its description's Markdown modes (notes-editor.js). #}
-<div class="task-page">
-  <header class="task-page-header">
-    <a class="page-back" href="{{ back.href }}">{{ back.label }}</a>
-    <div class="page-header-end">
-      <span class="task-page-state" data-page-state role="status" aria-live="polite"></span>
-      {{ md_modes() }}
-    </div>
-  </header>
-  {% with mode = "page" %}{% include "partials/task_sheet.html" %}{% endwith %}
-  {% include "partials/task_run.html" %}
+   row: the map of its project at the left (partials/task_map.html), and the
+   task as a document across the rest (Oscar's call on 2026-10-11): a way
+   back to where it was opened, then its sheet (partials/task_sheet.html,
+   mode "page"), saved as it is written (task-sheet.js), what it last did
+   said at the header's right, beside its description's Markdown modes
+   (notes-editor.js). Its agent work, its outline and its history are panes
+   of the sidebar at the right (below; task-page.js). #}
+<div class="task-page" data-owner="{{ sheet.owner }}">
+  {% include "partials/task_map.html" %}
+  <div class="task-doc">
+    <header class="task-page-header">
+      <a class="page-back" href="{{ back.href }}">{{ back.label }}</a>
+      <div class="page-header-end">
+        <span class="task-page-state" data-page-state role="status" aria-live="polite"></span>
+        {{ md_modes() }}
+      </div>
+    </header>
+    {% with mode = "page" %}{% include "partials/task_sheet.html" %}{% endwith %}
+  </div>
 </div>
+<script src="{{ asset('task-page.js') }}" defer></script>
+{% endblock %}
+
+{% macro collapse() %}
+<button type="button" class="agent-tool" data-agent-toggle aria-controls="side" aria-expanded="true"
+        aria-label="Collapse the sidebar" title="Collapse">
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3.5" width="14" height="13" rx="2.5"/><path d="M12 3.5v13"/></svg>
+</button>
+{% endmacro %}
+
+{% block side_tabs %}
+<button type="button" class="side-tab" role="tab" id="side-tab-work" data-side-tab="work"
+        aria-controls="side-work" aria-selected="false" title="Agent work">
+  <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="6.5" width="12" height="9" rx="2.5"/><path d="M10 3.5v3"/><circle cx="7.75" cy="11" r=".9"/><circle cx="12.25" cy="11" r=".9"/></svg>
+</button>
+<button type="button" class="side-tab" role="tab" id="side-tab-outline" data-side-tab="outline"
+        aria-controls="side-outline" aria-selected="false" title="Outline">
+  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5h13"/><path d="M6.5 10h10"/><path d="M6.5 15h10"/></svg>
+</button>
+<button type="button" class="side-tab" role="tab" id="side-tab-history" data-side-tab="history"
+        aria-controls="side-history" aria-selected="false" title="History">
+  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 10a6.5 6.5 0 1 0 1.9-4.6"/><path d="M3.5 3.5v3.25h3.25"/><path d="M10 6.5V10l2.5 1.75"/></svg>
+</button>
+{% endblock %}
+
+{% block side_panes %}
+{# Its agent work: only once it is Claude's task (Oscar's call on 2026-10-11);
+   Oscar's own has a way to hand it to an agent, which makes it Claude's. #}
+<section class="side-pane" id="side-work" data-side-pane="work" role="tabpanel" aria-labelledby="side-tab-work"
+         data-owner="{{ sheet.owner }}" hidden>
+  <header class="side-head">
+    <div>
+      <h2 class="side-title">Agent work</h2>
+      <p class="agent-model">
+        <span class="when-claude">{% if run.runs %}{{ run.runs[0].state }} on {{ run.runs[0].runner }}{% else %}Claude's task, not launched yet{% endif %}</span>
+        <span class="when-oscar">Your task</span>
+      </p>
+    </div>
+    {{ collapse() }}
+  </header>
+  <div class="side-body">
+    <div class="work-hand">
+      <p>This task is yours. Handed to an agent, it becomes Claude's: then you choose where it is worked and what done means, and launch it.</p>
+      <button type="button" class="btn quiet" data-sheet-set="owner" data-value="claude">Hand to an agent</button>
+    </div>
+    {% include "partials/task_run.html" %}
+  </div>
+</section>
+<section class="side-pane" id="side-outline" data-side-pane="outline" role="tabpanel" aria-labelledby="side-tab-outline" hidden>
+  <header class="side-head">
+    <div><h2 class="side-title">Outline</h2><p class="agent-model">Its description's headings</p></div>
+    {{ collapse() }}
+  </header>
+  <div class="side-body">
+    <ol class="outline" data-outline aria-label="Headings"></ol>
+    <p class="side-empty" data-outline-empty>No headings yet: a line starting with # is one.</p>
+  </div>
+</section>
+<section class="side-pane" id="side-history" data-side-pane="history" role="tabpanel" aria-labelledby="side-tab-history" hidden>
+  <header class="side-head">
+    <div><h2 class="side-title">History</h2><p class="agent-model">How it changed, newest first</p></div>
+    {{ collapse() }}
+  </header>
+  <div class="side-body" hx-get="/ui/tasks/{{ sheet.id }}/history" hx-trigger="side:shown from:closest .side-pane" hx-swap="innerHTML"></div>
+</section>
 {% endblock %}
