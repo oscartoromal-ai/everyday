@@ -23,6 +23,7 @@ from app.api.tasks import task_out
 from app.db import session_scope
 from app.models import ProjectStatus, TaskOwner, TaskPriority, TaskStatus
 from app.services import DomainError, project_files, task_runs
+from app.services import documents as documents_svc
 from app.services import events as events_svc
 from app.services import habits as habits_svc
 from app.services import history as history_svc
@@ -41,9 +42,14 @@ INSTRUCTIONS = (
     "A task's notes are its free-form description, in Markdown: lines starting with "
     "'- [ ] ' are its sub-tasks ('- [x] ' once done); '- ' lines are plain bullets, "
     "and other lines are context around them. "
-    "A task may have files besides its description: Markdown documents in its folder "
-    "of the everyday files (files_folder, its files listed as files), the master "
-    "copy, which you may read and write: its plans, research and notes. "
+    "Everything written in the planner is Markdown in the everyday files, the master "
+    "copy (README.md at their top says what is where and how each file reads): each "
+    "task is task.md in its folder (files_folder; task_file), its front matter the "
+    "app's fields, then its description, acceptance and outcome, which you may write "
+    "there; beside it, the task's other files (files), its plans, research and notes, "
+    "which you may read and write. Change a task's fields with the tools, not its "
+    "front matter. search finds words in every file: projects' documents, tasks' "
+    "files, days' notes. "
     "Working on a task, report on it with report_task (how far it got, a note, the "
     "outcome, its pull requests): never as far as done, which its pull requests "
     "merging, or Oscar, says. "
@@ -472,7 +478,8 @@ def list_repositories(query: str = "", include_archived: bool = False) -> dict[s
 
 @tool
 def get_task_history(task_id: int) -> list[dict[str, Any]]:
-    """How a task changed, newest first: when, who (oscar, claude or system),
+    """How a task changed, newest first: when, who (oscar, claude, agent,
+    system, or file: its task.md written outside the app),
     the kind of change (created, updated, deleted) and, for an update, each
     field that moved from what to what. Works for deleted tasks too."""
     with session_scope("claude") as db:
@@ -480,6 +487,18 @@ def get_task_history(task_id: int) -> list[dict[str, Any]]:
             {"at": c["at"], "actor": c["actor"], "change": c["change"], "fields": c["fields"]}
             for c in history_svc.changes(db, task_id)
         ]
+
+
+@tool
+def search(query: str, limit: int = 20) -> list[dict[str, Any]]:
+    """Find words in the everyday files' Markdown: projects' documents
+    (project.md, AGENTS.md and the rest), tasks' task.md and other files,
+    and days' notes. Every word of `query` must be there, each matching a
+    word's start; the best matches first, each its path from the everyday
+    files' folder, whose it is ("task:12", "project:3", "notebook"), its
+    path there, its title and a snippet around what matched."""
+    with session_scope("claude") as db:
+        return documents_svc.search(db, query, limit=max(1, min(limit, 50)))
 
 
 @tool

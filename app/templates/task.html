@@ -30,7 +30,7 @@
       <div class="doc-title">
         <h1><input class="doc-name" data-doc-name value="{{ file.name }}" aria-label="File name" autocomplete="off" spellcheck="false" maxlength="200"></h1>
         <button type="button" class="task-delete" title="Delete this file" aria-label="Delete {{ file.name }}"
-                hx-post="/ui/tasks/{{ sheet.id }}/file/delete" hx-vals='{{ {"path": file.path} | tojson }}'
+                hx-post="/ui/tasks/{{ sheet.id }}/file/delete" hx-vals='{{ {"path": file.path} | tojson }}' data-follows-path
                 hx-confirm="Delete file?"
                 data-confirm-title="Delete file?"
                 data-confirm-name="{{ file.name }}"

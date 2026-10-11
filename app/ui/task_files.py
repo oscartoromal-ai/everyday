@@ -72,7 +72,9 @@ def task_file_page(request: Request, db: DbSession, task_id: int, path: str):
 @router.post("/ui/tasks/{task_id}/files")
 def add_file(db: DbSession, task_id: int, path: Annotated[str, Form()]) -> Response:
     """A new file (a path names folders for it), opened to be written."""
-    full = task_files.create(_task(db, task_id), path)
+    task = _task(db, task_id)
+    with task_files.held(db):
+        full = task_files.create(db, task, path)
     response = Response(status_code=204)
     response.headers["HX-Redirect"] = file_href(task_id, full)
     return response
@@ -92,13 +94,14 @@ def save_file(
     its version, name and page now, or 409 with the file's version when it
     was written elsewhere since."""
     task = _task(db, task_id)
-    try:
-        if body is not None:
-            task_files.write(task.id, path, body, base)
-    except task_files.FileChanged as exc:
-        return JSONResponse({"detail": str(exc), "version": exc.version}, status_code=409)
-    if name:
-        path = task_files.rename(task.id, path, name)
+    with task_files.held(db):
+        try:
+            if body is not None:
+                task_files.write(db, task.id, path, body, base)
+        except task_files.FileChanged as exc:
+            return JSONResponse({"detail": str(exc), "version": exc.version}, status_code=409)
+        if name:
+            path = task_files.rename(db, task.id, path, name)
     words, full = task_files.read(task.id, path)
     return JSONResponse(
         {
@@ -123,7 +126,9 @@ def latest_file(db: DbSession, task_id: int, path: str) -> JSONResponse:
 @router.post("/ui/tasks/{task_id}/file/delete")
 def delete_file(db: DbSession, task_id: int, path: Annotated[str, Form()]) -> Response:
     """A file deleted; the page goes back to the task's description."""
-    task_files.delete(_task(db, task_id).id, path)
+    task = _task(db, task_id)
+    with task_files.held(db):
+        task_files.delete(db, task.id, path)
     response = Response(status_code=204)
     response.headers["HX-Redirect"] = f"/tasks/{task_id}"
     return response

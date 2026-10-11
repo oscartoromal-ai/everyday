@@ -7,8 +7,8 @@ import re
 
 import pytest
 
-from app.models import Project, ProjectDoc
-from app.services import everyday
+from app.models import AGENTS_DOC, Project
+from app.services import everyday, project_files
 from app.services import projects as projects_svc
 
 pytest.importorskip("playwright.sync_api")
@@ -18,9 +18,10 @@ SAVED = re.compile("^Saved$")
 
 
 def docs(app_db, project: str) -> dict[str, str]:
+    """The project's documents as its folder has them."""
     with app_db() as db:
         found = db.query(Project).filter_by(name=project).one()
-        return {d.name: d.body for d in found.docs}
+        return {d.name: d.body for d in project_files.docs_of(found)}
 
 
 def test_a_project_page_holds_its_repos_and_its_context(page, live, app_db) -> None:
@@ -68,17 +69,16 @@ def test_a_project_page_holds_its_repos_and_its_context(page, live, app_db) -> N
     page.locator("dialog[open] button", has_text="Delete").click()
     page.wait_for_url(f"{live}/projects/{project_id}")
     assert page.locator("a.doc-row").all_inner_texts()[0].startswith("AGENTS.md")
-    with app_db() as db:
-        assert db.query(ProjectDoc).filter_by(name="Design.md").count() == 0
+    assert "Design.md" not in docs(app_db, "Note-app")
 
 
 def test_a_document_written_elsewhere_is_never_overwritten(page, live, app_db) -> None:
     with app_db() as db:
         project = projects_svc.create_project(db, name="Note-app")
         db.commit()
-        project_id, doc_id = project.id, project.docs[0].id
+        project_id = project.id
     file = everyday.projects_dir() / "note-app" / "AGENTS.md"
-    page.goto(f"{live}/projects/{project_id}/docs/{doc_id}")
+    page.goto(f"{live}/projects/{project_id}/docs/{AGENTS_DOC}")
     page.locator(".doc-body .cm-content").wait_for()
 
     # An agent writes the file; what is written here then is not saved over it.
@@ -122,13 +122,15 @@ def test_a_document_written_elsewhere_is_never_overwritten(page, live, app_db) -
 
 def paths(app_db, project: str) -> list[str]:
     with app_db() as db:
-        return [d.path for d in db.query(Project).filter_by(name=project).one().docs]
+        found = db.query(Project).filter_by(name=project).one()
+        return [d.path for d in project_files.docs_of(found)]
 
 
 def test_the_context_is_filed_in_folders_on_its_tree(page, live, app_db) -> None:
     with app_db() as db:
         project = projects_svc.create_project(db, name="Note-app")
-        projects_svc.create_doc(db, project_id=project.id, name="Plan.md", body="# Plan")
+        db.commit()
+        project_files.create_doc(db, project, "Plan.md", body="# Plan")
         db.commit()
         url = f"{live}/projects/{project.id}"
     page.goto(url)
@@ -181,7 +183,7 @@ def test_the_context_is_filed_in_folders_on_its_tree(page, live, app_db) -> None
     # A document written in a folder as a path opens on its own page.
     page.fill("#doc-new", "decisions/adr/0001.md")
     page.press("#doc-new", "Enter")
-    page.wait_for_url(f"{url}/docs/*")
+    page.wait_for_url(f"{url}/docs/decisions/adr/0001.md")
     assert page.locator(".doc-folder select option:checked").inner_text() == "decisions/adr"
     page.goto(url)
 
@@ -211,14 +213,12 @@ def test_the_gantt_is_the_projects_next_tab(page, live, app_db) -> None:
 def test_a_document_is_drawn_as_it_reads_and_opens_in_its_last_mode(page, live, app_db) -> None:
     with app_db() as db:
         project = projects_svc.create_project(db, name="Note-app")
-        # Written as the app writes it: its file first, the master copy.
-        projects_svc.update_doc(
-            db,
-            project.docs[0].id,
-            body="# Note-app\n- Run `uv sync` first\n- [ ] Write the deploy steps",
-        )
         db.commit()
-        url = f"{live}/projects/{project.id}/docs/{project.docs[0].id}"
+        # Written as the app writes it: to its file, the master copy.
+        words = "# Note-app\n- Run `uv sync` first\n- [ ] Write the deploy steps"
+        project_files.save(db, project, AGENTS_DOC, words)
+        db.commit()
+        url = f"{live}/projects/{project.id}/docs/{AGENTS_DOC}"
     page.goto(url)
     editor = page.locator(".doc-body .cm-content")
     modes = page.locator("[data-md-modes]")

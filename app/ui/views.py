@@ -780,7 +780,10 @@ STATUS_WORDS = {
     "done": "Done",
     "cancelled": "Cancelled",
 }
-ACTOR_WORDS = {"oscar": "Oscar", "claude": "Claude", "agent": "An agent", "system": "The planner"}
+ACTOR_WORDS = {
+    "oscar": "Oscar", "claude": "Claude", "agent": "An agent", "system": "The planner",
+    "file": "Its file",
+}
 
 
 def _ticks(before: str, after: str) -> list[str] | None:

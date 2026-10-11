@@ -11,7 +11,7 @@
    project's folder is the master copy: a save names the version it was
    written over, and one the file has moved on from (an editor, an agent)
    asks which to keep. #}
-<div class="doc-page" data-doc="{{ doc.id }}" data-save-url="/ui/docs/{{ doc.id }}" data-version="{{ version }}">
+<div class="doc-page" data-save-url="/ui/projects/{{ project.id }}/doc" data-path="{{ doc.path }}" data-version="{{ version }}">
   <header class="task-page-header">
     <a class="page-back" href="/projects/{{ project.id }}">{{ project.name }}</a>
     <div class="page-header-end">
@@ -25,7 +25,7 @@
     {% else %}
     <h1><input class="doc-name" data-doc-name value="{{ doc.name }}" aria-label="Document name" autocomplete="off" spellcheck="false" maxlength="200"></h1>
     <button type="button" class="task-delete" title="Delete this document" aria-label="Delete {{ doc.name }}"
-            hx-post="/ui/docs/{{ doc.id }}/delete"
+            hx-post="/ui/projects/{{ project.id }}/context/delete" hx-vals='{{ {"path": doc.path}|tojson }}' data-follows-path
             hx-confirm="Delete document?"
             data-confirm-title="Delete document?"
             data-confirm-name="{{ doc.name }}"
@@ -39,10 +39,11 @@
     {%- if not doc.is_agents and folders %}
     <span class="doc-folder">· in
       <select name="folder" aria-label="Folder" title="Move it to another folder"
-              hx-post="/ui/docs/{{ doc.id }}" hx-trigger="change" hx-swap="none" data-was="{{ doc.folder_id or 'top' }}"
+              hx-post="/ui/projects/{{ project.id }}/doc" hx-vals='{{ {"path": doc.path}|tojson }}'
+              hx-trigger="change" hx-swap="none" data-was="{{ doc.folder_path or '/' }}"
               hx-on::after-request="if (event.detail.successful) this.dataset.was = this.value; else this.value = this.dataset.was">
-        <option value="top"{% if not doc.folder_id %} selected{% endif %}>No folder</option>
-        {% for f in folders %}<option value="{{ f.id }}"{% if doc.folder_id == f.id %} selected{% endif %}>{{ f.path }}</option>{% endfor %}
+        <option value="/"{% if not doc.folder_path %} selected{% endif %}>No folder</option>
+        {% for f in folders %}<option value="{{ f.path }}"{% if doc.folder_path == f.path %} selected{% endif %}>{{ f.path }}</option>{% endfor %}
       </select>
     </span>
     {%- endif %}

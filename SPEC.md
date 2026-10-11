@@ -198,23 +198,25 @@ Per [Domain model](tracker/tickets/008-domain-model.md). All v1 entities below; 
 Flat, no nesting.
 v3 adds a Goal entity plus a nullable goal reference on Project.
 
-A project has its folder in the everyday files' `projects/` (see [Agent runs](#agent-runs)), named after it when it was made; the database keeps the folder's name, and the folder's `project.toml` the project's id.
+A project has its folder in the everyday files' `projects/` (see [Files first](#files-first)), named after it and renamed with it; the database keeps the folder's name, and the folder's `project.toml` the project's id.
+Its notes (its about) are its `project.md`'s words, kept in its row too.
 
 **Project repository** (2026-10-04): belongs to one project; its location, a local path or a URL, as written.
 Its name is read from the location, never stored.
 The project's `project.toml` is its master copy (`repos`), the database's rows a copy of it.
 
-**Project document folder** (2026-10-04): belongs to one project; name, the folder it is in (none at the context's top), folded or not on the project's page.
-A folder on disk in the project's folder, its master copy; its name is a name Windows allows for a folder.
-
-**Project document** (2026-10-04): belongs to one project, at its context's top or in one of its folders; name, body (Markdown), when its body last changed.
-Its file in the project's folder (in the folder on disk its folder is) is its master copy (Oscar's call on 2026-10-04), the database's row a copy of it, read again as the file changes.
+**Project document** (2026-10-04; a file alone since 2026-10-11, [Files first](#files-first)): a Markdown file in the project's folder, at its top or in its folders and subfolders, the database keeping no copy of it; it is known by its path there (`decisions/adr/0001.md`).
 Its name is its file's: unique among what sits beside it in its folder, documents and folders alike, in any case; a name Windows allows for a file; and ending in `.md`, which the app adds when it is not written.
-Every project has one named AGENTS.md at its top, created with it, which cannot be renamed, moved or deleted.
+Every project has one named AGENTS.md at its top, created with it, which cannot be renamed, moved or deleted (deleted by hand, it is written back as its history last had it).
+`project.md`, `project.toml` and `tasks/` at the top are the project's own, not documents of its context.
+Which of its folders show folded on the project's page is a setting of the app's.
 
-**Project document revision** (2026-10-04): one step in a document's history: when, who (oscar, claude, or file: written in its file outside the app, by an editor or an agent), and its body after it.
-Edits in a row by the same hand within ten minutes are one step, as a task's are; a document's revisions go with it.
-It is the history git would have kept, without git's merges: `projects/` is not a repository.
+**Document revision** (2026-10-04 for a project's documents, every file's since 2026-10-11): one step in a file's history: whose it is (a task's, a project's, the notebook's) and its path there, when, who (oscar, claude, agent, system, or file: written outside the app, by an editor or an agent), and its words after it.
+Edits in a row by the same hand within ten minutes are one step, as a task's are; it stays when its file is deleted, and follows it when it is renamed or moved in the app.
+A task's task.md is in the task's own history instead.
+It is the history git would have kept, without git's merges: the everyday files are not a repository.
+
+**Document** (2026-10-11): a Markdown file of the everyday files as the app last read it, its index: whose it is, its path, its words' version, its size and time; its words are in a full-text index for search.
 
 **Workstream** (Oscar's call on 2026-10-01, replacing milestones: "I manage it that way"): belongs to one project; name, status (open / done), position (its place among its project's workstreams).
 A stream of the project's work run beside its others, a lane of its tasks with no date of its own: its span is its tasks', and its progress is computable from them.
@@ -227,7 +229,7 @@ It is set in the task sheet (its bars icon, or "p1" to "p4" as the title is writ
 It shows wherever tasks are: rows, the task sheet and page, Today's notes and its For today, Calendar's Plan, the Gantt, and search.
 It orders nothing on its own: dates still lead every list, and priority is their first tie-break (the most pressing first among tasks of the same dates); the Gantt keeps its rows where they were put.
 A repeating task's occurrences start with no priority, as they start with no estimate.
-Notes are the task's free-form description, Markdown as GitHub reads it, and sub-tasks live inside it: a line starting with "- [ ] " (or "* [ ] ", "+ [ ] ") is a sub-task, "- [x] " once done; a "- " line without a box is a plain bullet, and every other line is context kept where it was written (Oscar's call on 2026-10-11, replacing every "- " line being a sub-task, which left no way to write a bullet list).
+Notes are the task's free-form description (its task.md's words, with its acceptance criteria and outcome: [Files first](#files-first)), Markdown as GitHub reads it, and sub-tasks live inside it: a line starting with "- [ ] " (or "* [ ] ", "+ [ ] ") is a sub-task, "- [x] " once done; a "- " line without a box is a plain bullet, and every other line is context kept where it was written (Oscar's call on 2026-10-11, replacing every "- " line being a sub-task, which left no way to write a bullet list).
 Lines in fenced code are code, whatever they read.
 Sub-tasks are text, not rows: they carry no status, owner, or dates of their own, and ticking one rewrites only its own line.
 A repeating task's occurrences start with every sub-task open.
@@ -248,7 +250,7 @@ Recorded by the ORM on every flush that touches a task, whatever path made the c
 It is shown under the task's sheet and read by Claude through `get_task_history`.
 A description written over a while is one step: an edit to the description alone, by the same hand within ten minutes of that task's last step, itself such an edit, folds into it, so a page saving as it is written leaves one "Description edited".
 
-**NotebookPage**: one per day; its blocks in the order they were written and a version (text, tasks by reference, reflections, habits, and stays, whose items are read from their "- [ ] name: value" lines). Today's notepad writes it as one text block; a page written in the notebook's time (with task references and reflections) reads back as text.
+**NotebookPage**: one per day, its file `notebook/<year>/<day>.md` ([Files first](#files-first)); its blocks in the order they were written and a version (text, tasks by reference, reflections, habits, and stays, whose items are read from their "- [ ] name: value" lines). Today's notepad writes it as one text block; a page written in the notebook's time (with task references and reflections) reads back as text.
 A save names the version it was made from, and a save from an older copy is refused, so two windows never silently overwrite each other; the page asks which to keep.
 
 **Event**: title, start, end, all-day flag, source (local / work), read-only flag, external id.
@@ -447,31 +449,29 @@ His projects span several repositories, so a project's context lives apart from 
 And the agent system behind a run is a part that plugs in, not the app's shape ("do it generic, with an API we connect, so I can use other systems too").
 Built in three steps, all on 2026-10-04 and 05: the everyday files and the context as files, then a task's run fields and its reporting, then Launch and the runs followed.
 
-- **The everyday files.** Setup makes a folder for agentic work, `C:\everyday-files` unless another is chosen on its page, with three folders in it.
-  `repos/` holds each repository's main clone, once, however many projects use it; `projects/` a folder for each project, its context; `tasks/` a folder for each task that has files; and `work/` the folders runs work in.
+- **The everyday files.** Setup makes a folder for agentic work, `C:\everyday-files` unless another is chosen on its page, with these folders in it.
+  `repos/` holds each repository's main clone, once, however many projects use it; `projects/` a folder for each project, its context and its tasks; `tasks/` a folder for each task in no project; `notebook/` the days' notes; and `work/` the folders runs work in (since 2026-10-11, [Files first](#files-first)).
   The choice is the installer's `install.toml` (`[everyday_files] dir`), remembered by Setup; a run from the repo uses `everyday-files/` in it (git-ignored), so the dev server never writes to the real one.
   The app makes any of the folders that is missing as it starts; uninstalling keeps them.
   A short path at a drive's root keeps deep worktrees under Windows' 260-character path limit.
-- **A project's context is files** (Oscar's call: the master copy lives in the files, synced to the database).
-  `projects/<folder>/` holds its documents, each a Markdown file named as the document is (`AGENTS.md`, `Architecture.md`), in folders and subfolders on disk as the context files them (`decisions/adr/0001.md`), and `project.toml`: the project's id, the app's link to the folder, and its repositories (`repos`, their locations as written).
+- **A project's context is files** (Oscar's call: the master copy lives in the files; since 2026-10-11 the files alone, [Files first](#files-first)).
+  `projects/<folder>/` holds its documents, each a Markdown file named as the document is (`AGENTS.md`, `Architecture.md`), in folders and subfolders on disk as the context files them (`decisions/adr/0001.md`), `project.md` (the project, its about the file's) and `project.toml`: the project's id, the app's link to the folder, and its repositories (`repos`, their locations as written).
   A folder or file whose name starts with a dot (`.git`) is not the context's.
-  The database keeps a copy of each, for the pages, search, Claude and the API.
-  It is read again from the files as the app starts, as a project's page or its context is read, and, while the desktop app runs, as the folder changes (a watcher).
-  A file written, added, renamed, moved or deleted, by Oscar's editor or an agent, is that document written, added, renamed or moved (the same words at another path, so it keeps its history) or deleted; a folder made or deleted there is a folder of the context made or deleted, with what it holds; AGENTS.md deleted is written back, as every project keeps it.
+  The project's page, search, Claude and the API read the folder itself; the database keeps only each file's index entry and history.
+  A file written, added, renamed, moved or deleted, by Oscar's editor or an agent, is that document written, added, renamed, moved or deleted; a folder made or deleted there is a folder of the context made or deleted, with what it holds; AGENTS.md deleted is written back, as every project keeps it.
   In the app, a folder made, renamed, moved or deleted is so on disk too, with everything in it.
   A folder made in `projects/` without a `project.toml` is a new project, named after the folder.
-  A folder moved or renamed is followed by the id in its `project.toml`; a project whose folder is gone gets it written again from the database's copy.
-  The project's name, status, colour and notes stay the database's, as its tasks do; a project renamed keeps its folder.
-  Written in the app, a document goes to its file first.
+  A folder moved or renamed by hand is followed by the id in its `project.toml`, then named after its project again; a project whose folder is gone gets it written again, its documents as their history last had them.
+  The project's name, status and colour stay the database's, as its tasks' fields do; a project renamed has its folder renamed.
   A save names the version it was made from (its words' hash), and one made from an older copy is refused, so an agent's edit is never silently overwritten: the page says the document was changed elsewhere and offers that version or keeping its own, as Today's notes do.
   `projects/` is not a git repository: what a document was before is in its revisions, so nothing merges and nothing conflicts (Oscar's old projects repository broke on merge conflicts, its tasks and outcomes written by several agents at once).
-- **Tasks stay in the database.** Their state changes many times a day, from Oscar, agents and the app's own checks, and is never a file.
+- **A task's state stays in the database.** It changes many times a day, from Oscar, agents and the app's own checks: its task.md shows it, and the database owns it ([Files first](#files-first)).
 - **A task's files** (Oscar's call on 2026-10-11: a task is Markdown, and may spawn several files, which agent skills will write; `app/services/task_files.py`).
-  Besides its description, which stays in the database, a task may hold Markdown documents, in folders and subfolders, in its folder of the everyday files' `tasks/`: `tasks/<id>-<words>/`, the words its title's when the folder was made, found by its id alone so it never moves as the task is renamed or refiled.
-  The files are the master copy and nothing of them is in the database: Oscar writes them on the task's page, agents where they are.
+  Every task has a folder, `tasks/<id>-<words>/` in its project's folder (or the everyday files' own `tasks/`), holding its task.md ([Files first](#files-first)) and, beside it, Markdown documents in folders and subfolders; the folder moves with the task as it is renamed or refiled, and is found by its id meanwhile.
+  The files are the master copy, the database keeping only their index entries and history: Oscar writes them on the task's page, agents where they are.
   On the page they are under the task on its map, after its Description: one opens in the document's place (`/tasks/<id>/files/<path>`), written as it reads and saved as it is written over the version it was read at (one written elsewhere since asks which to keep, as a project's documents do), renamed in its heading and deleted from its bin; one is added on the map's line after them, a path naming its folders ("research/trees").
   A path that leaves the task's folder is refused.
-  The API gives each task's `files_folder` (the folder it has, or will take with its first file) and its `files`; the MCP tells agents they may write them; a run's brief says where they are and which it holds, to read first and to write what the run makes beyond code.
+  The API gives each task's `files_folder`, its `task_file` and its `files`; the MCP tells agents they may write them; a run's brief says where they are and which it holds, to read first and to write what the run makes beyond code.
 - **A task's work** (2026-10-04).
   A task names the repositories it is worked in (one or several of its project's), its acceptance criteria (what done means, apart from its description), and, once worked, its outcome (what came of it), its pull requests and the updates reported as it went.
   Its page has them in the sidebar's Agent work pane, once it is Claude's task (Oscar's call on 2026-10-11: they make no sense before a task is deemed an agent's; Oscar's own task has Hand to an agent there, which makes it Claude's), in the order the work goes: its brief (its project's repositories as toggles, the acceptance criteria written on the line and saved as they are written), Launch and its runs, the pull requests as GitHub last had them (a chip each: not read yet, draft, open, merged or closed), one added by its URL or `owner/name#number` and taken off from its bin, Check to read them from GitHub at once, the outcome once it ran (saved as it is written), and the updates, newest first.
@@ -499,6 +499,45 @@ Built in three steps, all on 2026-10-04 and 05: the everyday files and the conte
   An agent takes a task as far as needs review (in progress, blocked, needs review), never to done or cancelled: a report saying so is refused whole, and a task already done or cancelled keeps its status whatever is reported.
 - **Done when its pull requests merge.** Done is the app's to say: a task whose pull requests are all merged is done, with an update saying so, and one without any is done when Oscar says so; a closed or draft one keeps its task open.
   A job reads every open task's pull requests not merged yet from GitHub every `[github].pull_request_minutes` (3), whether Code is installed or not: asked as each connected account that reaches the repository first, then as the others, then as no one (a public repository), so a pull request GitHub will not show says why under it.
+
+### Files first
+
+Oscar's call on 2026-10-11, after an audit of how the planner stores what it keeps: the planner should be as easy for an AI to explore as for the app, a folder of Markdown an agent can read, grep and write, with the app reading the same folder.
+The rule: **words are files, fields and records are rows.**
+What Oscar or an agent writes (a task's description, acceptance criteria and outcome, a day's notes, a project's about, its documents, a task's files) is a Markdown file in the everyday files, the master copy.
+What the app keeps track of (a task's status, dates, owner, project, workstream and place; events, habits' checks, pull requests, runs, history) stays in the database, its owner ("the DB is the ultimate owner"), and shows in the files as front matter the app writes.
+The planner only: Health, Finances and Code keep their own storage.
+
+- **The layout follows the database** (Oscar's call: "folder follows db").
+  `projects/<folder>/` holds the project: `project.md`, `project.toml`, `AGENTS.md` and its other documents, and `tasks/`, a folder for each of its tasks.
+  A task's folder is `tasks/<id>-<words>/` in its project's folder, or in the everyday files' own `tasks/` when it is in no project; the words are its title's.
+  A task moved to another project, or renamed, has its folder moved or renamed to match, as a project renamed has its folder; a folder Windows will not move just then (a file open in it) is moved the next time the files are settled, and found by its id meanwhile.
+  `notebook/<year>/<day>.md` holds each day's notes.
+  `README.md`, at the everyday files' top, is the app's: what is where, how each file reads, what the database holds and how to query it, and how to change what the files only show; it is written again as the app starts.
+  A task deleted has its folder moved to `.trash/`, so nothing an agent wrote there is lost.
+- **A task is `task.md`** in its folder: its front matter, then its description, then `## Acceptance` and `## Outcome`, always both, last.
+  The front matter is the database's (its id, title, status, owner, project, workstream, dates, estimate, priority, pull requests): the app writes it, and writes it back over an edit made in the file; fields change in the app, over its API or through Claude's tools, where its rules hold (an agent never takes a task to done).
+  The description, acceptance criteria and outcome are the file's: one written in the file is the task's, and one written in the app is written to the file.
+  Its other files sit beside `task.md`, as before.
+  A folder with a `task.md` and no id the database has, made in a project's `tasks/` or the top `tasks/`, is a new task: its title the front matter's or the folder's name, its project the folder it is in, the other fields its front matter gives; its folder then takes its id.
+  A task's folder deleted by hand is written again from the database.
+- **A day's notes are `notebook/<year>/<day>.md`**: the notes as Today's notepad has them (rows, "- [ ] " tasks with their tabbed rows, "/reflection", "/habit name", "/stay" and its items), a task's row ending in `<!-- task:<id> -->` (`<!-- task:<id> folded -->` when it shows folded).
+  Written in the file, the notes are the day's page, its habits checked from it, as a save from the notepad would be; a window with the page open is then out of date and asks which to keep.
+- **A project is `project.md`**: its front matter the database's (its id, name, status, workstreams), its body the project's about, the file's.
+  `project.toml` keeps its id and its repositories, which stay the file's.
+  A project's documents are files and nothing else: the database keeps no copy of them; the project's page reads its folder.
+  What a folder of its context shows folded on the page is the app's to remember.
+- **The database indexes the files.**
+  A task's words are kept in its row as well, read again from `task.md` as it changes, for the lists, search and history; a day's page keeps its blocks, read again from its file, for the notepad's versions.
+  Every Markdown file in `projects/`, `tasks/` and `notebook/` is in `documents` (whose it is, its path, its version, when it changed) and its words in `documents_fts`, SQLite's full-text index, for search: Ctrl+K finds a document's words, as Claude's `search` does.
+- **Settling.** After every commit, the tasks, projects and pages it touched have their files written from the database, in a session of their own, and a task's folder moved where it belongs.
+  A file is the app's when its words' hash is the one the database last wrote or read (`file_hash`), so the app then writes over it freely; a file whose hash is another was written outside the app since: its words are read in first (history names the hand `file`), then its front matter is written back.
+  So a file written by an agent and a field changed in the app at once both stand, and a crash between a commit and its files is put right as the app starts, when every file is settled.
+  A watcher on the everyday files reads in what changes outside the app, a moment after it does.
+- **History.** A task's words are in its history (`task_revisions`), as its fields are; every other file's are in `document_revisions`, by whose it is and its path there (a task's, a project's, the notebook's), so a folder moving keeps it.
+  Edits in a row by the same hand within ten minutes are one step.
+  The everyday files are not a git repository: agents work in folders inside them, where a repository above would catch their git commands, and the history above is never merged.
+- **Backups.** The daily backup also zips the everyday files (`repos/` and `work/` left out, being clones and checkouts), beside the database's snapshot, as many kept.
 
 ### Plan truth
 

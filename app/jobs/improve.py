@@ -148,6 +148,8 @@ def _steps(settings, checkout: Path) -> dict[str, list[str]]:  # noqa: ANN001
         settings.improve.project,
     ]
     runs = [
+        "--everyday",
+        str(settings.everyday_dir),
         "--repo",
         str(repo()),
         "--runner",

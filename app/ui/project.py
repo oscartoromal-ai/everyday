@@ -11,12 +11,14 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 
 from app.db import DbSession
-from app.models import ProjectDocFolder, ProjectStatus
+from app.models import Project, ProjectStatus
 from app.services import DomainError, everyday, project_files
 from app.services import projects as projects_svc
+from app.services.project_files import ContextDoc
 from app.ui.project_view import (
     context_ctx,
     doc_file,
+    doc_href,
     doc_page_ctx,
     glance_ctx,
     head_ctx,
@@ -161,19 +163,17 @@ def delete_repo(request: Request, db: DbSession, repo_id: int):
     return _repos(request, db, project_id)
 
 
-def _folder(value: str | None) -> int | None:
-    """A folder posted as where something goes: its id, or "top" for the
+def _folder(value: str | None) -> str | None:
+    """A folder posted as where something goes: its path, "/" for the
     context's top (an empty value reads as none posted). Not posted at all,
     it stays where it is."""
     if value is None:
-        return projects_svc.KEEP
-    return None if value.strip() in ("", "top") else int(value)
+        return project_files.KEEP
+    return value.strip().strip("/")
 
 
-def _context(request: Request, db: DbSession, project_id: int) -> Response:
+def _context(request: Request, db: DbSession, project: Project) -> Response:
     """Its context drawn again, and the header's count with it."""
-    project = projects_svc.get_project(db, project_id)
-    db.refresh(project, ["docs", "doc_folders"])
     return templates.TemplateResponse(
         request,
         "partials/project_context.html",
@@ -182,16 +182,9 @@ def _context(request: Request, db: DbSession, project_id: int) -> Response:
             "oob_head": True,
             "tab": "overview",
             **head_ctx(db, project),
-            **context_ctx(project, date.today()),
+            **context_ctx(db, project, date.today()),
         },
     )
-
-
-def _unfold(folder: ProjectDocFolder | None) -> None:
-    """A folder and those it is in opened, so what was just put in it shows."""
-    while folder is not None:
-        folder.folded = False
-        folder = folder.parent
 
 
 @router.post("/ui/projects/{project_id}/docs")
@@ -203,11 +196,11 @@ def add_doc(
 ):
     """A new document, in the folder it was written in (a path names
     folders under it), opened on its own page to be written."""
-    doc = projects_svc.create_doc(db, project_id=project_id, name=name, folder_id=_folder(folder))
-    _unfold(doc.folder)
-    db.commit()
+    project = _project(db, project_id)
+    with project_files.held(db):
+        doc = project_files.create_doc(db, project, name, _folder(folder) or None)
     response = Response(status_code=204)
-    response.headers["HX-Redirect"] = f"/projects/{project_id}/docs/{doc.id}"
+    response.headers["HX-Redirect"] = doc_href(project, doc.path)
     return response
 
 
@@ -220,78 +213,73 @@ def add_folder(
     folder: Annotated[str, Form()] = "",
 ):
     """A new folder, in the folder it was written in, or at the top."""
-    made = projects_svc.create_folder(
-        db, project_id=project_id, name=name, parent_id=_folder(folder)
-    )
-    _unfold(made.parent)
-    db.commit()
-    return _context(request, db, project_id)
+    project = _project(db, project_id)
+    with project_files.held(db):
+        project_files.create_folder(db, project, name, _folder(folder) or None)
+    return _context(request, db, project)
 
 
-@router.post("/ui/folders/{folder_id}/place")
-def place_folder(
+@router.post("/ui/projects/{project_id}/context/place")
+def place_in_context(
     request: Request,
     db: DbSession,
-    folder_id: int,
+    project_id: int,
+    path: Annotated[str, Form()],
     name: Annotated[str | None, Form()] = None,
     folder: Annotated[str | None, Form()] = None,
 ):
-    """A folder renamed on the tree, or dragged into another."""
-    moved = projects_svc.update_folder(db, folder_id, name=name, parent_id=_folder(folder))
-    _unfold(moved.parent)
-    db.commit()
-    return _context(request, db, moved.project_id)
+    """A document or folder renamed on the tree, or dragged into a folder
+    (or out to the top)."""
+    project = _project(db, project_id)
+    with project_files.held(db):
+        project_files.place(db, project, path, name=name, folder=_folder(folder))
+    return _context(request, db, project)
 
 
-@router.post("/ui/folders/{folder_id}/fold", status_code=204)
-def fold_folder(db: DbSession, folder_id: int, folded: Annotated[bool, Form()]) -> None:
+@router.post("/ui/projects/{project_id}/context/fold", status_code=204)
+def fold_folder(
+    db: DbSession, project_id: int, path: Annotated[str, Form()],
+    folded: Annotated[bool, Form()],
+) -> None:
     """A folder folded or opened on the tree, which has drawn it so already."""
-    projects_svc.update_folder(db, folder_id, folded=folded)
+    project_files.set_folded(db, _project(db, project_id), path, folded)
     db.commit()
 
 
-@router.post("/ui/folders/{folder_id}/delete")
-def delete_folder(request: Request, db: DbSession, folder_id: int):
-    """A folder gone, with everything in it."""
-    project_id = projects_svc.get_folder(db, folder_id).project_id
-    projects_svc.delete_folder(db, folder_id)
-    db.commit()
-    return _context(request, db, project_id)
-
-
-@router.post("/ui/docs/{doc_id}/place")
-def place_doc(
+@router.post("/ui/projects/{project_id}/context/delete")
+def delete_in_context(
     request: Request,
     db: DbSession,
-    doc_id: int,
-    name: Annotated[str | None, Form()] = None,
-    folder: Annotated[str | None, Form()] = None,
+    project_id: int,
+    path: Annotated[str, Form()],
+    tree: bool = False,
 ):
-    """A document renamed on the tree, or dragged into a folder."""
-    doc = projects_svc.update_doc(db, doc_id, name=name, folder_id=_folder(folder))
-    _unfold(doc.folder)
-    db.commit()
-    return _context(request, db, doc.project_id)
+    """A document, or a folder with everything in it, gone. Deleted on the
+    tree, the tree is drawn again; on a document's own page, the page goes
+    with it: back to its project's."""
+    project = _project(db, project_id)
+    with project_files.held(db):
+        project_files.delete(db, project, path)
+    if tree:
+        return _context(request, db, project)
+    response = Response(status_code=204)
+    response.headers["HX-Redirect"] = f"/projects/{project_id}"
+    return response
 
 
-def _doc(db: DbSession, doc_id: int, project_id: int | None = None):  # noqa: ANN202
-    """The document, read again from its file first: 404 when there is no
-    such document, or its file was deleted."""
+def _doc(db: DbSession, project: Project, path: str) -> ContextDoc:
+    """The document, as its file has it: 404 when there is no such file."""
     try:
-        doc = projects_svc.get_doc(db, doc_id)
+        return project_files.read(project, path)
     except DomainError:
-        doc = None
-    if doc is not None and (project_id is None or doc.project_id == project_id):
-        project = doc.project
-        project_files.refresh(db, project)
-        if doc in project.docs:
-            return doc
-    raise HTTPException(404, "No such document: it may have been deleted")
+        raise HTTPException(404, "No such document: it may have been deleted") from None
 
 
-@router.get("/projects/{project_id}/docs/{doc_id}")
-def doc_page(request: Request, db: DbSession, project_id: int, doc_id: int):
-    doc = _doc(db, doc_id, project_id)
+@router.get("/projects/{project_id}/docs/{path:path}")
+def doc_page(request: Request, db: DbSession, project_id: int, path: str):
+    project = _project(db, project_id)
+    project_files.refresh(db, project)
+    doc = _doc(db, project, path)
     return templates.TemplateResponse(
         request,
         "project_doc.html",
@@ -299,60 +287,54 @@ def doc_page(request: Request, db: DbSession, project_id: int, doc_id: int):
             "request": request,
             "active": "project",
             "today": date.today(),
-            **doc_page_ctx(doc, date.today()),
+            **doc_page_ctx(project, doc, date.today()),
         },
     )
 
 
-@router.post("/ui/docs/{doc_id}")
+@router.post("/ui/projects/{project_id}/doc")
 def save_doc(
     db: DbSession,
-    doc_id: int,
+    project_id: int,
+    path: Annotated[str, Form()],
     body: Annotated[str | None, Form()] = None,
     name: Annotated[str | None, Form()] = None,
     folder: Annotated[str | None, Form()] = None,
     base: Annotated[str | None, Form()] = None,
-) -> JSONResponse:
+) -> Response:
     """A document saved as it is written (doc-editor.js), its words written
-    over the copy of version `base`, or moved into another folder from its
-    page: answered with its version and name now, or 409 with its file's
-    version when that was written elsewhere since."""
-    try:
-        doc = projects_svc.update_doc(
-            db,
-            doc_id,
-            name=name,
-            body=None if body is None else everyday.plain(body),
-            folder_id=_folder(folder),
-            base=base,
-        )
-    except projects_svc.DocChanged as exc:
-        return JSONResponse({"detail": str(exc), "version": exc.version}, status_code=409)
+    over the copy of version `base`, or renamed from its heading: answered
+    with its version, name and path now, or 409 with its file's version when
+    that was written elsewhere since. Moved into another folder from its
+    page, the page goes where it now is."""
+    project = _project(db, project_id)
+    with project_files.held(db):
+        try:
+            if body is not None:
+                project_files.save(db, project, path, everyday.plain(body), base)
+        except project_files.DocChanged as exc:
+            return JSONResponse({"detail": str(exc), "version": exc.version}, status_code=409)
+        if name is not None or folder is not None:
+            path = project_files.place(db, project, path, name=name, folder=_folder(folder))
+    doc = _doc(db, project, path)
     if folder is not None:
-        _unfold(doc.folder)
-    db.commit()
+        response = Response(status_code=204)
+        response.headers["HX-Redirect"] = doc_href(project, doc.path)
+        return response
     return JSONResponse(
-        {"version": everyday.version(doc.body), "name": doc.name, "file": doc_file(doc)}
+        {
+            "version": everyday.version(doc.body),
+            "name": doc.name,
+            "path": doc.path,
+            "href": doc_href(project, doc.path),
+            "file": doc_file(project, doc),
+        }
     )
 
 
-@router.get("/ui/docs/{doc_id}/latest")
-def latest_doc(db: DbSession, doc_id: int) -> JSONResponse:
+@router.get("/ui/projects/{project_id}/doc")
+def latest_doc(db: DbSession, project_id: int, path: str) -> JSONResponse:
     """The document as its file has it now, for its page to show a version
     written elsewhere (doc-editor.js)."""
-    doc = _doc(db, doc_id)
+    doc = _doc(db, _project(db, project_id), path)
     return JSONResponse({"version": everyday.version(doc.body), "name": doc.name, "body": doc.body})
-
-
-@router.post("/ui/docs/{doc_id}/delete")
-def delete_doc(request: Request, db: DbSession, doc_id: int, tree: bool = False):
-    """A document gone. Deleted on the tree, the tree is drawn again; on its
-    own page, the page goes with it: back to its project's."""
-    project_id = projects_svc.get_doc(db, doc_id).project_id
-    projects_svc.delete_doc(db, doc_id)
-    db.commit()
-    if tree:
-        return _context(request, db, project_id)
-    response = Response(status_code=204)
-    response.headers["HX-Redirect"] = f"/projects/{project_id}"
-    return response

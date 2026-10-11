@@ -1,14 +1,19 @@
 """The everyday files (SPEC.md, Agent runs): the folder for agentic work,
 C:\\everyday-files unless Setup chose another ([everyday_files] dir).
 
+    README.md    the app's: what is where, and how each file reads (app.services.readme)
     repos/       each repository's main clone, once
-    projects/    a folder a project: its context's documents, and project.toml
-    tasks/       a folder a task with files: its documents (app.services.task_files)
+    projects/    a folder a project: project.md, project.toml, its context's
+                 documents, and tasks/, a folder for each of its tasks
+    tasks/       a folder for each task in no project (app.services.task_files)
+    notebook/    a day's notes a file: notebook/<year>/<day>.md
     work/        the folders runs work in
+    .trash/      the folders of tasks deleted
 
 This module is the files alone: where they are, what a document's file is
-named, project.toml read and written, and a file written whole or not at all.
-What they mean to the database is app.services.project_files'.
+named, project.toml and front matter read and written, and a file written
+whole or not at all. What they mean to the database is app.services.settling's
+(SPEC.md, Files first).
 """
 
 from __future__ import annotations
@@ -20,7 +25,11 @@ import os
 import re
 import tomllib
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 from app.config import get_settings
 from app.services import DomainError
@@ -56,10 +65,24 @@ def work_dir() -> Path:
     return root() / "work"
 
 
+def notebook_dir() -> Path:
+    return root() / "notebook"
+
+
+def trash_dir() -> Path:
+    return root() / ".trash"
+
+
 def ensure() -> None:
-    """The four folders, made where missing."""
-    for folder in (repos_dir(), projects_dir(), tasks_dir(), work_dir()):
+    """The folders, made where missing."""
+    for folder in (repos_dir(), projects_dir(), tasks_dir(), notebook_dir(), work_dir()):
         folder.mkdir(parents=True, exist_ok=True)
+
+
+def relative(path: Path) -> str:
+    """A path from the everyday files' folder, "/" between its names:
+    projects/app/tasks/12-fix-it/task.md."""
+    return path.relative_to(root()).as_posix()
 
 
 # ---- names ----
@@ -181,6 +204,54 @@ def write_text(path: Path, text: str) -> None:
         os.replace(temp, path)
     finally:
         temp.unlink(missing_ok=True)
+
+
+# ---- front matter ----
+
+
+def split_front_matter(text: str) -> tuple[dict[str, Any] | None, str]:
+    """A file's front matter (the YAML between its first two "---" lines),
+    and its words after it. None for a file with none, or with front matter
+    that is not a YAML mapping (its words are then the whole file)."""
+    if not text.startswith("---\n"):
+        return None, text
+    end = text.find("\n---\n", 3)
+    if end == -1:
+        if text.endswith("\n---"):
+            end = len(text) - 4
+        else:
+            return None, text
+    try:
+        data = yaml.safe_load(text[4:end])
+    except yaml.YAMLError:
+        return None, text
+    if data is None:
+        data = {}
+    if not isinstance(data, dict):
+        return None, text
+    return data, text[end + 5:]
+
+
+def front_matter(note: str, data: dict[str, Any]) -> str:
+    """Front matter for a file: `note` as YAML comments, then `data` in the
+    order given, between "---" lines."""
+    comments = "".join(f"# {line}".rstrip() + "\n" for line in note.split("\n"))
+    body = yaml.safe_dump(
+        data, sort_keys=False, allow_unicode=True, default_flow_style=False, width=1000
+    )
+    return f"---\n{comments}{body}---\n"
+
+
+def as_date(value: Any) -> date | None:
+    """A front matter's date, as YAML reads one (or a string that is one)."""
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value.strip())
+        except ValueError:
+            return None
+    return None
 
 
 # ---- project.toml ----

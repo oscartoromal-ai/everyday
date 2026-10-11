@@ -22,12 +22,16 @@
   const isOpen = (folder) => toggleOf(folder).getAttribute("aria-expanded") === "true";
 
   // What the next drawing of the tree should bring into view and focus: a
-  // node by its kind and name, and the folder it went in (null: the top).
+  // node by its kind and name, and the folder it went in (its path; "": the
+  // top). Folders and documents go by their paths in the project's folder,
+  // and the top, posted, is "/" (a value of its own: an empty one is none).
   let landing = null;
-  const land = (kind, name, folder) => { landing = { kind, name, folder: folder && folder !== "top" ? folder : "" }; };
+  const land = (kind, name, folder) => { landing = { kind, name, folder: folder && folder !== "/" ? folder : "" }; };
 
   const post = (url, values, swap = "outerHTML") =>
     htmx.ajax("POST", url, { target: "#project-context", swap, values });
+  const place = (node, values) =>
+    post(`/ui/projects/${project()}/context/place`, { path: node.dataset.folder ?? node.dataset.doc, ...values });
 
   /* ---- folding ---- */
 
@@ -35,7 +39,7 @@
     if (isOpen(folder) === open) return;
     toggleOf(folder).setAttribute("aria-expanded", String(open));
     groupOf(folder).hidden = !open;
-    if (save) htmx.ajax("POST", `/ui/folders/${folder.dataset.folder}/fold`, { swap: "none", values: { folded: !open } });
+    if (save) htmx.ajax("POST", `/ui/projects/${project()}/context/fold`, { swap: "none", values: { path: folder.dataset.folder, folded: !open } });
   };
 
   document.addEventListener("click", (e) => {
@@ -66,7 +70,7 @@
     const depth = folder ? Number(folder.style.getPropertyValue("--depth")) + 1 : 0;
     draft.style.setProperty("--depth", depth);
     draft.dataset.kind = kind;
-    form.elements.folder.value = folder?.dataset.folder ?? "top";
+    form.elements.folder.value = folder?.dataset.folder ?? "/";
     const name = form.elements.name;
     const where = folder ? ` in ${folder.dataset.name}` : "";
     name.placeholder = kind === "doc" ? `New document${where}: its name, as Architecture.md` : `New folder${where}: its name`;
@@ -138,8 +142,7 @@
       const kind = node.classList.contains("ctx-folder") ? "folder" : "doc";
       if (save && name && name !== node.dataset.name) {
         land(kind, name, folderOf(node)?.dataset.folder);
-        const id = node.dataset.folder || node.dataset.doc;
-        post(`/ui/${kind === "folder" ? "folders" : "docs"}/${id}/place`, { name }).then(() => {
+        place(node, { name }).then(() => {
           // Refused (a name taken): the row as it was, the toast saying why.
           if (node.isConnected) { form.remove(); row.classList.remove("is-renaming"); open.focus(); }
         });
@@ -205,7 +208,7 @@
 
   /* ---- dragging a row into a folder, or out to the top ---- */
 
-  let dragged = null; // {node, kind, id}
+  let dragged = null; // {node, kind, id}: id its path
   let over = null; // the folder node, or the tree, it would land in
   let opening = null; // a folded folder held over opens after a moment
 
@@ -255,13 +258,13 @@
   document.addEventListener("drop", (e) => {
     if (!dragged) return;
     const target = dropTarget(e.target);
-    const { node, kind, id } = dragged;
+    const { node, kind } = dragged;
     if (!target) return;
     e.preventDefault();
-    const to = target.dataset.folder ?? "top";
-    if (to === (folderOf(node)?.dataset.folder ?? "top")) return;
+    const to = target.dataset.folder ?? "/";
+    if (to === (folderOf(node)?.dataset.folder ?? "/")) return;
     land(kind, node.dataset.name, to);
-    post(`/ui/${kind === "folder" ? "folders" : "docs"}/${id}/place`, { folder: to });
+    place(node, { folder: to });
   });
 
   document.addEventListener("dragend", () => {
@@ -277,7 +280,7 @@
     if (e.detail.elt.id !== "project-context" || !landing) return;
     const { kind, name, folder } = landing;
     landing = null;
-    const scope = folder ? card().querySelector(`.ctx-folder[data-folder="${folder}"] > .ctx-group`) : card().querySelector("[data-ctx-root]");
+    const scope = folder ? card().querySelector(`.ctx-folder[data-folder="${CSS.escape(folder)}"] > .ctx-group`) : card().querySelector("[data-ctx-root]");
     const node = [...(scope?.querySelectorAll(`:scope > .ctx-${kind}`) || [])].find((n) => n.dataset.name.toLowerCase() === name?.toLowerCase());
     if (!node) return;
     node.querySelector(".ctx-open").focus();

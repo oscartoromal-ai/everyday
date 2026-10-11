@@ -12,6 +12,7 @@ from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
+    DDL,
     JSON,
     Boolean,
     Column,
@@ -26,6 +27,7 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    event,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -114,9 +116,12 @@ class Project(Base):
     # moved by dragging it in the sidebar.
     position: Mapped[int] = mapped_column(Integer, default=0)
     # Its folder in the everyday files' projects/ (app.services.project_files):
-    # its context's files, named after it when it was made. None until the
-    # folder is first written.
+    # its project.md, its context's files and its tasks' folders, named after
+    # it and renamed with it. None until the folder is first written.
     folder: Mapped[str | None] = mapped_column(String(200), default=None)
+    # Its project.md's words' hash as the app last wrote or read it: the file
+    # is the app's while it has it (app.services.settling).
+    file_hash: Mapped[str | None] = mapped_column(String(16), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     workstreams: Mapped[list[Workstream]] = relationship(
@@ -125,12 +130,6 @@ class Project(Base):
     tasks: Mapped[list[Task]] = relationship(back_populates="project")
     repos: Mapped[list[ProjectRepo]] = relationship(
         back_populates="project", order_by="ProjectRepo.id", cascade="all, delete-orphan"
-    )
-    docs: Mapped[list[ProjectDoc]] = relationship(
-        back_populates="project", order_by="ProjectDoc.id", cascade="all, delete-orphan"
-    )
-    doc_folders: Mapped[list[ProjectDocFolder]] = relationship(
-        back_populates="project", order_by="ProjectDocFolder.id", cascade="all, delete-orphan"
     )
 
 
@@ -148,95 +147,9 @@ class ProjectRepo(Base):
 
 
 # The document every project has, first among its context: what an agent
-# working on the project reads before anything else.
+# working on the project reads before anything else. A project's documents
+# are files in its folder, and nothing else (app.services.project_files).
 AGENTS_DOC = "AGENTS.md"
-
-
-class ProjectDocFolder(Base):
-    """A folder of the project's context, a folder on disk in the project's
-    folder of the everyday files (its master copy): its documents and its
-    subfolders, named once among what sits beside it."""
-
-    __tablename__ = "project_doc_folders"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    # The folder it is in; none at the context's top.
-    parent_id: Mapped[int | None] = mapped_column(
-        ForeignKey("project_doc_folders.id"), index=True, default=None
-    )
-    name: Mapped[str] = mapped_column(String(200))
-    # Folded on the project's page, its contents hidden: kept here, so it
-    # holds through the tree's re-renders and on every device.
-    folded: Mapped[bool] = mapped_column(Boolean, default=False)
-
-    project: Mapped[Project] = relationship(back_populates="doc_folders")
-    parent: Mapped[ProjectDocFolder | None] = relationship(
-        back_populates="children", remote_side=[id]
-    )
-    children: Mapped[list[ProjectDocFolder]] = relationship(
-        back_populates="parent", cascade="all, delete-orphan"
-    )
-    docs: Mapped[list[ProjectDoc]] = relationship(back_populates="folder")
-
-    @property
-    def path(self) -> str:
-        """Where it is in the context, as a path: "decisions/adr"."""
-        return f"{self.parent.path}/{self.name}" if self.parent else self.name
-
-
-class ProjectDoc(Base):
-    """A document of the project's context, in Markdown, for Oscar and the
-    agents working on it: its AGENTS.md, and any others he writes, at the
-    context's top or in a folder. A copy of its file in the project's folder
-    of the everyday files, the master copy; its name is the file's."""
-
-    __tablename__ = "project_docs"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    folder_id: Mapped[int | None] = mapped_column(
-        ForeignKey("project_doc_folders.id"), index=True, default=None
-    )
-    name: Mapped[str] = mapped_column(String(200))
-    body: Mapped[str] = mapped_column(Text, default="")
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
-
-    project: Mapped[Project] = relationship(back_populates="docs")
-    folder: Mapped[ProjectDocFolder | None] = relationship(back_populates="docs")
-    revisions: Mapped[list[ProjectDocRevision]] = relationship(
-        back_populates="doc",
-        order_by="ProjectDocRevision.id",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-
-    @property
-    def is_agents(self) -> bool:
-        return self.name == AGENTS_DOC and self.folder_id is None
-
-    @property
-    def path(self) -> str:
-        """Where it is in the context, as a path: "decisions/adr/0001.md"."""
-        return f"{self.folder.path}/{self.name}" if self.folder else self.name
-
-
-class ProjectDocRevision(Base):
-    """One step in a document's history: its words after a change, when, and
-    by whom: oscar, claude, or file (its file written outside the app, by an
-    editor or an agent). app.services.project_files writes them; edits in a
-    row by the same hand fold into one step."""
-
-    __tablename__ = "project_doc_revisions"
-    __table_args__ = (Index("ix_project_doc_revisions_doc", "doc_id", "at"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    doc_id: Mapped[int] = mapped_column(ForeignKey("project_docs.id", ondelete="CASCADE"))
-    at: Mapped[datetime] = mapped_column(DateTime)
-    actor: Mapped[str] = mapped_column(String(20))  # oscar / claude / file / system
-    body: Mapped[str] = mapped_column(Text)
-
-    doc: Mapped[ProjectDoc] = relationship(back_populates="revisions")
 
 
 class Workstream(Base):
@@ -301,6 +214,10 @@ class Task(Base):
     # once worked, what came of it; both Markdown, "" for none.
     acceptance: Mapped[str] = mapped_column(Text, default="")
     outcome: Mapped[str] = mapped_column(Text, default="")
+    # Its task.md's words' hash as the app last wrote or read it: the file is
+    # the app's while it has it (app.services.settling). Its description,
+    # acceptance criteria and outcome above are the file's, kept here too.
+    file_hash: Mapped[str | None] = mapped_column(String(16), default=None)
 
     project: Mapped[Project | None] = relationship(back_populates="tasks")
     workstream: Mapped[Workstream | None] = relationship(back_populates="tasks")
@@ -529,6 +446,9 @@ class NotebookPage(Base):
     writer: Mapped[str] = mapped_column(String(40), default="")
     writer_seq: Mapped[int] = mapped_column(Integer, default=0)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    # Its file's (notebook/<year>/<day>.md) words' hash as the app last wrote
+    # or read it; the blocks are the file's, kept here too (app.services.settling).
+    file_hash: Mapped[str | None] = mapped_column(String(16), default=None)
 
 
 class Habit(Base):
@@ -1031,6 +951,59 @@ class MoneyMessage(Base):
     text: Mapped[str] = mapped_column(Text)
     failed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class Document(Base):
+    """A Markdown file of the everyday files, as the app last read it: whose
+    it is (owner: "task:12", "project:3", "notebook"), its path there and
+    from the everyday files' folder, its words' version (their hash), and
+    its file's size and time, to tell it changed without reading it. Its
+    words are in documents_fts, for search (app.services.documents)."""
+
+    __tablename__ = "documents"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    path: Mapped[str] = mapped_column(String(1000), unique=True)
+    owner: Mapped[str] = mapped_column(String(40), index=True)
+    # Its path in its owner's folder: "research/trees.md", "2026/2026-10-11.md".
+    name: Mapped[str] = mapped_column(String(1000))
+    version: Mapped[str] = mapped_column(String(16))
+    size: Mapped[int] = mapped_column(Integer)
+    mtime_ns: Mapped[int] = mapped_column(Integer)
+    indexed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+# A document's words, for search: SQLite's full-text index, its rowid the
+# document's id. A virtual table SQLAlchemy cannot describe, made with the
+# others (and by its migration).
+DOCUMENTS_FTS = "documents_fts"
+event.listen(
+    Base.metadata,
+    "after_create",
+    DDL(
+        f"CREATE VIRTUAL TABLE IF NOT EXISTS {DOCUMENTS_FTS} USING fts5("
+        "title, body, tokenize = 'unicode61 remove_diacritics 2')"
+    ),
+)
+event.listen(Base.metadata, "before_drop", DDL(f"DROP TABLE IF EXISTS {DOCUMENTS_FTS}"))
+
+
+class DocumentRevision(Base):
+    """One step in a file's history: its words after a change, when, and by
+    whom (oscar, claude, agent, system, or file: written outside the app).
+    Kept by whose it is and its path there, so a folder moving keeps it; a
+    task's task.md is in the task's own history instead (TaskRevision).
+    Edits in a row by the same hand fold into one step."""
+
+    __tablename__ = "document_revisions"
+    __table_args__ = (Index("ix_document_revisions_doc", "owner", "name", "at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner: Mapped[str] = mapped_column(String(40))
+    name: Mapped[str] = mapped_column(String(1000))
+    at: Mapped[datetime] = mapped_column(DateTime)
+    actor: Mapped[str] = mapped_column(String(20))
+    body: Mapped[str] = mapped_column(Text)
 
 
 class Setting(Base):

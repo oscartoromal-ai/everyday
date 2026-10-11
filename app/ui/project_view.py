@@ -6,15 +6,17 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Any
+from urllib.parse import quote
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.dates import short_date, upper_first
-from app.models import AGENTS_DOC, Project, ProjectDoc, ProjectDocFolder, Task, TaskStatus
+from app.models import AGENTS_DOC, Project, Task, TaskStatus
 from app.services import everyday, project_files
 from app.services import github as github_svc
 from app.services import projects as projects_svc
+from app.services.project_files import ContextDoc, ContextFolder
 from app.ui.repositories_view import repo_row
 from app.ui.views import project_glance
 
@@ -43,7 +45,7 @@ def head_ctx(db: Session, project: Project) -> dict[str, Any]:
     ]
     if project.repos:
         rest.append(_count(len(project.repos), "repository", "repositories"))
-    rest.append(_count(len(project.docs), "document", "documents"))
+    rest.append(_count(project_files.count_docs(project), "document", "documents"))
     return {"project": project, "head_rest": " · ".join(rest)}
 
 
@@ -57,7 +59,7 @@ def summary(body: str) -> str:
     return ""
 
 
-def edited(doc: ProjectDoc, today: date) -> str:
+def edited(doc: ContextDoc, today: date) -> str:
     """When it was last written: '14:02' today, else its day ('Sat 3 Oct')."""
     when = doc.updated_at
     if when.date() == today:
@@ -65,13 +67,17 @@ def edited(doc: ProjectDoc, today: date) -> str:
     return upper_first(short_date(when.date(), today))
 
 
-def doc_row(doc: ProjectDoc, project: Project, today: date) -> dict[str, Any]:
+def doc_href(project: Project, path: str) -> str:
+    return f"/projects/{project.id}/docs/{quote(path)}"
+
+
+def doc_row(doc: ContextDoc, project: Project, today: date) -> dict[str, Any]:
     """A document's row on its project's page: its name, what it is about,
     and how long it is and when it was last written, once it is written."""
     lines = _count(len(doc.body.splitlines()), "line", "lines")
     return {
         "doc": doc,
-        "href": f"/projects/{project.id}/docs/{doc.id}",
+        "href": doc_href(project, doc.path),
         "summary": summary(doc.body),
         "meta": f"{lines} · {edited(doc, today)}" if doc.body.strip() else "",
     }
@@ -100,50 +106,49 @@ def project_page_ctx(db: Session, project: Project, today: date) -> dict[str, An
         "tab": "overview",
         "status_words": STATUS_WORDS,
         "repos": repos_ctx(project)["repos"],
-        **context_ctx(project, today),
+        **context_ctx(db, project, today),
     }
 
 
-def context_tree(project: Project, today: date) -> list[dict[str, Any]]:
+def context_tree(
+    project: Project, today: date, folded: set[str] | None = None
+) -> list[dict[str, Any]]:
     """The project's context as its tree: at each level its folders, by
     name, then its documents (AGENTS.md first at the top). A folder carries
     what it holds, and how many documents that is, however deep."""
 
-    def level(folder: ProjectDocFolder | None) -> list[dict[str, Any]]:
-        docs = [
-            {"kind": "doc", **doc_row(d, project, today)}
-            for d in projects_svc.docs_in(project, folder)
-        ]
+    def level(here: ContextFolder, top: bool) -> list[dict[str, Any]]:
+        docs = [{"kind": "doc", **doc_row(d, project, today)} for d in here.docs]
         folders = []
-        for f in projects_svc.folders_in(project, folder):
-            inside, docs_inside = projects_svc.contents(f)
+        for f in here.folders:
+            docs_inside = f.all_docs()
             folders.append(
                 {
                     "kind": "folder",
                     "folder": f,
-                    "children": level(f),
+                    "children": level(f, False),
                     "count": len(docs_inside),
                     "meta": (
                         _count(len(docs_inside), "document", "documents")
                         if docs_inside
                         else "No documents"
-                        if inside
+                        if f.folders
                         else "Empty"
                     ),
                 }
             )
-        if folder is None and docs and docs[0]["doc"].is_agents:
+        if top and docs and docs[0]["doc"].is_agents:
             return [docs[0], *folders, *docs[1:]]
         return folders + docs
 
-    return level(None)
+    return level(project_files.tree(project, folded), True)
 
 
-def context_ctx(project: Project, today: date) -> dict[str, Any]:
+def context_ctx(db: Session, project: Project, today: date) -> dict[str, Any]:
     folder = project_files.folder_path(project)
     return {
         "project": project,
-        "tree": context_tree(project, today),
+        "tree": context_tree(project, today, project_files.folded_paths(db, project)),
         # Where its context's files are, the master copy.
         "files_folder": str(folder) if folder else None,
     }
@@ -187,25 +192,24 @@ def repo_options_ctx(db: Session, project: Project, query: str, now: datetime) -
     }
 
 
-def doc_file(doc: ProjectDoc) -> str | None:
+def doc_file(project: Project, doc: ContextDoc) -> str | None:
     """Where its file is, from the everyday files' folder:
     projects/app/decisions/0001.md."""
-    if not doc.project.folder:
+    if not project.folder:
         return None
-    return str(project_files.on_disk(doc.project, doc.path).relative_to(everyday.root()))
+    return f"projects/{project.folder}/{doc.path}"
 
 
-def doc_page_ctx(doc: ProjectDoc, today: date) -> dict[str, Any]:
-    project = doc.project
+def doc_page_ctx(project: Project, doc: ContextDoc, today: date) -> dict[str, Any]:
     return {
         "project": project,
         "doc": doc,
         # Every folder it could be moved to, in the tree's order.
-        "folders": projects_svc.folders_of(project),
+        "folders": project_files.folders_of(project),
         "edited": edited(doc, today),
         "version": everyday.version(doc.body),
         # Where its file is, from the everyday files' folder: projects/app/AGENTS.md.
-        "file": doc_file(doc),
+        "file": doc_file(project, doc),
         "placeholder": (
             f"What an agent should know before working on {project.name}: how to build, "
             "run and test it, its conventions, and what to leave alone."

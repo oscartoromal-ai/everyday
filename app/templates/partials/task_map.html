@@ -69,12 +69,12 @@
 {% macro context_rows(nodes, depth) %}
 {% for n in nodes %}
 {% if n.kind == "folder" %}
-<li class="map-fold" data-fold="folder-{{ n.folder.id }}">
+<li class="map-fold" data-fold="folder-{{ n.folder.key }}">
   <button type="button" class="map-row map-toggle" style="--depth: {{ depth }}" aria-expanded="false"
-          aria-controls="map-folder-{{ n.folder.id }}">
+          aria-controls="map-folder-{{ n.folder.key }}">
     {{ chevron() }}{{ folder_icon() }}<span class="map-name">{{ n.folder.name }}</span><span class="map-meta">{{ n.count }}</span>
   </button>
-  <ul class="map-group" id="map-folder-{{ n.folder.id }}" hidden>{{ context_rows(n.children, depth + 1) }}</ul>
+  <ul class="map-group" id="map-folder-{{ n.folder.key }}" hidden>{{ context_rows(n.children, depth + 1) }}</ul>
 </li>
 {% else %}
 <li>

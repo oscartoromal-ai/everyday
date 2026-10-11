@@ -109,9 +109,19 @@ Everything the app keeps lives under its home, `%LOCALAPPDATA%\Personal Calendar
 
 The everyday files live outside the home, in `C:\everyday-files` unless another folder was chosen on Setup's Everyday files page (SPEC.md, Agent runs):
 
+Everything written in the planner is a Markdown file there, the master copy, so an agent can read, grep and write it as well as the app (SPEC.md, Files first): words are files, fields and records are rows.
+The database owns a task's or project's fields and shows them as front matter the app writes; the words under it are the file's.
+The app writes a file after every commit that changes what it shows, reads in what an editor or an agent writes there (a watcher, while it runs), and settles everything as it starts.
+
+- `README.md`: the app's own map of the folder for an agent landing in it: what is where, how each file reads, the database's planner tables and how to query them, and the API.
+- `projects/`: a folder for each project, named after it: `project.md` (the project; its about the file's), `project.toml` (its id and repositories), its documents as Markdown files (AGENTS.md first), in folders on disk as the project files them, and `tasks/`, a folder for each of its tasks. A folder made there is a new project.
+- `projects/<project>/tasks/<id>-<title>/` (or the top `tasks/` for a task in no project): `task.md` (the task: front matter, then its description, `## Acceptance` and `## Outcome`) and the task's other files. The folder moves with the task; a folder made there with a `task.md` is a new task.
+- `notebook/<year>/<day>.md`: a day's notes as Today's notepad has them.
 - `repos/`: each repository's main clone, once.
-- `projects/`: a folder for each project, its context: its documents as Markdown files (AGENTS.md first), in folders on disk as the project files them, and `project.toml` (its id and repositories). These files are the master copy: the app reads them into the database as it starts, as a project's page opens, and as they change while it runs, so an editor or an agent may write them; a folder made there is a new project.
 - `work/`: the folders agents work in.
+- `.trash/`: the folders of tasks deleted.
+
+The daily backup zips the folder (but `repos/` and `work/`) beside the database's snapshot.
 
 Run from the repo, the app keeps its own `everyday-files/` in it (git-ignored), never the real one.
 On Oscar's machine the home's `config.toml` keeps Nutrition's files in the repo (`[nutrition].dir`), where git keeps their history.

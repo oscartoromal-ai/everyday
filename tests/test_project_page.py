@@ -3,9 +3,9 @@ project itself, its repositories and its context, AGENTS.md first; each
 document on a page of its own; and the context handed to an agent, over
 MCP and the API."""
 
+import os
 import sqlite3
 from datetime import date, datetime, timedelta
-from pathlib import Path
 
 import pytest
 from alembic import command
@@ -14,48 +14,58 @@ from fastmcp.exceptions import ToolError
 
 from app import migrate
 from app.mcp.server import mcp
-from app.models import AGENTS_DOC, ProjectDoc, ProjectStatus, TaskStatus
-from app.services import DomainError, everyday
+from app.models import AGENTS_DOC, Project, ProjectStatus, TaskStatus
+from app.services import DomainError, everyday, project_files
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 from app.ui.project_view import summary
 
 
+def made(db, name: str = "Note-app") -> Project:
+    """A project, committed: its folder made."""
+    project = projects_svc.create_project(db, name=name)
+    db.commit()
+    return project
+
+
+def paths_of(project: Project) -> list[str]:
+    return [d.path for d in project_files.docs_of(project)]
+
+
 def test_a_new_project_has_its_agents_md(db) -> None:
-    project = projects_svc.create_project(db, name="Note-app")
-    assert [(d.name, d.body) for d in project.docs] == [(AGENTS_DOC, "")]
+    project = made(db)
+    assert [(d.name, d.body) for d in project_files.docs_of(project)] == [(AGENTS_DOC, "")]
 
 
 def test_documents_are_named_once_and_agents_md_stays(db) -> None:
-    project = projects_svc.create_project(db, name="Note-app")
-    agents = project.docs[0]
-    notes = projects_svc.create_doc(db, project_id=project.id, name="  Architecture   notes ")
+    project = made(db)
+    notes = project_files.create_doc(db, project, "  Architecture   notes ")
     # A document's name is its file's: .md added when not written.
     assert notes.name == "Architecture notes.md"
     for taken in ("agents.md", "ARCHITECTURE NOTES", "architecture notes.MD", "  ", "CON", "a:b"):
         with pytest.raises(DomainError):
-            projects_svc.create_doc(db, project_id=project.id, name=taken)
+            project_files.create_doc(db, project, taken)
     # Renamed in another case is the same document, not a clash.
     assert (
-        projects_svc.update_doc(db, notes.id, name="architecture notes").name
+        project_files.place(db, project, notes.path, name="architecture notes")
         == "architecture notes.md"
     )
     with pytest.raises(DomainError, match="keeps its name"):
-        projects_svc.update_doc(db, agents.id, name="README.md")
+        project_files.place(db, project, AGENTS_DOC, name="README.md")
     with pytest.raises(DomainError, match="keeps its"):
-        projects_svc.delete_doc(db, agents.id)
-    projects_svc.delete_doc(db, notes.id)
-    assert [d.name for d in project.docs] == [AGENTS_DOC]
+        project_files.delete(db, project, AGENTS_DOC)
+    project_files.delete(db, project, "architecture notes.md")
+    assert [d.name for d in project_files.docs_of(project)] == [AGENTS_DOC]
 
 
-def test_a_document_is_dated_when_its_words_change(db) -> None:
-    project = projects_svc.create_project(db, name="Note-app")
-    doc = project.docs[0]
-    doc.updated_at = datetime(2026, 1, 1)
-    projects_svc.update_doc(db, doc.id, body=doc.body)
-    assert doc.updated_at == datetime(2026, 1, 1)
-    projects_svc.update_doc(db, doc.id, body="# Note-app")
-    assert doc.updated_at > datetime(2026, 1, 1)
+def test_a_document_is_dated_by_its_file(db) -> None:
+    project = made(db)
+    agents = everyday.projects_dir() / "note-app" / AGENTS_DOC
+    os.utime(agents, (datetime(2026, 1, 1).timestamp(),) * 2)
+    project_files.save(db, project, AGENTS_DOC, "")
+    assert project_files.read(project, AGENTS_DOC).updated_at == datetime(2026, 1, 1)
+    project_files.save(db, project, AGENTS_DOC, "# Note-app")
+    assert project_files.read(project, AGENTS_DOC).updated_at > datetime(2026, 1, 1)
 
 
 def test_a_repository_is_named_after_where_it_is(db) -> None:
@@ -77,9 +87,10 @@ def test_a_documents_summary_is_its_first_words() -> None:
 
 def test_the_page_shows_the_project_its_repos_and_its_context(client, db) -> None:
     project = projects_svc.create_project(db, name="Note-app", color=3)
+    db.commit()
     projects_svc.add_repo(db, project_id=project.id, location=r"C:\code\note-app")
-    projects_svc.update_doc(db, project.docs[0].id, body="# Note-app\n\nA notes app.")
-    other = projects_svc.create_doc(db, project_id=project.id, name="Architecture")
+    project_files.save(db, project, AGENTS_DOC, "# Note-app\n\nA notes app.")
+    project_files.create_doc(db, project, "Architecture")
     db.commit()
     html = client.get(f"/projects/{project.id}").text
     assert "<title>Note-app · Personal Calendar</title>" in html
@@ -91,21 +102,21 @@ def test_the_page_shows_the_project_its_repos_and_its_context(client, db) -> Non
     # AGENTS.md first, what it is about beside it; then the others.
     assert html.index(">AGENTS.md<") < html.index(">Architecture.md<")
     assert '<span class="doc-summary">Note-app</span>' in html
-    assert f'href="/projects/{project.id}/docs/{other.id}"' in html
+    assert f'href="/projects/{project.id}/docs/Architecture.md"' in html
     # Its own row in the sidebar is current, as on its Gantt.
     nav = html.split('id="rail-projects"')[1].split("</ul>")[0]
     assert 'aria-current="page"' in nav.split(f'href="/projects/{project.id}"')[1].split(">")[0]
 
 
 def test_a_missing_project_or_document_is_not_found(client, db) -> None:
-    project = projects_svc.create_project(db, name="Note-app")
-    db.commit()
+    project = made(db)
     assert client.get("/projects/999").status_code == 404
-    assert client.get(f"/projects/{project.id}/docs/999").status_code == 404
+    assert client.get(f"/projects/{project.id}/docs/Nothing.md").status_code == 404
     # A document is found under its own project only.
-    second = projects_svc.create_project(db, name="Other")
-    db.commit()
-    assert client.get(f"/projects/{second.id}/docs/{project.docs[0].id}").status_code == 404
+    project_files.create_doc(db, project, "Plan")
+    second = made(db, "Other")
+    assert client.get(f"/projects/{project.id}/docs/Plan.md").status_code == 200
+    assert client.get(f"/projects/{second.id}/docs/Plan.md").status_code == 404
 
 
 def test_the_project_is_written_on_its_page(client, db) -> None:
@@ -244,46 +255,50 @@ def test_the_line_to_add_a_repository_offers_his_github_ones(client, db) -> None
 
 
 def test_a_document_is_added_written_renamed_and_deleted(client, db) -> None:
-    project = projects_svc.create_project(db, name="Note-app")
-    db.commit()
+    project = made(db)
     added = client.post(f"/ui/projects/{project.id}/docs", data={"name": "Architecture"})
-    doc = db.query(ProjectDoc).filter_by(name="Architecture.md").one()
-    assert added.headers["HX-Redirect"] == f"/projects/{project.id}/docs/{doc.id}"
-    page = client.get(f"/projects/{project.id}/docs/{doc.id}").text
+    assert added.headers["HX-Redirect"] == f"/projects/{project.id}/docs/Architecture.md"
+    page = client.get(f"/projects/{project.id}/docs/Architecture.md").text
     assert "<title>Architecture.md · Note-app · Personal Calendar</title>" in page
     assert f'<a class="page-back" href="/projects/{project.id}">Note-app</a>' in page
     assert 'data-doc-name value="Architecture.md"' in page
-    assert '<span class="doc-file" data-doc-file>projects' in page
+    assert '<span class="doc-file" data-doc-file>projects/note-app/Architecture.md' in page
 
-    saved = client.post(f"/ui/docs/{doc.id}", data={"body": "# How\r\nIt fits.", "name": "Design"})
-    # Answered with its version and its name, a file's.
+    saved = client.post(
+        f"/ui/projects/{project.id}/doc",
+        data={"path": "Architecture.md", "body": "# How\r\nIt fits.", "name": "Design"},
+    )
+    # Answered with its version, its name (a file's) and where it now is.
     assert saved.json() == {
         "version": everyday.version("# How\nIt fits."),
         "name": "Design.md",
-        "file": str(Path("projects", "note-app", "Design.md")),
+        "path": "Design.md",
+        "href": f"/projects/{project.id}/docs/Design.md",
+        "file": "projects/note-app/Design.md",
     }
-    db.refresh(doc)
-    assert (doc.name, doc.body) == ("Design.md", "# How\nIt fits.")
-    assert client.post(f"/ui/docs/{doc.id}", data={"name": "AGENTS.md"}).status_code == 422
+    assert project_files.read(project, "Design.md").body == "# How\nIt fits."
+    assert client.post(
+        f"/ui/projects/{project.id}/doc", data={"path": "Design.md", "name": "AGENTS.md"}
+    ).status_code == 422
 
-    deleted = client.post(f"/ui/docs/{doc.id}/delete")
+    deleted = client.post(f"/ui/projects/{project.id}/context/delete", data={"path": "Design.md"})
     assert deleted.headers["HX-Redirect"] == f"/projects/{project.id}"
-    assert db.get(ProjectDoc, doc.id) is None
+    assert paths_of(project) == [AGENTS_DOC]
 
 
 def test_agents_md_has_no_name_to_write_and_no_bin(client, db) -> None:
-    project = projects_svc.create_project(db, name="Note-app")
-    db.commit()
-    page = client.get(f"/projects/{project.id}/docs/{project.docs[0].id}").text
+    project = made(db)
+    page = client.get(f"/projects/{project.id}/docs/{AGENTS_DOC}").text
     assert "<h1>AGENTS.md</h1>" in page and "data-doc-name" not in page
     assert "/delete" not in page.split('class="doc-title"')[1].split("</div>")[0]
-    assert client.post(f"/ui/docs/{project.docs[0].id}/delete").status_code == 422
+    gone = client.post(f"/ui/projects/{project.id}/context/delete", data={"path": AGENTS_DOC})
+    assert gone.status_code == 422
 
 
 def test_the_context_is_handed_over_the_api(client, db) -> None:
-    project = projects_svc.create_project(db, name="Note-app")
-    projects_svc.create_doc(db, project_id=project.id, name="Architecture", body="It fits.")
-    projects_svc.update_doc(db, project.docs[0].id, body="Run uv sync.")
+    project = made(db)
+    project_files.create_doc(db, project, "Architecture", body="It fits.")
+    project_files.save(db, project, AGENTS_DOC, "Run uv sync.")
     projects_svc.add_repo(db, project_id=project.id, location="C:/code/note-app")
     db.commit()
     context = client.get(f"/api/projects/{project.id}/context").json()
@@ -298,8 +313,8 @@ def test_the_context_is_handed_over_the_api(client, db) -> None:
 
 async def test_the_context_is_handed_over_mcp(app_db) -> None:
     with app_db() as db:
-        project = projects_svc.create_project(db, name="Note-app")
-        projects_svc.update_doc(db, project.docs[0].id, body="Run uv sync.")
+        project = made(db)
+        project_files.save(db, project, AGENTS_DOC, "Run uv sync.")
         projects_svc.add_repo(db, project_id=project.id, location="C:/code/note-app")
         db.commit()
         project_id = project.id
@@ -321,87 +336,70 @@ async def test_the_context_is_handed_over_mcp(app_db) -> None:
 
 
 def test_folders_nest_and_names_are_unique_beside_each_other(db) -> None:
-    project = projects_svc.create_project(db, name="Note-app")
-    decisions = projects_svc.create_folder(db, project_id=project.id, name=" decisions ")
-    adr = projects_svc.create_folder(db, project_id=project.id, name="adr", parent_id=decisions.id)
-    assert (decisions.name, adr.path) == ("decisions", "decisions/adr")
+    project = made(db)
+    assert project_files.create_folder(db, project, " decisions ") == "decisions"
+    assert project_files.create_folder(db, project, "adr", "decisions") == "decisions/adr"
     # A folder and a document share their names, as on disk, in any case.
     for taken in ("Decisions", "AGENTS.md"):
-        with pytest.raises(DomainError, match="already has"):
-            projects_svc.create_folder(db, project_id=project.id, name=taken)
+        with pytest.raises(DomainError):
+            project_files.create_folder(db, project, taken)
     # A document is its file, Markdown: "decisions" is decisions.md, beside the folder.
-    assert projects_svc.create_doc(db, project_id=project.id, name="decisions").name == (
-        "decisions.md"
-    )
+    assert project_files.create_doc(db, project, "decisions").name == "decisions.md"
     with pytest.raises(DomainError, match="already has adr"):
-        projects_svc.create_folder(db, project_id=project.id, name="ADR", parent_id=decisions.id)
+        project_files.create_folder(db, project, "ADR", "decisions")
     # The same name in another folder is another document, AGENTS.md too.
-    inner = projects_svc.create_doc(db, project_id=project.id, name="AGENTS.md", folder_id=adr.id)
+    inner = project_files.create_doc(db, project, "AGENTS.md", "decisions/adr")
     assert inner.path == "decisions/adr/AGENTS.md" and not inner.is_agents
     with pytest.raises(DomainError, match="slash"):
-        projects_svc.update_doc(db, inner.id, name="a/b")
-    # Another project's folder is not one to file into.
-    other = projects_svc.create_project(db, name="Other")
-    with pytest.raises(DomainError, match="not one of"):
-        projects_svc.create_doc(db, project_id=other.id, name="x", folder_id=adr.id)
+        project_files.place(db, project, inner.path, name="a/b")
 
 
 def test_a_path_makes_the_folders_it_names(db) -> None:
-    project = projects_svc.create_project(db, name="Note-app")
-    first = projects_svc.create_doc(db, project_id=project.id, name="decisions/adr/0001.md")
-    second = projects_svc.create_doc(db, project_id=project.id, name="Decisions\\adr\\0002.md")
+    project = made(db)
+    first = project_files.create_doc(db, project, "decisions/adr/0001.md")
+    second = project_files.create_doc(db, project, "Decisions\\adr\\0002.md")
     assert (first.path, second.path) == ("decisions/adr/0001.md", "decisions/adr/0002.md")
-    assert [f.path for f in projects_svc.folders_of(project)] == ["decisions", "decisions/adr"]
-    deep = projects_svc.create_folder(
-        db, project_id=project.id, name="2026/oct", parent_id=first.folder.id
-    )
-    assert deep.path == "decisions/adr/2026/oct"
+    assert [f.path for f in project_files.folders_of(project)] == ["decisions", "decisions/adr"]
+    deep = project_files.create_folder(db, project, "2026/oct", first.folder_path)
+    assert deep == "decisions/adr/2026/oct"
 
 
 def test_documents_and_folders_move_but_never_into_themselves(db) -> None:
-    project = projects_svc.create_project(db, name="Note-app")
-    agents = project.docs[0]
-    a = projects_svc.create_folder(db, project_id=project.id, name="a")
-    b = projects_svc.create_folder(db, project_id=project.id, name="b", parent_id=a.id)
-    doc = projects_svc.create_doc(db, project_id=project.id, name="Plan.md")
-    projects_svc.update_doc(db, doc.id, folder_id=b.id)
-    assert doc.path == "a/b/Plan.md"
-    projects_svc.update_doc(db, doc.id, folder_id=None)
-    assert doc.path == "Plan.md"
-    for inside in (a.id, b.id):
+    project = made(db)
+    project_files.create_folder(db, project, "a/b")
+    project_files.create_doc(db, project, "Plan.md")
+    assert project_files.place(db, project, "Plan.md", folder="a/b") == "a/b/Plan.md"
+    assert project_files.place(db, project, "a/b/Plan.md", folder="") == "Plan.md"
+    for inside in ("a", "a/b"):
         with pytest.raises(DomainError, match="inside itself"):
-            projects_svc.update_folder(db, a.id, parent_id=inside)
-    projects_svc.update_folder(db, b.id, parent_id=None, name="c")
-    assert b.path == "c"
+            project_files.place(db, project, "a", folder=inside)
+    assert project_files.place(db, project, "a/b", folder="", name="c") == "c"
     # Moved where its name is taken, it stays put.
-    projects_svc.create_doc(db, project_id=project.id, name="plan.md", folder_id=a.id)
+    project_files.create_doc(db, project, "plan.md", "a")
     with pytest.raises(DomainError, match="already has plan.md"):
-        projects_svc.update_doc(db, doc.id, folder_id=a.id)
-    with pytest.raises(DomainError, match="stays at the top"):
-        projects_svc.update_doc(db, agents.id, folder_id=a.id)
+        project_files.place(db, project, "Plan.md", folder="a")
+    with pytest.raises(DomainError, match="keeps its name and its place"):
+        project_files.place(db, project, AGENTS_DOC, folder="a")
 
 
 def test_a_folder_is_deleted_with_everything_in_it(db) -> None:
-    project = projects_svc.create_project(db, name="Note-app")
-    projects_svc.create_doc(db, project_id=project.id, name="a/b/deep.md")
-    projects_svc.create_doc(db, project_id=project.id, name="a/top.md")
-    kept = projects_svc.create_doc(db, project_id=project.id, name="kept.md")
-    a = projects_svc.folders_of(project)[0]
-    projects_svc.delete_folder(db, a.id)
-    db.commit()
-    db.expire_all()
-    assert [d.name for d in db.query(ProjectDoc).all()] == ["AGENTS.md", "kept.md"]
-    assert projects_svc.folders_of(project) == [] and kept in project.docs
+    project = made(db)
+    project_files.create_doc(db, project, "a/b/deep.md")
+    project_files.create_doc(db, project, "a/top.md")
+    project_files.create_doc(db, project, "kept.md")
+    project_files.delete(db, project, "a")
+    assert paths_of(project) == ["AGENTS.md", "kept.md"]
+    assert project_files.folders_of(project) == []
 
 
 def test_the_context_reads_as_its_tree(db) -> None:
-    project = projects_svc.create_project(db, name="Note-app")
+    project = made(db)
     for name in ("zeta.md", "Plan 10.md", "Plan 2.md", "b/two.md", "a/one.md", "a/c/three.md"):
-        projects_svc.create_doc(db, project_id=project.id, name=name)
-    projects_svc.create_folder(db, project_id=project.id, name="empty")
+        project_files.create_doc(db, project, name)
+    project_files.create_folder(db, project, "empty")
     # AGENTS.md, then each folder's (its subfolders' first), then the rest,
     # by name, its numbers as numbers.
-    assert [d.path for d in projects_svc.docs_of(project)] == [
+    assert paths_of(project) == [
         "AGENTS.md",
         "a/c/three.md",
         "a/one.md",
@@ -416,54 +414,52 @@ def test_the_context_reads_as_its_tree(db) -> None:
 
 
 def test_the_tree_is_drawn_and_worked_on_the_page(client, db) -> None:
-    project = projects_svc.create_project(db, name="Note-app")
-    doc = projects_svc.create_doc(db, project_id=project.id, name="Plan.md")
+    project = made(db)
+    project_files.create_doc(db, project, "Plan.md")
     db.commit()
-    made = client.post(f"/ui/projects/{project.id}/folders", data={"name": "decisions"})
-    assert 'id="project-context"' in made.text and 'data-name="decisions"' in made.text
-    assert ">Empty</span>" in made.text and 'hx-swap-oob="true"' in made.text
-    folder = projects_svc.folders_of(project)[0]
+    made_folder = client.post(f"/ui/projects/{project.id}/folders", data={"name": "decisions"})
+    assert 'id="project-context"' in made_folder.text
+    assert 'data-folder="decisions" data-name="decisions"' in made_folder.text
+    assert ">Empty</span>" in made_folder.text and 'hx-swap-oob="true"' in made_folder.text
+    key = project_files.folders_of(project)[0].key
 
     # A document written in the folder opens on its own page.
     added = client.post(
-        f"/ui/projects/{project.id}/docs", data={"name": "0001.md", "folder": str(folder.id)}
+        f"/ui/projects/{project.id}/docs", data={"name": "0001.md", "folder": "decisions"}
     )
-    inner = db.query(ProjectDoc).filter_by(name="0001.md").one()
-    assert inner.folder_id == folder.id
-    assert added.headers["HX-Redirect"] == f"/projects/{project.id}/docs/{inner.id}"
+    assert added.headers["HX-Redirect"] == f"/projects/{project.id}/docs/decisions/0001.md"
 
     # Folded, it stays so; a document dragged into it opens it again.
-    assert client.post(f"/ui/folders/{folder.id}/fold", data={"folded": "true"}).status_code == 204
-    db.refresh(folder)
-    assert folder.folded
-    assert f'id="ctx-in-{folder.id}" hidden' in client.get(f"/projects/{project.id}").text
-    moved = client.post(f"/ui/docs/{doc.id}/place", data={"folder": str(folder.id)})
-    assert "2 documents" in moved.text and f'id="ctx-in-{folder.id}" hidden' not in moved.text
-    db.refresh(doc)
-    assert doc.folder_id == folder.id
+    folded = client.post(
+        f"/ui/projects/{project.id}/context/fold", data={"path": "decisions", "folded": "true"}
+    )
+    assert folded.status_code == 204
+    assert f'id="ctx-in-{key}" hidden' in client.get(f"/projects/{project.id}").text
+    place = f"/ui/projects/{project.id}/context/place"
+    moved = client.post(place, data={"path": "Plan.md", "folder": "decisions"})
+    assert "2 documents" in moved.text and f'id="ctx-in-{key}" hidden' not in moved.text
+    assert "decisions/Plan.md" in paths_of(project)
 
     # Renamed on the tree; back to the top from its own page.
-    client.post(f"/ui/folders/{folder.id}/place", data={"name": "adr"})
-    db.refresh(folder)
-    assert folder.name == "adr"
-    page = client.get(f"/projects/{project.id}/docs/{doc.id}").text
-    assert f'<option value="{folder.id}" selected>adr</option>' in page
-    assert client.post(f"/ui/docs/{doc.id}", data={"folder": "top"}).status_code == 200
-    db.refresh(doc)
-    assert doc.folder_id is None
-    assert client.post(f"/ui/docs/{doc.id}/place", data={"name": "AGENTS.md"}).status_code == 422
+    client.post(place, data={"path": "decisions", "name": "adr"})
+    page = client.get(f"/projects/{project.id}/docs/adr/Plan.md").text
+    assert '<option value="adr" selected>adr</option>' in page
+    to_top = {"path": "adr/Plan.md", "folder": "/"}
+    back = client.post(f"/ui/projects/{project.id}/doc", data=to_top)
+    assert back.headers["HX-Redirect"] == f"/projects/{project.id}/docs/Plan.md"
+    assert client.post(place, data={"path": "Plan.md", "name": "AGENTS.md"}).status_code == 422
     # Dragged into the folder and out to the top again.
-    client.post(f"/ui/docs/{doc.id}/place", data={"folder": str(folder.id)})
-    client.post(f"/ui/docs/{doc.id}/place", data={"folder": "top"})
-    db.refresh(doc)
-    assert doc.folder_id is None
+    client.post(place, data={"path": "Plan.md", "folder": "adr"})
+    client.post(place, data={"path": "adr/Plan.md", "folder": "/"})
+    assert "Plan.md" in paths_of(project)
 
     # Deleted on the tree: the tree comes back, the folder and its contents gone.
-    gone = client.post(f"/ui/docs/{doc.id}/delete?tree=1")
+    delete = f"/ui/projects/{project.id}/context/delete?tree=1"
+    gone = client.post(delete, data={"path": "Plan.md"})
     assert 'id="project-context"' in gone.text and 'data-name="Plan.md"' not in gone.text
-    gone = client.post(f"/ui/folders/{folder.id}/delete")
+    gone = client.post(delete, data={"path": "adr"})
     assert 'data-name="adr"' not in gone.text
-    assert db.query(ProjectDoc).filter_by(name="0001.md").count() == 0
+    assert paths_of(project) == [AGENTS_DOC]
 
 
 def test_the_folders_migration_keeps_every_document(tmp_path) -> None:
@@ -478,7 +474,7 @@ def test_the_folders_migration_keeps_every_document(tmp_path) -> None:
             "INSERT INTO project_docs (project_id, name, body, updated_at) "
             "VALUES (1, 'AGENTS.md', 'Run it.', '2026-09-01 10:00:00')"
         )
-    migrate.upgrade(path)
+    command.upgrade(migrate._config(path), "b4ac9ded1570")  # before files first
     with sqlite3.connect(path) as db:
         rows = db.execute("SELECT project_id, name, body, folder_id FROM project_docs").fetchall()
         # The same name in two folders is allowed by the table now.
@@ -498,7 +494,7 @@ def test_the_migration_gives_every_project_its_agents_md(tmp_path) -> None:
             "INSERT INTO projects (name, status, notes, color, folded, created_at) "
             "VALUES ('Old one', 'active', '', 1, 0, '2026-09-01 10:00:00')"
         )
-    migrate.upgrade(path)
+    command.upgrade(migrate._config(path), "b4ac9ded1570")  # before files first
     with sqlite3.connect(path) as db:
         rows = db.execute("SELECT project_id, name, body FROM project_docs").fetchall()
     assert rows == [(1, "AGENTS.md", "")]

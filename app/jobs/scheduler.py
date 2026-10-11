@@ -90,6 +90,11 @@ def run_daily_backup() -> None:
     settings = get_settings()
     path = backup_svc.run_backup(settings.db_path, settings.backup_dir, settings.backup.retain)
     log.info("Backup snapshot written: %s", path)
+    files = backup_svc.run_files_backup(
+        settings.everyday_dir, settings.backup_dir, settings.backup.retain
+    )
+    if files is not None:
+        log.info("Everyday files backed up: %s", files)
 
 
 def run_garmin_sync() -> None:

@@ -100,4 +100,4 @@ def test_the_menu_asks_by_its_endpoint(client, db) -> None:
     tasks_svc.create_task(db, title="Taxes")
     found = client.get("/ui/search?q=tax").json()
     assert [t["title"] for t in found["tasks"]] == ["Taxes"]
-    assert set(found) == {"tasks", "projects", "events", "notes"}
+    assert set(found) == {"tasks", "projects", "events", "notes", "files"}

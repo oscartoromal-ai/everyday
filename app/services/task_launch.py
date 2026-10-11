@@ -167,7 +167,7 @@ def brief_text(task: Task, where: str, branch: str) -> str:
     project = task.project
     assert project is not None
     folder = project_files.folder_path(project)
-    docs = projects_svc.docs_of(project)
+    docs = project_files.docs_of(project)
     agents = next((d for d in docs if d.is_agents), None)
     others = [d.path for d in docs if not d.is_agents]
     acceptance = task.acceptance.strip() or (
@@ -178,14 +178,17 @@ def brief_text(task: Task, where: str, branch: str) -> str:
         + (f" (besides AGENTS.md: {', '.join(others)})" if others else "")
         + ", which you may update when what you learn should outlast this task."
     )
-    files_folder = task_files.folder_for(task)
+    files_folder = task_files.arrange(task)
     held = task_files.paths(task.id)
     files = (
-        f"The task's files are Markdown documents in {files_folder}"
+        f"The task is {files_folder / task_files.TASK_FILE}, and its other files are Markdown "
+        f"documents beside it in {files_folder}"
         + (f": {', '.join(held)}" if held else " (none yet)")
         + ". Read them before you start. Write what you make for the task beyond code "
         "(a plan, research, notes) there, as Markdown, not in the repositories: Oscar reads "
-        "them on the task's page."
+        "them on the task's page. Its description, acceptance and outcome are task.md's to "
+        "write too; its front matter is the planner's (report status below instead). "
+        f"{everyday.root() / 'README.md'} says how the everyday files read."
     )
     report = (
         f"curl -s -X POST {app_url()}/api/tasks/{task.id}/report "

@@ -7,20 +7,22 @@ from fastapi import APIRouter
 from app.api.schemas import LaunchIn, ReportIn, TaskIn, TaskOut, TaskPatch
 from app.db import DbSession
 from app.models import Task, TaskOwner, TaskStatus
-from app.services import DomainError, everyday, task_files, task_launch, task_runs
+from app.services import DomainError, task_files, task_launch, task_runs
 from app.services import tasks as tasks_svc
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
 
 def task_out(task: Task) -> TaskOut:
-    """The task, with where its files are (the folder they take, made with
-    the first) and which it holds."""
-    folder = task_files.folder_of(task.id) or (
-        everyday.tasks_dir() / f"{task.id}-{everyday.words(task.title)}"
-    )
+    """The task, with where its folder is (or will be, for a task not yet
+    committed), its task.md there, and the other files it holds."""
+    folder = task_files.folder_of(task.id) or task_files.home_of(task)
     return TaskOut.model_validate(task).model_copy(
-        update={"files_folder": str(folder), "files": task_files.paths(task.id)}
+        update={
+            "files_folder": str(folder),
+            "task_file": str(folder / task_files.TASK_FILE),
+            "files": task_files.paths(task.id),
+        }
     )
 
 
