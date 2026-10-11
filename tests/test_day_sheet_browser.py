@@ -1,6 +1,6 @@
 """Calendar's sheet in a real browser, worked as a spreadsheet: where Oscar
 stays written and filled down, a task written for a day, started and done,
-its status chosen from its menu, and a
+its status chosen from its menu, a day's page opened from its plan, and a
 habit's days painted with a drag. The `live`, `page` and `app_db` fixtures
 are conftest.py's."""
 
@@ -116,7 +116,8 @@ def test_a_day_folds_to_its_first_line_and_stays_folded(page, live, app_db) -> N
 def test_a_task_is_written_for_its_day_and_ticked(page, live, app_db) -> None:
     open_sheet(page, live)
     plan = cell(page, TODAY, '[data-kind="plan"]')
-    plan.dblclick()
+    plan.click()
+    page.keyboard.press("Enter")
     # The cursor's whole row is shaded, not its cell alone.
     shades = page.locator("tr.has-cursor > *").evaluate_all(
         "cells => cells.map(c => getComputedStyle(c).backgroundImage)"
@@ -141,6 +142,23 @@ def test_a_task_is_written_for_its_day_and_ticked(page, live, app_db) -> None:
     cell(page, TODAY, ".ds-task.is-done").wait_for()
     with app_db() as db:
         assert db.query(Task).one().status == TaskStatus.done
+
+
+def test_a_double_click_writes_in_a_cell_and_on_a_plan_opens_its_day(page, live, app_db) -> None:
+    tomorrow = TODAY + timedelta(days=1)
+    with app_db() as db:
+        tasks_svc.create_task(db, title="Pay rent", planned_for=tomorrow)
+        db.commit()
+    open_sheet(page, live)
+    cell(page, tomorrow, '[data-name="place"]').dblclick()
+    page.locator(".ds-input").wait_for()
+    page.keyboard.press("Escape")
+    page.locator(".ds-input").wait_for(state="detached")
+    # Beside its task, not on it: the task's own parts keep their clicks.
+    cell(page, tomorrow, '[data-kind="plan"]').dblclick(position={"x": 300, "y": 8})
+    page.wait_for_url(f"{live}/day/{tomorrow.isoformat()}")
+    with app_db() as db:
+        assert db.query(Task).one().status == TaskStatus.todo
 
 
 def test_a_tasks_status_is_chosen_from_its_menu(page, live, app_db) -> None:

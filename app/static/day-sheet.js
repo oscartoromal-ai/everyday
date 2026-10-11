@@ -14,7 +14,8 @@
    day whose plan runs over a line folds to its first (its chevron, or
    Alt+Left and Right), and stays folded in this browser. A task's title
    opens its page; so does Ctrl+Enter, on a Plan cell its first task's, and
-   writing one, the task just written, to write it out at length.
+   writing one, the task just written, to write it out at length. A double
+   click on a Plan cell opens its day's page.
 
    Every edit is one POST of ops (/ui/day-sheet), written into the days'
    notes and tasks as they would be there, answered with the sheet drawn
@@ -706,9 +707,16 @@
     selecting = false;
   });
 
+  // A double click writes in a cell, but on a Plan cell opens its day's page.
+  // The press captured the pointer, so the sheet is its target: what it was
+  // on is found from where it was.
   sheet.addEventListener("dblclick", (e) => {
-    const cell = e.target.closest(".ds-cell");
-    if (writable(cell) && !e.target.closest("[data-task], [data-status-menu], [data-delete-task], input")) edit(cell);
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    const cell = target?.closest(".ds-cell");
+    if (!cell || !sheet.contains(cell)) return;
+    if (target.closest("a, [data-task], [data-status-menu], [data-delete-task], input")) return;
+    if (cell.dataset.kind === "plan") window.location.href = `/day/${dayOf(cell)}`;
+    else if (writable(cell)) edit(cell);
   });
 
   // The Day header's chevron folds every day, or opens them all again.
