@@ -36,6 +36,12 @@ def text_of(page) -> str:
     return page.evaluate("Notepad.text()")
 
 
+def folded_to(fold) -> tuple[str, str]:
+    """A fold's name and count, as its summary line shows them."""
+    summary = fold.locator(".today-fold-summary")
+    return summary.locator(".today-fold-label").inner_text(), summary.locator(".count").inner_text()
+
+
 def write_in(page) -> None:
     """Into the notes, as a click on them does."""
     page.locator(".pad-editor .cm-content").click()
@@ -626,7 +632,7 @@ def test_tasks_still_open_yesterday_are_brought_to_today(page, live, app_db) -> 
     page.goto(f"{live}/today")
     # Under the notes: yesterday's open tasks, the done one left behind.
     strip = page.locator("#pad-carry")
-    assert strip.locator(".pad-habits-label").inner_text() == "For today"
+    assert folded_to(strip) == ("For today", "2")
     assert strip.locator(".pad-carry-write").all_inner_texts() == ["Call the bank", "Pay rent"]
 
     # A title writes its rows, its title row the same task, its do-date today.
@@ -1168,3 +1174,53 @@ def test_a_task_in_the_notes_opens_on_its_page(page, live, app_db) -> None:
     page.reload()
     title.locator("[data-open-task]").click()
     page.wait_for_url(f"{live}/tasks/{task_id}")
+
+
+def test_nudges_and_strips_fold_and_stay_folded(page, live, app_db) -> None:
+    from datetime import datetime, timedelta
+
+    from app.dates import short_date
+    from app.services import nudges as nudges_svc
+    from app.services import tasks as tasks_svc
+
+    with app_db() as db:
+        tasks_svc.create_task(db, title="File the report", due=TODAY)
+        tasks_svc.create_task(db, title="Pay rent", planned_for=TODAY)
+        tasks_svc.create_task(db, title="Book the flights", due=TODAY + timedelta(days=2))
+        nudges_svc.evaluate(db, datetime.now())
+        db.commit()
+
+    page.goto(f"{live}/today")
+    nudges = page.locator("#nudge-center")
+    carry = page.locator("#pad-carry")
+    # Each task in one place: the report, offered under the notes with its
+    # due, is not nudged at the top as well.
+    assert nudges.locator(".nudge-text").all_inner_texts() == [
+        f"“Book the flights” is due {short_date(TODAY + timedelta(days=2), TODAY)}."
+    ]
+    assert folded_to(nudges) == ("Nudges", "1")
+    assert folded_to(carry) == ("For today", "2")
+
+    # Folded to its name and count, and so the next time the page opens.
+    nudges.locator(".today-fold-summary").click()
+    carry.locator(".today-fold-summary").click()
+    assert nudges.locator(".nudge").is_hidden()
+    assert carry.locator(".pad-carry-write").first.is_hidden()
+    assert carry.locator(".pad-carry-all").is_hidden()
+    page.wait_for_function("document.cookie.includes('today_folded=nudges.carry')")
+    page.reload()
+    assert nudges.get_attribute("open") is None
+    assert carry.get_attribute("open") is None
+    assert folded_to(carry) == ("For today", "2")
+    # The key still brings them all.
+    page.keyboard.press("Alt+c")
+    assert text_of(page) == "- [ ] File the report\n- [ ] Pay rent"
+    assert carry.is_hidden()
+
+    # Open again, it stays open; its last nudge dismissed, the center goes.
+    nudges.locator(".today-fold-summary").click()
+    page.wait_for_function("!document.cookie.includes('nudges')")
+    page.reload()
+    assert nudges.get_attribute("open") == ""
+    nudges.locator(".nudge-dismiss").click()
+    nudges.wait_for(state="detached")

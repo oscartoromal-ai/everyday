@@ -36,6 +36,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -560,7 +561,7 @@ class Shell:
         while not self.quitting:
             try:
                 with get_session_factory()() as db:
-                    count = len(nudges_svc.active_nudges(db))
+                    count = len(nudges_svc.on_today(db, date.today()))
                 if badge:
                     badge.show(self.hwnd, count)
                 self.tray.show_count(count)

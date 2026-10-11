@@ -67,6 +67,9 @@ def day_page(request: Request, db: DbSession, day: date):
     return _day_page(request, db, day)
 
 
+TODAY_FOLDED_COOKIE = "today_folded"
+
+
 def _day_page(request: Request, db: DbSession, day: date):
     """A day's page: its notepad beside its timeline. Today's is /today,
     and opens with the nudge center."""
@@ -80,10 +83,12 @@ def _day_page(request: Request, db: DbSession, day: date):
             **_base(request, "today"),
             **day_page_ctx(db, day, now),
             "grid": grid_ctx(db, day, now, day_count=1),
+            # The page's folds left folded (partials/today_fold.html).
+            "folded": set(request.cookies.get(TODAY_FOLDED_COOKIE, "").split(".")),
             "nudges": [
                 {"id": n.id, "type": n.type.value, "task_id": n.task_id,
                  "message": nudges_svc.wording(db, n, day)}
-                for n in (nudges_svc.active_nudges(db) if day == now.date() else [])
+                for n in (nudges_svc.on_today(db, day) if day == now.date() else [])
             ],
         },
     )
