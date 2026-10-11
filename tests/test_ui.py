@@ -407,13 +407,13 @@ def test_quick_add_takes_a_description_with_subtasks(client, db) -> None:
         "/ui/tasks/quick-add",
         data={
             "title": "ship sync",
-            "notes": "ICS only for now.\r\n- fetch the feed\r\n- dedupe <instances>\r\n",
+            "notes": "ICS only for now.\r\n- [ ] fetch the feed\r\n- [ ] dedupe <instances>\r\n",
             "planned_for": TODAY.isoformat(),
         },
     ).text
     task = tasks_svc.list_tasks(db)[0]
     # The browser's CRLFs are stored as plain newlines, edges trimmed.
-    assert task.notes == "ICS only for now.\n- fetch the feed\n- dedupe <instances>"
+    assert task.notes == "ICS only for now.\n- [ ] fetch the feed\n- [ ] dedupe <instances>"
     assert '<span class="progress">0/2</span>' in row
     assert "ICS only for now." in row
     assert "dedupe &lt;instances&gt;" in row
@@ -421,9 +421,9 @@ def test_quick_add_takes_a_description_with_subtasks(client, db) -> None:
 
 
 def test_ticking_a_subtask_rewrites_its_line_and_keeps_the_row_open(client, db) -> None:
-    task = tasks_svc.create_task(db, title="ship sync", notes="- fetch\nwhy: TZ\n- dedupe")
+    task = tasks_svc.create_task(db, title="ship sync", notes="- [ ] fetch\nwhy: TZ\n- [ ] dedupe")
     row = client.post(f"/ui/tasks/{task.id}/subtasks/1/toggle", data={"text": "dedupe"}).text
-    assert task.notes == "- fetch\nwhy: TZ\n- [x] dedupe"
+    assert task.notes == "- [ ] fetch\nwhy: TZ\n- [x] dedupe"
     assert '<span class="progress">1/2</span>' in row
     assert 'aria-expanded="true"' in row
     assert f'id="notes-{task.id}" hidden' not in row
@@ -432,10 +432,10 @@ def test_ticking_a_subtask_rewrites_its_line_and_keeps_the_row_open(client, db) 
 
 
 def test_a_stale_subtask_toggle_changes_nothing(client, db) -> None:
-    task = tasks_svc.create_task(db, title="ship sync", notes="- fetch\n- dedupe")
+    task = tasks_svc.create_task(db, title="ship sync", notes="- [ ] fetch\n- [ ] dedupe")
     row = client.post(f"/ui/tasks/{task.id}/subtasks/0/toggle", data={"text": "gone"})
     assert row.status_code == 200
-    assert task.notes == "- fetch\n- dedupe"
+    assert task.notes == "- [ ] fetch\n- [ ] dedupe"
     assert '<span class="progress">0/2</span>' in row.text
 
 
@@ -482,7 +482,7 @@ def test_a_description_line_reads_as_its_markdown() -> None:
 
 def test_a_row_shows_its_description_as_markdown(client, db) -> None:
     task = tasks_svc.create_task(
-        db, title="md", planned_for=TODAY, notes="# Plan\n- **bold** step\n  a [link](https://x.y)"
+        db, title="md", planned_for=TODAY, notes="# Plan\n- [ ] **bold** step\n  a [link](https://x.y)"
     )
     row = client.get(f"/ui/tasks/{task.id}/row").text
     assert '<strong class="md-h md-h1">Plan</strong>' in row
@@ -895,3 +895,14 @@ def test_me_saves_as_it_changes_and_says_what_follows(client, db) -> None:
     # A value out of range is refused, with why (the page toasts it).
     refused = client.post("/ui/me", data={**form, "height_cm": "1800"})
     assert refused.status_code == 422 and "Height" in refused.json()["detail"]
+
+
+def test_a_row_draws_bullets_as_bullets_and_boxes_only_for_sub_tasks(client, db) -> None:
+    task = tasks_svc.create_task(
+        db, title="mixed", planned_for=TODAY, notes="- [ ] a sub-task\n- a bullet\n  - nested"
+    )
+    row = client.get(f"/ui/tasks/{task.id}/row").text
+    assert '<span class="progress">0/1</span>' in row
+    assert row.count('class="subtask-check"') == 1
+    assert row.count('class="subtask-bullet"') == 2
+    assert "<span>a bullet</span>" in row

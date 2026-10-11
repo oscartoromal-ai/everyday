@@ -152,7 +152,7 @@
         <textarea name="notes" hidden>{{ s.notes }}</textarea>
         {# Its Markdown, written and shown as it reads (notes-editor.js). #}
         <div class="notes-editor" aria-label="Description" data-notes-editor
-             data-placeholder="{{ 'Write it out in Markdown: the context, the plan, what done looks like. Start a line with - to make it a sub-task.' if page else 'Add context. Start a line with - to make it a sub-task.' }}"></div>
+             data-placeholder="{{ 'Write it out in Markdown: the context, the plan, what done looks like. Start a line with - [ ] to make it a sub-task.' if page else 'Add context. Start a line with - [ ] to make it a sub-task.' }}"></div>
       </div>
 
       {% if editing %}

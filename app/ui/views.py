@@ -164,10 +164,11 @@ _FENCE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})")
 
 def description_blocks(notes: str) -> list[dict[str, Any]]:
     """The description as the row renders it: runs of context lines become
-    paragraphs, runs of sub-tasks become checklists, blank lines separate.
-    An indented line right under a sub-task is that sub-task's note, hung
-    under its words rather than starting a paragraph of its own. A fenced
-    block ("```" to "```") is code, its lines as written."""
+    paragraphs, runs of sub-tasks and bullets become lists (a box each, or a
+    bullet), blank lines separate. An indented line right under a sub-task
+    or a bullet is its note, hung under its words rather than starting a
+    paragraph of its own. A fenced block ("```" to "```") is code, its lines
+    as written."""
     blocks: list[dict[str, Any]] = []
     fence: str | None = None  # the open fence's marks, while in a fenced block
     for raw, line in zip(notes.split("\n"), checklist.parse(notes), strict=True):
@@ -182,7 +183,7 @@ def description_blocks(notes: str) -> list[dict[str, Any]]:
             blocks.append({"kind": "code", "lines": []})
         elif line.kind == "blank":
             blocks.append({"kind": "gap"})
-        elif line.kind == "item":
+        elif line.kind in ("item", "bullet"):
             if last is None or last["kind"] != "list":
                 last = {"kind": "list", "entries": []}
                 blocks.append(last)

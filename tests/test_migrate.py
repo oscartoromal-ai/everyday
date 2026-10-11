@@ -255,3 +255,25 @@ def test_a_migration_the_app_came_up_on_is_never_put_back(tmp_path, monkeypatch)
     with pytest.raises(migrate.DatabaseTooNew, match=revision):
         migrate.upgrade(path)
     assert migrate.current_revisions(path) == {revision}
+
+
+def test_sub_tasks_written_without_a_box_take_one(tmp_path) -> None:
+    # Before 2026-10-11 every "- " line was a sub-task; now only boxed ones
+    # are, so a description written the old way keeps its sub-tasks.
+    from alembic import command
+
+    path = tmp_path / "app.db"
+    command.upgrade(migrate._config(path), "c7a3f9e2d418")
+    old = "Why it matters\n- fetch\n  * nested\n- [x] parsed\n```\n- code\n```"
+    with closing(sqlite3.connect(path)) as db:
+        db.execute(
+            "INSERT INTO tasks (title, notes, status, owner, created_at, status_changed_at,"
+            " acceptance, outcome) VALUES ('t', ?, 'todo', 'oscar', '2026-10-01 00:00:00',"
+            " '2026-10-01 00:00:00', '', '')",
+            (old,),
+        )
+        db.commit()
+    migrate.upgrade(path)
+    with closing(sqlite3.connect(path)) as db:
+        [(notes,)] = db.execute("SELECT notes FROM tasks").fetchall()
+    assert notes == "Why it matters\n- [ ] fetch\n  * [ ] nested\n- [x] parsed\n```\n- code\n```"

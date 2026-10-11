@@ -38,8 +38,9 @@ INSTRUCTIONS = (
     "working on a project. They are files in the project's folder (its folder in "
     "the context), the master copy: to change them, write the files. "
     "Dates are calendar dates (YYYY-MM-DD); datetimes are naive local wall time. "
-    "A task's notes are its free-form description: lines starting with '- ' are "
-    "its sub-tasks ('- [x] ' once done), and other lines are context around them. "
+    "A task's notes are its free-form description, in Markdown: lines starting with "
+    "'- [ ] ' are its sub-tasks ('- [x] ' once done); '- ' lines are plain bullets, "
+    "and other lines are context around them. "
     "Working on a task, report on it with report_task (how far it got, a note, the "
     "outcome, its pull requests): never as far as done, which its pull requests "
     "merging, or Oscar, says. "
@@ -215,12 +216,12 @@ def upsert_tasks(tasks: list[TaskUpsert]) -> list[dict[str, Any]]:
     it. estimate_minutes is how long its work is thought to take (its weight
     in a day's plan); null clears it. priority is how much it matters
     against his other tasks: urgent, high, medium or low; null is none. owner is
-    oscar or claude. notes is the description: write
-    sub-tasks as '- ' lines (tick one by rewriting it as '- [x] '), keeping context
-    lines next to the sub-tasks they explain. acceptance is what done means, in
-    Markdown, apart from the description. repos are the repositories it is worked
-    in: some of its project's, by their locations as list_projects names them
-    (all of them at once; [] clears them)."""
+    oscar or claude. notes is the description, in Markdown: write sub-tasks as
+    '- [ ] ' lines (tick one by rewriting it as '- [x] '), keeping context lines
+    next to the sub-tasks they explain; '- ' lines are plain bullets. acceptance
+    is what done means, in Markdown, apart from the description. repos are the
+    repositories it is worked in: some of its project's, by their locations as
+    list_projects names them (all of them at once; [] clears them)."""
     out: list[dict[str, Any]] = []
     with session_scope("claude") as db:
         for item in tasks:
