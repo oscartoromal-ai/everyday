@@ -100,7 +100,7 @@ def _picked(ledger: Ledger, tmp_path: Path, runner: FakeRunner):  # noqa: ANN202
     return entry
 
 
-def _follow(ledger, tmp_path, runner, pr=None, gate=(True, "gate says ok")):  # noqa: ANN001, ANN202
+def _follow(ledger, tmp_path, runner, pr=None, gate=(True, "gate says ok"), master=()):  # noqa: ANN001, ANN202
     posted, gated = [], []
 
     def check(repo, checkout, branch):  # noqa: ANN001, ANN202
@@ -116,6 +116,7 @@ def _follow(ledger, tmp_path, runner, pr=None, gate=(True, "gate says ok")):  # 
         find=lambda repo, branch: pr,
         check=check,
         post=lambda repo, url, body: posted.append((url, body)),
+        on_master=lambda repo, commit: commit in master,
     )
     return said, gated, posted
 
@@ -182,6 +183,44 @@ def test_a_run_ended_with_no_pull_request_is_tried_again_then_given_up(ledger, t
     assert _picked(ledger, tmp_path, runner) is entry and entry.attempts == 2
     _follow(ledger, tmp_path, runner)
     assert entry.status == "ignored" and "2 agent runs made no pull request" in entry.note
+
+
+def _outcome(entry, text: str) -> None:  # noqa: ANN001
+    worktree = Path(entry.worktree)
+    worktree.mkdir(parents=True, exist_ok=True)
+    (worktree / "improve-outcome.md").write_text(text, encoding="utf-8")
+
+
+def test_a_run_finding_master_fixed_it_already_settles_it_as_done(ledger, tmp_path) -> None:
+    runner = FakeRunner({"thread-1": RunState.finished})
+    entry = _picked(ledger, tmp_path, runner)
+    _outcome(entry, "Already fixed by 1b81a3c\n\nThe window is waited on since.\n")
+
+    said, _, _ = _follow(ledger, tmp_path, runner, master={"1b81a3c"})
+
+    assert entry.status == "done" and entry.note == "already fixed by 1b81a3c on master"
+    assert said == [f"already fixed: {entry.title} (1b81a3c)"]
+    # Met again, the fix did not hold: it opens again.
+    ledger.meet([Finding("error", "boom", entry.title, "again", 1)], TODAY)
+    assert (entry.status, entry.reopened) == ("open", 1)
+
+
+def test_a_fix_claimed_that_is_not_on_master_is_tried_again(ledger, tmp_path) -> None:
+    runner = FakeRunner({"thread-1": RunState.finished})
+    entry = _picked(ledger, tmp_path, runner)
+    _outcome(entry, "Already fixed by 1b81a3c\n")
+
+    _follow(ledger, tmp_path, runner, master=set())
+
+    assert entry.status == "open" and "no pull request" in entry.note
+
+
+def test_the_brief_says_how_to_tell_it_is_fixed_already(ledger, tmp_path) -> None:
+    runner = FakeRunner()
+    _launch(ledger, tmp_path, runner)
+
+    [brief] = runner.launched
+    assert "`improve-outcome.md`" in brief.text and "Already fixed by <commit>" in brief.text
 
 
 def test_when_the_runner_cannot_be_asked_no_run_is_taken_to_have_ended(ledger, tmp_path) -> None:

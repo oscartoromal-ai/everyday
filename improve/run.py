@@ -18,8 +18,11 @@ master's gate (check.py, run on a checkout of it here), and the outcome is
 commented on the pull request once for each commit. With no pull request,
 the run is looked at: working or waiting on Oscar, it is left be; finished,
 failed or gone, the entry opens again for another run, until MAX_ATTEMPTS
-runs have made nothing (then ignored). A worktree is removed once its entry
-is settled and it has nothing uncommitted.
+runs have made nothing (then ignored). A run that found master fixes it
+already names the commit that did, in its worktree (OUTCOME, as the brief
+says); that commit on master, the entry is done, and met again it opens
+again, as any fix that did not hold. A worktree is removed once its entry is
+settled and it has nothing uncommitted.
 """
 
 from __future__ import annotations
@@ -50,6 +53,10 @@ SELF = ("improve/", "app/jobs/improve.py", "app/services/agent_runs.py", "app/so
 GATE_MARK = "<!-- improve-gate -->"
 # Where the agent works, added to the brief (scan.py's) it is given.
 WHERE = Path(__file__).with_name("where.md")
+# What a run that found nothing to fix leaves in its worktree (never
+# committed: .gitignore), its first line naming the commit that fixed it.
+OUTCOME = "improve-outcome.md"
+FIXED_BY = re.compile(r"^Already fixed by ([0-9a-f]{7,40})\b", re.IGNORECASE)
 
 
 @dataclass
@@ -213,6 +220,28 @@ def gate(repo: Path, checkout: Path, branch: str) -> tuple[bool, str]:
     return outcome["ok"], "\n".join(lines)
 
 
+def fixed_by(entry: Entry) -> str | None:
+    """The commit its run says fixed it already (OUTCOME), if it says so."""
+    try:
+        text = (Path(entry.worktree) / OUTCOME).read_text(encoding="utf-8-sig")
+    except (OSError, ValueError):
+        return None
+    match = FIXED_BY.match(text.strip())
+    return match[1] if match else None
+
+
+def commit_on_master(repo: Path, commit: str) -> bool:
+    """Whether `commit` is on origin's master, as last fetched."""
+    out = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", commit, "origin/master"],
+        cwd=repo,
+        capture_output=True,
+        stdin=subprocess.DEVNULL,
+        timeout=60,
+    )
+    return out.returncode == 0
+
+
 def _settle(entry: Entry, repo: Path, status: str, today: date, ledger: Ledger, note: str) -> None:
     ledger.mark(entry.fingerprint, status, today, note=note)
     if entry.worktree:
@@ -231,6 +260,7 @@ def follow(
     find: Callable = find_pull_request,
     check: Callable = gate,
     post: Callable = comment,
+    on_master: Callable = commit_on_master,
 ) -> list[str]:
     """Each picked entry looked at and moved on; what happened, a line each."""
     said = []
@@ -283,6 +313,10 @@ def follow(
         state = states.get(entry.run, RunState.gone)
         if state in (RunState.working, RunState.waiting):
             said.append(f"{state}: {entry.title}")
+            continue
+        if (commit := fixed_by(entry)) and on_master(repo, commit):
+            _settle(entry, repo, "done", today, ledger, f"already fixed by {commit} on master")
+            said.append(f"already fixed: {entry.title} ({commit})")
             continue
         if entry.attempts >= MAX_ATTEMPTS:
             _settle(

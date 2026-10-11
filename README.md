@@ -173,6 +173,7 @@ The pick is then fixed by an agent (`improve/run.py`), and everything around the
   Its newest commit passes master's gate (`improve.check`, run on a checkout of it in `data\improve\gate`), which comments the outcome on the pull request once per commit, and says so loudly when the change touches the loop itself.
   Merged, the pick is done; closed unmerged, it is ignored (Oscar turned it down).
   A run that ended without a pull request opens its pick again, and after two such runs the pick is given up on.
+  A run that found master fixes it already leaves `improve-outcome.md` in its worktree, naming the commit that did: once that commit is checked to be on master, the pick is done, and it opens again if met again.
   The run's state comes from T3 itself (working, waiting on Oscar, finished, failed, gone), never from the agent.
 - Nothing merges on its own: Oscar reviews the pull requests (his call on 2026-10-04).
 
