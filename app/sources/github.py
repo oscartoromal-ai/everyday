@@ -43,6 +43,10 @@ HOST = "github.com"
 # GitHub's REST API version the app is written against (X-GitHub-Api-Version).
 API_VERSION = "2026-03-10"
 TIMEOUT = httpx.Timeout(20.0, connect=10.0)
+# A release's files, read a piece at a time: the wait for each piece.
+DOWNLOAD_TIMEOUT = httpx.Timeout(60.0, connect=10.0)
+# Asks for a release asset's file rather than what GitHub knows of it.
+OCTET_STREAM = {"Accept": "application/octet-stream"}
 PER_PAGE = 100
 # A token made for the app: read-only, repositories' metadata (their names,
 # descriptions and pushes) and nothing else. GitHub fills the form from
@@ -69,6 +73,11 @@ class GitHubSignedOut(GitHubError):
 
 class GitHubUnavailable(GitHubError):
     """GitHub could not be reached, or is limiting requests: try later."""
+
+
+class GitHubNotFound(GitHubError):
+    """No such thing on GitHub, or none the token may see: GitHub answers a
+    private repository's outsiders as if it were not there."""
 
 
 # ---- the API ----
@@ -131,14 +140,25 @@ class GitHub:
     def close(self) -> None:
         self._http.close()
 
-    def _get(self, url: str, params: dict[str, Any] | None = None) -> httpx.Response:
+    def _get(
+        self, url: str, params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> httpx.Response:
         try:
-            response = self._http.get(url, params=params)
+            response = self._http.get(url, params=params, headers=headers)
         except httpx.TransportError as exc:
             log.warning("GitHub not reached: %s", exc)
             raise GitHubUnavailable("Could not reach GitHub. Try again in a moment.") from exc
+        self._check(response, url)
+        return response
+
+    def _check(self, response: httpx.Response, url: str) -> None:
+        """Nothing, when GitHub did what was asked; else the GitHubError
+        saying why."""
         if response.is_success:
-            return response
+            return
+        if not response.is_stream_consumed:
+            response.read()
         status = response.status_code
         if status == 401:
             raise GitHubSignedOut("GitHub no longer accepts the app's sign-in. Connect again.")
@@ -148,7 +168,8 @@ class GitHub:
             raise GitHubUnavailable("GitHub is having trouble. Try again in a moment.")
         message = _message(response)
         log.warning("GitHub answered %s to %s: %s", status, url, message)
-        raise GitHubError(f"GitHub refused: {message or status}.")
+        kind = GitHubNotFound if status == 404 else GitHubError
+        raise kind(f"GitHub refused: {message or status}.")
 
     def get(self, path: str, **params: Any) -> Any:
         """One request's JSON."""
@@ -185,6 +206,50 @@ class GitHub:
         return self.pages(
             "/user/repos", affiliation="owner,collaborator,organization_member", sort="pushed"
         )
+
+    def latest_release(self, repo: str) -> dict[str, Any] | None:
+        """The repository's (owner/name) latest release: its tag and its
+        assets. None when it has none; GitHubNotFound when the repository
+        is not there for this token."""
+        try:
+            return self.get(f"/repos/{repo}/releases/latest")
+        except GitHubNotFound:
+            # As for a repository it cannot see, which says that.
+            self.get(f"/repos/{repo}")
+            return None
+
+    def compare(self, repo: str, base: str, head: str) -> str | None:
+        """How the commit `head` stands to `base`: "ahead" (past it),
+        "behind", "identical" or "diverged". None when GitHub has no `base`
+        (a commit never pushed)."""
+        try:
+            return self.get(f"/repos/{repo}/compare/{base}...{head}", per_page=1)["status"]
+        except GitHubNotFound:
+            return None
+
+    def asset(self, url: str) -> bytes:
+        """A release asset's file (its API url), whole."""
+        return self._get(url, headers=OCTET_STREAM).content
+
+    def download(self, url: str, to: Path) -> int:
+        """A release asset's file (its API url) written to `to` as it
+        comes; its size."""
+        size = 0
+        try:
+            with self._http.stream(
+                "GET", url, headers=OCTET_STREAM, timeout=DOWNLOAD_TIMEOUT
+            ) as response:
+                self._check(response, url)
+                with to.open("wb") as file:
+                    for chunk in response.iter_bytes(1 << 20):
+                        file.write(chunk)
+                        size += len(chunk)
+        except httpx.TransportError as exc:
+            log.warning("GitHub not reached: %s", exc)
+            raise GitHubUnavailable(
+                "Could not download from GitHub. Try again in a moment."
+            ) from exc
+        return size
 
 
 # ---- the GitHub CLI ----
@@ -263,10 +328,11 @@ class GitHubCli:
         signed_in.sort(key=lambda a: not a.get("active"))
         return [a["login"] for a in signed_in]
 
-    def token(self, login: str) -> str | None:
-        """gh's token for this account on github.com, or None when gh is
-        missing or not signed in to it."""
-        done = self._gh("auth", "token", "--hostname", HOST, "--user", login)
+    def token(self, login: str | None = None) -> str | None:
+        """gh's token for this account on github.com (its active one when
+        None), or None when gh is missing or not signed in to it."""
+        user = ("--user", login) if login else ()
+        done = self._gh("auth", "token", "--hostname", HOST, *user)
         if done is None:
             return None
         code, out = done

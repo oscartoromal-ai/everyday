@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import webview
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -330,6 +330,7 @@ class Shell:
             self.updater.before_build = self._stop_standby
             templates.env.globals["app_update"] = self.updater.state
             templates.env.globals["app_updatable"] = lambda: True
+            templates.env.globals["app_update_access"] = self.updater.access
             app.include_router(update_router(self.updater, self))
         self.servers = serve.Servers(app)
         self.servers.start()
@@ -629,17 +630,27 @@ def update_router(updater: Updater, shell: Shell) -> APIRouter:
     ) -> HTMLResponse:
         return templates.TemplateResponse(
             request, "partials/update_check.html",
-            {"update": state, "checked": checked, "why": why, "oob": checked},
+            {"update": state, "checked": checked, "why": why, "oob": checked,
+             "access": updater.access()},
         )
 
     @router.get("/update/check", response_class=HTMLResponse)
     def show_check(request: Request) -> HTMLResponse:
         return check_panel(request, updater.state())
 
-    # Settings' Check for updates: the remote fetched now and a newer master's
-    # update started; the rail's button (swapped out of band) follows it.
+    # Settings' Check for updates: the latest release looked at now and a
+    # newer one's update started; the rail's button (swapped out of band)
+    # follows it.
     @router.post("/update/check", response_class=HTMLResponse)
     def check(request: Request) -> HTMLResponse:
+        state, why = updater.check()
+        return check_panel(request, state, checked=True, why=why)
+
+    # A token for GitHub to show the releases to, pasted in Settings, then
+    # checked as Check for updates would.
+    @router.post("/update/access", response_class=HTMLResponse)
+    def access(request: Request, token: str = Form("")) -> HTMLResponse:
+        updater.keep_token(token)
         state, why = updater.check()
         return check_panel(request, state, checked=True, why=why)
 

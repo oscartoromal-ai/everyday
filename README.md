@@ -39,16 +39,22 @@ Launching it again while it runs brings its window forward.
 ### Updating it
 
 Develop in the repo (the dev server, the tests), commit, and merge the pull request on GitHub.
-The app fetches the repo's `origin/master` in the background every minute, whatever the repo has checked out.
-Once it is past the installed app's commit, the app builds that commit by itself, in the background, while the app carries on, and stages it beside the running version.
+GitHub then builds the commit master took into a release of the repo (`.github/workflows/release.yml`): the installer, `Personal-Calendar-Setup.exe`, for a machine the app is not on yet; the version's folder zipped, `app-<commit>.zip`, for an update; and `release.json`, naming the commit it was built from.
+A build whose libraries are the last release's (`uv.lock` and the freezing unchanged) copies that release's version and puts the new code in; one that changes them freezes the app anew.
+The ten newest releases are kept.
+Every installed app, on any machine, looks at the repo's latest release in the background every minute.
+Once it is past the installed app's commit, the app downloads it by itself, in the background, while the app carries on, and stages it beside the running version.
 The foot of its sidebar (and the command menu, Ctrl+K) says **Updating…** meanwhile, then **Restart to update**, and waits for you.
-An update whose libraries are the running version's (`uv.lock` and the freezing unchanged) takes seconds: it copies the running version and puts the new code in; one that changes them freezes the app anew, a few minutes.
 Pressing Restart restarts the app on the new version in about a second: the new version, started beforehand to stand by with its code and window loaded, comes up where the old window was, at the same page, over it, and the old one goes; its database migrates as it takes over.
-Only commits go into an update, never uncommitted work, which is built in a worktree of the app's own (`data/update-worktree`, kept between updates with its Python environment) by the app's own copy of `desktop/update.ps1`, bundled with it.
-If the build or the restart fails, the button says so and offers Retry (a commit that failed is not built again by itself, only once master moves on); why is in `data/logs/update.log` (the build), `data/logs/update-console.log` (a script that would not run at all) or `data/logs/personal-calendar.log` (the restart, and `standby.log` for the version standing by) in the app's home.
+Only commits on master go into an update, never uncommitted work, and no machine needs the repo, git or Python for it.
+If the download or the restart fails, the button says so and offers Retry (a release that failed is not downloaded again by itself, only once another comes); why is in `data/logs/update.log` (the download) or `data/logs/personal-calendar.log` (the restart, and `standby.log` for the version standing by) in the app's home.
 A restart that fails comes back up on the version it was running, with the database as that version left it: an update that migrated the database and then did not come up has it put back (see [Where the data lives](#where-the-data-lives)).
 **Update** shows only when the app has not started one itself; Settings' Check for updates looks at GitHub at once.
 Windows' Installed apps lists the version with the commit it was built from.
+
+The repo is private, so GitHub shows its releases only to a token that can read it.
+The app uses the one pasted in Settings, kept in `local/github-update-token.txt`, else the GitHub CLI's, when `gh` is signed in on the machine.
+Without either, Settings' Check for updates says so and takes a token, with a link to GitHub's page making one, filled in to read the repo's contents and nothing else (choose Only select repositories, then the repo).
 
 ### Building and installing by hand
 
@@ -59,9 +65,9 @@ Requires [Inno Setup 6](https://jrsoftware.org/isinfo.php) besides the dev setup
 .\desktop\build.ps1 -Install   # build it and install it over the running app
 ```
 
-This is how the app is first installed, and how to try uncommitted changes in it (the version then carries a `+` after its commit).
+This is how to try uncommitted changes in the app (the version then carries a `+` after its commit); the next release past its commit replaces it.
 PyInstaller freezes the app with its own Python (`desktop/personal-calendar.spec`), the C# compiler that comes with Windows builds its launcher (`desktop/launcher.cs`), and Inno Setup wraps both into a per-user installer (`desktop/installer.iss`) that needs no admin rights.
-Python and the libraries are frozen; the app's own code and files (`app/`, and the ones `desktop/app-files.txt` lists) go in as they are, so that an update can put them in a copy of the running version (`build.ps1 -Reuse`).
+Python and the libraries are frozen; the app's own code and files (`app/`, and the ones `desktop/app-files.txt` lists) go in as they are, so that a build can put them in a copy of the last version (`build.ps1 -Reuse`).
 Every build then checks itself (`--self-check`, `app/selfcheck.py`): it compiles the app's code, imports all of it, and makes sure every module it imports anywhere is in the build.
 Its first page, Modules, ticks the modules the machine should have: Health, Finances and Code can be left out (Planner and Projects are always in), and the app then has nothing of them, neither pages nor Claude's tools for them.
 Its next page, Everyday files, chooses the folder for agentic work, `C:\everyday-files` to start with (see [Where the data lives](#where-the-data-lives)), and makes it.
@@ -75,10 +81,10 @@ Uninstalling it (Installed apps) removes the program and its sign-in entry and k
 
 ### Another machine
 
-`build\Personal-Calendar-Setup.exe`, left in the repo by every build by hand, is the whole app: copy it to another Windows 10 or 11 machine and run it, with nothing else to install (WebView2 comes with Windows).
+The latest release's `Personal-Calendar-Setup.exe` is the whole app: download it on another Windows 10 or 11 machine (`gh release download --repo oscartoromal-ai/everyday-app --pattern "*Setup.exe"`, or from the repo's Releases on GitHub) and run it, with nothing else to install (WebView2 comes with Windows).
 Windows warns about it first, since it is not signed (More info, then Run anyway).
-That machine starts with an empty database of its own, and has no Update button unless the repo is checked out at the same path.
 For work, untick Finances (or Health) on Setup's Modules page.
+That machine starts with an empty database of its own, and updates as every install does, once it can read the repo's releases: open Settings, where Check for updates takes a token, unless `gh` is signed in there.
 
 After changing `app/static/favicon.svg`, redraw the icons with `uv run python scripts/make_icons.py`.
 
@@ -94,7 +100,7 @@ Everything the app keeps lives under its home, `%LOCALAPPDATA%\Personal Calendar
 - `data/desktop.json` and `data/webview/`: the window's place and the window's own browser storage (theme, sidebar, compact rows).
 - `data/improve/`: the daily improvement scan's reports, ledger and brief, and its checkout of master (see [Improving itself](#improving-itself)).
 - `backups/`: the daily snapshots (see [Backups and restore](#backups-and-restore)).
-- `local/`: the machine's secrets (work-calendar feed, ntfy, Garmin's token, a GitHub token if one was pasted), git-ignored in a repo checkout.
+- `local/`: the machine's secrets (work-calendar feed, ntfy, Garmin's token, the GitHub tokens pasted on Repositories and for updates), git-ignored in a repo checkout.
 - `config.toml`: this machine's settings, over the defaults in the repo's `config.toml` that the app is built with, key by key; relative paths in either resolve against the home.
 - `install.toml`: the modules this machine was installed without (`[install] without`) and the everyday files' folder (`[everyday_files] dir`), written by Setup on every install, over both.
 - `keys.toml`: the keys chosen over the defaults (see [Keys](#keys)), git-ignored in a repo checkout.
@@ -157,6 +163,7 @@ Fix lint errors, test failures, and flaky tests on sight, even ones unrelated to
 
 Every day the app scans itself for what could be better (`improve/`).
 After 02:30, or as soon as it is next up and awake, the installed app fetches origin's master into a checkout of its own (`data\improve\checkout`, a worktree of the repo) and runs `python -m improve.scan` there, at low priority.
+The repo is the checkout `[improve] repo` in the home's `config.toml` names (a version GitHub built knows none), else the one the app was built from by hand; a machine with neither scans nothing.
 The scan reads the live app's log and database, never writing to them, and runs master's tests, lint and dependency checks.
 
 What it looks for, the most pressing first: tests failing on master, errors in the app's log, routes answering with server errors, vulnerable dependencies, flaky tests, lint, tasks on the app's project whose owner is Claude, slow routes, a slow test suite, outdated dependencies.

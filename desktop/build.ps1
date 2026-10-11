@@ -13,13 +13,15 @@
     Installing quits the running app, replaces it, and opens the new one; its
     database migrates as it starts.
 
-    An update (desktop\update.ps1) stages the version's folder itself, so it
-    passes -NoInstaller, and passes the running version's folder as -Reuse:
-    when that one's libraries are this tree's (its runtime, in its
-    build-info.json), the build is a copy of it with this tree's app put in,
-    in seconds rather than the minutes freezing takes. Either way the program
-    built checks itself (--self-check, app/selfcheck.py), compiling the app's
-    code; a reused build that fails it is frozen anew.
+    GitHub builds every commit master takes into a release the installed
+    apps update from (.github/workflows/release.yml), passing the latest
+    release's version's folder as -Reuse: when that one's libraries are this
+    tree's (its runtime, in its build-info.json), the build is a copy of it
+    with this tree's app put in, in seconds rather than the minutes freezing
+    takes. Either way the program built checks itself (--self-check,
+    app/selfcheck.py), compiling the app's code; a reused build that fails
+    it is frozen anew. -NoInstaller builds the version's folder alone, as
+    the updates of apps from before releases did (their desktop\update.ps1).
 #>
 
 param(
@@ -114,11 +116,17 @@ $folder = "app-$commit"
 $runtime = Get-Runtime
 
 New-Item -ItemType Directory -Force build | Out-Null
-# What the app was built from, for its Update button (app/desktop/update.py):
-# the commit, the version Installed apps lists, the repo itself even when
-# this is a worktree of it, and its runtime, for the next update to reuse.
-$repo = Split-Path -Parent (git rev-parse --path-format=absolute --git-common-dir).Trim()
-@{ sha = (git rev-parse HEAD).Trim(); commit = $commit; version = "$version ($commit)"; repo = $repo; runtime = $runtime } |
+# What the app was built from, for its updates (app/desktop/update.py): the
+# commit, the version Installed apps lists, the repo on GitHub its releases
+# come from (source, owner/name), and its runtime, for the next build to
+# reuse. Built here by hand, the checkout too (repo, the repo itself even
+# when this is a worktree of it), for the improvement scan
+# (app/jobs/improve.py); built by GitHub, none.
+$source = $null
+if ("$(git remote get-url origin)".Trim() -match 'github\.com[:/]([^/]+/[^/]+?)(\.git)?$') { $source = $Matches[1] }
+$repo = $null
+if (-not $env:GITHUB_ACTIONS) { $repo = Split-Path -Parent (git rev-parse --path-format=absolute --git-common-dir).Trim() }
+@{ sha = (git rev-parse HEAD).Trim(); commit = $commit; version = "$version ($commit)"; source = $source; repo = $repo; runtime = $runtime } |
     ConvertTo-Json | Out-File -Encoding utf8 build\build-info.json
 # Every version and what it changed, for its Changelog: the installed app
 # has no git history to read them from.

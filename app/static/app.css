@@ -1512,12 +1512,17 @@ dialog.settings-dialog:focus-visible { outline: none; box-shadow: var(--shadow-m
 .settings-models__provider { display: inline-flex; align-items: center; gap: var(--s-2); font-weight: 500; }
 /* the installed app's Check for updates (partials/update_check.html), under the version */
 .update-check {
-  display: flex; align-items: center; gap: var(--s-3);
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3);
   min-height: 48px; padding: var(--s-2) 0;
   border-bottom: 1px solid var(--hairline);
 }
 .update-check__status { flex: 1; min-width: 0; margin: 0; font-size: var(--t-body-sm); line-height: 1.5; color: var(--graphite); overflow-wrap: anywhere; }
-.update-check:is([data-update="ready"], [data-update="staged"]) .update-check__status { color: var(--ink); }
+.update-check:is([data-update="ready"], [data-update="staged"], [data-update="locked"]) .update-check__status { color: var(--ink); }
+/* the token updates need, while GitHub shows the releases to none this computer has */
+.update-access { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+.update-access .field-line { flex: 1; min-width: 0; }
+.update-access__how { flex-basis: 100%; margin: 0; font-size: var(--t-caption); line-height: 1.5; color: var(--pewter); }
+.update-access__how a { color: var(--graphite); }
 .update-check:is([data-update="failed"], [data-update="unreachable"]) .update-check__status { color: var(--warn-fg); }
 .update-check .btn { flex: none; padding: 6px 14px; font-size: var(--t-caption); }
 .update-check__icon { flex: none; width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }

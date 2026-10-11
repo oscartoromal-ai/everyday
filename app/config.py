@@ -100,6 +100,9 @@ class GitHubConfig(BaseModel):
     # file per account; connected through the GitHub CLI, the app keeps none
     # and asks gh each time.
     tokens_dir: str = "local/github-tokens"
+    # A token pasted in Settings for the app's updates, which come from its
+    # repo's releases (app/desktop/update.py); without it, the GitHub CLI's.
+    update_token_file: str = "local/github-update-token.txt"
     # The GitHub CLI. Empty: `gh` on PATH, else where its installer puts it.
     cli: str = ""
     # How often the repositories are fetched again while connected.
@@ -112,6 +115,9 @@ class ImproveConfig(BaseModel):
     # The daily scan for what to improve in the app (improve/ in the repo),
     # started by the installed app from its repo (app/jobs/improve.py).
     enabled: bool = True
+    # That repo's checkout on this machine. Empty: the one the app was built
+    # from, when built here by hand; a version GitHub built has none.
+    repo: str = ""
     # The day's scan starts after this time, or as soon as the app is up and
     # awake after it.
     after: str = "02:30"
@@ -235,6 +241,10 @@ class Settings(BaseSettings):
     @property
     def github_tokens_dir(self) -> Path:
         return self.resolve(self.github.tokens_dir)
+
+    @property
+    def update_token_file(self) -> Path:
+        return self.resolve(self.github.update_token_file)
 
     @property
     def everyday_dir(self) -> Path:

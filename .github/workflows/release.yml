@@ -1,0 +1,117 @@
+# Every commit master takes, built into a release of the repo, which the
+# installed apps update from (app/desktop/update.py):
+#
+# - Personal-Calendar-Setup.exe, the installer, for a machine the app is not
+#   on yet;
+# - app-<commit>.zip, the version's folder, which an update unpacks beside
+#   the running version;
+# - release.json, the version's build-info.json, naming the commit it was
+#   built from.
+#
+# The latest release's version is reused when its libraries are this
+# commit's (desktop/build.ps1 -Reuse), so most builds freeze nothing. The
+# newest releases are kept, the ones before them deleted.
+
+name: Release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One build at a time, and of the commits waiting only the newest next: a
+# release never lands after a newer one.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  # The Python the app is frozen with.
+  UV_PYTHON: "3.13"
+  # The builds kept as releases, the newest first.
+  KEEP: 10
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The changelog numbers the versions from master's history (app/changelog.py).
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Fetch the latest release's version, to reuse
+        id: previous
+        run: |
+          gh release download --pattern "app-*.zip" --dir build\previous
+          if ($LASTEXITCODE) {
+            Write-Host "No release to reuse: freezing anew"
+            exit 0
+          }
+          $zip = Get-ChildItem build\previous\app-*.zip | Select-Object -First 1
+          $folder = Join-Path $zip.DirectoryName $zip.BaseName
+          New-Item -ItemType Directory $folder | Out-Null
+          tar -xf $zip.FullName -C $folder
+          if ($LASTEXITCODE) { throw "Could not unpack $($zip.Name)" }
+          "folder=$folder" >> $env:GITHUB_OUTPUT
+
+      - name: Build
+        run: |
+          $reuse = "${{ steps.previous.outputs.folder }}"
+          if ($reuse) { .\desktop\build.ps1 -Reuse $reuse } else { .\desktop\build.ps1 }
+
+      - name: Package
+        id: package
+        run: |
+          $info = Get-Content -Raw build\build-info.json | ConvertFrom-Json
+          $folder = (Get-Content -Raw build\current.txt).Trim()
+          New-Item -ItemType Directory build\release | Out-Null
+          uv run python -c "import shutil, sys; shutil.make_archive(sys.argv[1], 'zip', sys.argv[2])" "build\release\$folder" "build\dist\Personal Calendar"
+          if ($LASTEXITCODE) { throw "Could not zip $folder" }
+          Copy-Item build\build-info.json build\release\release.json
+          Copy-Item build\Personal-Calendar-Setup.exe build\release
+          # What this version changed, as the app's Changelog has it.
+          $top = (Get-Content -Raw build\changelog.json | ConvertFrom-Json)[0]
+          if ($top -and $top.commit -eq $info.sha) {
+            $notes = $top.changes | ForEach-Object { "- $($_.kind.Substring(0, 1).ToUpper() + $_.kind.Substring(1)): $($_.summary)" }
+          } else {
+            $notes = "No change of its own to the app: built from $($info.sha)."
+          }
+          $notes -join "`n" | Out-File -Encoding utf8 build\notes.md
+          "tag=build-$($info.commit)" >> $env:GITHUB_OUTPUT
+          "title=$($info.version)" >> $env:GITHUB_OUTPUT
+          "sha=$($info.sha)" >> $env:GITHUB_OUTPUT
+
+      - name: Publish
+        run: |
+          $tag = "${{ steps.package.outputs.tag }}"
+          $assets = Get-ChildItem build\release | ForEach-Object { $_.FullName }
+          # Run again on the same commit, the release it made is made whole.
+          gh release view $tag *> $null
+          if ($LASTEXITCODE) {
+            gh release create $tag @assets --target "${{ steps.package.outputs.sha }}" --title "${{ steps.package.outputs.title }}" --notes-file build\notes.md --latest
+          } else {
+            gh release upload $tag @assets --clobber
+          }
+          if ($LASTEXITCODE) { throw "Could not publish $tag" }
+
+      - name: Delete the releases before the newest
+        run: |
+          $tags = gh release list --limit 1000 --json tagName,createdAt --jq 'sort_by(.createdAt) | reverse | .[] | select(.tagName | startswith("build-")) | .tagName'
+          if ($LASTEXITCODE) { throw "Could not list the releases" }
+          $tags | Select-Object -Skip $env:KEEP | ForEach-Object {
+            gh release delete $_ --cleanup-tag --yes
+            if ($LASTEXITCODE) { throw "Could not delete $_" }
+          }

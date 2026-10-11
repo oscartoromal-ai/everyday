@@ -457,6 +457,20 @@ def test_turned_off_the_scan_never_runs(monkeypatch) -> None:
     assert not improve_job.run(datetime(2026, 10, 5, 3, 0))
 
 
+def test_the_repo_is_the_one_configured(tmp_path, monkeypatch) -> None:
+    # A version GitHub built knows no checkout on this machine: config names it.
+    from app.config import get_settings
+
+    (tmp_path / "repo" / ".git").mkdir(parents=True)
+    monkeypatch.setattr(improve_job, "FROZEN", True)
+    monkeypatch.setattr("app.desktop.update.build_info", lambda: {"repo": None})
+    assert improve_job.repo() is None
+    monkeypatch.setattr(get_settings().improve, "repo", str(tmp_path / "repo"))
+    assert improve_job.repo() == tmp_path / "repo"
+    monkeypatch.setattr(get_settings().improve, "repo", str(tmp_path / "gone"))
+    assert improve_job.repo() is None
+
+
 def _tool_writes(monkeypatch, stdout: str) -> None:  # noqa: ANN001
     def run_tool(cmd, cwd, timeout) -> subprocess.CompletedProcess:  # noqa: ANN001
         return subprocess.CompletedProcess(cmd, 1, stdout, "")

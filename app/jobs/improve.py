@@ -16,7 +16,8 @@ then after the scan the next pick is handed to an agent, when [improve]
 runner names one and fewer than max_open are being fixed. Between days the
 follow runs on its own every hour, so a pull request opened is gated soon.
 
-The installed app finds its repo in build-info.json (app/desktop/update.py);
+The installed app finds its repo where [improve] repo says, else in
+build-info.json (app/desktop/update.py) when it was built on this machine;
 run from the repo, it is the repo.
 """
 
@@ -52,13 +53,16 @@ def folder() -> Path:
 
 
 def repo() -> Path | None:
-    """The repo the app was built from; None when it is not on this machine."""
+    """The app's repo on this machine: as configured, else the one it was
+    built from; None when it is not on this machine."""
     path = REPO_ROOT
-    if FROZEN:
+    if configured := get_settings().improve.repo:
+        path = Path(configured)
+    elif FROZEN:
         from app.desktop.update import build_info
 
         info = build_info()
-        path = Path(info["repo"]) if info else None
+        path = Path(info["repo"]) if info and info.get("repo") else None
     return path if path and (path / ".git").exists() else None
 
 

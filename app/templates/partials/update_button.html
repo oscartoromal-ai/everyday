@@ -1,5 +1,5 @@
 {# The installed app's Update button, at the rail's foot, there only while an
-   update is to be had (app/desktop/update.py): ready, building (looked at
+   update is to be had (app/desktop/update.py): ready, downloading (looked at
    again every few seconds until it is staged), staged for Restart,
    restarting (until the new app's window takes this one's place), or
    failed. #}
@@ -8,7 +8,7 @@
 {% if update.state == "updating" %}
 <div class="rail-button update-button" data-update="updating" role="status"
      hx-get="/ui/desktop/update" hx-trigger="every 4s" hx-swap="outerHTML"
-     title="Building {{ update.latest }} in the background; Restart shows here once it is ready">
+     title="Downloading {{ update.latest }} in the background; Restart shows here once it is ready">
   {{ icon }}<span class="rail-button__label">Updating…</span>
 </div>
 {% elif update.state == "staged" %}
@@ -31,7 +31,7 @@
 {% else %}
 <button type="button" class="rail-button update-button" data-update="ready"
         hx-post="/ui/desktop/update" hx-swap="outerHTML"
-        title="Build master's latest commit, {{ update.latest }} (this is {{ update.installed }}), in the background; the app restarts on it when you say">
+        title="Download {{ update.latest }} (this is {{ update.installed }}) in the background; the app restarts on it when you say">
   {{ icon }}<span class="rail-button__label">Update</span><span class="update-button__dot" aria-hidden="true"></span>
 </button>
 {% endif %}
