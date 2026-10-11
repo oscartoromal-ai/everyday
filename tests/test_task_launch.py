@@ -118,13 +118,18 @@ def test_a_repository_on_github_is_cloned_into_repos_once(tmp_path) -> None:
 
 
 def test_one_repositorys_task_is_launched_in_a_worktree_of_it(db, tmp_path) -> None:
+    from app.services import task_files
+
     repo = a_repo(tmp_path, "app")
     task = a_task(db, repo)
+    task_files.create(task, "plan.md")
     runner = FakeRunner()
     run = task_launch.launch(db, task.id, runner)
 
     brief = runner.briefs[0]
     workspace = task_launch.workspace_of(task)
+    # Its files: where they are, and what it holds already.
+    assert f"Markdown documents in {task_files.folder_of(task.id)}: plan.md." in brief.text
     assert (brief.repo, brief.worktree, brief.branch) == (
         repo,
         workspace,

@@ -288,7 +288,7 @@ def test_handed_to_an_agent_its_work_shows(page, live, app_db) -> None:
     pane.locator("#task-run textarea[name=acceptance]").wait_for(state="visible")
     assert not pane.get_by_role("button", name="Hand to an agent").is_visible()
     # The map marks it Claude's.
-    assert page.locator('.map-task[aria-current="page"] .map-agent').is_visible()
+    assert page.locator('.map-task.is-here .map-agent').is_visible()
 
 
 def test_its_map_folds_are_remembered(page, live, app_db) -> None:
@@ -311,4 +311,37 @@ def test_its_map_folds_are_remembered(page, live, app_db) -> None:
     # A task there opens its own page, its map the same.
     page.locator(".map-task", has_text="Swipe").click()
     page.wait_for_url(re.compile(r"/tasks/\d+$"))
-    assert page.locator('.map-task[aria-current="page"]').inner_text() == "Swipe"
+    assert page.locator('.map-task.is-here').inner_text() == "Swipe"
+
+
+def test_a_file_is_added_written_and_renamed_on_the_tasks_page(page, live, app_db) -> None:
+    from app.services import task_files
+
+    with app_db() as db:
+        task = tasks_svc.create_task(db, title="Plan the move")
+        db.commit()
+    # Wide enough for the map beside the document with the sidebar open.
+    page.set_viewport_size({"width": 1600, "height": 900})
+    page.goto(f"{live}/tasks/{task.id}")
+    # Written on the map's last line, a path naming its folder: opened to be written.
+    page.locator(".map-new input").fill("notes/plan")
+    page.keyboard.press("Enter")
+    page.wait_for_url(re.compile(r"/files/notes/plan\.md$"))
+    assert page.locator('.map-file[aria-current="page"] .map-name').inner_text() == "plan.md"
+    page.locator(".doc-body .cm-content").click()
+    page.keyboard.type("# Plan")
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
+    assert task_files.read(task.id, "notes/plan.md")[0] == "# Plan"
+    # The outline follows the file.
+    page.locator('[data-side-tab="outline"]').click()
+    assert page.locator(".outline button").all_inner_texts() == ["Plan"]
+    # Renamed in its heading: its address and its row follow.
+    page.locator("[data-doc-name]").fill("The plan")
+    page.keyboard.press("Enter")
+    page.wait_for_url(re.compile(r"/files/notes/The%20plan\.md$"))
+    assert page.locator('.map-file[aria-current="page"] .map-name').inner_text() == "The plan.md"
+    assert task_files.paths(task.id) == ["notes/The plan.md"]
+    # Its description, from the map.
+    page.locator(".map-file", has_text="Description").click()
+    page.wait_for_url(re.compile(rf"/tasks/{task.id}$"))
+    assert page.locator(".task-page .sheet-title").inner_text() == "Plan the move"

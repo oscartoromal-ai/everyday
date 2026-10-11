@@ -459,6 +459,8 @@ Context is the project's documents as its page's tree has them, AGENTS.md first,
 A task's row is a 12px box drawn as its sheet's (in progress edged in blue and filled, in review in amber, blocked edged in red, done in ink with its tick) and its title on one line, Claude's with a steel robot after it; finished ones pewter, cancelled struck through.
 The task itself is in 600 ink on the hover fill with the map's one spark, a 3px bar at its left edge, as the sidebar's current page has.
 Rows are 28px, a level 16px in; folds are remembered (`pc-map-folds`), the task's own workstream always opening.
+The task itself has what it holds under it, a level in: Description (a document icon, the document open when it is), then its files as a tree (folders open, behind their chevrons; files by name), and last a line to add one, a steel plus and "New file" in pewter, written on in place.
+The document open, the description or a file, has the map's spark, the task's own row its 600 ink.
 A task in no project has "No project" at the head and itself alone.
 In the document: a header of a pewter "‹ Calendar" (where it was opened from) and, at its right, a 12px pewter "Saved" once a save lands ("Not saved" and a toast if one fails), nothing while the writing is unsaved, so the page stays still as it is written.
 Then the sheet with no row around it: the 18px box beside the title, the title as the page's heading (24px/600 display, 32px lines, wrapping), and under it, aligned with the title's words, every field on one line as the sheet's end line draws them (the four field icons, project, owner, status once it applies, History, and the bin at the line's right), above a hairline.
@@ -468,7 +470,8 @@ A new task opens with the caret in its empty description, whose placeholder asks
 Its agent work, its outline and its history are panes of the sidebar at the right (see The agent window): Agent work (a robot), Outline (three lines) and History (a clock), above the agent window's sparkle.
 Each pane's head is the agent window's: its name in 16px/600 ink, a 12px pewter line under it ("Claude's task, not launched yet", "Its description's headings", "How it changed, newest first") and Collapse.
 Agent work, for Oscar's own task, says it is his and has Hand to an agent, which makes it Claude's (the sheet's owner, saved as its menu saves it); for Claude's, its work in the order the work goes, each field its name in 12px graphite over its value on a flank border: Brief (Repositories as toggles, Acceptance criteria written on the line), the primary Launch (dimmed while it cannot), its runs once there are any, Pull requests (a chip and `owner/name#number` each, its title under it, and a line to add one), Outcome once it ran, and Updates.
-Outline lists the description's headings, each a 28px row, a level 14px in, the top level in 500 ink; a heading's row puts the caret on its line, at the window's top.
+A file of the task's opens in the document's place, as a project's document is on its page: "‹" and the task's title back to it, "Saved" and the Markdown's modes at the header's right, its name as the heading written in place with its bin at the right, "A file of this task's" and where it is on disk in a pewter line, then its Markdown at reading size; renamed, its address and its row on the map follow.
+Outline lists the open document's headings, each a 28px row, a level 14px in, the top level in 500 ink; a heading's row puts the caret on its line, at the window's top.
 
 **Nudges.** A glass card of rows with graphite icons, a secondary "Open" action and a steel dismiss control.
 

@@ -1236,13 +1236,23 @@ a.map-project:hover { background: var(--glass-hover); }
   transition: stroke var(--dur) var(--ease);
 }
 .map-agent { width: 14px; height: 14px; }
-.task-page[data-owner="oscar"] .map-task[aria-current="page"] .map-agent { display: none; }
+.task-page[data-owner="oscar"] .map-task.is-here .map-agent { display: none; }
 .map-row:hover :is(.map-icon, .map-chevron) { stroke: var(--ink); }
-.map-task[aria-current="page"] { color: var(--ink); font-weight: 600; background: var(--glass-hover); }
-.map-task[aria-current="page"]::before {
+.map-task.is-here { color: var(--ink); font-weight: 600; }
+.map-row[aria-current="page"] { color: var(--ink); background: var(--glass-hover); }
+.map-row[aria-current="page"]::before {
   content: ""; position: absolute; left: -8px; top: 6px; bottom: 6px;
   width: 3px; background: var(--spark); box-shadow: var(--spark-glow);
 }
+/* a line to add a file to the task, written on, as the context's is */
+.map-new { cursor: text; }
+.map-new:hover { background: none; }
+.map-new input {
+  flex: 1; min-width: 0; padding: 0; border: none; background: none; outline: none;
+  font: inherit; color: var(--ink);
+}
+.map-new input::placeholder { color: var(--pewter); opacity: 1; }
+.map-new:focus-within .map-icon { stroke: var(--ink); }
 .map-empty {
   padding: 4px var(--s-2) 4px calc(var(--s-2) + var(--depth, 0) * 16px + 18px);
   font-size: var(--t-caption); line-height: 20px; color: var(--pewter);
@@ -3813,7 +3823,7 @@ a.doc-row:hover .item-name { text-decoration: underline; text-underline-offset: 
 }
 .doc-name:focus-visible { box-shadow: none; }
 .doc-title .task-delete { opacity: 1; margin: 0 -6px 0 0; }
-.doc-rest { display: flex; align-items: center; gap: var(--s-2); margin: var(--s-1) 0 var(--s-4); }
+.doc-rest { display: flex; align-items: center; gap: var(--s-2); margin: var(--s-1) 0 var(--s-4); font-size: var(--t-body-sm); color: var(--graphite); }
 /* the folder it is in, chosen in place: its path in the line's words, the
    notes' small chevron after it, a fog under it on hover */
 .doc-folder { display: inline-flex; align-items: center; gap: var(--s-1); }
@@ -3832,4 +3842,6 @@ a.doc-row:hover .item-name { text-decoration: underline; text-underline-offset: 
 .doc-body { flex: 1 0 auto; padding-bottom: var(--s-8); font-size: var(--t-body); line-height: 1.6; }
 .doc-body .cm-md-h1 { font-size: var(--t-sub); }
 .doc-rest .doc-file { overflow-wrap: anywhere; }
+/* a task's file: its line one run of words, its path on disk breaking where it must */
+.task-doc .doc-rest { display: block; }
 .doc-stale { margin: 0 0 var(--s-3); }

@@ -448,7 +448,7 @@ And the agent system behind a run is a part that plugs in, not the app's shape (
 Built in three steps, all on 2026-10-04 and 05: the everyday files and the context as files, then a task's run fields and its reporting, then Launch and the runs followed.
 
 - **The everyday files.** Setup makes a folder for agentic work, `C:\everyday-files` unless another is chosen on its page, with three folders in it.
-  `repos/` holds each repository's main clone, once, however many projects use it; `projects/` a folder for each project, its context; and `work/` the folders runs work in.
+  `repos/` holds each repository's main clone, once, however many projects use it; `projects/` a folder for each project, its context; `tasks/` a folder for each task that has files; and `work/` the folders runs work in.
   The choice is the installer's `install.toml` (`[everyday_files] dir`), remembered by Setup; a run from the repo uses `everyday-files/` in it (git-ignored), so the dev server never writes to the real one.
   The app makes any of the folders that is missing as it starts; uninstalling keeps them.
   A short path at a drive's root keeps deep worktrees under Windows' 260-character path limit.
@@ -466,6 +466,12 @@ Built in three steps, all on 2026-10-04 and 05: the everyday files and the conte
   A save names the version it was made from (its words' hash), and one made from an older copy is refused, so an agent's edit is never silently overwritten: the page says the document was changed elsewhere and offers that version or keeping its own, as Today's notes do.
   `projects/` is not a git repository: what a document was before is in its revisions, so nothing merges and nothing conflicts (Oscar's old projects repository broke on merge conflicts, its tasks and outcomes written by several agents at once).
 - **Tasks stay in the database.** Their state changes many times a day, from Oscar, agents and the app's own checks, and is never a file.
+- **A task's files** (Oscar's call on 2026-10-11: a task is Markdown, and may spawn several files, which agent skills will write; `app/services/task_files.py`).
+  Besides its description, which stays in the database, a task may hold Markdown documents, in folders and subfolders, in its folder of the everyday files' `tasks/`: `tasks/<id>-<words>/`, the words its title's when the folder was made, found by its id alone so it never moves as the task is renamed or refiled.
+  The files are the master copy and nothing of them is in the database: Oscar writes them on the task's page, agents where they are.
+  On the page they are under the task on its map, after its Description: one opens in the document's place (`/tasks/<id>/files/<path>`), written as it reads and saved as it is written over the version it was read at (one written elsewhere since asks which to keep, as a project's documents do), renamed in its heading and deleted from its bin; one is added on the map's line after them, a path naming its folders ("research/trees").
+  A path that leaves the task's folder is refused.
+  The API gives each task's `files_folder` (the folder it has, or will take with its first file) and its `files`; the MCP tells agents they may write them; a run's brief says where they are and which it holds, to read first and to write what the run makes beyond code.
 - **A task's work** (2026-10-04).
   A task names the repositories it is worked in (one or several of its project's), its acceptance criteria (what done means, apart from its description), and, once worked, its outcome (what came of it), its pull requests and the updates reported as it went.
   Its page has them in the sidebar's Agent work pane, once it is Claude's task (Oscar's call on 2026-10-11: they make no sense before a task is deemed an agent's; Oscar's own task has Hand to an agent there, which makes it Claude's), in the order the work goes: its brief (its project's repositories as toggles, the acceptance criteria written on the line and saved as they are written), Launch and its runs, the pull requests as GitHub last had them (a chip each: not read yet, draft, open, merged or closed), one added by its URL or `owner/name#number` and taken off from its bin, Check to read them from GitHub at once, the outcome once it ran (saved as it is written), and the updates, newest first.
@@ -475,7 +481,7 @@ Built in three steps, all on 2026-10-04 and 05: the everyday files and the conte
   Each of its repositories is its main clone: the folder its location names, or, for one on GitHub, its clone in `repos/`, cloned there first (through the GitHub CLI's sign-in) when it is not there yet.
   Its workspace is `work/<id>-<words>/` on a branch of the task's own, `task/<id>-<words>`, from each repository's default branch as fetched then: one repository's is a worktree of it; several's a folder holding a worktree of each, all on the branch.
   So one run works across several repositories, and two runs never share a checkout; a task launched again goes on in its workspace, or on its branch when that is gone.
-  The run is given the brief: the task (its id, title, description and acceptance criteria), its project's AGENTS.md and where its other documents are, where to work, to open a pull request on each repository changed naming the task, and the one HTTP call to report with.
+  The run is given the brief: the task (its id, title, description and acceptance criteria), where its files are and which it holds, its project's AGENTS.md and where its other documents are, where to work, to open a pull request on each repository changed naming the task, and the one HTTP call to report with.
   The task keeps its runs (`task_runs`): the runner, the run's id there, its branch and workspace, when it started, and how it stands; the page lists them, newest first.
 - **Any agent system, behind one interface** (`app/services/agent_runs.py`, shared with the daily improvement scan).
   A runner launches a brief (a title, its text, the folder worked in and, for a repository, its worktree and branch) and answers how its runs stand: working, waiting on Oscar, finished, failed, or gone.

@@ -1,4 +1,7 @@
-/* A document of a project's context on its own page (project_doc.html):
+/* A document on its own page: one of a project's context (project_doc.html),
+   or one of a task's files (task.html), each page naming where its saves go
+   (data-save-url, and data-path for a task's file, which follows a rename).
+   A project's document (project_doc.html):
    its Markdown written and drawn as it reads (markdown-live.js, on
    CodeMirror 6), bullets as bullets, "- [ ] " as boxes, in the mode last
    chosen for a document from the header's switch (Live, Source, Reading;
@@ -22,7 +25,7 @@
 (() => {
   const { EditorState, EditorView, drawSelection, keymap, placeholder, defaultKeymap, history, historyKeymap } = window.CM;
 
-  const page = document.querySelector(".doc-page[data-doc]");
+  const page = document.querySelector(".doc-page[data-save-url]");
   const source = page?.querySelector("[data-doc-body]");
   if (!source) return;
 
@@ -69,12 +72,13 @@
     const changes = pending();
     if (!Object.keys(changes).length) return;
     if ("body" in changes) changes.base = version;
+    if (page.dataset.path != null) changes.path = page.dataset.path;
     if (sending && !leaving) {
       again = true;
       return;
     }
     sending = true;
-    const request = fetch(`/ui/docs/${page.dataset.doc}`, {
+    const request = fetch(page.dataset.saveUrl, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRF": window.csrfToken() },
       body: new URLSearchParams(changes),
@@ -93,6 +97,12 @@
       version = answer.version;
       if ("body" in changes) savedBody = changes.body;
       if ("name" in changes) named(answer.name, changes.name);
+      // A task's file renamed: its path, and its page's address, follow.
+      if (answer.path != null && answer.path !== page.dataset.path) {
+        page.dataset.path = answer.path;
+        if (answer.href) window.history.replaceState(window.history.state, "", answer.href);
+        page.dispatchEvent(new CustomEvent("doc:moved", { bubbles: true, detail: answer }));
+      }
       if (!Object.keys(pending()).length) sayState("Saved");
     }).catch((err) => {
       sayState("Not saved");
@@ -119,7 +129,10 @@
   // The file as it is now, in place of what is here: its words, its name and
   // its version.
   async function showLatest() {
-    const res = await fetch(`/ui/docs/${page.dataset.doc}/latest`).catch(() => null);
+    const latest = page.dataset.path != null
+      ? `${page.dataset.saveUrl}?path=${encodeURIComponent(page.dataset.path)}`
+      : `${page.dataset.saveUrl}/latest`;
+    const res = await fetch(latest).catch(() => null);
     if (res?.status === 404) {
       location.reload();
       return;
@@ -180,7 +193,10 @@
           ...historyKeymap,
         ]),
         EditorView.updateListener.of((u) => {
-          if (u.docChanged) schedule();
+          if (!u.docChanged) return;
+          schedule();
+          // Heard by the page around it (a task's outline, task-page.js).
+          page.dispatchEvent(new CustomEvent("doc:changed", { bubbles: true }));
         }),
       ],
     }),

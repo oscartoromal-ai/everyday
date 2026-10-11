@@ -131,7 +131,9 @@ def test_the_page_maps_its_project_its_workstreams_and_where_the_task_stands(cli
     assert f'aria-controls="map-lane-{lane.id}"' in html
     assert f'id="map-lane-{lane.id}">' in html
     assert f'id="map-lane-{other.id}" hidden>' in html
-    assert f'href="/tasks/{here.id}" style="--depth: 1" aria-current="page"' in html
+    # The task itself, and under it its description, the document open.
+    assert f'class="map-row map-task is-here" href="/tasks/{here.id}" style="--depth: 1"' in html
+    assert f'href="/tasks/{here.id}" style="--depth: 2" aria-current="page"' in html
     assert 'aria-label="Claude\'s"' in html
     assert "1 done" in html
 
@@ -141,7 +143,8 @@ def test_a_task_in_no_project_has_a_map_of_itself(client, db) -> None:
     db.commit()
     html = client.get(f"/tasks/{task.id}").text
     assert "No project" in html
-    assert f'href="/tasks/{task.id}" style="--depth: 0" aria-current="page"' in html
+    assert f'class="map-row map-task is-here" href="/tasks/{task.id}" style="--depth: 0"' in html
+    assert f'href="/tasks/{task.id}" style="--depth: 1" aria-current="page"' in html
 
 
 def test_its_agent_work_is_a_pane_shown_as_it_is_claudes(client, db) -> None:
