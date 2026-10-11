@@ -1,10 +1,13 @@
-"""A task's files (app.services.task_files): Markdown documents in a folder
-of the everyday files' tasks/ for each task, found by its id, written whole,
-refused from a stale copy, and never outside the folder."""
+"""A task's folder and its files (app.services.task_files): every task has a
+folder, in its project's folder of the everyday files (or the top tasks/),
+following the task as it moves or is renamed; task.md there is the task,
+and beside it Markdown files written whole, refused from a stale copy, and
+never outside the folder."""
 
 import pytest
 
 from app.services import DomainError, everyday, task_files
+from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
 
@@ -15,28 +18,61 @@ def task(db, everyday_files):  # noqa: ANN001, ANN201
     return task
 
 
-def test_a_task_has_no_folder_until_it_has_a_file(task) -> None:
-    assert task_files.folder_of(task.id) is None
-    assert task_files.tree(task.id) == []
-    assert task_files.create(task, "plan") == "plan.md"
+def test_every_task_has_a_folder_holding_its_task_md(task) -> None:
     folder = task_files.folder_of(task.id)
     assert folder == everyday.tasks_dir() / f"{task.id}-widen-the-task-page"
-    assert (folder / "plan.md").read_text(encoding="utf-8") == ""
+    assert (folder / "task.md").is_file()
+    # task.md is the task, not one of its files.
+    assert task_files.tree(task.id) == []
 
 
-def test_its_folder_is_found_by_its_id_whatever_it_is_called_now(task, db) -> None:
-    task_files.create(task, "plan.md")
+def test_its_folder_follows_the_task(task, db) -> None:
+    project = projects_svc.create_project(db, name="Calendar")
+    db.commit()
+    task_files.create(db, task, "plan.md")
+    tasks_svc.update_task(db, task.id, project_id=project.id)
+    db.commit()
+    moved = everyday.projects_dir() / "calendar" / "tasks" / f"{task.id}-widen-the-task-page"
+    assert task_files.folder_of(task.id) == moved
+    assert (moved / "plan.md").is_file() and (moved / "task.md").is_file()
+    assert not (everyday.tasks_dir() / f"{task.id}-widen-the-task-page").exists()
     tasks_svc.update_task(db, task.id, title="Something else")
-    assert task_files.folder_of(task.id).name == f"{task.id}-widen-the-task-page"
+    db.commit()
+    assert task_files.folder_of(task.id).name == f"{task.id}-something-else"
     # Another task's id that starts the same is another folder.
     other = tasks_svc.create_task(db, title="Ten")
     db.commit()
-    assert task_files.folder_of(other.id) is None
+    assert task_files.folder_of(other.id).name == f"{other.id}-ten"
 
 
-def test_the_tree_holds_folders_then_files_by_name(task) -> None:
+def test_a_second_folder_of_a_task_is_merged_into_it(task) -> None:
+    folder = task_files.folder_of(task.id)
+    (folder / "plan.md").write_text("mine", encoding="utf-8")
+    # An agent writing to where the folder was before it moved.
+    stray = everyday.tasks_dir() / f"{task.id}-old-title"
+    (stray / "research").mkdir(parents=True)
+    (stray / "plan.md").write_text("theirs", encoding="utf-8")
+    (stray / "research" / "notes.md").write_text("notes", encoding="utf-8")
+    assert task_files.arrange(task) == folder
+    assert not stray.exists()
+    assert (folder / "plan.md").read_text(encoding="utf-8") == "mine"
+    assert (folder / "plan (2).md").read_text(encoding="utf-8") == "theirs"
+    assert (folder / "research" / "notes.md").is_file()
+
+
+def test_task_md_is_not_a_file_to_make_or_rename_to(task, db) -> None:
+    with pytest.raises(DomainError, match="task itself"):
+        task_files.create(db, task, "task.md")
+    task_files.create(db, task, "plan.md")
+    with pytest.raises(DomainError, match="task itself"):
+        task_files.rename(db, task.id, "plan.md", "task")
+    # In a folder of its own, it is a file like any other.
+    assert task_files.create(db, task, "drafts/task.md") == "drafts/task.md"
+
+
+def test_the_tree_holds_folders_then_files_by_name(task, db) -> None:
     for path in ("Plan.md", "research/trees.md", "research/apps/obsidian.md", "notes.md"):
-        task_files.create(task, path)
+        task_files.create(db, task, path)
     folder = task_files.folder_of(task.id)
     (folder / "picture.png").write_bytes(b"")  # not Markdown: not shown
     (folder / ".hidden.md").write_text("", encoding="utf-8")
@@ -68,53 +104,54 @@ def test_the_tree_holds_folders_then_files_by_name(task) -> None:
     ]
 
 
-def test_a_file_is_written_whole_and_read_back(task) -> None:
-    task_files.create(task, "plan.md")
-    version = task_files.write(task.id, "plan.md", "# Plan\r\n- [ ] one\r\n")
+def test_a_file_is_written_whole_and_read_back(task, db) -> None:
+    task_files.create(db, task, "plan.md")
+    version = task_files.write(db, task.id, "plan.md", "# Plan\r\n- [ ] one\r\n")
     assert task_files.read(task.id, "plan.md") == ("# Plan\n- [ ] one\n", "plan.md")
     assert version == everyday.version("# Plan\n- [ ] one\n")
 
 
-def test_a_save_from_a_stale_copy_is_refused(task) -> None:
-    task_files.create(task, "plan.md")
-    first = task_files.write(task.id, "plan.md", "mine")
+def test_a_save_from_a_stale_copy_is_refused(task, db) -> None:
+    task_files.create(db, task, "plan.md")
+    first = task_files.write(db, task.id, "plan.md", "mine")
     # An agent writes the file meanwhile.
     (task_files.folder_of(task.id) / "plan.md").write_text("theirs", encoding="utf-8")
     with pytest.raises(task_files.FileChanged) as caught:
-        task_files.write(task.id, "plan.md", "mine, more", base=first)
+        task_files.write(db, task.id, "plan.md", "mine, more", base=first)
     assert caught.value.version == everyday.version("theirs")
     # Kept over theirs, knowingly.
-    task_files.write(task.id, "plan.md", "mine, more", base=caught.value.version)
+    task_files.write(db, task.id, "plan.md", "mine, more", base=caught.value.version)
     assert task_files.read(task.id, "plan.md")[0] == "mine, more"
 
 
 @pytest.mark.parametrize("path", ["../escape.md", "C:/escape.md", "a/../../b.md", "", "con.md"])
-def test_a_path_out_of_its_folder_or_one_windows_refuses_is_refused(task, path) -> None:
-    task_files.create(task, "plan.md")
+def test_a_path_out_of_its_folder_or_one_windows_refuses_is_refused(task, db, path) -> None:
+    task_files.create(db, task, "plan.md")
     with pytest.raises(DomainError):
-        task_files.create(task, path)
+        task_files.create(db, task, path)
 
 
-def test_one_file_a_name(task) -> None:
-    task_files.create(task, "plan.md")
+def test_one_file_a_name(task, db) -> None:
+    task_files.create(db, task, "plan.md")
     with pytest.raises(DomainError, match="already"):
-        task_files.create(task, "plan")
+        task_files.create(db, task, "plan")
 
 
-def test_a_file_is_renamed_in_its_folder(task) -> None:
-    task_files.create(task, "research/trees.md")
-    task_files.create(task, "research/apps.md")
-    assert task_files.rename(task.id, "research/trees.md", "Trees seen") == "research/Trees seen.md"
+def test_a_file_is_renamed_in_its_folder(task, db) -> None:
+    task_files.create(db, task, "research/trees.md")
+    task_files.create(db, task, "research/apps.md")
+    renamed = task_files.rename(db, task.id, "research/trees.md", "Trees seen")
+    assert renamed == "research/Trees seen.md"
     with pytest.raises(DomainError, match="already"):
-        task_files.rename(task.id, "research/Trees seen.md", "apps")
+        task_files.rename(db, task.id, "research/Trees seen.md", "apps")
     # Its case alone.
-    assert task_files.rename(task.id, "research/apps.md", "Apps") == "research/Apps.md"
+    assert task_files.rename(db, task.id, "research/apps.md", "Apps") == "research/Apps.md"
 
 
-def test_a_deleted_file_takes_the_folders_it_empties_with_it(task) -> None:
-    task_files.create(task, "research/apps/obsidian.md")
-    task_files.create(task, "plan.md")
-    task_files.delete(task.id, "research/apps/obsidian.md")
+def test_a_deleted_file_takes_the_folders_it_empties_with_it(task, db) -> None:
+    task_files.create(db, task, "research/apps/obsidian.md")
+    task_files.create(db, task, "plan.md")
+    task_files.delete(db, task.id, "research/apps/obsidian.md")
     folder = task_files.folder_of(task.id)
     assert not (folder / "research").exists()
     assert task_files.paths(task.id) == ["plan.md"]
@@ -123,9 +160,9 @@ def test_a_deleted_file_takes_the_folders_it_empties_with_it(task) -> None:
 # ---- on the task's page ----
 
 
-def test_a_file_opens_on_the_tasks_page_in_place_of_its_description(client, task) -> None:
-    task_files.create(task, "research/trees.md")
-    task_files.write(task.id, "research/trees.md", "# Trees")
+def test_a_file_opens_on_the_tasks_page_in_place_of_its_description(client, task, db) -> None:
+    task_files.create(db, task, "research/trees.md")
+    task_files.write(db, task.id, "research/trees.md", "# Trees")
     html = client.get(f"/tasks/{task.id}/files/research/trees.md").text
     assert '<input class="doc-name" data-doc-name value="trees.md"' in html
     assert 'data-path="research/trees.md"' in html
@@ -189,9 +226,10 @@ def test_handed_to_an_agent_from_a_files_page(client, task, db) -> None:
     assert task.owner == TaskOwner.claude
 
 
-def test_the_api_names_a_tasks_files(client, task) -> None:
+def test_the_api_names_a_tasks_files(client, task, db) -> None:
     got = client.get(f"/api/tasks/{task.id}").json()
     assert got["files_folder"].endswith(f"{task.id}-widen-the-task-page")
+    assert got["task_file"] == str(task_files.folder_of(task.id) / "task.md")
     assert got["files"] == []
-    task_files.create(task, "plan.md")
+    task_files.create(db, task, "plan.md")
     assert client.get(f"/api/tasks/{task.id}").json()["files"] == ["plan.md"]

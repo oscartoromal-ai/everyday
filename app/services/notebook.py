@@ -1,4 +1,7 @@
-"""The notebook: one page per day, written like a document.
+"""The notebook: one page per day, written like a document. Its file,
+notebook/<year>/<day>.md in the everyday files, is the master copy
+(app.services.notebook_md, app.services.settling); the page keeps its
+blocks too, read again from the file, and its version.
 
 A page is its blocks, in the order they were written:
 
@@ -206,6 +209,18 @@ def save_page(
     current one (0 for a page not yet written), or this is the later save
     of the window that saved it last (check_save)."""
     check_save(db, day, version=version, writer=writer, seq=seq)
+    return _store(db, day, blocks, writer=writer, seq=seq)
+
+
+def store_from_file(db: Session, day: date, blocks: Any) -> NotebookPage:
+    """The day's page as its file has it (notebook/<year>/<day>.md, written
+    outside the app: app.services.settling): saved over whatever the page
+    was, as a window's save is, so a window with the page open is then out
+    of date and asks which to keep."""
+    return _store(db, day, blocks, writer="", seq=0)
+
+
+def _store(db: Session, day: date, blocks: Any, *, writer: str, seq: int) -> NotebookPage:
     page = get_page(db, day)
     current = page.version if page else 0
     if page is None:

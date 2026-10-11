@@ -261,27 +261,26 @@ def test_the_projects_agents_doc_goes_with_the_brief(tmp_path) -> None:
     from sqlalchemy.orm import sessionmaker
 
     from app.db import Base, make_engine
-    from app.models import Project, ProjectDoc, ProjectRepo
+    from app.models import Project, ProjectRepo
 
     path = tmp_path / "live.db"
+    everyday = tmp_path / "live-everyday-files"
     engine = make_engine(f"sqlite:///{path}")
     Base.metadata.create_all(engine)
     with sessionmaker(bind=engine)() as db:
-        project = Project(name="personal-life-app")
+        project = Project(name="personal-life-app", folder="personal-life-app")
         db.add(project)
         db.flush()
-        db.add_all(
-            [
-                ProjectRepo(project_id=project.id, location="https://github.com/o/everyday-app"),
-                ProjectDoc(project_id=project.id, name="AGENTS.md", body="# AGENTS.md\n\nRules.\n"),
-            ]
-        )
+        db.add(ProjectRepo(project_id=project.id, location="https://github.com/o/everyday-app"))
         db.commit()
     engine.dispose()
+    agents = everyday / "projects" / "personal-life-app" / "AGENTS.md"
+    agents.parent.mkdir(parents=True)
+    agents.write_text("# AGENTS.md\n\nRules.\n", encoding="utf-8")
 
-    assert improve_run.agents_doc(path, "o/everyday-app", "") == "# AGENTS.md\n\nRules."
-    assert improve_run.agents_doc(path, "o/other", "") == ""
-    assert improve_run.agents_doc(tmp_path / "none.db", "o/everyday-app", "") == ""
+    assert improve_run.agents_doc(path, "o/everyday-app", "", everyday) == "# AGENTS.md\n\nRules."
+    assert improve_run.agents_doc(path, "o/other", "", everyday) == ""
+    assert improve_run.agents_doc(tmp_path / "none.db", "o/everyday-app", "", everyday) == ""
 
 
 def test_a_pick_a_pull_request_already_improves_is_taken_up_not_launched(ledger, tmp_path) -> None:

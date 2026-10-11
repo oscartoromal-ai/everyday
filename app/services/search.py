@@ -1,22 +1,27 @@
 """Search across the planner for the command menu (Ctrl+K): tasks, projects,
-events and the days' notes whose words hold what was typed."""
+events and the days' notes whose words hold what was typed, and the files
+of projects and tasks whose words do (the everyday files' full-text index,
+app.services.documents)."""
 
 from __future__ import annotations
 
 import re
 from datetime import date, datetime, timedelta
 from typing import Any
+from urllib.parse import quote
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.dates import short_date, upper_first
 from app.models import Event, NotebookPage, Project, Task, TaskOwner, TaskStatus
+from app.services import documents
 
 TASK_LIMIT = 8
 PROJECT_LIMIT = 4
 EVENT_LIMIT = 5
 NOTE_LIMIT = 5
+FILE_LIMIT = 5
 # Events are looked for this far either side of today.
 EVENT_WINDOW = timedelta(days=120)
 # A snippet starts a few words before the match, so the match shows even
@@ -76,15 +81,26 @@ def _task_meta(task: Task, today: date) -> str:
 def search(db: Session, query: str, now: datetime) -> dict[str, list[dict[str, Any]]]:
     query = " ".join(query.split())
     if len(query) < 2:
-        return {"tasks": [], "projects": [], "events": [], "notes": []}
+        return {"tasks": [], "projects": [], "events": [], "notes": [], "files": []}
     like = _like(query)
     today = now.date()
 
+    # A task whose task.md holds the words (its acceptance criteria or
+    # outcome among them), found by the files' index.
+    in_files = {
+        int(f["owner"].partition(":")[2])
+        for f in documents.search(db, query, limit=TASK_LIMIT * 4, owners=("task:",))
+        if f["name"] == documents.TASK_FILE
+    }
     tasks = db.scalars(
         select(Task)
         .where(
             Task.status != TaskStatus.cancelled,
-            or_(Task.title.ilike(like, escape="\\"), Task.notes.ilike(like, escape="\\")),
+            or_(
+                Task.title.ilike(like, escape="\\"),
+                Task.notes.ilike(like, escape="\\"),
+                Task.id.in_(in_files),
+            ),
         )
         # Open work first, then what was done, the latest first.
         .order_by((Task.status == TaskStatus.done).asc(), Task.status_changed_at.desc())
@@ -121,6 +137,7 @@ def search(db: Session, query: str, now: datetime) -> dict[str, list[dict[str, A
                 break
 
     return {
+        "files": _files(db, query),
         "tasks": [
             {"id": t.id, "title": t.title, "meta": _task_meta(t, today),
              "done": t.status == TaskStatus.done, **_task_place(t)}
@@ -152,3 +169,33 @@ def search(db: Session, query: str, now: datetime) -> dict[str, list[dict[str, A
             for n in notes
         ],
     }
+
+
+def _files(db: Session, query: str) -> list[dict[str, Any]]:
+    """Projects' documents and tasks' files whose words hold the query's,
+    each with where it opens: a task's task.md is the task, found above."""
+    out = []
+    for found in documents.search(db, query, limit=FILE_LIMIT * 2, owners=("task:", "project:")):
+        kind, _, key = found["owner"].partition(":")
+        name = found["name"]
+        if kind == "task":
+            task = db.get(Task, int(key))
+            if task is None or name == documents.TASK_FILE:
+                continue
+            href, whose = f"/tasks/{task.id}/files/{quote(name)}", task.title
+        else:
+            project = db.get(Project, int(key))
+            if project is None:
+                continue
+            whose = project.name
+            href = (
+                f"/projects/{project.id}" if name == documents.PROJECT_FILE
+                else f"/projects/{project.id}/docs/{quote(name)}"
+            )
+        out.append({
+            "title": found["title"], "where": f"{whose} · {name}", "href": href,
+            "snippet": found["snippet"],
+        })
+        if len(out) == FILE_LIMIT:
+            break
+    return out

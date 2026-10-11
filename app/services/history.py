@@ -38,8 +38,9 @@ FIELDS = (
 BEFORE_KEPT = {"acceptance": "", "outcome": ""}
 
 # Who: Oscar (the pages), Claude (MCP), an agent (its reports over the API),
-# or the app itself.
-ACTORS = ("oscar", "claude", "agent", "system")
+# the app itself, or a file (its task.md written outside the app: an editor,
+# an agent; app.services.settling).
+ACTORS = ("oscar", "claude", "agent", "system", "file")
 
 # A description written over a while (a task's page saves as it is written)
 # is one step: edits to it alone by the same hand, each within this long of

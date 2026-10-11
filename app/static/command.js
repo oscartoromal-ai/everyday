@@ -1,8 +1,8 @@
 /* The command menu (#command-dialog, Ctrl+K anywhere, or the key chosen for
-   it): one line to go to a page or a day, search tasks, projects, events and
-   the days' notes (/ui/search), or do any of the actions keys.py lists that
-   the page can do now, each with its key. Up and Down move, Enter opens,
-   Esc closes. */
+   it): one line to go to a page or a day, search tasks, projects, events,
+   the days' notes and the files of projects and tasks (/ui/search), or do
+   any of the actions keys.py lists that the page can do now, each with its
+   key. Up and Down move, Enter opens, Esc closes. */
 
 (() => {
   const dialog = document.getElementById("command-dialog");
@@ -130,13 +130,14 @@
       run: go(`/calendar?view=day&start=${e.day}&event=${e.id}`),
     })),
     ...found.notes.map((n) => ({ kind: "Notes", label: n.label, meta: n.snippet, run: go(`/day/${n.day}`) })),
+    ...(found.files || []).map((f) => ({ kind: "File", label: f.title, meta: `${f.where} · ${f.snippet}`, run: go(f.href) })),
   ];
 
   /* ---- drawing it ---- */
 
   let items = [];
   let active = 0;
-  const GROUPS = { Day: "Days", Page: "Pages", Do: "Do", Task: "Tasks", Project: "Projects", Event: "Events", Notes: "Notes" };
+  const GROUPS = { Day: "Days", Page: "Pages", Do: "Do", Task: "Tasks", Project: "Projects", Event: "Events", Notes: "Notes", File: "Files" };
 
   const draw = () => {
     list.replaceChildren();

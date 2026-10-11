@@ -97,10 +97,16 @@
       version = answer.version;
       if ("body" in changes) savedBody = changes.body;
       if ("name" in changes) named(answer.name, changes.name);
-      // A task's file renamed: its path, and its page's address, follow.
+      // A file renamed: its path, its page's address, and what posts its
+      // path (its bin, data-follows-path) follow.
       if (answer.path != null && answer.path !== page.dataset.path) {
         page.dataset.path = answer.path;
         if (answer.href) window.history.replaceState(window.history.state, "", answer.href);
+        document.querySelectorAll("[data-follows-path]").forEach((el) => {
+          el.setAttribute("hx-vals", JSON.stringify({ path: answer.path }));
+          if (el.dataset.confirmName != null) el.dataset.confirmName = answer.name;
+          el.setAttribute("aria-label", `Delete ${answer.name}`);
+        });
         page.dispatchEvent(new CustomEvent("doc:moved", { bubbles: true, detail: answer }));
       }
       if (!Object.keys(pending()).length) sayState("Saved");

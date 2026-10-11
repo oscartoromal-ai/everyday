@@ -11,7 +11,9 @@ any build starts without compiling:
 - every module imported;
 - every module the app's code imports anywhere, a function's own imports
   included, found in the bundle: one the libraries frozen with the running
-  version lack would otherwise fail only once that code runs.
+  version lack would otherwise fail only once that code runs;
+- the SQLite it was frozen with indexing words (FTS5), which the everyday
+  files' index needs (app.services.documents).
 
 What fails goes into <report>, a line each, and it exits 1; else 0. Its data
 goes to a folder of its own (PC_HOME), never the app's.
@@ -130,4 +132,17 @@ def check(root: Path, write: bool) -> list[str]:
             lacking = missing(target, fromlist)
             if lacking:
                 problems.append(f"{name}: imports {lacking}, which is not there")
+    problems += sqlite_problems()
     return sorted(set(problems), key=problems.index)
+
+
+def sqlite_problems() -> list[str]:
+    """What the SQLite the app runs on cannot do that it needs: FTS5."""
+    import sqlite3
+
+    try:
+        with sqlite3.connect(":memory:") as db:
+            db.execute("CREATE VIRTUAL TABLE t USING fts5(body)")
+    except sqlite3.Error as exc:
+        return [f"sqlite3: no full-text index (FTS5): {exc}"]
+    return []

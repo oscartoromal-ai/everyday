@@ -335,22 +335,25 @@ def follow(
     return said
 
 
-def agents_doc(db: Path, repo_slug: str | None, project: str) -> str:
-    """The app project's AGENTS.md, as written on its page; empty without one."""
+def agents_doc(db: Path, repo_slug: str | None, project: str, everyday: Path) -> str:
+    """The app project's AGENTS.md, its file in the project's folder of the
+    everyday files (the one at its top); empty without one."""
     try:
         with closing(sources.connect_ro(db)) as connection:
             project_id = sources.app_project(connection, repo_slug, project)
             if project_id is None:
                 return ""
             row = connection.execute(
-                # The one at the context's top, not one in a folder.
-                "SELECT body FROM project_docs WHERE project_id = ? AND name = 'AGENTS.md' "
-                "ORDER BY folder_id IS NOT NULL, id",
-                (project_id,),
+                "SELECT folder FROM projects WHERE id = ?", (project_id,)
             ).fetchone()
     except (sources.SourceFailed, sqlite3.Error):
         return ""
-    return row[0].strip() if row else ""
+    if not row or not row[0]:
+        return ""
+    try:
+        return (everyday / "projects" / row[0] / "AGENTS.md").read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
 
 
 def branch_for(entry: Entry, today: date) -> str:
@@ -423,6 +426,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--logs", type=Path, default=home / "data" / "logs")
     parser.add_argument("--db", type=Path, default=home / "data" / "personal-calendar.db")
     parser.add_argument("--project", default="")
+    parser.add_argument(
+        "--everyday", type=Path, default=Path("C:/everyday-files"),
+        help="the everyday files' folder, where the project's AGENTS.md is",
+    )
     parser.add_argument("--runner", default="t3", help="the agent system: t3, or none")
     parser.add_argument("--model", default="claude-opus-5-5")
     parser.add_argument(
@@ -445,7 +452,7 @@ def main(argv: list[str] | None = None) -> None:
             print(line)
     elif runner:
         worktrees = args.worktrees or Path.home() / ".t3" / "worktrees" / args.repo.name
-        agents = agents_doc(args.db, sources.repo_slug(args.repo), args.project)
+        agents = agents_doc(args.db, sources.repo_slug(args.repo), args.project, args.everyday)
         entry = launch(
             ledger, args.repo, today, runner, worktrees, args.logs, agents, args.max_open
         )

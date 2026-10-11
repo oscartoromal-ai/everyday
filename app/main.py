@@ -56,10 +56,10 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         from app.jobs.scheduler import create_scheduler, run_usage_flush
-        from app.services import project_files
+        from app.services import settling
 
         scheduler = create_scheduler() if with_scheduler else None
-        # The everyday files read in, then watched (with the jobs, as the dev
+        # The everyday files settled, then watched (with the jobs, as the dev
         # server may share the desktop app's database).
         watching = threading.Event()
         if scheduler:
@@ -72,7 +72,7 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
                 if llm_svc.stale(db):
                     llm_svc.checking.start(lambda: llm_svc.run_check(factory))
             threading.Thread(
-                target=project_files.watch, args=(watching,), name="everyday-files", daemon=True
+                target=settling.watch, args=(watching,), name="everyday-files", daemon=True
             ).start()
         async with mcp_app.lifespan(app):
             yield
