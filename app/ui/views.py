@@ -85,6 +85,9 @@ templates.env.globals["design"] = design_system
 templates.env.globals["app_update"] = lambda: None
 # Whether Settings offers Check for updates: only the installed app updates.
 templates.env.globals["app_updatable"] = lambda: False
+# What Settings asks for while GitHub shows the app's releases to no token
+# the machine has (Updater.access()).
+templates.env.globals["app_update_access"] = lambda: None
 # The app's version, in Settings (app/changelog.py).
 templates.env.globals["app_version"] = lambda: changelog.running()
 

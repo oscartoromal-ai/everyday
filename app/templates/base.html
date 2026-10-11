@@ -277,9 +277,15 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
         {% if running.commit %}<span class="settings-version__commit">{{ "built from" if running.installed else "run from" }} {{ running.commit }}</span>{% endif %}
         <span class="settings-version__open">Changelog</span>
       </a>
-      {% if app_updatable() %}{% with update = app_update(), checked = False, why = None, oob = False %}{% include "partials/update_check.html" %}{% endwith %}{% endif %}
+      {% if app_updatable() %}{% with update = app_update(), checked = False, why = None, oob = False, access = app_update_access() %}{% include "partials/update_check.html" %}{% endwith %}{% endif %}
     </section>
   </form>
+  {# The token Check for updates asks for (partials/update_check.html): its
+     field and button are in the dialog's own form, and belong to this one. #}
+  {% if app_updatable() %}
+  <form id="update-access" hx-post="/ui/desktop/update/access" hx-target="#update-check" hx-swap="outerHTML"
+        hx-indicator=".update-access [data-update-check]" hx-disabled-elt=".update-access button"></form>
+  {% endif %}
 </dialog>
 {# ? opens it anywhere (shell.js). #}
 <dialog id="keys-dialog" class="keys-dialog" aria-labelledby="keys-title" tabindex="-1">

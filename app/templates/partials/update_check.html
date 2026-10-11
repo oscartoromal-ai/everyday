@@ -1,19 +1,25 @@
 {# Settings' Check for updates, in the installed app (app/desktop/update.py):
-   it looks at GitHub's master now and, when there is a newer commit, starts
-   building it at once; while it builds it is looked at again every few
-   seconds (with Settings open), until it is staged for Restart. After a
-   check the rail's Update button comes along, out of band. #}
+   it looks at the app's latest release on GitHub now and, when there is a
+   newer one, starts downloading it at once; while it downloads it is looked
+   at again every few seconds (with Settings open), until it is staged for
+   Restart. After a check the rail's Update button comes along, out of band.
+   While GitHub shows the releases to no token this computer has (`access`),
+   it takes one, its field and button in base.html's #update-access form. #}
 {# GitHub out of reach says so, unless an update is under way or staged already. #}
-{% if update and (not why or update.state in ("updating", "staged")) %}{% set state = update.state %}
+{% if update and update.state in ("updating", "staged") %}{% set state = update.state %}
+{% elif access %}{% set state = "locked" %}
+{% elif update and not why %}{% set state = update.state %}
 {% else %}{% set state = "unreachable" if why else "current" %}{% endif %}
 {% set icon %}<svg class="update-check__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v3.8h-3.8"/></svg>{% endset %}
 <div id="update-check" class="update-check" data-update="{{ state }}"
      {% if state == "updating" %}hx-get="/ui/desktop/update/check" hx-trigger="every 4s [this.closest('dialog')?.open]" hx-swap="outerHTML"{% endif %}>
   <p class="update-check__status" role="status">
     {% if state == "updating" %}
-    {{ icon }}Downloading and building {{ update.latest }}. Restart to update shows here and in the sidebar once it is ready.
+    {{ icon }}Downloading {{ update.latest }}. Restart to update shows here and in the sidebar once it is ready.
     {% elif state == "staged" %}
     {{ update.latest }} is downloaded and ready (this is {{ update.installed }}).
+    {% elif state == "locked" %}
+    Updates come from {{ access.repo }} on GitHub, which this computer cannot read{% if checked %} with that token{% endif %}. Paste a token that can.
     {% elif state == "failed" %}
     The update to {{ update.latest }} failed{% if update.log %}; why is in {{ update.log }}{% endif %}.
     {% elif state == "ready" %}
@@ -28,12 +34,22 @@
   </p>
   {% if state == "staged" %}
   <button type="button" class="btn primary" hx-post="/ui/desktop/restart" hx-target="#rail-update" hx-swap="innerHTML">Restart to update</button>
-  {% elif state != "updating" %}
+  {% elif state != "updating" and state != "locked" %}
   <button type="button" class="btn quiet" data-update-check
           hx-post="/ui/desktop/update/check" hx-target="#update-check" hx-swap="outerHTML" hx-disabled-elt="this">
     <span class="update-check__idle">{{ {"ready": "Download update", "failed": "Try again", "unreachable": "Try again"}.get(state, "Check for updates") }}</span>
     <span class="update-check__busy">{{ icon }}Checking…</span>
   </button>
+  {% endif %}
+  {% if state == "locked" %}
+  <div class="update-access">
+    <span class="field-line"><input type="password" name="token" form="update-access" aria-label="GitHub token for updates" autocomplete="off" spellcheck="false" required placeholder="Paste a GitHub token"></span>
+    <button type="submit" class="btn quiet" data-update-check form="update-access">
+      <span class="update-check__idle">Save</span>
+      <span class="update-check__busy">{{ icon }}Checking…</span>
+    </button>
+    <p class="update-access__how"><a href="{{ access.token_url }}" target="_blank" rel="noopener noreferrer">Make one on GitHub</a>, filled in to read the app's code and nothing else. Choose Only select repositories, then {{ access.name }}, then Generate token, and paste it here.</p>
+  </div>
   {% endif %}
 </div>
 {% if oob %}

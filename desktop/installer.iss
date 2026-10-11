@@ -96,8 +96,8 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 ; Through Explorer, as the Start menu would: a program Setup starts itself
-; inherits its RedirectionGuard mitigation, under which the app's Update
-; (uv, behind its Python's junction) cannot build.
+; inherits its RedirectionGuard mitigation, under which what the app runs
+; with uv (its improvement scan, behind uv's Python's junction) fails.
 Filename: "{win}\explorer.exe"; Parameters: """{app}\{#AppExe}"""; Description: "Open {#AppName}"; Flags: nowait postinstall
 
 [Code]
