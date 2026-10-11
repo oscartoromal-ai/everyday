@@ -17,3 +17,6 @@ The app's daily improvement scan picked this on {today} ({kind}, `{fingerprint}`
 - Record the change in `changes/` (README.md, Recording a change).
 - Pass the gate: `uv run python -m improve.check`.
 - Open a pull request against master with `Improves: {fingerprint}` in its description.
+
+It may be fixed on master already: what shows it can be older than master (an error logged by a version since updated).
+Then, once you have shown it is, open no pull request: write `improve-outcome.md` at the root of the worktree you work in, its first line `Already fixed by <commit>` (the commit on master that fixed it), then how you know.

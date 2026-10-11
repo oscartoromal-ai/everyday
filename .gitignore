@@ -36,3 +36,6 @@ node_modules/
 
 # The everyday files of a run from the repo (repos/, projects/, work/; app/config.py).
 /everyday-files/
+
+# What an improvement run that found nothing to fix leaves for improve/run.py.
+/improve-outcome.md
