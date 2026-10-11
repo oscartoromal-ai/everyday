@@ -1574,6 +1574,7 @@
     if (shows === stripShows) return;
     stripShows = shows;
     strip.hidden = !due.length;
+    strip.querySelector(".today-fold-summary .count").textContent = due.length;
     strip.querySelector(".pad-habits-list").replaceChildren(...due.map((slug) => {
       const item = document.createElement("li");
       const write = document.createElement("button");
@@ -1622,7 +1623,8 @@
     if (shows === carryShows) return;
     carryShows = shows;
     strip.hidden = !open.length;
-    strip.querySelector(".pad-habits-label").textContent = dayTasks.label;
+    strip.querySelector(".today-fold-label").textContent = dayTasks.label;
+    strip.querySelector(".today-fold-summary .count").textContent = open.length;
     strip.querySelector(".pad-carry-all").hidden = open.length < 2;
     strip.querySelector(".pad-habits-list").replaceChildren(...open.map((t) => {
       const item = document.createElement("li");
@@ -1693,6 +1695,33 @@
     if (write) bring(toBring(view.state).filter((t) => String(t.id) === write.dataset.task));
     else if (e.target.closest?.(".pad-carry-all")) bring(toBring(view.state));
   });
+
+  /* ---- the page's folds: the nudges, and the strips under the notes ---- */
+
+  // Those folded are kept in a cookie, the page drawn with them so
+  // (partials/today_fold.html), on every day's page.
+  const FOLDED = "today_folded";
+  const folded = () => new Set((document.cookie.split("; ").find((c) => c.startsWith(`${FOLDED}=`)) || "")
+    .slice(FOLDED.length + 1).split(".").filter(Boolean));
+  // "toggle" does not bubble; capture it on the way down.
+  document.addEventListener("toggle", (e) => {
+    const fold = e.target;
+    if (!fold.matches?.("details[data-fold]")) return;
+    const names = folded();
+    if (fold.open) names.delete(fold.dataset.fold);
+    else names.add(fold.dataset.fold);
+    document.cookie = `${FOLDED}=${[...names].join(".")}; path=/; max-age=31536000; samesite=strict`;
+  }, true);
+
+  // A nudge dismissed: its count says so, and the last takes the center away.
+  const nudges = document.getElementById("nudge-center");
+  if (nudges) {
+    new MutationObserver(() => {
+      const left = nudges.querySelectorAll(".nudge").length;
+      if (left) nudges.querySelector(".today-fold-summary .count").textContent = left;
+      else nudges.remove();
+    }).observe(nudges.querySelector(".nudge-list"), { childList: true });
+  }
 
   // Offered while writing: the commands, after "/" at a row's start, and
   // the habits' names (and those this page has), after "/habit ".

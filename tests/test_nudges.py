@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from app.models import NudgeType, TaskStatus
+from app.services import notebook as notebook_svc
 from app.services import nudges as nudges_svc
 from app.services import tasks as tasks_svc
 
@@ -106,3 +107,28 @@ def test_morning_digest_shape(db) -> None:
     digest = nudges_svc.build_morning_digest(db, NOW)
     assert "1 task(s) planned" in digest
     assert "pay invoice" in digest
+
+
+def test_today_shows_each_task_once(db) -> None:
+    later = tasks_svc.create_task(db, title="later", due=TODAY + timedelta(days=2))
+    planned = tasks_svc.create_task(
+        db, title="planned", due=TODAY + timedelta(days=2), planned_for=TODAY
+    )
+    due_today = tasks_svc.create_task(db, title="due today", due=TODAY)
+    written = tasks_svc.create_task(db, title="written", due=TODAY + timedelta(days=2))
+    notebook_svc.save_page(
+        db, TODAY, [{"kind": "text", "text": "- [ ] written", "links": {"0": written.id}}],
+        version=0,
+    )
+    review = tasks_svc.create_task(db, title="review me", planned_for=TODAY)
+    tasks_svc.set_status(db, review.id, TaskStatus.needs_review)
+    review.status_changed_at = NOW - timedelta(hours=72)
+    db.flush()
+    nudges_svc.evaluate(db, NOW)
+    assert {n.task_id for n in nudges_svc.active_nudges(db)} == {
+        later.id, planned.id, due_today.id, written.id, review.id,
+    }
+
+    # A due the page has already, written in its notes or offered to bring
+    # there with its due beside it, is not nudged again; a review is.
+    assert {n.task_id for n in nudges_svc.on_today(db, TODAY)} == {later.id, review.id}
