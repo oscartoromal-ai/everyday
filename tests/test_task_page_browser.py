@@ -111,7 +111,7 @@ def test_its_box_steps_it_through_progress_and_review_to_done(page, live, app_db
 def test_its_description_is_read_drawn_and_its_mode_remembered(page, live, app_db) -> None:
     with app_db() as db:
         task = tasks_svc.create_task(
-            db, title="Trip", notes="## Packing\n- passport\n- adapter", planned_for=TODAY
+            db, title="Trip", notes="## Packing\n- [ ] passport\n- [ ] adapter", planned_for=TODAY
         )
         db.commit()
     page.goto(f"{live}/tasks/{task.id}")
@@ -127,7 +127,7 @@ def test_its_description_is_read_drawn_and_its_mode_remembered(page, live, app_d
     assert editor.get_attribute("contenteditable") == "false"
     editor.locator(".cm-md-box").first.click()
     page.locator("[data-page-state]", has_text=SAVED).wait_for()
-    assert stored(app_db, "Trip").notes == "## Packing\n- [x] passport\n- adapter"
+    assert stored(app_db, "Trip").notes == "## Packing\n- [x] passport\n- [ ] adapter"
 
     # Opened again, it is read; Source shows its Markdown as written.
     page.reload()

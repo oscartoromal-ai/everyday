@@ -74,10 +74,12 @@ def test_occurrences_are_individually_editable_tasks(db) -> None:
 
 
 def test_occurrences_start_with_their_subtasks_open(db) -> None:
-    t = _task_template(db, repeat="daily", notes="Before watering:\n- [x] check soil\n- fill can")
+    t = _task_template(
+        db, repeat="daily", notes="Before watering:\n- [x] check soil\n- [ ] fill can\n- a bullet"
+    )
     rec_svc.materialize_template(db, t, TODAY)
     first = db.scalars(select(Task).where(Task.occurrence_date == TODAY)).one()
-    assert first.notes == "Before watering:\n- check soil\n- fill can"
+    assert first.notes == "Before watering:\n- [ ] check soil\n- [ ] fill can\n- a bullet"
 
 
 def test_stop_template_drops_pristine_future_only(db) -> None:

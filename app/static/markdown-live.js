@@ -24,9 +24,8 @@
 
    A list item's lead (its indentation, "- " and box) is drawn as one piece,
    a checkbox or a bullet, and the caret never stands inside it. Lists are
-   read line by line, as app/checklist.py reads a task's sub-tasks, so with
-   `checklist` every "- " or "* " line is a box, ticked or not, exactly as
-   the server counts them. Without it, "- " is a bullet and "- [ ] " a box.
+   read line by line, as app/checklist.py reads a task's sub-tasks: "- " is
+   a bullet and "- [ ] " a box, exactly as the server counts them.
 
    Only an http(s) address is a link, as in a task's row (app/markdown.py).
    A rendered link opens on a click, a revealed one on Ctrl+click (Cmd+click);
@@ -35,7 +34,6 @@
    A page adds MarkdownLive.extensions(options) to its editor beside its own
    (history, placeholder, saving) and switches modes with setMode,
    toggleReading and toggleSource. Options:
-   - checklist: every list item is a box, as a task's sub-tasks are (false).
    - mode: the mode it opens in ("live").
    - openLink(href): opens a link (beside the app, as a chat's link does).
    - imageSrc(url): the src an image is drawn from, or null to leave its
@@ -116,10 +114,8 @@
 
   const INDENT_UNIT = "  ";
   const MAX_DEPTH = 6;
-  // app/checklist.py's _ITEM, up to the item's words. "+" bullets are
-  // Markdown's, not the checklist's.
-  const CHECKLIST_LEAD = /^([ \t]*)([-*])[ \t]+(?:\[([ xX])\][ \t]+)?/;
-  const MARKDOWN_LEAD = /^([ \t]*)([-*+])[ \t]+(?:\[([ xX])\][ \t]+)?/;
+  // A list item up to its words, as app/checklist.py's _LIST reads it.
+  const LIST_LEAD = /^([ \t]*)([-*+])[ \t]+(?:\[([ xX])\][ \t]+)?/;
 
   const width = (indent) => indent.replace(/\t/g, "    ").length;
   const depthOf = (indent) => Math.min(MAX_DEPTH, Math.floor(width(indent) / 2));
@@ -128,8 +124,8 @@
   // depth}, box being null (none), " " or "x". `lead` is what is drawn as
   // one piece: the item's indentation, marker and box, or a plain line's
   // indentation (when it has words after it).
-  const leadOf = (text, checklist) => {
-    const m = (checklist ? CHECKLIST_LEAD : MARKDOWN_LEAD).exec(text);
+  const leadOf = (text) => {
+    const m = LIST_LEAD.exec(text);
     if (m) {
       return {
         item: true, lead: m[0], indent: m[1], marker: m[2],
@@ -144,13 +140,12 @@
   /* ---- widgets ---- */
 
   class Box extends WidgetType {
-    constructor(checked, checklist) {
+    constructor(checked) {
       super();
       this.checked = checked;
-      this.checklist = checklist;
     }
     eq(other) {
-      return other.checked === this.checked && other.checklist === this.checklist;
+      return other.checked === this.checked;
     }
     toDOM(view) {
       const box = document.createElement("button");
@@ -164,7 +159,7 @@
       box.addEventListener("mousedown", (e) => e.preventDefault());
       box.addEventListener("click", (e) => {
         e.preventDefault();
-        if (!view.state.readOnly) tick(view, view.state.doc.lineAt(view.posAtDOM(box)), this.checklist);
+        if (!view.state.readOnly) tick(view, view.state.doc.lineAt(view.posAtDOM(box)));
       });
       return box;
     }
@@ -172,10 +167,10 @@
       return true;
     }
   }
-  const BOXES = new Map([true, false].map((checklist) => [checklist, {
-    open: Decoration.replace({ widget: new Box(false, checklist) }),
-    done: Decoration.replace({ widget: new Box(true, checklist) }),
-  }]));
+  const BOXES = {
+    open: Decoration.replace({ widget: new Box(false) }),
+    done: Decoration.replace({ widget: new Box(true) }),
+  };
 
   class Bullet extends WidgetType {
     eq() {
@@ -472,7 +467,7 @@
 
   // What the editor shows at this moment: the window's decorations, and the
   // leads the caret steps over as one piece.
-  function draw(view, checklist, options, tables) {
+  function draw(view, options, tables) {
     const { state } = view;
     const { doc } = state;
     const mode = state.field(modeField);
@@ -612,9 +607,8 @@
             return undefined;
           }
           if (name === "HorizontalRule") {
-            // "---" drawn as the rule it makes, written as itself. "- - -"
-            // in a checklist is a sub-task, as the server counts it.
-            if (owned(node.from) || (checklist && leadOf(doc.lineAt(node.from).text, true).item)) return false;
+            // "---" drawn as the rule it makes, written as itself.
+            if (owned(node.from)) return false;
             if (lineShows(state, node.from)) {
               decos.push(MARK.range(node.from, node.to));
             } else {
@@ -666,16 +660,15 @@
       for (let pos = from; pos <= to;) {
         const line = doc.lineAt(pos);
         pos = line.to + 1;
-        if (inTable(line.from) || (codeLines.has(line.number) && !checklist) || options.owns(line)) continue;
-        const l = leadOf(line.text, checklist);
+        if (inTable(line.from) || codeLines.has(line.number) || options.owns(line)) continue;
+        const l = leadOf(line.text);
         if (!l.lead) continue;
         const end = line.from + l.lead.length;
         if (l.item) {
           const done = l.box === "x";
           const kind = done ? "cm-md-li cm-md-done" : "cm-md-li";
           onLine(line.from, "li", lineDeco(kind, l.depth));
-          const boxes = BOXES.get(checklist);
-          const piece = checklist || l.box !== null ? (done ? boxes.done : boxes.open) : BULLET;
+          const piece = l.box !== null ? (done ? BOXES.done : BOXES.open) : BULLET;
           decos.push(piece.range(line.from, end));
           atomic.push(piece.range(line.from, end));
         } else if (!codeLines.has(line.number)) {
@@ -699,14 +692,14 @@
     return { decos: Decoration.set(shown, true), atomic: Decoration.set(steps, true) };
   }
 
-  const livePlugin = (checklist, options, tables) => ViewPlugin.fromClass(class {
+  const livePlugin = (options, tables) => ViewPlugin.fromClass(class {
     constructor(view) {
-      this.drawn = draw(view, checklist, options, view.state.field(tables).tables);
+      this.drawn = draw(view, options, view.state.field(tables).tables);
     }
     update(u) {
       if (u.docChanged || u.viewportChanged || u.selectionSet || u.focusChanged
           || syntaxTree(u.state) !== syntaxTree(u.startState) || u.transactions.some(modeChanged)) {
-        this.drawn = draw(u.view, checklist, options, u.state.field(tables).tables);
+        this.drawn = draw(u.view, options, u.state.field(tables).tables);
       }
     }
   }, {
@@ -720,14 +713,14 @@
   // to its first word, and a selection drawn back to a line's start
   // (Shift+Home) stops there: typing over it keeps the item. In source the
   // lead is text like any other, and on a line the page owns, the page's.
-  const offTheLead = (checklist, owns) => EditorState.transactionFilter.of((tr) => {
+  const offTheLead = (owns) => EditorState.transactionFilter.of((tr) => {
     if (!tr.selection || tr.state.field(modeField) === "source") return tr;
     const { doc, selection } = tr.state;
     let moved = false;
     const ranges = selection.ranges.map((r) => {
       const line = doc.lineAt(r.head);
       if (owns(line)) return r;
-      const end = line.from + leadOf(line.text, checklist).lead.length;
+      const end = line.from + leadOf(line.text).lead.length;
       if (r.head >= end) return r;
       if (!r.empty) {
         if (r.anchor < end) return r;
@@ -743,20 +736,13 @@
 
   /* ---- ticking ---- */
 
-  // Ticks or unticks a list item's box. As a checklist, the line is written
-  // as the server writes it (app/checklist.py _set_checked): "- [x] " done,
-  // "- " open. Otherwise only the box's mark changes.
-  function tick(view, line, checklist) {
-    const l = leadOf(line.text, checklist);
-    if (!l.item || (!checklist && l.box === null)) return false;
-    const done = l.box === "x";
-    if (checklist) {
-      const lead = `${l.indent}${l.marker} ${done ? "" : "[x] "}`;
-      view.dispatch({ changes: { from: line.from, to: line.from + l.lead.length, insert: lead }, userEvent: "input.tick" });
-    } else {
-      const at = line.from + l.lead.indexOf("[") + 1;
-      view.dispatch({ changes: { from: at, to: at + 1, insert: done ? " " : "x" }, userEvent: "input.tick" });
-    }
+  // Ticks or unticks a list item's box: only the box's mark changes, as
+  // the server writes it (app/checklist.py _set_checked).
+  function tick(view, line) {
+    const l = leadOf(line.text);
+    if (!l.item || l.box === null) return false;
+    const at = line.from + l.lead.indexOf("[") + 1;
+    view.dispatch({ changes: { from: at, to: at + 1, insert: l.box === "x" ? " " : "x" }, userEvent: "input.tick" });
     return true;
   }
 
@@ -776,9 +762,9 @@
 
   // The list item an indented plain line hangs under: the line above it one
   // level less deep, if that is an item.
-  const ownerOf = (state, line, depth, checklist) => {
+  const ownerOf = (state, line, depth) => {
     for (let n = line.number - 1; n >= 1; n--) {
-      const above = leadOf(state.doc.line(n).text, checklist);
+      const above = leadOf(state.doc.line(n).text);
       if (!above.lead && !state.doc.line(n).text.trim()) continue;
       if (above.depth < depth) return above.item && above.depth === depth - 1 ? above : null;
     }
@@ -810,7 +796,7 @@
     return true;
   };
 
-  const commands = (checklist) => {
+  const commands = () => {
     // Enter: a list goes on to its next item, and an empty item steps out of
     // the list a level at a time. Enter at an item's first word puts an
     // empty item above it. An indented note under an item goes on to the
@@ -821,7 +807,7 @@
       const { state } = view;
       const line = state.doc.lineAt(r.from);
       if (state.doc.lineAt(r.to).number !== line.number) return false;
-      const l = leadOf(line.text, checklist);
+      const l = leadOf(line.text);
       const end = line.from + l.lead.length;
       if (l.item) {
         if (!line.text.slice(l.lead.length).trim()) {
@@ -842,7 +828,7 @@
         return insertAt(view, r, `\n${newItem(l)}`);
       }
       if (l.lead) {
-        const owner = ownerOf(state, line, l.depth, checklist);
+        const owner = ownerOf(state, line, l.depth);
         return insertAt(view, r, `\n${owner ? newItem({ ...owner, box: owner.box === null ? null : " " }) : l.indent}`);
       }
       return false;
@@ -852,7 +838,7 @@
     const softEnter = (view) => {
       const r = one(view.state);
       if (!r) return false;
-      const l = leadOf(view.state.doc.lineAt(r.from).text, checklist);
+      const l = leadOf(view.state.doc.lineAt(r.from).text);
       const indent = l.item ? l.indent + INDENT_UNIT : l.lead ? l.indent : "";
       return insertAt(view, r, `\n${indent}`);
     };
@@ -863,7 +849,7 @@
       const r = one(view.state);
       if (!r || !r.empty) return false;
       const line = view.state.doc.lineAt(r.head);
-      const l = leadOf(line.text, checklist);
+      const l = leadOf(line.text);
       if (!l.lead || r.head !== line.from + l.lead.length) return false;
       const lead = l.item ? l.indent : l.indent.replace(/^( {1,2}|\t)/, "");
       view.dispatch({ changes: { from: line.from, to: line.from + l.lead.length, insert: lead }, userEvent: "delete.dedent" });
@@ -879,10 +865,10 @@
       const { doc } = state;
       const firstLine = doc.lineAt(state.selection.main.from);
       const lastLine = doc.lineAt(state.selection.main.to);
-      const here = leadOf(firstLine.text, checklist);
+      const here = leadOf(firstLine.text);
       if (delta > 0) {
         if (firstLine.number === 1 || !firstLine.text.trim()) return false;
-        const above = leadOf(doc.line(firstLine.number - 1).text, checklist);
+        const above = leadOf(doc.line(firstLine.number - 1).text);
         const nestable = here.depth <= above.depth && here.depth < MAX_DEPTH
           && (here.item || here.depth > 0 || above.item);
         if (!nestable) return false;
@@ -909,9 +895,9 @@
     const cycle = (view) => {
       const { state } = view;
       const firstLine = state.doc.lineAt(state.selection.main.from);
-      const l = leadOf(firstLine.text, checklist);
-      if (l.item && (checklist || l.box !== null)) return tick(view, firstLine, checklist);
-      const lead = `${l.indent}- ${checklist ? "" : "[ ] "}`;
+      const l = leadOf(firstLine.text);
+      if (l.item && l.box !== null) return tick(view, firstLine);
+      const lead = `${l.indent}- [ ] `;
       view.dispatch({ changes: { from: firstLine.from, to: firstLine.from + (l.item ? l.lead.length : l.indent.length), insert: lead }, userEvent: "input" });
       return true;
     };
@@ -926,8 +912,8 @@
   // (keys.py, keys.js), else the defaults.
   const bound = (action, otherwise, run) =>
     (window.Keys ? window.Keys.cm(action) : [otherwise]).map((key) => ({ key, run, preventDefault: true }));
-  const writingKeys = (checklist, owns) => {
-    const c = commands(checklist);
+  const writingKeys = (owns) => {
+    const c = commands();
     const free = (run) => run && ((view) => !owns(view.state.doc.lineAt(view.state.selection.main.head)) && run(view));
     const leads = [
       { key: "Enter", run: c.enter },
@@ -1011,7 +997,6 @@
   const NONE = () => false;
 
   function extensions(options = {}) {
-    const checklist = Boolean(options.checklist);
     const opts = {
       openLink: options.openLink || openBeside,
       imageSrc: options.imageSrc || ((url) => (/^(https?:|data:image\/)/i.test(url) ? url : null)),
@@ -1029,9 +1014,9 @@
       language,
       syntaxHighlighting(codeTokens),
       tables,
-      livePlugin(checklist, opts, tables),
-      offTheLead(checklist, opts.owns),
-      writingKeys(checklist, opts.owns),
+      livePlugin(opts, tables),
+      offTheLead(opts.owns),
+      writingKeys(opts.owns),
       handlers(opts),
       EditorView.lineWrapping,
       EditorView.contentAttributes.of({ spellcheck: "false" }),

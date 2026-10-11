@@ -726,6 +726,12 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .subtask label { display: flex; align-items: flex-start; gap: var(--s-2); padding: 2px 0; cursor: pointer; }
 .subtask span { color: var(--ink); overflow-wrap: anywhere; }
 .subtask.done span { color: var(--pewter); text-decoration: line-through; text-decoration-thickness: 1px; }
+/* a bullet: its dot in the box's 14px, as the editor draws it (.cm-md-bullet) */
+.subtask-bullet { display: flex; align-items: flex-start; gap: var(--s-2); margin: 0; padding: 2px 0; }
+.subtask-bullet::before {
+  content: ""; flex: none; width: 5px; height: 5px; margin: 0.6em 5px 0 4px;
+  border-radius: 50%; background: var(--graphite);
+}
 /* a sub-task's note hangs under its words: 14px box + 8px gap */
 .task-notes .subtask-note { margin: 0 0 2px 22px; }
 .subtask-check {

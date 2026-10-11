@@ -226,7 +226,8 @@ It is set in the task sheet (its bars icon, or "p1" to "p4" as the title is writ
 It shows wherever tasks are: rows, the task sheet and page, Today's notes and its For today, Calendar's Plan, the Gantt, and search.
 It orders nothing on its own: dates still lead every list, and priority is their first tie-break (the most pressing first among tasks of the same dates); the Gantt keeps its rows where they were put.
 A repeating task's occurrences start with no priority, as they start with no estimate.
-Notes are the task's free-form description, and sub-tasks live inside it: a line starting with "- " (or "* ") is a sub-task, "- [x] " once done, and every other line is context kept where it was written.
+Notes are the task's free-form description, Markdown as GitHub reads it, and sub-tasks live inside it: a line starting with "- [ ] " (or "* [ ] ", "+ [ ] ") is a sub-task, "- [x] " once done; a "- " line without a box is a plain bullet, and every other line is context kept where it was written (Oscar's call on 2026-10-11, replacing every "- " line being a sub-task, which left no way to write a bullet list).
+Lines in fenced code are code, whatever they read.
 Sub-tasks are text, not rows: they carry no status, owner, or dates of their own, and ticking one rewrites only its own line.
 A repeating task's occurrences start with every sub-task open.
 planned_for is the day Oscar intends to work it and drives the daily list; due is the obligation and drives urgency.

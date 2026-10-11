@@ -44,7 +44,10 @@
       {% elif block.kind == "list" %}
       <ul class="subtasks">
         {% for entry in block.entries %}{% set item = entry.item %}
-        <li class="subtask{% if item.checked %} done{% endif %}"{% if item.depth %} style="--depth: {{ item.depth }}"{% endif %}>
+        <li class="subtask{% if item.checked %} done{% endif %}{% if item.kind == "bullet" %} bullet{% endif %}"{% if item.depth %} style="--depth: {{ item.depth }}"{% endif %}>
+          {% if item.kind == "bullet" %}
+          <p class="subtask-bullet"><span>{{ item.text | note }}</span></p>
+          {% else %}
           <label>
             <input type="checkbox" class="subtask-check" {% if item.checked %}checked{% endif %}
                    hx-post="/ui/tasks/{{ row.task.id }}/subtasks/{{ item.index }}/toggle"
@@ -52,6 +55,7 @@
                    hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML">
             <span>{{ item.text | note }}</span>
           </label>
+          {% endif %}
           {% if entry.notes %}<p class="subtask-note">{% for line in entry.notes %}{{ line | note }}{% if not loop.last %}{{ "\n" }}{% endif %}{% endfor %}</p>{% endif %}
         </li>
         {% endfor %}

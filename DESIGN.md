@@ -124,7 +124,7 @@ A do-date off Today is graphite.
 The meta line sits 4px under the title, so the description disclosure can take a full 24px target (WCAG 2.5.8) without touching the title's.
 Claude's statuses are badges too: Queued neutral, Running ok (with a static dot), Needs review warn, Blocked err.
 A task with a description adds a pewter disclosure to the start of its meta line: a chevron and the sub-task count ("1/3"), or "Notes" when it has none.
-Opened, the description sits under the meta line in 14px graphite: context lines as written, sub-tasks as 14px ink checkboxes that fill like the row's own, and a done sub-task pewter with a strikethrough.
+Opened, the description sits under the meta line in 14px graphite: context lines as written, sub-tasks as 14px ink checkboxes that fill like the row's own, a done sub-task pewter with a strikethrough, and bullets as a graphite dot in the box's place.
 An indented line under a sub-task is its note, hung 22px in so it aligns with the sub-task's words.
 Which descriptions are open is remembered per tab (`sessionStorage` key `pc-open-notes`), so Today's live refreshes never fold them shut.
 A small trash bin ends each row, steel and hidden until the row is hovered or focused (always shown on touch), and err-tinted on hover.
@@ -162,11 +162,11 @@ There is no Save: the sheet saves when focus leaves it (a click elsewhere, Tab p
 Tab past its last control leaves it even where nothing on the page follows to take the focus; the window losing focus does not.
 
 **Description editor.** One line per block, in 14px graphite.
-A line typed as "- words" turns into a sub-task when Enter is pressed: a 14px box, drawn as the line's own `::before`, that fills ink when clicked, with the words in ink, or pewter and struck through once ticked.
-Enter on a sub-task starts the next one, Enter on an empty one steps out of the list, and Backspace at a sub-task's start turns it back into plain text.
+A line typed as "- [ ] words" is a sub-task (Ctrl+L makes one of any line): a 14px box that fills ink when clicked, with the words in ink, or pewter and struck through once ticked; "- words" is a bullet.
+Enter on a sub-task (or a bullet) starts the next one, Enter on an empty one steps out of the list, and Backspace at its start turns it back into plain text.
 Shift+Enter under a sub-task writes a note hung 22px in, under its words; Enter on a note starts the next sub-task.
 Tab and Shift+Tab nest and un-nest by 22px, at most one level under the line above; where Tab cannot nest it moves focus on, so the keyboard never gets stuck in a description.
-Pasted "- " lines arrive as sub-tasks; the editor keeps its own undo.
+Pasted "- [ ] " lines arrive as sub-tasks and "- " lines as bullets; the editor keeps its own undo.
 Esc steps away but keeps a written draft open; Cancel clears it.
 The empty-list note hides once the list has a row.
 
@@ -508,8 +508,8 @@ An image (`![words](url)`) is drawn as itself, only from a web or data address; 
 Only an http(s) address is a link (underlined ink, as every link); "[words]" alone stays as written.
 A rendered link opens beside the app on a click, as Obsidian's does; one showing its Markdown is written in, and opens on Ctrl+click (Cmd+click).
 An address pasted over words on one line makes them its link.
-Lists are read line by line, as `app/checklist.py` reads sub-tasks: a line's lead (its indentation, "- " and box) is one piece the caret never stands in, drawn as a 14px steel box (ink with a paper tick when done) or, outside a checklist, a bullet, the words hanging 22px a level beside it; a numbered list's numbers are graphite.
-As a checklist every "- " or "* " line is a box, exactly the lines the server counts; ticking writes the line as the server does ("- [x] ", or "- " open).
+Lists are read line by line, as `app/checklist.py` reads sub-tasks: a line's lead (its indentation, "- " and box) is one piece the caret never stands in, drawn as a 14px steel box (ink with a paper tick when done) for "- [ ] ", or a bullet for "- ", the words hanging 22px a level beside it; a numbered list's numbers are graphite.
+The boxes are exactly the lines the server counts as sub-tasks; ticking changes only the box's mark ("[x]" or "[ ]").
 Enter goes on to the next item ("[ ] " if the item had a box), at an item's first word puts an empty one above it, and on an empty item steps out a level, then out of the list; it goes on with a numbered list and a quote too.
 Shift+Enter writes a note under an item.
 Enter on a note goes on to its item's next sibling.

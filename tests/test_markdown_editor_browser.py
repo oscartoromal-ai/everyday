@@ -1,6 +1,7 @@
 """A task's description in a real browser: Markdown written in its editor
 (notes-editor.js on markdown-live.js) and shown as it reads, its marks
-showing only where the caret is, its "- " lines boxes that tick, and the
+showing only where the caret is, its "- [ ] " lines boxes that tick (its
+"- " lines bullets), and the
 text saved exactly as written. The `live`, `page` and `app_db` fixtures are
 conftest.py's."""
 
@@ -20,7 +21,7 @@ SAVED = re.compile("^Saved$")
 NOTES = (
     "# Plan\n"
     "Book the **flights**, then the *rail pass*: [JR](https://japanrailpass.net).\n"
-    "- compare `JR Pass` prices\n"
+    "- [ ] compare `JR Pass` prices\n"
     "- [x] renew the passport\n"
     "> ask Ana\n"
     "Notes say [TBD] and \\*stars\\*."
@@ -78,11 +79,11 @@ def test_markdown_reads_as_it_will_its_marks_where_the_caret_is(page, live, app_
     assert field(page) == NOTES
 
 
-def test_sub_tasks_are_written_with_dash_and_enter(page, live, app_db) -> None:
+def test_sub_tasks_are_written_with_a_box_and_enter(page, live, app_db) -> None:
     task_id = open_task(page, live, app_db)
     page.keyboard.type("Pack")
     page.keyboard.press("Enter")
-    page.keyboard.type("- adapters")
+    page.keyboard.type("- [ ] adapters")
     assert page.locator(".cm-md-box").count() == 1
     # Enter goes on to the next sub-task; Shift+Enter writes a note under it.
     page.keyboard.press("Enter")
@@ -99,17 +100,35 @@ def test_sub_tasks_are_written_with_dash_and_enter(page, live, app_db) -> None:
     page.keyboard.press("Enter")
     page.keyboard.press("Enter")
     page.keyboard.type("Done by Friday.")
-    expected = "Pack\n- adapters\n- rail pass\n  from the JR office\n  - yen\nDone by Friday."
+    expected = (
+        "Pack\n- [ ] adapters\n- [ ] rail pass\n  from the JR office\n  - [ ] yen\nDone by Friday."
+    )
     assert field(page) == expected
     assert saved(page, app_db, task_id) == expected
 
 
+def test_a_dash_writes_a_bullet_not_a_sub_task(page, live, app_db) -> None:
+    task_id = open_task(page, live, app_db)
+    page.keyboard.type("- ICS, not CalDAV")
+    assert page.locator(".cm-md-bullet").count() == 1
+    assert page.locator(".cm-md-box").count() == 0
+    # Enter goes on to the next bullet.
+    page.keyboard.press("Enter")
+    page.keyboard.type("no OAuth")
+    assert page.locator(".cm-md-bullet").count() == 2
+    # Ctrl+L makes the caret's a sub-task.
+    page.keyboard.press("Control+l")
+    assert field(page) == "- ICS, not CalDAV\n- [ ] no OAuth"
+    assert page.locator(".cm-md-box").count() == 1
+    assert saved(page, app_db, task_id) == "- ICS, not CalDAV\n- [ ] no OAuth"
+
+
 def test_the_caret_never_stands_inside_a_box(page, live, app_db) -> None:
-    task_id = open_task(page, live, app_db, "- adapters")
+    task_id = open_task(page, live, app_db, "- [ ] adapters")
     page.locator(".cm-line", has_text="adapters").click()
     page.keyboard.press("Home")
     page.keyboard.type("two ")
-    assert field(page) == "- two adapters"
+    assert field(page) == "- [ ] two adapters"
     # Backspace at its first word takes the box away, the words staying.
     page.keyboard.press("Home")
     page.keyboard.press("Backspace")
@@ -124,16 +143,18 @@ def test_a_box_ticks_its_sub_task_as_the_server_writes_it(page, live, app_db) ->
     assert field(page) == "Before\n- [x] adapters\n- yen"
     assert page.locator(".cm-md-done", has_text="adapters").count() == 1
     assert saved(page, app_db, task_id) == "Before\n- [x] adapters\n- yen"
-    # Unticked, it is written as an open one ("- "), as a row's box writes it.
+    # Unticked, its box is open again ("- [ ] "), as a row's box writes it.
     page.locator(".cm-md-box").first.click()
-    assert field(page) == "Before\n- adapters\n- yen"
-    # Ctrl+L ticks the caret's.
+    assert field(page) == "Before\n- [ ] adapters\n- yen"
+    # Ctrl+L boxes the caret's bullet, then ticks it.
     page.locator(".cm-line", has_text="yen").click()
     page.keyboard.press("Control+l")
-    assert field(page) == "Before\n- adapters\n- [x] yen"
+    assert field(page) == "Before\n- [ ] adapters\n- [ ] yen"
+    page.keyboard.press("Control+l")
+    assert field(page) == "Before\n- [ ] adapters\n- [x] yen"
     # Undo takes a tick back.
     page.keyboard.press("Control+z")
-    assert field(page) == "Before\n- adapters\n- yen"
+    assert field(page) == "Before\n- [ ] adapters\n- [ ] yen"
 
 
 def test_ctrl_b_and_a_pasted_address_write_markdown(page, live, app_db) -> None:
