@@ -156,8 +156,8 @@ begin
 
   EverydayPage := CreateInputDirPage(wpSelectComponents,
     'Everyday files', 'Where should the files for agentic work go?',
-    'Setup makes this folder, with three folders in it: repos, each repository''s main clone; ' +
-    'projects, each project''s context; and work, the folders agents work in.' + #13#10#13#10 +
+    'Setup makes this folder, with four folders in it: repos, each repository''s main clone; ' +
+    'projects, each project''s context; tasks, each task''s files; and work, the folders agents work in.' + #13#10#13#10 +
     'A short path at the root of a drive keeps deep worktrees under Windows'' path length limit. ' +
     'Uninstalling keeps it.',
     False, '');
@@ -177,7 +177,7 @@ var
 begin
   Dir := RemoveBackslashUnlessRoot(EverydayPage.Values[0]);
   Result := ForceDirectories(Dir + '\repos') and ForceDirectories(Dir + '\projects') and
-    ForceDirectories(Dir + '\work');
+    ForceDirectories(Dir + '\tasks') and ForceDirectories(Dir + '\work');
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;

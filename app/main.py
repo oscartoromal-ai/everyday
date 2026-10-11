@@ -32,6 +32,7 @@ from app.ui import nutrition as ui_nutrition
 from app.ui import pages as ui_pages
 from app.ui import project as ui_project
 from app.ui import repositories as ui_repositories
+from app.ui import task_files as ui_task_files
 from app.ui import task_run as ui_task_run
 from app.ui.views import keep_db
 from app.usage import UsageMiddleware
@@ -99,6 +100,7 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     app.include_router(ui_gantt.router, dependencies=ui)
     app.include_router(ui_project.router, dependencies=ui)
     app.include_router(ui_task_run.router, dependencies=ui)
+    app.include_router(ui_task_files.router, dependencies=ui)
     app.include_router(ui_models.router, dependencies=ui)
     app.include_router(ui_agent_window.router, dependencies=ui)
     app.include_router(ui_keys.router, dependencies=ui)

@@ -2,8 +2,9 @@
    project's context (AGENTS.md, then its folders and documents, each a way
    to its page), then its workstreams, each folding by its row with its open
    tasks and, folded under them, the last two weeks' finished ones. The task
-   itself is marked where it stands and its workstream opened; Claude's
-   tasks carry the agent's mark. Folds are remembered (task-page.js). A task
+   itself is marked where it stands and its workstream opened, with what it
+   holds under it (its description and its files, the one open marked with
+   the map's spark); Claude's tasks carry the agent's mark. Folds are remembered (task-page.js). A task
    in no project has a map of itself alone. #}
 {% macro chevron() %}<svg class="map-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 3 7.5 6 4.5 9"/></svg>{% endmacro %}
 {% macro gap() %}<span class="map-chevron-gap" aria-hidden="true"></span>{% endmacro %}
@@ -13,14 +14,55 @@
 {% macro agent_mark() %}<svg class="map-agent" viewBox="0 0 20 20" role="img" aria-label="Claude's"><rect x="4" y="6.5" width="12" height="9" rx="2.5"/><path d="M10 3.5v3"/><circle cx="7.75" cy="11" r=".9"/><circle cx="12.25" cy="11" r=".9"/></svg>{% endmacro %}
 {% macro box(status) %}<span class="map-box" data-status="{{ status }}" aria-hidden="true"></span>{% endmacro %}
 
-{% macro task_row(t, depth) %}
+{% macro file_rows(nodes, depth) %}
+{% for n in nodes %}
+{% if n.kind == "folder" %}
+<li class="map-fold" data-fold="files-{{ n.path }}">
+  <button type="button" class="map-row map-toggle" style="--depth: {{ depth }}" aria-expanded="true"
+          aria-controls="map-files-{{ n.path | replace(' ', '_') }}">
+    {{ chevron() }}{{ folder_icon() }}<span class="map-name">{{ n.name }}</span>
+  </button>
+  <ul class="map-group" id="map-files-{{ n.path | replace(' ', '_') }}">{{ file_rows(n.children, depth + 1) }}</ul>
+</li>
+{% else %}
 <li>
-  <a class="map-row map-task" href="/tasks/{{ t.id }}" style="--depth: {{ depth }}"
-     {%- if t.here %} aria-current="page"{% endif %} title="{{ t.title }}">
+  <a class="map-row map-file" href="{{ n.href }}" style="--depth: {{ depth }}" title="{{ n.path }}"
+     {%- if n.open %} aria-current="page"{% endif %}>
+    {{ gap() }}{{ doc_icon() }}<span class="map-name">{{ n.name }}</span>
+  </a>
+</li>
+{% endif %}
+{% endfor %}
+{% endmacro %}
+
+{# A task's row; the task itself has what it holds under it: its
+   description, its files, and a line to add one (a path names folders). #}
+{% macro task_row(t, depth, holds) %}
+<li>
+  <a class="map-row map-task{% if t.here %} is-here{% endif %}" href="/tasks/{{ t.id }}" style="--depth: {{ depth }}"
+     title="{{ t.title }}">
     {{ gap() }}{{ box(t.status) }}<span class="map-name">{{ t.title }}</span>
     {#- The task itself carries the mark always, shown as it is Claude's (app.css), whose it is changing on its page. #}
     {%- if t.claude or t.here %}{{ agent_mark() }}{% endif %}
   </a>
+  {% if t.here %}
+  <ul class="map-group map-holds">
+    <li>
+      <a class="map-row map-file" href="/tasks/{{ t.id }}" style="--depth: {{ depth + 1 }}"
+         {%- if holds.description_open %} aria-current="page"{% endif %}>
+        {{ gap() }}{{ doc_icon() }}<span class="map-name">Description</span>
+      </a>
+    </li>
+    {{ file_rows(holds.files, depth + 1) }}
+    <li>
+      <form class="map-row map-new" style="--depth: {{ depth + 1 }}" hx-post="/ui/tasks/{{ t.id }}/files" hx-swap="none">
+        {{ gap() }}<svg class="map-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4.5v11"/><path d="M4.5 10h11"/></svg>
+        <input name="path" required autocomplete="off" spellcheck="false" placeholder="New file"
+               aria-label="New file: its name, or a path for its folders">
+      </form>
+    </li>
+  </ul>
+  {% endif %}
 </li>
 {% endmacro %}
 
@@ -66,7 +108,7 @@
         {{ chevron() }}{{ lane_icon() }}<span class="map-name">{{ lane.name }}</span><span class="map-meta">{{ lane.open | length }}</span>
       </button>
       <ul class="map-group" id="map-lane-{{ lane.key }}"{% if not lane.here %} hidden{% endif %}>
-        {% for t in lane.open %}{{ task_row(t, 1) }}{% endfor %}
+        {% for t in lane.open %}{{ task_row(t, 1, map) }}{% endfor %}
         {% if lane.done %}
         {% set here_done = lane.done | selectattr("here") | list %}
         <li class="map-fold" data-fold="done-{{ lane.key }}"{% if here_done %} data-here{% endif %}>
@@ -75,7 +117,7 @@
             {{ chevron() }}<span class="map-name">{{ lane.done | length }} done</span>
           </button>
           <ul class="map-group" id="map-done-{{ lane.key }}"{% if not here_done %} hidden{% endif %}>
-            {% for t in lane.done %}{{ task_row(t, 2) }}{% endfor %}
+            {% for t in lane.done %}{{ task_row(t, 2, map) }}{% endfor %}
           </ul>
         </li>
         {% elif not lane.open %}
@@ -90,6 +132,6 @@
     <svg class="map-icon map-flag" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
     <span class="map-name">No project</span>
   </p>
-  <ul class="map-tree">{{ task_row(map.here, 0) }}</ul>
+  <ul class="map-tree">{{ task_row(map.here, 0, map) }}</ul>
   {% endif %}
 </nav>

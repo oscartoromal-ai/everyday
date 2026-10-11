@@ -21,7 +21,6 @@ Runners are anything shaped as agent_runs.Runner, so tests stand in fakes.
 from __future__ import annotations
 
 import logging
-import re
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -33,7 +32,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.models import Task, TaskRun, TaskStatus
-from app.services import DomainError, everyday, project_files, task_runs
+from app.services import DomainError, everyday, project_files, task_files, task_runs
 from app.services import github as github_svc
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
@@ -46,6 +45,7 @@ from app.services.agent_runs import (
     _git,
     remove_worktree,
 )
+from app.services.everyday import words
 from app.services.syncing import Syncing
 from app.sources.github import GitHubError, find_cli
 
@@ -74,11 +74,6 @@ CLONE_TIMEOUT = 600
 
 
 # ---- where it works ----
-
-
-def words(title: str) -> str:
-    """A title's words for a branch or a folder: lower case, hyphens, short."""
-    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:40].strip("-") or "task"
 
 
 def branch_of(task: Task) -> str:
@@ -183,6 +178,15 @@ def brief_text(task: Task, where: str, branch: str) -> str:
         + (f" (besides AGENTS.md: {', '.join(others)})" if others else "")
         + ", which you may update when what you learn should outlast this task."
     )
+    files_folder = task_files.folder_for(task)
+    held = task_files.paths(task.id)
+    files = (
+        f"The task's files are Markdown documents in {files_folder}"
+        + (f": {', '.join(held)}" if held else " (none yet)")
+        + ". Read them before you start. Write what you make for the task beyond code "
+        "(a plan, research, notes) there, as Markdown, not in the repositories: Oscar reads "
+        "them on the task's page."
+    )
     report = (
         f"curl -s -X POST {app_url()}/api/tasks/{task.id}/report "
         '-H "Content-Type: application/json" '
@@ -198,6 +202,9 @@ def brief_text(task: Task, where: str, branch: str) -> str:
             "",
             "## What done means",
             acceptance,
+            "",
+            "## Its files",
+            files,
             "",
             f"## Its project: {project.name}",
             context,

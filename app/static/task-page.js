@@ -44,10 +44,23 @@
     map.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" });
   }
 
-  /* ---- the outline: the description's headings, as written ---- */
+  // The file open renamed (doc-editor.js): its row on the map follows.
+  page.addEventListener("doc:moved", (e) => {
+    const row = map?.querySelector('.map-file[aria-current="page"]');
+    if (!row) return;
+    row.href = e.detail.href;
+    row.title = e.detail.path;
+    row.querySelector(".map-name").textContent = e.detail.name;
+  });
+
+  /* ---- the outline: the open document's headings, as written (its
+     description, or the task's file open in its place) ---- */
 
   const editorRoot = () => page.querySelector("[data-notes-editor]");
   const field = () => page.querySelector("textarea[name=notes]");
+  const docView = () => (page.querySelector(".doc-page") ? window.DocEditor?.view : null);
+  const viewOf = () => docView() || window.NotesEditor?.viewOf(editorRoot());
+  const written = () => (docView() ? docView().state.doc.toString() : field()?.value);
   const outline = document.querySelector("[data-outline]");
   const FENCE = /^ {0,3}(`{3,}|~{3,})/;
   const headings = (text) => {
@@ -69,8 +82,9 @@
     return found;
   };
   const drawOutline = () => {
-    if (!outline || !field()) return;
-    const found = headings(field().value);
+    const text = written();
+    if (!outline || text == null) return;
+    const found = headings(text);
     const top = Math.min(...found.map((h) => h.level));
     outline.replaceChildren(...found.map((h) => {
       const li = document.createElement("li");
@@ -86,7 +100,7 @@
   };
   outline?.addEventListener("click", (e) => {
     const button = e.target.closest("button[data-line]");
-    const view = window.NotesEditor?.viewOf(editorRoot());
+    const view = viewOf();
     if (!button || !view) return;
     const line = view.state.doc.line(Math.min(+button.dataset.line, view.state.doc.lines));
     // The heading at the window's top, with room above it; the caret at its start.
@@ -99,7 +113,10 @@
   page.addEventListener("input", (e) => {
     if (e.target.matches?.("textarea[name=notes]")) drawOutline();
   });
+  page.addEventListener("doc:changed", drawOutline);
   drawOutline();
+  // A file's editor is made as the page is ready (doc-editor.js runs first).
+  window.addEventListener("DOMContentLoaded", drawOutline);
 
   /* ---- whose task: the agent work pane follows ---- */
 
@@ -111,11 +128,24 @@
     page.dataset.owner = e.detail.value;
     if (work) work.dataset.owner = e.detail.value;
   });
-  // Hand to an agent: the sheet's owner set, and saved, as its menu sets it.
+  // Hand to an agent: the sheet's owner set, and saved, as its menu sets it;
+  // where the page shows a file of the task's instead, saved on its own.
   document.addEventListener("click", (e) => {
     const button = e.target.closest?.("[data-sheet-set]");
+    if (!button) return;
     const form = page.querySelector('.task-sheet[data-sheet="page"]');
-    if (!button || !form) return;
+    if (!form) {
+      const { sheetSet: name, value } = button.dataset;
+      fetch(`/ui/tasks/${page.dataset.taskId}/${name}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRF": window.csrfToken() },
+        body: new URLSearchParams({ [name]: value }),
+      }).then((res) => {
+        if (!res.ok) throw new Error();
+        page.dispatchEvent(new CustomEvent("sheet:field", { detail: { name, value } }));
+      }).catch(() => window.toast("Could not hand it to an agent. Try again?"));
+      return;
+    }
     form.dispatchEvent(new CustomEvent("sheet:set", {
       bubbles: true, detail: { name: button.dataset.sheetSet, value: button.dataset.value },
     }));
