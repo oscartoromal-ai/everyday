@@ -1510,14 +1510,21 @@
   toNow();
   place();
 
-  // Back here (from a task's page opened on it): the cursor where it was,
-  // focused if it was, and the same time and rows in view (shell.js).
+  // Back here (from a task's page opened on it), or the project opened
+  // again: the same time and rows in view, by their days, whatever the
+  // sheet now starts on, and the cursor where it was, focused if it was
+  // (shell.js).
   window.keepPlace?.("gantt", () => ({
-    cursor, top: sheet.scrollTop, left: sheet.scrollLeft, focused: sheet.contains(document.activeElement),
+    first: firstDay(),
+    leftDays: (sheet.scrollLeft / colWidth()) * colDays(),
+    top: sheet.scrollTop,
+    cursor: cursor && { key: cursor.key, col: cursor.col, day: isTime(cursor.col) ? dayOf(cursor.col) : null },
+    focused: sheet.contains(document.activeElement),
   }), (kept) => {
-    if (!kept.cursor || !rowOf(kept.cursor.key)) return;
+    const moved = (new Date(kept.first) - new Date(firstDay())) / DAY_MS;
+    if (Number.isFinite(moved)) sheet.scrollLeft = ((kept.leftDays + moved) / colDays()) * colWidth();
     sheet.scrollTop = kept.top;
-    sheet.scrollLeft = kept.left;
-    moveTo(kept.cursor.key, kept.cursor.col, { focus: kept.focused });
+    if (!kept.cursor || !rowOf(kept.cursor.key)) return;
+    moveTo(kept.cursor.key, kept.cursor.day ? colOf(kept.cursor.day) : kept.cursor.col, { focus: kept.focused });
   });
 })();

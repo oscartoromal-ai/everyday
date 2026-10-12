@@ -1,5 +1,5 @@
 /* Shell chrome shared by every page: the light/dark toggle, the collapsible
-   sidebar and its folding projects, the agent window expanded and collapsed, Back to the page before, the keys that work everywhere, the confirm dialog behind
+   sidebar and its folding projects, the agent window expanded and collapsed, Back to the page before, a project opened again where it was left, the keys that work everywhere, the confirm dialog behind
    hx-confirm, and the desktop app's title bar and taskbar count. The saved theme and sidebar state are first applied by the
    inline script in base.html's <head>, before paint; this file keeps them
    in step with the controls. */
@@ -659,10 +659,65 @@
     return entry ? { url: new URL(entry.url), name: keptAt(entry).name } : null;
   };
 
-  // Arriving back (or reloaded), the place each script kept, once.
+  /* A project opened again from elsewhere (the sidebar, Projects, a task's
+     map, the command menu) opens on the page it was left on, its Overview,
+     Tasks, Gantt or a document, and as it was left there: the window's
+     scroll and what the page's script keeps. Its tabs and its links within
+     it go where they say. Kept on this machine, a project each. */
+  const PROJECT_PAGE = /^\/projects\/(\d+)(?:\/|$)/;
+  const projectOf = (url) => url.pathname.match(PROJECT_PAGE)?.[1] ?? null;
+  const LEFT = "pc-project-left:";
+  const OPENING = "pc-project-opening";
+  // Where to open it: where it was left, but a document deleted since
+  // leaves its project on the Overview.
+  const leftAt = async (id) => {
+    const overview = { href: `/projects/${id}` };
+    let left = null;
+    try { left = JSON.parse(localStorage.getItem(LEFT + id)); } catch { /* none kept */ }
+    if (typeof left?.href !== "string" || projectOf(new URL(left.href, location.href)) !== id) return overview;
+    if (left.href.startsWith(`${overview.href}/docs/`)) {
+      try {
+        if (!(await fetch(left.href)).ok) return overview;
+      } catch { return overview; }
+    }
+    return left;
+  };
+  window.openProject = async (project) => {
+    const id = String(project);
+    const to = projectOf(location) === id ? { href: `/projects/${id}` } : await leftAt(id);
+    try { sessionStorage.setItem(OPENING, JSON.stringify(to)); } catch { /* opens, not as it was */ }
+    location.assign(to.href);
+  };
+  // A page's own "‹" link names the page it goes to (below), so it is not one.
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest?.("a[href]:not(.page-back)");
+    if (!link || e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    const url = new URL(link.href, location.href);
+    const id = url.origin === location.origin && !url.search && !url.hash ? url.pathname.match(/^\/projects\/(\d+)$/)?.[1] : null;
+    if (!id || projectOf(location) === id) return;
+    e.preventDefault();
+    window.openProject(id);
+  });
+  // The project page being opened that way, once.
+  const opening = (() => {
+    let to = null;
+    try {
+      to = JSON.parse(sessionStorage.getItem(OPENING));
+      sessionStorage.removeItem(OPENING);
+    } catch { return null; }
+    if (typeof to?.href !== "string") return null;
+    const url = new URL(to.href, location.href);
+    return url.pathname === location.pathname && url.search === location.search ? to : null;
+  })();
+  if (opening?.scroll) document.addEventListener("DOMContentLoaded", () => window.scrollTo(0, opening.scroll));
+
+  // Arriving back (or reloaded), the place each script kept, once; or a
+  // project's, opened again.
   const arrivedBy = sessionHistory?.activation?.navigationType;
   const returning = arrivedBy === "traverse" || arrivedBy === "reload";
-  const kept = returning && sessionHistory.currentEntry ? keptAt(sessionHistory.currentEntry) : {};
+  const kept = returning && sessionHistory.currentEntry
+    ? keptAt(sessionHistory.currentEntry)
+    : { places: opening?.places };
   const keepers = new Map();
   window.keepPlace = (name, save, restore) => {
     keepers.set(name, save);
@@ -670,12 +725,17 @@
   };
   if (sessionHistory?.currentEntry) keepAt(sessionHistory.currentEntry, { ...kept, name: pageName() });
   window.addEventListener("pagehide", () => {
-    if (!sessionHistory?.currentEntry) return;
     const places = {};
     for (const [name, save] of keepers) {
       try { places[name] = save(); } catch { /* that one is not kept */ }
     }
-    keepAt(sessionHistory.currentEntry, { name: pageName(), places });
+    if (sessionHistory?.currentEntry) keepAt(sessionHistory.currentEntry, { name: pageName(), places });
+    const project = projectOf(location);
+    if (project) {
+      try {
+        localStorage.setItem(LEFT + project, JSON.stringify({ href: location.pathname + location.search, scroll: scrollY, places }));
+      } catch { /* full or off: opens on its Overview */ }
+    }
   });
   // A page restored as it was left (the back-forward cache) would show what
   // has changed since as it was: drawn again instead.
