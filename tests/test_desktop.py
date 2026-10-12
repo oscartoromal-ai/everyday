@@ -149,6 +149,55 @@ def test_the_taskbar_badge_counts_to_nine_then_nine_plus() -> None:
         assert image.getpixel((12, 3))[:3] == win32.SPARK
 
 
+def test_a_taskbar_slow_to_answer_is_asked_again_soon_and_the_tray_counts_meanwhile(
+    monkeypatch, caplog
+) -> None:
+    # Just woken from a night's sleep, Explorer was slow to answer, Windows
+    # gave up on the badge with ERROR_TIMEOUT, and the app logged an error
+    # and left the tray icon uncounted for a minute (error:31add7ee2eb0).
+    from contextlib import nullcontext
+
+    from app import db, desktop
+    from app.services import nudges
+
+    monkeypatch.setattr(db, "get_session_factory", lambda: lambda: nullcontext())
+    monkeypatch.setattr(nudges, "on_today", lambda session, day: ["one", "two"])
+
+    class Badge:
+        def __init__(self) -> None:
+            # As ctypes raises a failed HRESULT: HRESULT_FROM_WIN32(ERROR_TIMEOUT).
+            timeout = "This operation returned because the timeout period expired"
+            self.answers = [OSError(None, timeout, None, -2147023436)]
+            self.shown: list[int] = []
+
+        def show(self, hwnd: int, count: int) -> None:
+            if self.answers:
+                raise self.answers.pop()
+            self.shown.append(count)
+
+    badge = Badge()
+    monkeypatch.setattr(desktop.win32, "TaskbarBadge", lambda: badge)
+    counted: list[int] = []
+    waits: list[float] = []
+    shell = object.__new__(desktop.Shell)
+    handle = SimpleNamespace(ToInt64=lambda: 1)
+    shell.window = SimpleNamespace(native=SimpleNamespace(Handle=handle))
+    shell.tray = SimpleNamespace(show_count=counted.append)
+    shell.quitting = False
+
+    def wait(seconds: float) -> None:
+        waits.append(seconds)
+        shell.quitting = len(waits) == 2
+
+    shell.badge_due = SimpleNamespace(wait=wait, clear=lambda: None)
+    shell._count_nudges()
+
+    assert waits == [desktop.BADGE_RETRY_SECONDS, desktop.BADGE_SECONDS]
+    assert counted == [2, 2]
+    assert badge.shown == [2]
+    assert [r.levelname for r in caplog.records] == ["WARNING"]
+
+
 def test_the_tray_icon_takes_a_dot_and_keeps_its_drawing() -> None:
     base = Image.new("RGBA", (24, 24), (255, 255, 255, 255))
     dotted = tray.with_dot(base)

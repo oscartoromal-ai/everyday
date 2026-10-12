@@ -67,6 +67,9 @@ CLAIM_SECONDS = 60
 ICON = REPO_ROOT / "app" / "static" / "icons" / "app.ico"
 # How often the nudges waiting are counted again, besides as they change.
 BADGE_SECONDS = 60
+# How soon a count the taskbar did not take is shown again: Windows gives up
+# on the taskbar when it is slow to answer, as when the PC has just woken.
+BADGE_RETRY_SECONDS = 5
 # The languages Oscar writes in: a word is spelt right in any of them. WebView2
 # checks with Windows' own spellers, so each needs Windows' basic typing
 # feature for its language (Language.Basic~~~es-ES~0.0.1.0, as admin).
@@ -550,25 +553,37 @@ class Shell:
     # ---- the nudges waiting: a number on the taskbar button, a dot on the tray icon ----
 
     def _count_nudges(self) -> None:
-        from app.db import get_session_factory
-        from app.services import nudges as nudges_svc
-
         try:
             badge = win32.TaskbarBadge()
         except OSError:
             log.exception("No taskbar badge")
             badge = None
         while not self.quitting:
-            try:
-                with get_session_factory()() as db:
-                    count = len(nudges_svc.on_today(db, date.today()))
-                if badge:
-                    badge.show(self.hwnd, count)
-                self.tray.show_count(count)
-            except Exception:
-                log.exception("Counting the nudges failed")
-            self.badge_due.wait(BADGE_SECONDS)
+            self.badge_due.wait(self._show_nudges(badge))
             self.badge_due.clear()
+
+    def _show_nudges(self, badge: win32.TaskbarBadge | None) -> float:
+        """The nudges waiting counted, on the tray icon and the taskbar
+        button, and how long until they are counted again. A taskbar slow to
+        answer is asked again soon, the tray icon counting meanwhile."""
+        from app.db import get_session_factory
+        from app.services import nudges as nudges_svc
+
+        try:
+            with get_session_factory()() as db:
+                count = len(nudges_svc.on_today(db, date.today()))
+            self.tray.show_count(count)
+        except Exception:
+            log.exception("Counting the nudges failed")
+            return BADGE_SECONDS
+        if badge:
+            try:
+                badge.show(self.hwnd, count)
+            except OSError as exc:
+                log.warning("The taskbar did not take the nudges' count, again in %ss: %s",
+                            BADGE_RETRY_SECONDS, exc)
+                return BADGE_RETRY_SECONDS
+        return BADGE_SECONDS
 
 
 class OpenRequest(BaseModel):
