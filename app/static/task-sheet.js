@@ -1255,7 +1255,9 @@
       form._saved = body;
       titleOf(form).dataset.original = titleText(form);
       document.title = `${titleText(form)} · Personal Calendar`;
-      sayState("Saved");
+      // A change made while it was sent (a workstream picked sets its
+      // project first) is yet to be: the save after this one says so.
+      sayState(snapshot(form) === body ? "Saved" : "");
     }).catch((err) => {
       sayState("Not saved");
       window.toast(err.message || "Could not save the task. Try again?");
