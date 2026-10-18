@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Form, Request
+from fastapi import APIRouter, Body, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -181,38 +181,60 @@ def task_row(request: Request, db: DbSession, task_id: int):
     return _row_response(request, db, task_id)
 
 
-def _save_task(
-    db,  # noqa: ANN001
-    task_id: int,
-    *,
-    title: str,
-    status: TaskStatus,
-    owner: TaskOwner,
-    notes: str,
-    project_id: str,
-    workstream_id: str,
-    planned_for: str,
-    due: str,
-    repeat: str,
-    estimate: str,
-    priority: str,
-) -> None:
-    """A task as its sheet (or its page) holds it."""
-    task = tasks_svc.update_task(
-        db,
-        task_id,
-        title=title,
-        notes=notes,
-        status=status,
-        owner=owner,
-        project_id=int(project_id) if project_id else None,
-        workstream_id=int(workstream_id) if workstream_id else None,
-        planned_for=date.fromisoformat(planned_for) if planned_for else None,
-        due=date.fromisoformat(due) if due else None,
-        estimate_minutes=_estimate(estimate),
-        priority=_priority(priority),
-    )
-    _apply_task_repeat(db, task, repeat)
+def _id(value: str) -> int | None:
+    return int(value) if value else None
+
+
+def _day(value: str) -> date | None:
+    return date.fromisoformat(value) if value else None
+
+
+# A sheet's fields: the task's field each sets, and how from the words sent.
+_SHEET_FIELDS = {
+    "title": ("title", str),
+    "notes": ("notes", str),
+    "status": ("status", TaskStatus),
+    "owner": ("owner", TaskOwner),
+    "project_id": ("project_id", _id),
+    "workstream_id": ("workstream_id", _id),
+    "planned_for": ("planned_for", _day),
+    "due": ("due", _day),
+    "estimate": ("estimate_minutes", _estimate),
+    "priority": ("priority", _priority),
+}
+
+
+async def _sheet_sent(request: Request) -> dict[str, str]:
+    """The fields a task's sheet (or its page) sent, read off the form as
+    they are: FastAPI's own Form() takes one sent empty (a day cleared) for
+    one not sent."""
+    form = await request.form()
+    return {
+        name: value
+        for name in (*_SHEET_FIELDS, "repeat")
+        if isinstance(value := form.get(name), str)
+    }
+
+
+SheetSent = Annotated[dict[str, str], Depends(_sheet_sent)]
+
+
+def _save_task(db, task_id: int, sent: dict[str, str]) -> None:  # noqa: ANN001
+    """What a task's sheet (or its page) changed: the fields it sends, only
+    those, so one changed elsewhere meanwhile (its status, as its pull
+    request merges) is not put back."""
+    fields = {}
+    for name, (field, parse) in _SHEET_FIELDS.items():
+        if name in sent:
+            try:
+                fields[field] = parse(sent[name])
+            except DomainError:
+                raise
+            except ValueError as exc:  # a status, an owner or a day it is not
+                raise DomainError(f"Not the task's {name}: {sent[name]}") from exc
+    task = tasks_svc.update_task(db, task_id, **fields)
+    if "repeat" in sent:
+        _apply_task_repeat(db, task, sent["repeat"])
     db.commit()
 
 
@@ -221,23 +243,9 @@ def save_task(
     request: Request,
     db: DbSession,
     task_id: int,
-    title: Annotated[str, Form()],
-    status: Annotated[TaskStatus, Form()],
-    owner: Annotated[TaskOwner, Form()],
-    notes: Annotated[str, Form()] = "",
-    project_id: Annotated[str, Form()] = "",
-    workstream_id: Annotated[str, Form()] = "",
-    planned_for: Annotated[str, Form()] = "",
-    due: Annotated[str, Form()] = "",
-    repeat: Annotated[str, Form()] = "none",
-    estimate: Annotated[str, Form()] = "",
-    priority: Annotated[str, Form()] = "",
+    sent: SheetSent,
 ):
-    _save_task(
-        db, task_id, title=title, status=status, owner=owner, notes=notes,
-        project_id=project_id, workstream_id=workstream_id, planned_for=planned_for,
-        due=due, repeat=repeat, estimate=estimate, priority=priority,
-    )
+    _save_task(db, task_id, sent)
     response = _row_response(request, db, task_id)
     # Its day or estimate may have changed: lists grouped or filtered by day,
     # and the days' loads on the time grid, re-render.
@@ -282,25 +290,11 @@ def _apply_task_repeat(db, task, repeat: str) -> None:  # noqa: ANN001
 def save_task_page(
     db: DbSession,
     task_id: int,
-    title: Annotated[str, Form()],
-    status: Annotated[TaskStatus, Form()],
-    owner: Annotated[TaskOwner, Form()],
-    notes: Annotated[str, Form()] = "",
-    project_id: Annotated[str, Form()] = "",
-    workstream_id: Annotated[str, Form()] = "",
-    planned_for: Annotated[str, Form()] = "",
-    due: Annotated[str, Form()] = "",
-    repeat: Annotated[str, Form()] = "none",
-    estimate: Annotated[str, Form()] = "",
-    priority: Annotated[str, Form()] = "",
+    sent: SheetSent,
 ) -> None:
     """A task's page, saved as it is written (task-sheet.js): nothing to draw
     again, the page already shows what it holds."""
-    _save_task(
-        db, task_id, title=title, status=status, owner=owner, notes=notes,
-        project_id=project_id, workstream_id=workstream_id, planned_for=planned_for,
-        due=due, repeat=repeat, estimate=estimate, priority=priority,
-    )
+    _save_task(db, task_id, sent)
 
 
 @router.post("/tasks/{task_id}/delete")

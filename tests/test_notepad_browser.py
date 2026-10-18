@@ -1224,3 +1224,37 @@ def test_nudges_and_strips_fold_and_stay_folded(page, live, app_db) -> None:
     assert nudges.get_attribute("open") == ""
     nudges.locator(".nudge-dismiss").click()
     nudges.wait_for(state="detached")
+
+
+def test_a_task_saved_from_the_notes_keeps_what_was_changed_elsewhere(page, live, app_db) -> None:
+    from datetime import timedelta
+
+    from app.models import TaskStatus
+    from app.services import tasks as tasks_svc
+
+    page.goto(f"{live}/today")
+    write_in(page)
+    page.keyboard.type("- [ ] Ship the release")
+    page.keyboard.press("Enter")
+    page.keyboard.type("- tag it")
+    page.keyboard.press("Control+Enter")
+    page.locator(".cal-toast.show", has_text="Task added: Ship the release").wait_for()
+    with app_db() as db:
+        [task] = tasks_svc.list_tasks(db)
+        task_id = task.id
+        # While Today is open, Claude starts it and gives it a due.
+        tasks_svc.update_task(
+            db, task_id, status=TaskStatus.in_progress, due=TODAY + timedelta(days=2)
+        )
+        db.commit()
+
+    page.keyboard.press("ArrowUp")
+    page.keyboard.press("End")
+    page.keyboard.type(" v2")
+    page.keyboard.press("Escape")
+    page.locator(".cal-toast.show", has_text="Task saved: Ship the release").wait_for()
+    with app_db() as db:
+        task = tasks_svc.get_task(db, task_id)
+        assert task.notes == "- tag it v2"
+        assert task.status == TaskStatus.in_progress
+        assert task.due == TODAY + timedelta(days=2)

@@ -110,6 +110,30 @@ def test_editing_saves_when_focus_leaves_the_sheet(page, live, app_db) -> None:
         assert task.notes == "- oil"
 
 
+def test_an_edit_keeps_what_was_changed_elsewhere_meanwhile(page, live, app_db) -> None:
+    with app_db() as db:
+        home = projects_svc.create_project(db, name="Home")
+        task_id = tasks_svc.create_task(db, title="Mow", project_id=home.id).id
+        db.commit()
+    page.goto(f"{live}/projects/{home.id}/tasks")
+    sheet = page.locator(".task-sheet[data-sheet=edit][data-ready]")
+    page.locator(".task-title-btn", has_text="Mow").click()
+    sheet.wait_for()
+    # While it is open, Claude starts it and writes its description.
+    with app_db() as db:
+        tasks_svc.update_task(db, task_id, status="in_progress", notes="- oil")
+        db.commit()
+    page.keyboard.type(" the lawn")
+    page.keyboard.press("Escape")
+    sheet.wait_for(state="detached")
+
+    with app_db() as db:
+        task = tasks_svc.get_task(db, task_id)
+        assert task.title == "Mow the lawn"
+        assert task.status == "in_progress"
+        assert task.notes == "- oil"
+
+
 @pytest.mark.parametrize("leave", ["Alt+1", "Control+k"])
 def test_an_edit_goes_with_a_page_chosen_from_the_keys(page, live, app_db, leave) -> None:
     """Left by a key (Alt+1 to Today, or Ctrl+K and Calendar chosen there)

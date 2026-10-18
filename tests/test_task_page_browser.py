@@ -106,6 +106,40 @@ def test_its_box_steps_it_through_progress_and_review_to_done(page, live, app_db
         assert box.evaluate("el => el.indeterminate") == (status in ("in_progress", "needs_review"))
 
 
+def test_writing_on_it_keeps_what_was_changed_elsewhere(page, live, app_db) -> None:
+    with app_db() as db:
+        task = tasks_svc.create_task(db, title="Ship the release", planned_for=TODAY)
+        tasks_svc.set_status(db, task.id, "in_progress")
+        db.commit()
+    page.goto(f"{live}/tasks/{task.id}")
+    # While it is open, its pull request merges and Claude gives it a due.
+    with app_db() as db:
+        tasks_svc.update_task(db, task.id, status="done", due=TODAY + timedelta(days=3))
+        db.commit()
+    page.locator(".main [data-notes-editor]").click()
+    page.keyboard.type("Tagged v2.")
+    page.locator("[data-page-state]", has_text=SAVED).wait_for()
+    with app_db() as db:
+        stored_task = db.get(Task, task.id)
+        assert stored_task.notes == "Tagged v2."
+        assert stored_task.status == "done"
+        assert stored_task.due == TODAY + timedelta(days=3)
+
+    # What is changed on it is saved over them: its own field, and only it.
+    # (The header still says Saved from before: the task is what tells.)
+    page.locator("[data-sheet-check]").click()
+    deadline = time.monotonic() + 5
+    while True:
+        with app_db() as db:
+            stored_task = db.get(Task, task.id)
+            status, due = stored_task.status, stored_task.due
+        if status == "needs_review" or time.monotonic() > deadline:
+            break
+        time.sleep(0.05)
+    assert status == "needs_review"
+    assert due == TODAY + timedelta(days=3)
+
+
 def test_its_description_is_read_drawn_and_its_mode_remembered(page, live, app_db) -> None:
     with app_db() as db:
         task = tasks_svc.create_task(
