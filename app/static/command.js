@@ -124,7 +124,7 @@
         go(t.href)();
       },
     })),
-    ...found.projects.map((p) => ({ kind: "Project", label: p.name, color: p.color, run: go(`/projects/${p.id}`) })),
+    ...found.projects.map((p) => ({ kind: "Project", label: p.name, color: p.color, run: () => window.openProject(p.id) })),
     ...found.events.map((e) => ({
       kind: "Event", label: e.title, meta: e.when, done: e.cancelled,
       run: go(`/calendar?view=day&start=${e.day}&event=${e.id}`),
