@@ -246,6 +246,13 @@ def test_a_tasks_work_is_written_on_its_page(page, live, app_db) -> None:
     assert work(app_db)["prs"] == []
 
 
+# The text of the editor's line the caret is on, as drawn.
+CARET_LINE = (
+    "(n => (n.nodeType === 1 ? n : n.parentElement).closest('.cm-line')?.textContent)"
+    "(window.getSelection().anchorNode)"
+)
+
+
 def test_its_sidebar_panes_are_chosen_by_their_icons(page, live, app_db) -> None:
     with app_db() as db:
         task = tasks_svc.create_task(
@@ -259,9 +266,11 @@ def test_its_sidebar_panes_are_chosen_by_their_icons(page, live, app_db) -> None
     page.locator('[data-side-tab="outline"]').click()
     assert page.evaluate(is_open)
     assert page.locator(".outline button").all_inner_texts() == ["Plan", "Flights"]
-    # A heading's line takes the caret.
+    # A heading's line takes the caret, at its start, its marks showing once
+    # the editor has focus (CodeMirror hears of focus a moment late).
     page.locator(".outline button", has_text="Flights").click()
-    assert page.evaluate("window.getSelection().anchorNode.textContent").startswith("Flights")
+    page.wait_for_function(CARET_LINE + " === '## Flights'")
+    assert page.evaluate("window.getSelection().anchorOffset") == 0
     # Another icon shows its pane; the shown pane's icon collapses the sidebar.
     page.locator('[data-side-tab="history"]').click()
     page.locator("#side-history .history-step").first.wait_for()
