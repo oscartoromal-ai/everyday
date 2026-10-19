@@ -1258,3 +1258,45 @@ def test_a_task_saved_from_the_notes_keeps_what_was_changed_elsewhere(page, live
         assert task.notes == "- tag it v2"
         assert task.status == TaskStatus.in_progress
         assert task.due == TODAY + timedelta(days=2)
+
+
+def test_rows_moved_up_or_down_keep_their_tasks(page, live, app_db) -> None:
+    """Alt+Up and Alt+Down move the caret's row over the next: a task row,
+    the one moved or the one moved over, stays its task, and none is added."""
+    from app.services import tasks as tasks_svc
+
+    def tasks() -> list:
+        with app_db() as db:
+            return sorted((t.title, t.id) for t in tasks_svc.list_tasks(db))
+
+    page.goto(f"{live}/today")
+    write_in(page)
+    page.keyboard.type("Morning.")
+    page.keyboard.press("Enter")
+    for title in ("One", "Two"):
+        page.keyboard.type(f"- [ ] {title}")
+        page.keyboard.press("Control+Enter")
+        page.locator(".cal-toast.show", has_text=f"Task added: {title}").wait_for()
+    page.keyboard.type("After.")
+    [(_, one), (_, two)] = tasks()
+
+    page.keyboard.press("ArrowUp")  # on Two
+    page.keyboard.press("Alt+ArrowUp")
+    assert text_of(page) == "Morning.\n- [ ] Two\n- [ ] One\nAfter."
+    page.keyboard.press("Control+Home")  # on Morning.
+    page.keyboard.press("Alt+ArrowDown")
+    assert text_of(page) == "- [ ] Two\nMorning.\n- [ ] One\nAfter."
+    # Undone a move at a time, and done again, the same.
+    page.keyboard.press("Control+z")
+    assert text_of(page) == "Morning.\n- [ ] Two\n- [ ] One\nAfter."
+    page.keyboard.press("Control+z")
+    assert text_of(page) == "Morning.\n- [ ] One\n- [ ] Two\nAfter."
+    page.keyboard.press("Control+y")
+    page.keyboard.press("Control+y")
+    assert text_of(page) == "- [ ] Two\nMorning.\n- [ ] One\nAfter."
+
+    page.goto(f"{live}/projects")  # leaving adds any task row not yet added
+    saved_as(app_db, [{"kind": "text", "text": "- [ ] Two\nMorning.\n- [ ] One\nAfter.",
+                      "links": {"0": two, "2": one}}])
+    time.sleep(0.5)
+    assert tasks() == [("One", one), ("Two", two)]

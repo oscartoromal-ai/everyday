@@ -180,6 +180,32 @@
     return out;
   };
 
+  // A task row taken out and put back elsewhere by the same edit keeps its
+  // task: Alt+Up and Alt+Down (CodeMirror's moveLine) move the caret's rows
+  // by taking out the row they pass and putting it back on their other side.
+  // A lost row finds the row put back with its very words, unless that row
+  // is another task's already.
+  const moved = (list, next, tr) => {
+    const put = [];
+    tr.changes.iterChanges((fromA, toA, fromB, toB) => { if (toB > fromB) put.push([fromB, toB]); });
+    const doc = tr.state.doc;
+    const held = new Set(next.map((t) => t.pos).filter((pos) => pos != null));
+    return next.map((t, i) => {
+      if (t.pos != null) return t;
+      const words = tr.startState.doc.lineAt(list[i].pos).text;
+      for (const [from, to] of put) {
+        for (let line = doc.lineAt(from); line.from <= to; line = doc.line(line.number + 1)) {
+          if (line.text === words && !held.has(line.from)) {
+            held.add(line.from);
+            return { pos: line.from, m: t.m };
+          }
+          if (line.number === doc.lines) break;
+        }
+      }
+      return t;
+    });
+  };
+
   // [{pos, m}]: each task row's start and its task. A row keeps its task
   // through edits around it (Enter at its first word moves it down with its
   // words), and loses it with its box.
@@ -191,6 +217,7 @@
       for (const e of tr.effects) if (e.is(setTasks)) next = e.value;
       if (!next && tr.docChanged) {
         next = list.map(({ pos, m }) => ({ pos: tr.changes.mapPos(pos, 1, MapMode.TrackAfter), m }));
+        if (next.some((t) => t.pos == null)) next = moved(list, next, tr);
       }
       for (const e of tr.effects) if (e.is(restoreTasks)) next = [...e.value, ...(next || list)];
       return next ? tidy(next, tr.state.doc) : list;
