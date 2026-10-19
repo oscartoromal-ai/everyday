@@ -140,3 +140,37 @@ def test_another_agent_is_chosen_from_the_head(browser_page, served) -> None:
     page.locator(".agent-select").select_option("codex")
     page.locator("#agent-log .chat-empty", has_text="Ask Codex anything").wait_for()
     assert page.locator("#agent-panel textarea").get_attribute("placeholder") == "Ask Codex…"
+
+
+@pytest.mark.parametrize(("width", "beside"), [(1280, False), (1500, False), (1600, True)])
+def test_docked_beside_today_it_leaves_the_notes_room(browser_page, served, width, beside) -> None:
+    """Docked, the agent's window takes the page's width from Today: the
+    timeline goes under the notes until both fit side by side, the notes
+    never under the 405px they have beside it without the agent."""
+    page = browser_page
+    page.set_viewport_size({"width": width, "height": 900})
+    page.goto(f"{served}/today")
+    page.locator(".rail-button[data-agent-toggle]").click()
+    # Once it has slid in and the page stands still: the notes and the
+    # timeline, read together.
+    pad, timeline = page.evaluate("""async () => {
+        const boxes = () => ['.today-pad', '.today-timeline'].map((s) => {
+            const r = document.querySelector(s).getBoundingClientRect();
+            return { x: r.x, y: r.y, width: r.width, height: r.height };
+        });
+        const frame = () => new Promise((done) => requestAnimationFrame(done));
+        let last = JSON.stringify(boxes()), still = 0;
+        while (still < 10) {
+            await frame();
+            const now = JSON.stringify(boxes());
+            still = now === last ? still + 1 : 0;
+            last = now;
+        }
+        return boxes();
+    }""")
+    assert pad["width"] >= 405
+    if beside:
+        assert timeline["x"] >= pad["x"] + pad["width"]
+    else:
+        assert timeline["y"] >= pad["y"] + pad["height"]
+        assert timeline["width"] == pad["width"]

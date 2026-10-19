@@ -2517,7 +2517,11 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .history-line { font-size: var(--t-caption); color: var(--graphite); overflow-wrap: anywhere; }
 .history-empty { margin: 0; font-size: var(--t-caption); color: var(--pewter); }
 
-@media (max-width: 1100px) {
+/* the timeline under the notes once the page is too narrow for both side by
+   side (the notes under 405px): a narrow window, or the agent's window
+   docked beside the page */
+.main:has(> .today-page) { container: day-page / inline-size; }
+@container day-page (width < 797px) {
   .today-page { grid-template-columns: minmax(0, 1fr); gap: var(--s-6); }
   .today-pad { min-height: 0; }
   .notepad-card { min-height: 55vh; }
