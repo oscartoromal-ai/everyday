@@ -225,7 +225,11 @@ def import_export(
         parsed = bank_csv.read(data)
     except bank_csv.ExportError as exc:
         return _accounts(request, db, import_error=f"{filename} cannot be imported: {exc}.")
-    record = money_svc.import_export(db, parsed, int(account_id) if account_id else None, filename)
+    # Into the account chosen, a new one ("new"), or its bank's (none chosen).
+    record = money_svc.import_export(
+        db, parsed, int(account_id) if account_id.isdigit() else None, filename,
+        new_account=account_id == "new",
+    )
     db.commit()
     return _accounts(request, db, imported=_import_words(db, parsed, record))
 

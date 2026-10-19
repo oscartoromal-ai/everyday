@@ -119,6 +119,47 @@ def test_import_sort_and_ask_claude(browser, served) -> None:
     assert coffee.locator("select option:checked").inner_text() == "Eating out"
 
 
+def test_the_next_export_from_a_bank_goes_into_its_account(browser, served) -> None:
+    page = browser()
+    page.goto(f"{served}/accounts")
+    status = page.locator("#money-accounts [role=status]")
+    for said in ("6 added to Revolut;", "0 added to Revolut; 6 already here;"):
+        # The form as it opens: into the account its bank's exports go into.
+        assert page.locator(".money-import select option:checked").inner_text() == (
+            "Its bank's account"
+        )
+        page.set_input_files("#money-export", str(DATA / "revolut-2026-09.csv"))
+        page.click(".money-import button")
+        page.wait_for_function(
+            "said => document.querySelector('#money-accounts [role=status]')"
+            "?.innerText.includes(said)",
+            arg=said,
+        )
+    assert status.inner_text().startswith("Revolut: ")
+    assert page.locator(".money-account input[name=name]").evaluate_all(
+        "fields => fields.map(f => f.value)"
+    ) == ["Revolut"]
+    # Its money counted once: the export's closing balance.
+    net_worth = page.locator(".money-figure", has_text="Net worth").locator(".money-main")
+    assert net_worth.inner_text() == "$520"
+
+
+def test_the_import_fits_on_a_phone(browser, served) -> None:
+    page = browser(390, 844)
+    page.goto(f"{served}/accounts")
+    form = page.locator(".money-import")
+    field = form.locator(":scope > .sheet-field").bounding_box()
+    into, account = form.locator(".money-of").bounding_box(), form.locator("select").bounding_box()
+    button = form.locator("button").bounding_box()
+    # "into" and its account on one line, the account whole and in the field.
+    assert into["y"] == account["y"]
+    assert account["x"] + account["width"] <= field["x"] + field["width"]
+    assert form.locator("select").evaluate("s => s.scrollWidth <= s.clientWidth")
+    # Import under them, in line with the field.
+    assert button["y"] >= account["y"] + account["height"]
+    assert button["x"] == field["x"]
+
+
 def test_left_and_right_change_the_month(browser, served) -> None:
     page = browser()
     page.goto(f"{served}/spending/2026-09")

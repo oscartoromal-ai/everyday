@@ -102,9 +102,13 @@ def test_an_export_imported_twice_adds_each_transaction_once(db) -> None:
     )
     third = money_svc.import_export(db, bank_csv.read(more.encode()), account.id)
     assert (third.added, third.known) == (1, 6)
-    # Without an account, another is made, named apart.
-    other = money_svc.import_export(db, bank_csv.read(REVOLUT.encode()), None)
+    # Without an account, into its bank's: the one its last export went into.
+    same = money_svc.import_export(db, bank_csv.read(more.encode()), None)
+    assert (same.account_id, same.added, same.known) == (account.id, 0, 7)
+    # A new one asked for is made, named apart.
+    other = money_svc.import_export(db, bank_csv.read(REVOLUT.encode()), None, new_account=True)
     assert money_svc.account(db, other.account_id).name == "Revolut 2"
+    assert other.added == 6
 
 
 def test_rules_sort_what_is_imported_and_what_waits(db) -> None:
