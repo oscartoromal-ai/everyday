@@ -1,7 +1,8 @@
 """Health > Garmin: reading Garmin's payloads, the sync's window, what is
 kept, what Claude reads, and the page, with a stand-in for Garmin Connect
 (garmin_fake.py). The real account's error handling is tested against a
-stand-in for python-garminconnect's client."""
+stand-in for python-garminconnect's client, and signing in with a kept
+token against the real library, its network a stand-in."""
 
 from datetime import date, datetime, timedelta
 
@@ -358,6 +359,62 @@ def test_garmin_turning_requests_away_is_said_so(tmp_path, stub) -> None:
     with pytest.raises(GarminUnavailable, match="Wait a few minutes"):
         account.fetch_day(TODAY)
     assert account.has_token()  # busy, not signed out
+
+
+# ---- the real python-garminconnect, its network a stand-in ----
+
+
+@pytest.fixture
+def kept_token(tmp_path, monkeypatch):  # noqa: ANN201
+    """A token kept from an earlier sign-in, read by the real library in a
+    new process; its retries' pauses skipped."""
+    import json
+
+    folder = tmp_path / "garmin"
+    folder.mkdir()
+    (folder / "garmin_tokens.json").write_text(
+        json.dumps({"di_token": "access", "di_refresh_token": "refresh", "di_client_id": "app"})
+    )
+    monkeypatch.setattr("garminconnect.time.sleep", lambda seconds: None)
+    return GarminConnect(folder)
+
+
+def _network(monkeypatch, answer) -> None:  # noqa: ANN001
+    """Every request the library makes: raises `answer`, or answers its status."""
+    import requests
+
+    def request(self, method, url, **kwargs):  # noqa: ANN001, ANN202
+        if isinstance(answer, Exception):
+            raise answer
+        response = requests.Response()
+        response.status_code, response.url, response._content = answer, url, b"{}"
+        return response
+
+    monkeypatch.setattr(requests.Session, "request", request)
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        pytest.param("ConnectionError", id="no connection"),
+        pytest.param("Timeout", id="timed out"),
+        pytest.param(503, id="garmin down"),
+    ],
+)
+def test_garmin_out_of_reach_keeps_the_token(kept_token, monkeypatch, answer) -> None:
+    import requests
+
+    _network(monkeypatch, getattr(requests, answer)("blip") if isinstance(answer, str) else answer)
+    with pytest.raises(GarminUnavailable, match="Could not reach"):
+        kept_token.fetch_day(TODAY)
+    assert kept_token.has_token()  # the next sync signs in with it
+
+
+def test_a_token_garmin_refuses_still_signs_out(kept_token, monkeypatch) -> None:
+    _network(monkeypatch, 401)
+    with pytest.raises(GarminSignedOut):
+        kept_token.fetch_day(TODAY)
+    assert not kept_token.has_token()
 
 
 # ---- the page ----
