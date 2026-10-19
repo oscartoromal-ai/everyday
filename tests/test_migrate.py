@@ -277,3 +277,44 @@ def test_sub_tasks_written_without_a_box_take_one(tmp_path) -> None:
     with closing(sqlite3.connect(path)) as db:
         [(notes,)] = db.execute("SELECT notes FROM tasks").fetchall()
     assert notes == "Why it matters\n- [ ] fetch\n  * [ ] nested\n- [x] parsed\n```\n- code\n```"
+
+
+def test_a_task_id_is_never_given_twice_once_upgraded(tmp_path) -> None:
+    from alembic import command
+
+    path = tmp_path / "app.db"
+    command.upgrade(migrate._config(path), "e5f1a9c3d7b2")  # the version before
+    engine = make_engine(f"sqlite:///{path}")
+    try:
+        with Session(engine) as db:
+            kept = tasks_svc.create_task(db, title="Kept")
+            task_runs.add_update(db, kept, "agent", "An update the rebuild must keep.")
+            gone = tasks_svc.create_task(db, title="Gone")  # the newest, deleted
+            db.commit()
+            kept_id, gone_id = kept.id, gone.id
+            tasks_svc.delete_task(db, gone_id)
+            db.commit()
+        indexes = {i["name"] for i in inspect(engine).get_indexes("tasks")}
+    finally:
+        engine.dispose()
+
+    migrate.upgrade(path)
+
+    with closing(sqlite3.connect(path)) as db:
+        [sql] = db.execute("SELECT sql FROM sqlite_master WHERE name = 'tasks'").fetchone()
+    assert "AUTOINCREMENT" in sql
+    assert (rows(path, "tasks"), rows(path, "task_updates")) == (1, 1)
+    engine = make_engine(f"sqlite:///{path}")
+    try:
+        assert {i["name"] for i in inspect(engine).get_indexes("tasks")} == indexes
+        with Session(engine) as db:
+            assert tasks_svc.get_task(db, kept_id).title == "Kept"
+            # Past the one deleted before the upgrade, and past itself once deleted.
+            new = tasks_svc.create_task(db, title="New")
+            db.commit()
+            assert new.id == gone_id + 1
+            tasks_svc.delete_task(db, new.id)
+            db.commit()
+            assert tasks_svc.create_task(db, title="Newer").id == new.id + 1
+    finally:
+        engine.dispose()

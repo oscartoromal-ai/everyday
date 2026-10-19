@@ -180,6 +180,9 @@ class Task(Base):
         Index("ix_tasks_due", "due"),
         Index("ix_tasks_status", "status"),
         Index("ix_tasks_written_on", "written_on"),
+        # An id is never given twice: it names the task beyond its row (its
+        # folder, its history, the notes' links), past its deletion.
+        {"sqlite_autoincrement": True},
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
