@@ -165,12 +165,47 @@ def test_claudes_tools_read_and_change_through_the_app(client, db) -> None:
     wrong = run_tool(factory, "set_budget", {"category": "Snacks", "amount": 50})
     assert wrong["is_error"] and "No category called Snacks" in wrong["content"][0]["text"]
     missing = run_tool(factory, "save_bill", {"name": "Gym"})
-    assert missing["is_error"] and "Missing" in missing["content"][0]["text"]
+    assert missing["is_error"]
+    assert "A bill's amount is more than nothing" in missing["content"][0]["text"]
     db.expire_all()
     assert all(t.category.name == "Eating out" for t in money_svc.transactions(db, text="coffee"))
     assert status("mcp__money__get_month", {"month": MONTH}) == "Reading September's spending"
     assert status("mcp__money__sort_transactions", {"transaction_ids": [1]}) == (
         "Sorting 1 transaction")
+
+
+def test_claude_changing_a_bill_or_a_goal_keeps_what_it_leaves_out(client, db) -> None:
+    client.get("/accounts")
+    upload(client, "revolut-2026-09.csv")
+    revolut = money_svc.accounts(db)[0]
+    bill = money_svc.save_bill(db, name="Netflix", cents=2299, cadence="monthly",
+                               due=date(2026, 9, 15), match="netflix")
+    goal = money_svc.save_goal(db, name="Japan", target_cents=900000, by=date(2027, 3, 1),
+                               account_id=revolut.id)
+    db.commit()
+    factory = sessionmaker(bind=db.get_bind())
+
+    def call(name: str, args: dict) -> None:
+        answer = run_tool(factory, name, args)
+        assert not answer.get("is_error"), answer
+        db.expire_all()
+
+    # "Netflix went up to $25.99", "Make Japan $10,000": what Claude names.
+    call("save_bill", {"id": bill.id, "name": "Netflix", "amount": 25.99,
+                       "cadence": "monthly", "due": "2026-09-15"})
+    call("save_goal", {"id": goal.id, "name": "Japan", "target": 10000})
+    assert (bill.cents, bill.match) == (2599, "netflix")  # still seen paid
+    assert (goal.target_cents, goal.by, goal.account_id) == (1000000, date(2027, 3, 1), revolut.id)
+    # Only what changes is enough; an empty one is cleared.
+    call("save_bill", {"id": bill.id, "amount": 26.99})
+    call("save_goal", {"id": goal.id, "by": ""})
+    assert (bill.name, bill.cents, bill.cadence, bill.due, bill.match) == (
+        "Netflix", 2699, "monthly", date(2026, 9, 15), "netflix")
+    assert (goal.name, goal.target_cents, goal.by, goal.account_id) == (
+        "Japan", 1000000, None, revolut.id)
+    # A new one still needs what makes it.
+    new = run_tool(factory, "save_bill", {"name": "Gym", "amount": 30, "cadence": "weekly"})
+    assert new["is_error"] and "Give the bill a day it is due" in new["content"][0]["text"]
 
 
 def test_the_prompt_carries_the_month_and_the_chat(db) -> None:
