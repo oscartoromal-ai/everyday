@@ -220,11 +220,22 @@ def add_account(db: Session, args: dict[str, Any]) -> dict[str, Any]:
     return {"added": created.name, "kind": created.kind.value}
 
 
+def _given(args: dict[str, Any], key: str, read: Any, kept: Any) -> Any:
+    """A field as the call gives it, read; else as it was (None for a new one)."""
+    return read(args[key]) if key in args else kept
+
+
 def save_bill(db: Session, args: dict[str, Any]) -> dict[str, Any]:
+    # Changing one, what the call leaves out stays as it was.
+    was = money_svc.bill(db, int(args["id"])) if args.get("id") is not None else None
     saved = money_svc.save_bill(
-        db, bill_id=args.get("id"), name=args["name"], cents=to_cents(args["amount"]),
-        cadence=BillCadence(args.get("cadence") or "monthly"), due=_day(args["due"], "due day"),
-        match=str(args.get("match") or ""),
+        db, bill_id=was.id if was else None,
+        name=_given(args, "name", str, was.name if was else ""),
+        cents=_given(args, "amount", to_cents, was.cents if was else None),
+        cadence=_given(args, "cadence", lambda v: BillCadence(v or "monthly"),
+                       was.cadence if was else BillCadence.monthly),
+        due=_given(args, "due", lambda v: _day(v, "due day"), was.due if was else None),
+        match=_given(args, "match", lambda v: str(v or ""), was.match if was else ""),
     )
     return {"saved": saved.name, "id": saved.id}
 
@@ -236,12 +247,19 @@ def delete_bill(db: Session, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def save_goal(db: Session, args: dict[str, Any]) -> dict[str, Any]:
-    account_id = _account(db, args["account"]).id if args.get("account") else None
-    saved = args.get("saved")
+    # Changing one, what the call leaves out stays as it was; `by` or
+    # `account` given empty is cleared.
+    was = money_svc.goal(db, int(args["id"])) if args.get("id") is not None else None
     kept = money_svc.save_goal(
-        db, goal_id=args.get("id"), name=args["name"], target_cents=to_cents(args["target"]),
-        by=_day(args["by"], "by") if args.get("by") else None, account_id=account_id,
-        saved_cents=to_cents(saved, "saved") if saved not in (None, "") else None,
+        db, goal_id=was.id if was else None,
+        name=_given(args, "name", str, was.name if was else ""),
+        target_cents=_given(args, "target", to_cents, was.target_cents if was else None),
+        by=_given(args, "by", lambda v: _day(v, "by") if v else None, was.by if was else None),
+        account_id=_given(args, "account", lambda v: _account(db, v).id if v else None,
+                          was.account_id if was else None),
+        saved_cents=_given(
+            args, "saved", lambda v: to_cents(v, "saved") if v not in (None, "") else None, None
+        ),
     )
     return {"saved": kept.name, "id": kept.id}
 
@@ -340,9 +358,10 @@ TOOLS = [
          "the words its payment's description holds, and whether its last due day was seen paid "
          "(null without words); with what they come to a month.",
          _object([]), get_bills, lambda a: "Reading the bills"),
-    Tool("save_bill", "Add a bill (no id) or change one (its id). `due` is any day it falls due; "
+    Tool("save_bill", "Add a bill (no id: its name, amount, cadence and due) or change one "
+         "(its id, and only what changes: the rest stays). `due` is any day it falls due; "
          "`match` the words its payment's description holds, so the app sees it paid.",
-         _object(["name", "amount", "cadence", "due"], id={"type": "integer"},
+         _object([], id={"type": "integer"},
                  name={"type": "string"}, amount={"type": "number"},
                  cadence={"type": "string", "enum": [c.value for c in BillCadence]},
                  due=_DAY, match={"type": "string"}),
@@ -352,9 +371,10 @@ TOOLS = [
     Tool("get_goals", "His savings goals: target, by when, what is saved (an account's balance, "
          "or counted by hand), what is to go, and a month's saving that gets there.",
          _object([]), get_goals, lambda a: "Reading the goals"),
-    Tool("save_goal", "Add a goal (no id) or change one (its id): kept in an account (its "
-         "balance is the progress), or `saved` counted by hand.",
-         _object(["name", "target"], id={"type": "integer"}, name={"type": "string"},
+    Tool("save_goal", "Add a goal (no id: its name and target) or change one (its id, and only "
+         "what changes: the rest stays; `by` or `account` empty clears it): kept in an "
+         "account (its balance is the progress), or `saved` counted by hand.",
+         _object([], id={"type": "integer"}, name={"type": "string"},
                  target={"type": "number"}, by=_DAY, account={"type": "string"},
                  saved={"type": "number"}),
          save_goal, lambda a: "Saving a goal", writes=True),
