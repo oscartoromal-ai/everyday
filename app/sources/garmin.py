@@ -14,6 +14,7 @@ stand in a fake for this class.
 from __future__ import annotations
 
 import logging
+import re
 import threading
 import time
 from datetime import date
@@ -21,6 +22,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import requests
 from garminconnect import (
     Garmin,
     GarminConnectAuthenticationError,
@@ -52,6 +54,25 @@ class GarminSignedOut(GarminError):
 
 class GarminUnavailable(GarminError):
     """Garmin could not be reached, or is turning requests away: try later."""
+
+
+def _out_of_reach(exc: BaseException) -> bool:
+    """Whether a sign-in the library calls refused came of not reaching
+    Garmin: no connection, a timeout, Garmin failing or busy. Signing in
+    with a token, python-garminconnect reads the profile, and calls any
+    failure to read it an authentication error; what it failed on is in
+    the exception's causes."""
+    seen: BaseException | None = exc
+    while seen is not None:
+        if isinstance(seen, (requests.ConnectionError, requests.Timeout)):
+            return True
+        status = getattr(getattr(seen, "response", None), "status_code", None)
+        if status is None and (found := re.search(r"\bAPI Error (\d{3})\b", str(seen))):
+            status = int(found[1])
+        if status is not None:
+            return status >= 500 or status == 429
+        seen = seen.__cause__ or seen.__context__
+    return False
 
 
 def _unavailable(exc: Exception) -> GarminUnavailable:
@@ -144,6 +165,8 @@ class GarminConnect:
             if not getattr(client, "display_name", None):
                 client._load_profile_and_settings()
         except GarminConnectAuthenticationError as exc:
+            if _out_of_reach(exc):
+                raise _unavailable(exc) from exc
             raise GarminSignInFailed("Garmin signed in, then refused the session.") from exc
         except GarminConnectConnectionError as exc:
             raise _unavailable(exc) from exc
@@ -167,6 +190,9 @@ class GarminConnect:
         try:
             client.login(str(self.token_dir))
         except GarminConnectAuthenticationError as exc:
+            if _out_of_reach(exc):
+                log.warning("Garmin not reached signing in: %s", exc)
+                raise _unavailable(exc) from exc
             log.warning("Garmin token refused: %s", exc)
             self.forget()  # it will not be honoured again
             raise GarminSignedOut("Garmin signed you out. Connect again.") from exc
