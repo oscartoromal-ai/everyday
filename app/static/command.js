@@ -59,6 +59,11 @@
   /* ---- what the menu offers ---- */
 
   const go = (href) => () => { window.location.href = href; };
+  // A project's link in the nav opens it where it was left, as a click on it does.
+  const goTo = (href) => {
+    const project = href.match(/^\/projects\/(\d+)$/)?.[1];
+    return project ? () => window.openProject(project) : go(href);
+  };
   const keys = window.Keys;
 
   // Every page in the nav (hidden ones too), the Changelog, and every
@@ -70,7 +75,7 @@
       label: a.querySelector(".nav-label")?.textContent.trim() || a.textContent.trim(),
       words: "go to",
       hint: a.dataset.slot ? keys.text(`nav.slot${a.dataset.slot}`) : "",
-      run: go(a.getAttribute("href")),
+      run: goTo(a.getAttribute("href")),
     })),
     { kind: "Page", label: "Changelog", words: `go to ${keys.actions["app.changelog"]?.words || ""}`, run: go("/changelog") },
     // Settings' Models, likewise.

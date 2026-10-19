@@ -61,7 +61,8 @@ def test_a_project_opens_again_on_its_gantt_as_it_was_left(page, live, project) 
     assert row.locator(".is-cursor").get_attribute("data-col") == cursor
 
 
-def test_its_tasks_open_again_scrolled_from_the_command_menu(page, live, project) -> None:
+@pytest.mark.parametrize("kind", ["Project", "Page"])
+def test_its_tasks_open_again_scrolled_from_the_command_menu(page, live, project, kind) -> None:
     page.goto(f"{live}/projects/{project}/tasks")
     page.mouse.move(700, 400)
     page.mouse.wheel(0, 900)
@@ -69,10 +70,13 @@ def test_its_tasks_open_again_scrolled_from_the_command_menu(page, live, project
 
     page.locator('.nav a[href="/today"]').click()
     page.wait_for_url(f"{live}/today")
+    if kind == "Page":
+        # Chosen among the pages before the search answers: the sidebar's link.
+        page.route("**/ui/search*", lambda route: None)
     page.keyboard.press("Control+k")
     page.locator("#command-dialog[open]").wait_for()
     page.keyboard.type("Beta")
-    page.locator(".command-item", has_text="Beta").first.click()
+    page.locator(f".command-item[data-kind={kind}]", has_text="Beta").click()
     page.wait_for_url(f"{live}/projects/{project}/tasks")
     page.wait_for_function("() => scrollY === 900")
 
