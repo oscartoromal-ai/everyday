@@ -84,3 +84,16 @@ def test_writing_folds_only_into_writing_by_the_same_hand_lately(db) -> None:
         ("updated", "oscar"),
         ("created", "oscar"),
     ]
+
+
+def test_a_new_task_never_takes_a_deleted_ones_id(client, db) -> None:
+    gone = tasks_svc.create_task(db, title="Plan the trip")
+    db.commit()
+    assert client.post(f"/ui/tasks/{gone.id}/delete", data={"back": "/plan"}).status_code == 200
+    new = tasks_svc.create_task(db, title="Buy milk")
+    db.commit()
+    assert new.id != gone.id
+    # Its history is its own, the one deleted's still there for its id.
+    page = client.get(f"/ui/tasks/{new.id}/history").text
+    assert "Plan the trip" not in page and "Deleted" not in page
+    assert [s["change"] for s in history.changes(db, gone.id)] == ["deleted", "created"]
