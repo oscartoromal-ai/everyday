@@ -300,12 +300,15 @@
     return { html: await response.text(), made };
   };
 
-  /* Sends ops. `record` makes it an undo step: its undo ops are the rows'
+  /* Sends ops, or the ops a function makes of the rows when their turn
+     comes. `record` makes it an undo step: its undo ops are the rows'
      state before (snapshots), or given; redo is their state after. `then`
      runs on the drawn sheet, with what was made (to move the cursor);
      `failed` when the server refuses the edit, after its toast. */
-  const send = (ops, { record = true, undo = null, redo = undefined, then = null, failed = null } = {}) => {
+  const send = (make, { record = true, undo = null, redo = undefined, then = null, failed = null } = {}) => {
     chain = chain.then(async () => {
+      const ops = typeof make === "function" ? make() : make;
+      if (!ops.length) return;
       // Taken when its turn comes, so an edit queued behind another undoes
       // to where that one left the rows, not to before both.
       const before = undo || ops.filter((op) => op.id && (op.op === "task" || op.op === "workstream"))
@@ -489,12 +492,17 @@
   };
 
   // A task's box steps it on: to do, in progress, review, done, and round
-  // to to do again; a blocked task starts.
+  // to to do again; a blocked task starts. From where the step before it
+  // left the row, so a second click before the first is saved goes on.
   const NEXT = { todo: "in_progress", blocked: "in_progress", in_progress: "needs_review", needs_review: "done", done: "todo" };
   const toggle = (row) => {
-    const d = row.dataset;
-    if (d.kind === "task") send([{ op: "task", id: Number(d.id), status: NEXT[d.status] || "todo" }]);
-    if (d.kind === "workstream") send([{ op: "workstream", id: Number(d.id), done: d.status !== "done" }]);
+    const key = row.dataset.key;
+    send(() => {
+      const d = rowOf(key)?.dataset;
+      if (d?.kind === "task") return [{ op: "task", id: Number(d.id), status: NEXT[d.status] || "todo" }];
+      if (d?.kind === "workstream") return [{ op: "workstream", id: Number(d.id), done: d.status !== "done" }];
+      return [];
+    });
   };
 
   // Delete: clears what the range covers: a priority, a bar (its time,

@@ -179,6 +179,29 @@ def test_a_click_steps_the_status_and_a_double_click_writes(page, live, project)
     _row(page, "Loose end, tied").wait_for()
 
 
+def test_a_second_click_before_the_first_is_saved_steps_on_from_it(
+    page, live, app_db, project
+) -> None:
+    page.goto(f"{live}/projects/{project}/gantt")
+    # The first step held on its way, as on a slow disk: the second click
+    # comes while the box still shows to do.
+    held, holding = [], [True]
+    page.route(
+        "**/ui/projects/*/gantt*",
+        lambda route: held.append(route) if holding else route.continue_(),
+    )
+    box = _row(page, "Loose end").locator(".gantt-check")
+    with page.expect_request(lambda r: r.method == "POST"):
+        box.click()
+    box.click()
+    holding.clear()
+    for route in held:
+        route.continue_()
+    _status_is(page, "Loose end", "needs_review")
+    with app_db() as db:
+        assert db.query(Task).filter_by(title="Loose end").one().status == TaskStatus.needs_review
+
+
 def test_weeks_drill_down_to_days_and_back(page, live, project) -> None:
     with_bar = (THIS + timedelta(days=2)).isoformat()
     page.goto(f"{live}/projects/{project}/gantt")
