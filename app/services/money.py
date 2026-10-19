@@ -406,17 +406,41 @@ def delete_rule(db: Session, rule_id: int) -> None:
 # ---- importing a bank's export ----
 
 
+def _bank_account(db: Session, bank: str, bank_name: str) -> MoneyAccount | None:
+    """The account a bank's exports go into: the one its last went into,
+    else the one named for it."""
+    last = db.scalars(
+        select(MoneyImport).where(MoneyImport.bank == bank).order_by(MoneyImport.id.desc())
+    ).first()
+    if last is not None:
+        return account(db, last.account_id)
+    return db.scalars(
+        select(MoneyAccount)
+        .where(func.lower(MoneyAccount.name) == bank_name.lower())
+        .order_by(MoneyAccount.id)
+    ).first()
+
+
 def import_export(
-    db: Session, export: BankExport, account_id: int | None, filename: str = ""
+    db: Session,
+    export: BankExport,
+    account_id: int | None,
+    filename: str = "",
+    *,
+    new_account: bool = False,
 ) -> MoneyImport:
-    """A bank's export into an account (a new one, named for the bank, when
-    none is given): each transaction not already there added, and sorted by
-    the rules; a Revolut top-up is a transfer. The balance the export shows
-    at the end of each of its days becomes the account's balance that day."""
-    if account_id is None:
-        target = add_account(db, _free_name(db, export.bank_name))
-    else:
+    """A bank's export into an account: the one given, else its bank's (as
+    _bank_account finds it), else, or when a new one is asked for, a new
+    one named for the bank. Each transaction not already there is added,
+    and sorted by the rules; a Revolut top-up is a transfer. The balance the
+    export shows at the end of each of its days becomes the account's
+    balance that day."""
+    if account_id is not None:
         target = account(db, account_id)
+    elif not new_account and (found := _bank_account(db, export.bank, export.bank_name)):
+        target = found
+    else:
+        target = add_account(db, _free_name(db, export.bank_name))
     known = set(db.scalars(
         select(MoneyTransaction.fingerprint).where(MoneyTransaction.account_id == target.id)
     ))

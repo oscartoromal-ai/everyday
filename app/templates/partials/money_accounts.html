@@ -33,11 +33,15 @@
     <label class="me-label" for="money-export">Export</label>
     <span class="sheet-field">
       <input type="file" id="money-export" name="export" accept=".csv,text/csv" required>
-      <span class="money-of">into</span>
+      {# "into" and its account kept on one line, a field of their own. #}
+      <span class="sheet-field money-into"><span class="money-of">into</span>
       <select name="account_id" aria-label="Into which account">
-        <option value="">A new account</option>
+        {# Its bank's: the account its bank's last export went into, else
+           the one named for the bank, else a new one so named. #}
+        <option value="">Its bank's account</option>
+        <option value="new">A new account</option>
         {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
-      </select>
+      </select></span>
     </span>
     <button type="submit" class="plan-btn"><span class="money-idle">Import</span><span class="money-busy">Importing…</span></button>
   </form>

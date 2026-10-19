@@ -2921,12 +2921,14 @@ li.repo-row:hover { background: var(--glass-row-hover); }
 .money-add .plan-btn, .money-go { flex: none; height: 24px; margin-top: calc(var(--pad-above) - 1px); }
 /* a form's own button, its word in line with the fields above it */
 .money-go { margin-left: calc(-1 * var(--s-2)); }
-.me-row .sheet-field > input[type="file"] { height: auto; max-width: 260px; font-size: var(--t-caption); color: var(--graphite); }
+.me-row .sheet-field > input[type="file"] { height: auto; max-width: min(260px, 100%); font-size: var(--t-caption); color: var(--graphite); }
 .me-row .sheet-field > input[type="file"]::file-selector-button {
   margin-right: var(--s-2); padding: 1px var(--s-2);
   font: inherit; color: var(--ink); background: var(--glass-btn); border: 1px solid var(--glass-border); border-radius: 0;
   cursor: pointer;
 }
+.me-row .money-into { flex: none; flex-wrap: nowrap; max-width: 100%; padding: 0; }
+.me-row .money-into > select:not([hidden]) { flex: 0 1 auto; min-width: 0; }
 .money-import .money-busy, .money-import.htmx-request .money-idle { display: none; }
 .money-import.htmx-request .money-busy { display: inline; }
 
@@ -2955,6 +2957,10 @@ li.repo-row:hover { background: var(--glass-row-hover); }
   .money-transaction { flex-wrap: wrap; }
   .money-transaction .money-what { flex-basis: calc(100% - 80px - var(--s-3)); }
   .money-transaction .money-category { order: 3; width: 100%; }
+  /* an export's Import under its file and account, in line with them */
+  .money-import { flex-wrap: wrap; }
+  .money-import > .sheet-field { flex-basis: calc(100% - 96px - var(--s-3)); }
+  .money-import .plan-btn { margin: 0 0 var(--pad-below) calc(96px + var(--s-3)); }
 }
 
 /* the phone's tab bar holds every page: past its width it scrolls

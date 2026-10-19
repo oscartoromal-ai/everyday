@@ -51,10 +51,14 @@ def test_an_import_lands_in_a_new_account_and_says_what_it_did(client, db) -> No
     account = money_svc.accounts(db)[0]
     again = upload(client, "revolut-2026-09.csv", str(account.id))
     assert "0 added to Revolut; 6 already here" in again.text
+    # Into its bank's account unless another is chosen.
+    assert "0 added to Revolut; 6 already here" in upload(client, "revolut-2026-09.csv").text
     ing = upload(client, "ing-2026-09.csv")
     assert "ING: 3 added to ING" in ing.text
     page = client.get("/accounts").text
     assert "$10,523" in page  # net worth: both balances
+    # A new one when asked for, named apart.
+    assert "6 added to Revolut 2;" in upload(client, "revolut-2026-09.csv", "new").text
     bad = client.post("/ui/money/import",
                       files={"export": ("notes.csv", b"Name,Value\na,1\n", "text/csv")})
     assert "notes.csv cannot be imported: it is not a Revolut or ING export" in bad.text
