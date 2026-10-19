@@ -530,6 +530,28 @@
   });
   applyTimeline(root.dataset.timeline === "folded");
 
+  /* ---- Today left open overnight: once the day has turned and the page is
+     left alone (a minute with no key, click or scroll, or out of sight), it
+     opens again as the new day's. What was written goes with the day before,
+     as on leaving the page (notepad.js); the turn is by this browser's
+     clock, so a server's in another zone never reopens it again and again. */
+
+  if (location.pathname === "/today") {
+    const QUIET_MS = 60_000;
+    const dayNow = () => new Date().toDateString();
+    const opened = dayNow();
+    let touched = Date.now();
+    for (const type of ["keydown", "pointerdown", "wheel", "input"]) {
+      document.addEventListener(type, () => { touched = Date.now(); }, { capture: true, passive: true });
+    }
+    const turn = () => {
+      if (dayNow() === opened || document.querySelector("dialog[open]")) return;
+      if (document.hidden || Date.now() - touched >= QUIET_MS) location.reload();
+    };
+    setInterval(turn, 15_000);
+    document.addEventListener("visibilitychange", turn);
+  }
+
   /* ---- a request refused (a value out of range, a lost connection): said in a toast ---- */
 
   document.addEventListener("htmx:responseError", (e) => {
