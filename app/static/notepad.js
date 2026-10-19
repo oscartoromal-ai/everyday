@@ -109,9 +109,11 @@
 
   /* ---- tasks: which rows made which task ---- */
 
-  // Each task row's task: {id, saved, fields}. id once it is added; saved:
-  // its title and description as last written to it; fields: its do date,
-  // project and the rest, as the sheet posts them. A task not yet
+  // Each task row's task: {id, saved, fields, known}. id once it is added;
+  // saved: its title and description as last written to it; fields: its do
+  // date, project and the rest, as the sheet posts them; known: its fields
+  // as the app last had them from here, so a write sends only what changed
+  // since (and a field changed elsewhere meanwhile stays). A task not yet
   // added is for the notes' day.
   const newFields = () => ({
     planned_for: day, due: "", repeat: "none", estimate: "", priority: "",
@@ -1281,10 +1283,14 @@
     content.title ||= m.saved?.title || "";
     if (!content.title) return false;
     const status = isDone(block) ? "done" : m.fields.status === "done" ? "todo" : m.fields.status;
-    const body = new URLSearchParams({ ...m.fields, status, ...content });
-    const res = await post(`/ui/tasks/${m.id}`, body, leaving).catch(() => null);
+    const fields = { ...m.fields, status };
+    const was = m.known ? { ...m.known, ...m.saved } : {};
+    const changed = Object.entries({ ...fields, ...content }).filter(([name, value]) => was[name] !== value);
+    if (!changed.length) return true;
+    const res = await post(`/ui/tasks/${m.id}`, new URLSearchParams(changed), leaving).catch(() => null);
     if (leaving) return true;
     if (!res?.ok) return false;
+    m.known = fields;
     m.saved = content;
     htmx.trigger(document.body, "calendar:refresh");
     return true;
@@ -1324,6 +1330,7 @@
     }
     setId(m, Number(/id="task-(\d+)"/.exec(html)?.[1]) || null);
     m.saved = { title, notes };
+    m.known = { ...m.fields, workstream_id: "", status: "todo" };
     told(`Task added: ${title}`);
     htmx.trigger(document.body, "calendar:refresh");
     schedule();
@@ -1404,6 +1411,7 @@
       return;
     }
     m.fields.status = done ? "done" : "todo";
+    if (m.known) m.known.status = m.fields.status;
     htmx.trigger(document.body, "calendar:refresh");
   });
 
@@ -1675,7 +1683,8 @@
     let insert = last.text.trim() ? "\n" : "";
     const tasks = [...view.state.field(tasksField)];
     list.forEach((t, i) => {
-      const m = { id: t.id, saved: { title: t.title, notes: t.notes }, fields: { ...newFields(), ...t.fields }, folded: false };
+      const fields = { ...newFields(), ...t.fields };
+      const m = { id: t.id, saved: { title: t.title, notes: t.notes }, fields, known: { ...fields }, folded: false };
       tasks.push({ pos: from + insert.length, m });
       const rows = t.notes ? t.notes.split("\n").map((row) => `\n${TAB}${row}`).join("") : "";
       insert += `- [ ] ${t.title}${rows}${i < list.length - 1 ? "\n" : ""}`;
@@ -1898,7 +1907,8 @@
     for (let i = 0; i < text.length; i++) if (text[i] === "\n") starts.push(i + 1);
     const tasks = rows.filter(({ row }) => row < starts.length).map(({ row, id, fields, folded }) => {
       const given = Object.entries(fields || {}).map(([name, value]) => [name, value == null ? "" : String(value)]);
-      const m = { id, saved: null, fields: { ...newFields(), ...Object.fromEntries(given) }, folded: !!folded };
+      const its = { ...newFields(), ...Object.fromEntries(given) };
+      const m = { id, saved: null, fields: its, known: id ? { ...its } : null, folded: !!folded };
       return { pos: starts[row], m };
     });
     const state = EditorState.create({ doc: text, extensions: extensions() });

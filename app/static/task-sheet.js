@@ -1086,6 +1086,17 @@
   /* ---- edit: saves when focus leaves the sheet ---- */
 
   const snapshot = (form) => new URLSearchParams(new FormData(form)).toString();
+  // The fields changed since `since` (a snapshot): what a save sends, so a
+  // field changed elsewhere meanwhile (its status, as its pull request
+  // merges) is not put back by one that was not touched here.
+  const changes = (form, since) => {
+    const was = new URLSearchParams(since);
+    const out = new URLSearchParams();
+    for (const [name, value] of new FormData(form)) {
+      if (was.get(name) !== value) out.append(name, value);
+    }
+    return out;
+  };
 
   // `keyboard`: closed by a key (Esc, Ctrl+Enter, a quick menu), so the
   // list's cursor comes back: to this task, or after a quick change, to the
@@ -1121,7 +1132,7 @@
       const res = await fetch(`/ui/tasks/${id}`, {
         method: "POST",
         headers: { "X-CSRF": window.csrfToken() },
-        body: new URLSearchParams(new FormData(form)),
+        body: changes(form, form._initial),
       }).catch(() => null);
       if (!res?.ok) {
         delete form.dataset.saving;
@@ -1160,12 +1171,11 @@
     document.querySelectorAll(".task-sheet[data-sheet='edit']").forEach((form) => {
       convertTrailing(form);
       if (!titleText(form)) setTitle(form, titleOf(form).dataset.original);
-      const body = snapshot(form);
-      if (body === form._initial) return;
+      if (snapshot(form) === form._initial) return;
       fetch(form.getAttribute("hx-post"), {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRF": window.csrfToken() },
-        body,
+        body: changes(form, form._initial),
         keepalive: true,
       });
     });
@@ -1245,7 +1255,7 @@
     fetch(`/ui/tasks/${form.dataset.taskId}/page`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRF": window.csrfToken() },
-      body,
+      body: changes(form, form._saved),
       keepalive: leaving,
     }).then(async (res) => {
       if (!res.ok) {
@@ -1325,6 +1335,14 @@
       // notes-editor.js loads first, so its htmx:load has already rendered the
       // description from the field: this is the task exactly as it stands.
       form._initial = snapshot(form);
+      // Its save sends what it changed, not the task it was opened on.
+      form.addEventListener("htmx:configRequest", (e) => {
+        if (e.detail.elt !== form) return; // its Delete, say
+        const sent = changes(form, form._initial);
+        for (const name of Object.keys(e.detail.parameters)) {
+          if (!sent.has(name)) delete e.detail.parameters[name];
+        }
+      });
       const title = titleOf(form);
       placeCaret(title, title.textContent.length);
       if (pending && form.closest("li").id === pending.id) {

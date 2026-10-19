@@ -82,6 +82,32 @@ def test_the_page_saves_what_it_holds(client, db) -> None:
     )
 
 
+def test_the_page_saves_only_the_fields_it_sends(client, db) -> None:
+    task = tasks_svc.create_task(db, title="Ship it", planned_for=TODAY, estimate_minutes=30)
+    tasks_svc.set_status(db, task.id, "done")
+    db.commit()
+    answer = client.post(f"/ui/tasks/{task.id}/page", data={"notes": "Tagged v2."})
+    assert answer.status_code == 204
+    db.expire_all()
+    saved = db.get(Task, task.id)
+    assert (saved.title, saved.status, saved.planned_for, saved.estimate_minutes, saved.notes) == (
+        "Ship it",
+        "done",
+        TODAY,
+        30,
+        "Tagged v2.",
+    )
+    # Sent empty, a field is cleared; sent wrong, nothing is saved.
+    assert client.post(f"/ui/tasks/{task.id}/page", data={"planned_for": ""}).status_code == 204
+    db.expire_all()
+    assert db.get(Task, task.id).planned_for is None
+    answer = client.post(f"/ui/tasks/{task.id}/page", data={"status": "sideways", "notes": "x"})
+    assert answer.status_code == 422
+    assert answer.json()["detail"] == "Not the task's status: sideways"
+    db.expire_all()
+    assert db.get(Task, task.id).notes == "Tagged v2."
+
+
 def test_deleted_from_its_page_it_goes_back(client, db) -> None:
     task = tasks_svc.create_task(db, title="Plan the trip")
     db.commit()
