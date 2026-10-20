@@ -385,7 +385,7 @@ Oscar's call on 2026-09-30: the app connects to his Garmin metrics.
 Oscar's call on 2026-09-30: the app keeps his money, fed by his banks' CSV exports, with Claude in a chat on Spending.
 
 - **The database is the record**, unlike Nutrition's files: exports become rows, amounts whole cents in Australian dollars (out negative), in `money_*` tables backed up with the rest.
-- **His banks' exports, imported by hand on Accounts.** Revolut and ING Australia, told apart by their header line (`app/sources/bank_csv.py`).
+- **Bank exports, imported by hand on Accounts.** Revolut's and ING Australia's, told apart by their header line (`app/sources/bank_csv.py`).
   Revolut rows count once COMPLETED and in AUD, a fee taken off its row; the others are counted as left out, with why.
   Each row's fingerprint is its day, amount and description with how many identical rows came before it in the file, so importing an export twice, or two that overlap, adds each transaction once.
   Every day's closing balance in an export becomes its account's balance that day, so net worth has its history from the first import.
@@ -618,7 +618,7 @@ APScheduler inside the FastAPI process; jobs share app code and database session
   Its data lives in its own folder (`%LOCALAPPDATA%\Personal Calendar`): the database, created and migrated by the app as it starts, its logs, backups, the machine's secrets and its settings over the shipped defaults.
   Updates come from GitHub's releases of the repo (Oscar's call on 2026-10-11, so that another laptop installs and updates the app too, with no repo, git or Python of its own): GitHub builds every commit master takes (changes land through merged PRs) into a release holding the installer, the version's folder zipped and the commit it was built from.
   A change reaches an installed app once the latest release (looked at every minute) is past the installed commit: the app downloads it (never uncommitted work) by itself in the background and stages it beside the running version, then offers Restart, which waits for Oscar (his call on 2026-10-04); the installed app never runs the repo's code.
-  The repo being private, the app reads its releases with a token pasted in Settings, else the GitHub CLI's.
+  The app reads the releases with a token pasted in Settings, else the GitHub CLI's, as a private repo needs.
   Updates are quick (Oscar's call on 2026-10-04: "Updates are slow, and relaunches as well"): a release whose libraries are unchanged copies the last release's version and puts the new code in, checked by the build itself before it is published; only one that changes the libraries freezes the app anew; the version restarted on is started beforehand to stand by, its code and window loaded, so the restart hands over in about a second, the new window coming up over the old at the same page.
   The latest release's installer is the whole app for another machine.
   Windows only, built with PyInstaller and Inno Setup; a Tauri shell stays the alternative if WebView2 through pywebview falls short.

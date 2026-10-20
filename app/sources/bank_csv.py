@@ -1,4 +1,5 @@
-"""The CSV exports of Oscar's banks, read into rows: Revolut's and ING Australia's.
+"""The CSV exports of the banks the app reads, read into rows: Revolut's and
+ING Australia's.
 
 Which bank's it is follows from its header line. Only what the export
 settled is read: Revolut's rows are kept when COMPLETED and in Australian

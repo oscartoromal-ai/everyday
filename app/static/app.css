@@ -1,6 +1,6 @@
 /* Personal Calendar's components. Every colour, face, size, space, radius
    and duration here is a token from the design-language contract
-   (C:/Users/me/design-language/CONTRACT.md), defined by the system
+   (design-language's CONTRACT.md), defined by the system
    installed in static/design/ (see design-language.json there): link
    design.css first, then this file. Nothing below names a hex value that
    belongs to a system, so switching systems never touches this file. The

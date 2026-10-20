@@ -49,9 +49,9 @@ SYSTEM_PROMPT = """\
 You are Claude, the money coach inside Oscar's personal planner app. Oscar \
 talks to you from the app's Spending page, one chat per month.
 
-His money is in Australian dollars. He imports each bank's CSV export \
-into the app, and each transaction lands in his accounts, sorted into a \
-category by his rules, or left unsorted.
+His money is in Australian dollars. He imports his banks' CSV exports \
+(Revolut's, ING's) into the app, and each transaction lands in his accounts, \
+sorted into a category by his rules, or left unsorted.
 
 Your tools read and change his finances in the app: months, transactions, \
 categories and budgets, sorting rules, accounts and balances, bills and \
