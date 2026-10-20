@@ -59,13 +59,23 @@ def _stay_columns(
     return list(names.values()) or notebook_svc.last_stay_items(db, first)
 
 
+def due_tag(due: date, today: date) -> str:
+    """What an open deadline says on its day: overdue once past, due when it
+    is due soon (warning, as everywhere else), else just that it is one: a
+    deadline weeks out is not due (Oscar's report on 2026-10-20)."""
+    if due < today:
+        return "overdue"
+    if due <= today + timedelta(days=tasks_svc.DUE_SOON_DAYS):
+        return "due"
+    return "deadline"
+
+
 def _tasks(
     db: Session, first: date, last: date, today: date
 ) -> dict[date, list[dict[str, Any]]]:
     """Each day's tasks: Oscar's planned for it (done ones too), then those
-    still open due on it, a deadline still open saying so (urgent once it is
-    past or due soon, as everywhere else); each by priority, then as written,
-    and each in its project's colour."""
+    still open due on it, a deadline still open saying so (due_tag); each by
+    priority, then as written, and each in its project's colour."""
     found = db.scalars(
         select(Task)
         .where(
@@ -85,6 +95,7 @@ def _tasks(
             "priority": task.priority.value if task.priority else "",
             "priority_label": task.priority.label if task.priority else "",
             "rank": tasks_svc.priority_rank(task),
+            "due_tag": due_tag(task.due, today) if task.due else "",
             "due_soon": bool(task.due and task.due <= soon),
             "project": (
                 {"name": task.project.name, "color": task.project.color}

@@ -3603,8 +3603,8 @@ tr.is-folded .ds-plan-list li:first-child .ds-title { min-width: 0; overflow: hi
 /* its priority's bars, before its title (the word on hover); a slot kept
    empty without one, so the titles start in one column */
 .ds-priority { flex: none; align-self: center; display: inline-grid; place-content: center; width: 14px; height: 18px; }
-/* "due" on a deadline: graphite words while it is far, the warn badge once
-   it is due soon or past, as a task row's due */
+/* a deadline's tag: "deadline" in graphite while it is far, the warn badge
+   ("due", then "overdue") once it is due soon or past, as a task row's due */
 .ds-due {
   flex: none; padding: 0 var(--s-2); font-size: var(--t-caption); font-weight: 500; line-height: 18px;
   color: var(--graphite);

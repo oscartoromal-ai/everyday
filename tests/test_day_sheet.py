@@ -203,28 +203,34 @@ def test_a_task_is_deleted_from_the_sheet(client, db) -> None:
     assert [t.title for t in db.query(Task).all()] == ["Pay rent"]
 
 
-def test_a_deadline_is_urgent_only_once_due_soon_and_a_task_wears_its_projects_colour(
+def test_a_deadline_is_due_only_once_due_soon_and_a_task_wears_its_projects_colour(
     client, db,
 ) -> None:
-    # Oscar's report on 2026-10-04: deadlines weeks out read as urgent as
-    # tomorrow's. "due" warns only once a deadline is due soon (or past), as
-    # a task row's due does.
+    # Oscar's reports: on 2026-10-04 deadlines weeks out read as urgent as
+    # tomorrow's, and on 2026-10-20 still said "due". A deadline warns "due"
+    # only once due soon, as a task row's due does, "overdue" once past, and
+    # further out says only that it is one.
     project = projects_svc.create_project(db, name="Garden Planner", color=8)
+    past_day = TODAY - timedelta(days=1)
     soon_day = TODAY + timedelta(days=tasks_svc.DUE_SOON_DAYS)
     later_day = soon_day + timedelta(days=1)
+    tasks_svc.create_task(db, title="Water the beds", due=past_day)
     tasks_svc.create_task(db, title="Ship the beta", due=soon_day, project_id=project.id)
     tasks_svc.create_task(db, title="Ship docs", due=later_day)
     sheet = day_sheet_ctx(db, home_start(TODAY), TODAY)
+    [past] = row(sheet, past_day)["tasks"]
     [soon] = row(sheet, soon_day)["tasks"]
     [later] = row(sheet, later_day)["tasks"]
-    assert (soon["due"], soon["due_soon"]) == (True, True)
-    assert (later["due"], later["due_soon"]) == (True, False)
+    assert (past["due"], past["due_soon"], past["due_tag"]) == (True, True, "overdue")
+    assert (soon["due"], soon["due_soon"], soon["due_tag"]) == (True, True, "due")
+    assert (later["due"], later["due_soon"], later["due_tag"]) == (True, False, "deadline")
     # Each task in its project's colour, the project named on hover.
     assert soon["project"] == {"name": "Garden Planner", "color": 8}
     assert later["project"] is None
 
     page = client.get("/calendar?view=sheet").text
+    assert page.count('<span class="ds-due soon">overdue</span>') == 1
     assert page.count('<span class="ds-due soon">due</span>') == 1
-    assert page.count('<span class="ds-due">due</span>') == 1
+    assert page.count('<span class="ds-due">deadline</span>') == 1
     assert 'class="ds-task in-project" style="--project: var(--hue-8)"' in page
     assert 'title="Project: Garden Planner"' in page
