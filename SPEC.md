@@ -1,8 +1,7 @@
 # Personal Calendar: build-ready spec
 
 A locally-run, Python-backed web app that unifies calendar, to-dos, and projects (with goals, habits, and reviews phased in) as Oscar's control panel for his life and his AI.
-This spec is the destination of the wayfinder map in [tracker/map.md](tracker/map.md).
-Every section gists a decision made on that map and links the ticket that holds its full reasoning; the tickets are the authority when detail here feels thin.
+Every section gists a decision made with Oscar.
 
 ## 1. Product shape
 
@@ -13,7 +12,7 @@ Every section gists a decision made on that map and links the ticket that holds 
 
 ## 2. Phasing
 
-Per [v1 phasing](tracker/tickets/002-v1-phasing.md):
+Per v1 phasing:
 
 - **v1**: the hybrid planner: calendar (events), todos, projects with workstreams, manual entry, recurrence for both events and tasks, the work-calendar ICS feed, the MCP planner interface, nudges (three of four triggers), Tailscale phone access.
 - **v2**: automatic capture of Claude Code session work (MCP plan tools as the semantic channel, lifecycle hooks as the deterministic trace); enables the fourth nudge trigger.
@@ -25,11 +24,11 @@ Per [v1 phasing](tracker/tickets/002-v1-phasing.md):
 - **Finances** (Oscar's call on 2026-09-30, see [Finances](#finances)): a module of its own in the nav, beside Health: Spending (a month against its budgets, beside a chat with Claude), Accounts (net worth, balances, his banks' exports), Bills and Goals.
 - **Code** (Oscar's call on 2026-10-04, see [Repositories](#repositories)): a group of its own in the nav, starting with Repositories, the GitHub repositories he can reach, synced from GitHub.
 
-Review flows are deliberately unspecified here; they sharpen as their phase nears (see the map's Not yet specified section).
+Review flows are deliberately unspecified here; they sharpen as their phase nears.
 
 ## 3. Planning interaction model
 
-Per [Planning model](tracker/tickets/001-planning-model.md), decided against interactive prototypes ([asset](tracker/prototypes/planning-model.html)):
+Per the planning model, decided against interactive prototypes:
 
 - **Tasks take no time on the calendar** (Oscar's call on 2026-10-02, after the blocks went unused): to-dos live in lists and on their days; the calendar shows events alone.
   Task blocks went with it: the To schedule tray, giving a drawn time to a task, Book, a task's time in the sheet, Today's focus card, and the missed marker with its replan, nudge and ghost outline (all in git history).
@@ -205,7 +204,7 @@ Decided with Oscar:
 
 ## 4. Domain model
 
-Per [Domain model](tracker/tickets/008-domain-model.md). All v1 entities below; goals (v3), habits (v4), and reviews (v5) bolt on without core migration.
+Per the domain model. All v1 entities below; goals (v3), habits (v4), and reviews (v5) bolt on without core migration.
 
 ### Entities
 
@@ -294,23 +293,18 @@ The owner field is the only AI/human distinction; richer provenance (session ids
 
 ## 5. Work calendar integration
 
-Per [Decision: work calendar integration mechanism](tracker/tickets/012-work-calendar-decision.md), with the branch settled by [Probe the work tenant's calendar routes](tracker/tickets/014-probe-work-tenant.md):
-
-- **Route: published ICS feed, confirmed live.**
-  The tenant offers "Publish a calendar" in Outlook settings; Oscar published at the "Can view titles and locations" level.
-  The feed is an anonymous plain GET; verified end-to-end (555 events, titles and locations present, no bodies or attendees).
-- The feed URL lives in `local/work-calendar-ics-url.txt`, git-ignored; the app reads it from config, never from the tracker or repo history.
+- **Route: a published ICS feed**, Outlook's "Publish a calendar" at the "Can view titles and locations" level, read with a plain GET.
+- The feed URL lives in `local/work-calendar-ics-url.txt`, git-ignored; the app reads it from config, never from the repo.
 - **Detail stored**: subject, start/end, location only.
   No bodies, attendee lists, or attachments in the personal database, regardless of what the route offers.
 - **Polling**: a few times a day, morning-weighted (for example early morning, midday, late afternoon).
-  Freshness need is a morning snapshot; intraday changes are seen in Outlook anyway, so publish lag is acceptable and was not measured.
-- **Source interface**: the work-calendar source sits behind a small interface so Graph delegated auth (auth code + PKCE via msal, per the [research](tracker/research/outlook-calendar.md)) can swap in later without touching the rest of the app.
-  No Graph work and no IT ask in v1.
+  Freshness need is a morning snapshot; intraday changes are seen in Outlook anyway, so publish lag is acceptable.
+- **Source interface**: the work-calendar source sits behind a small interface, so another route can swap in later without touching the rest of the app.
 - Parsing: `icalendar` plus `recurring-ical-events` to expand recurring meetings into concrete occurrences before upserting by external id.
 
 ## 6. AI integration
 
-Per [Decision: AI integration architecture](tracker/tickets/007-ai-integration-decision.md), grounded in the [MCP research](tracker/research/mcp-integration.md) and [session-capture research](tracker/research/session-capture.md).
+Per the AI integration architecture decision, grounded in research on MCP and on capturing Claude Code sessions.
 
 ### Planner interface (v1)
 
@@ -569,7 +563,7 @@ The web UI writing to the same database; nothing extra to build.
 
 ## 7. Nudging and notifications
 
-Per [Decision: AI nudging and notifications](tracker/tickets/013-ai-nudging.md):
+Per the AI nudging and notifications decision:
 
 - **Triggers (rule-based, no Claude in the loop)**:
   1. Upcoming due dates within about 3 days, task not done.
@@ -586,7 +580,7 @@ Per [Decision: AI nudging and notifications](tracker/tickets/013-ai-nudging.md):
 
 ## 8. Architecture
 
-Per [Architecture](tracker/tickets/009-architecture.md) and [Decision: security and remote access](tracker/tickets/015-security-remote-access.md).
+Per the architecture and the security and remote access decisions.
 
 ### Framework and process
 
@@ -657,7 +651,7 @@ APScheduler inside the FastAPI process; jobs share app code and database session
 
 ## 9. Out of scope
 
-- Google Calendar integration, in any direction ([decision](tracker/tickets/006-google-sync-decision.md)).
+- Google Calendar integration, in any direction.
 - Writing to or editing the work calendar; work-event bodies and attendees in the personal database.
 - Native mobile apps; the phone gets the web UI over Tailscale.
 - Claude authoring nudges or acting as a background voice.
