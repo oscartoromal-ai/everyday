@@ -10,7 +10,6 @@ import pytest
 from app.models import Event, Task, TaskStatus
 from app.services import events as events_svc
 from app.services import habits as habits_svc
-from app.services import notebook
 from app.services import tasks as tasks_svc
 
 pytest.importorskip("playwright.sync_api")
@@ -64,7 +63,8 @@ def habit_done(app_db, day: date) -> bool:
 def test_a_swipe_on_the_sheet_ticks_and_toggles_nothing(phone, live, app_db) -> None:
     with app_db() as db:
         habits_svc.set_days(db, "morning-run", "")
-        notebook.set_habit(db, TODAY - timedelta(days=1), "morning-run", True)
+        habit = habits_svc.find(db, "morning-run")
+        habits_svc.set_done(db, habit, TODAY - timedelta(days=1), True)
         tasks_svc.create_task(db, title="Pay rent", planned_for=TODAY)
         db.commit()
     phone.goto(f"{live}/calendar?view=sheet")

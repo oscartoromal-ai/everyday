@@ -614,18 +614,6 @@ def notebook_version(db: DbSession, day: date):
     return JSONResponse({"version": notebook_svc.version_of(db, day)})
 
 
-@router.post("/habits/{slug}")
-def set_habit_days(db: DbSession, slug: str, days: Annotated[str, Form()] = ""):
-    """A habit's days, from its repeat icon (notepad.js): the weekdays it is
-    due, Monday 0 to Sunday 6, or "" for any day. A habit not yet written
-    anywhere begins here."""
-    from app.services import habits as habits_svc
-
-    habit = habits_svc.set_days(db, slug, days)
-    db.commit()
-    return JSONResponse({"slug": habit.slug, "days": habit.days})
-
-
 @router.post("/day-sheet")
 # A plain def, run on a worker thread: its writes may wait on SQLite's lock,
 # and the server's loop must not wait with them (tests/test_server_waits.py).
@@ -634,14 +622,15 @@ def day_sheet_edit(
 ):
     """Calendar's sheet, written in (day_sheet.js): {"ops": [...]}, each
     one of
-        {"op": "habit", "day", "slug", "done"}    a habit done that day, or not
+        {"op": "habit", "day", "slug", "done"}    a habit ticked that day, or not
         {"op": "stay", "day", "name", "value"?, "done"?}   an item of its stay
         {"op": "task", "day", "title"}            a task planned for the day
         {"op": "toggle", "task"}                  a task's box clicked: to do, in
                                                   progress, done, then to do again
         {"op": "status", "task", "status"}        a task's status, from its menu
         {"op": "delete", "task"}                  a task deleted
-    applied in order, as the day's notes and tasks would have them; answers
+    applied in order, as the habits' pane, the day's notes and its tasks
+    would have them; answers
     the sheet drawn again, naming the last task written (X-Task-Created) for
     the sheet to open its page."""
     from app.services import notebook as notebook_svc
@@ -650,7 +639,7 @@ def day_sheet_edit(
     ops = body.get("ops") if isinstance(body, dict) else None
     if not isinstance(ops, list):
         raise DomainError("Expected a list of ops")
-    # Its habits and stays are writes to the days' pages (notebook_svc.saving).
+    # Its stays are writes to the days' pages (notebook_svc.saving).
     with notebook_svc.saving:
         created = _apply_sheet_ops(db, ops)
         db.commit()
@@ -667,6 +656,7 @@ def day_sheet_edit(
 def _apply_sheet_ops(db: Session, ops: list) -> Task | None:
     """Calendar's sheet's ops applied in order (day_sheet_edit); the last
     task written, if any."""
+    from app.services import habits as habits_svc
     from app.services import notebook as notebook_svc
 
     created = None
@@ -694,7 +684,10 @@ def _apply_sheet_ops(db: Session, ops: list) -> Task | None:
         except ValueError as exc:
             raise DomainError(f"Not a day: {op.get('day')!r}") from exc
         if kind == "habit":
-            notebook_svc.set_habit(db, day, str(op.get("slug")), op.get("done") is True)
+            habit = habits_svc.find(db, habits_svc.clean_slug(op.get("slug")))
+            if habit is None:
+                raise DomainError(f"No habit {op.get('slug')!r}")
+            habits_svc.set_done(db, habit, day, op.get("done") is True)
         elif kind == "stay":
             value, done = op.get("value"), op.get("done")
             notebook_svc.set_stay_item(

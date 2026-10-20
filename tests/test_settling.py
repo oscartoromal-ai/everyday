@@ -6,7 +6,7 @@ outside it, the database owning the fields."""
 import threading
 import time
 import zipfile
-from datetime import date
+from datetime import date, datetime
 
 from fastmcp import Client
 from sqlalchemy import select
@@ -232,7 +232,6 @@ def test_a_days_notes_are_their_file(db) -> None:
     task = a_task(db)
     blocks = [
         {"kind": "stay", "text": "\n- [ ] place: Lisbon"},
-        {"kind": "habit", "habit": "running", "done": True, "text": "5k"},
         {"kind": "text", "text": "Slow morning.\n- [ ] Fix the feed\n\tits words",
          "links": {"1": task.id}, "folded": [1]},
         {"kind": "reflection", "text": "Calmer."},
@@ -242,17 +241,14 @@ def test_a_days_notes_are_their_file(db) -> None:
     path = settling.page_path(DAY)
     assert path == everyday.notebook_dir() / "2026" / "2026-10-11.md"
     assert path.read_text(encoding="utf-8") == (
-        "/stay\n\t- [ ] place: Lisbon\n/habit running 5k\nSlow morning.\n"
+        "/stay\n\t- [ ] place: Lisbon\nSlow morning.\n"
         f"- [ ] Fix the feed <!-- task:{task.id} folded -->\n\tits words\n/reflection Calmer.\n"
     )
     # Read back as the page's blocks.
     page = notebook.get_page(db, DAY)
-    assert notebook_md.parse(path.read_text(encoding="utf-8")) == [
-        {**b, "habit": "running"} if b["kind"] == "habit" else b
-        for b in notebook.normalize(db, [
-            {**b, "habit": "running"} if b["kind"] == "habit" else b for b in page.blocks
-        ])
-    ]
+    assert notebook_md.parse(path.read_text(encoding="utf-8")) == notebook.normalize(
+        db, page.blocks
+    )
 
 
 def test_notes_written_in_their_file_are_the_days(db) -> None:
@@ -263,9 +259,9 @@ def test_notes_written_in_their_file_are_the_days(db) -> None:
     settling.sync(db)
     page = notebook.get_page(db, DAY)
     db.refresh(page)
-    assert [b["kind"] for b in page.blocks] == ["text", "habit", "text"]
-    # The habit is checked, as a save from the notepad would.
-    assert db.scalars(select(HabitCheck)).one().day == DAY
+    # A habit is not the notes': "/habit" is words like any other there.
+    assert page.blocks == [{"kind": "text", "text": "Morning.\n/habit stretch\nEvening."}]
+    assert db.scalars(select(HabitCheck)).first() is None
     # A window with the page open is out of date now.
     assert page.version == version + 1
 
@@ -279,6 +275,145 @@ def test_a_file_for_a_day_with_no_page_makes_it(db) -> None:
     assert (page.day, page.blocks) == (date(2026, 10, 12), [
         {"kind": "text", "text": "Written by an agent."}
     ])
+
+
+# ---- a habit is its file ----
+
+
+def a_habit(db, name: str = "morning-run", days: str = ""):  # noqa: ANN001, ANN201
+    from app.services import habits as habits_svc
+
+    habit = habits_svc.create(db, name, days)
+    habit.created_at = datetime(2026, 9, 30, 8, 0)
+    db.commit()
+    return habit
+
+
+def habit_file(name: str = "morning-run") -> str:
+    return (everyday.habits_dir() / f"{name}.md").read_text(encoding="utf-8")
+
+
+def test_a_habit_is_its_file(db) -> None:
+    from app.services import habits as habits_svc
+
+    habit = a_habit(db, "Morning run", days="024")
+    habit.notes = "Five k before work.\n\n- [ ] new shoes"
+    habits_svc.set_done(db, habit, DAY, True)
+    habits_svc.set_note(db, habit, DAY, "Easy.\nRan the hill too.")
+    habits_svc.set_note(db, habit, date(2026, 10, 9), "Knee sore.")
+    habits_svc.set_done(db, habit, date(2026, 10, 7), True)  # ticked, nothing said
+    db.commit()
+    assert habit.slug == "morning-run"
+    assert habit_file() == (
+        "---\n"
+        "# Personal Calendar keeps these fields: an edit here is put back. Change them in the "
+        "app,\n"
+        "# over its API (README.md at the everyday files' top) or through Claude's tools; a "
+        "day is\n"
+        "# ticked on Today's habits pane or Calendar's sheet.\n"
+        "# The words below, what the habit is and its log (a comment a day), are this file's.\n"
+        f"id: {habit.id}\n"
+        "name: morning-run\n"
+        "days: Mon, Wed, Fri\n"
+        "since: '2026-09-30'\n"
+        "---\n"
+        "\n"
+        "Five k before work.\n\n- [ ] new shoes\n"
+        "\n"
+        "## Log\n"
+        "\n"
+        "- 2026-10-11: Easy.\n"
+        "  Ran the hill too.\n"
+        "- 2026-10-09: Knee sore.\n"
+    )
+    # A comment on a day not ticked: skipped; ticked, done, the comment kept.
+    states = {c["day"]: c["state"] for c in habits_svc.grid(db, date(2026, 10, 7), 5)[0]["checks"]}
+    assert states[date(2026, 10, 9)] == "skipped"
+    assert states[DAY] == "done"
+    # Found by its words.
+    [found] = documents.search(db, "knee")
+    assert (found["owner"], found["path"]) == (f"habit:{habit.id}", "habits/morning-run.md")
+
+
+def test_words_written_in_a_habits_file_are_the_habits(db) -> None:
+    from app.services import habits as habits_svc
+
+    habit = a_habit(db)
+    habits_svc.set_done(db, habit, DAY, True)
+    habits_svc.set_note(db, habit, date(2026, 10, 9), "Knee sore.")
+    db.commit()
+    path = everyday.habits_dir() / "morning-run.md"
+    # An agent says what it is, comments on a day ticked and on one not,
+    # takes a comment out, and (wrongly) renames it in its front matter.
+    path.write_text(
+        habit_file().replace("name: morning-run", "name: evening-run").split("## Log")[0].replace(
+            "---\n\n", "---\n\nWhy: to wake up.\n\n"
+        )
+        + "## Log\n\n- 2026-10-11: Felt strong.\n- 2026-10-10: Rain.\n  Stayed in.\n"
+        "A line of its own.\n",
+        encoding="utf-8",
+    )
+    settling.sync(db)
+    db.refresh(habit)
+    # What is not an entry stays with what it is, so nothing written is lost.
+    assert habit.notes == "Why: to wake up.\n\nA line of its own."
+    assert habits_svc.log_of(db, habit) == {
+        DAY: "Felt strong.", date(2026, 10, 10): "Rain.\nStayed in.",
+    }
+    states = {c["day"]: c["state"] for c in habits_svc.grid(db, date(2026, 10, 9), 3)[0]["checks"]}
+    # The comment taken out of a day skipped: nothing left of it.
+    assert states == {date(2026, 10, 9): None, date(2026, 10, 10): "skipped", DAY: "done"}
+    # The fields are the database's: its name is put back in the file.
+    assert habit.slug == "morning-run"
+    assert "name: morning-run" in habit_file()
+    assert "Why: to wake up.\n\nA line of its own.\n\n## Log\n" in habit_file()
+
+
+def test_a_habit_renamed_moves_its_file_and_deleted_goes_to_the_trash(db) -> None:
+    from app.services import habits as habits_svc
+
+    habit = a_habit(db)
+    habits_svc.set_note(db, habit, DAY, "Rain.")
+    db.commit()
+    habits_svc.rename(db, habit.id, "Evening run")
+    db.commit()
+    assert not (everyday.habits_dir() / "morning-run.md").exists()
+    assert "- 2026-10-11: Rain." in habit_file("evening-run")
+    assert [f["path"] for f in documents.search(db, "rain")] == ["habits/evening-run.md"]
+    habits_svc.delete(db, habit.id)
+    db.commit()
+    assert list(everyday.habits_dir().iterdir()) == []
+    assert (everyday.trash_dir() / "habits" / "evening-run.md").is_file()
+    assert documents.search(db, "rain") == []
+
+
+def test_a_file_in_habits_is_a_new_habit(db) -> None:
+    from app.services import habits as habits_svc
+
+    everyday.habits_dir().mkdir(parents=True, exist_ok=True)
+    (everyday.habits_dir() / "stretch.md").write_text(
+        "---\ndays: Tue, Thu\n---\n\nTen minutes.\n\n## Log\n\n- 2026-10-08: Tight back.\n",
+        encoding="utf-8",
+    )
+    # One whose name cannot be a habit's is left as it is.
+    (everyday.habits_dir() / "Not One.md").write_text("Words.", encoding="utf-8")
+    settling.sync(db)
+    [habit] = habits_svc.list_habits(db)
+    assert (habit.slug, habit.days, habit.notes) == ("stretch", "13", "Ten minutes.")
+    assert habits_svc.log_of(db, habit) == {date(2026, 10, 8): "Tight back."}
+    assert f"id: {habit.id}\nname: stretch\ndays: Tue, Thu\n" in habit_file("stretch")
+    assert (everyday.habits_dir() / "Not One.md").read_text(encoding="utf-8") == "Words."
+
+
+def test_a_habit_file_deleted_by_hand_is_written_again(db) -> None:
+    from app.services import habits as habits_svc
+
+    habit = a_habit(db)
+    habits_svc.set_note(db, habit, DAY, "Kept in the database too.")
+    db.commit()
+    (everyday.habits_dir() / "morning-run.md").unlink()
+    settling.sync(db)
+    assert "Kept in the database too." in habit_file()
 
 
 # ---- the index, the README, the backup ----

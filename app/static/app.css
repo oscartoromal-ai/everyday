@@ -2375,28 +2375,39 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .plan-move-menu .aside { margin-left: auto; font-size: var(--t-caption); color: var(--pewter); }
 .plan-move-pick { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
 
-/* ---- the habits: each its box, its name, its week, its streak, its days ---- */
+/* ---- the habits: each its box, its name, its comment, its week, its
+   streak, its days; a comment's drawer under its row ---- */
 .today-habits { flex: none; }
-.today-habits[hidden] { display: none; }
 .today-habits > .pane-head { cursor: pointer; padding: 0 var(--s-1) 0 var(--s-3); }
 .today-habits:not([open]) > .pane-head { border-bottom: none; }
 .today-habits > .pane-head .count { font-size: var(--t-caption); font-weight: 500; color: var(--pewter); font-variant-numeric: tabular-nums; }
+/* the day picked, when it is not the page's: its name in ink after the count */
+.today-habits > .pane-head .habit-on { font-size: var(--t-caption); font-weight: 500; color: var(--ink); white-space: nowrap; }
+.today-habits > .pane-head .habit-on[hidden] { display: none; }
 .habit-week { display: flex; gap: 3px; }
-.habit-week i { flex: none; width: 9px; height: 9px; border: 1.5px solid color-mix(in srgb, var(--mist) 60%, transparent); }
-.habit-week i.done { background: var(--hue-4); border-color: var(--hue-4); }
-.habit-week i.skipped { border-color: color-mix(in srgb, var(--hue-4) 55%, var(--paper)); }
-.habit-week i.missed { border-color: var(--steel); }
-.habit-week i.today { border-color: var(--ink); }
 /* the head's letters over the week's columns, past the streak and the days */
 .habit-week-head { margin-left: auto; margin-right: calc(24px + 26px + 2 * var(--s-2)); }
 .habit-week-head i { width: 9px; border: none; font: 500 9px/1 var(--font-num); font-style: normal; color: var(--pewter); text-align: center; }
-.habit-list { margin: 0; padding: 0; list-style: none; }
-.habit-row {
-  display: flex; align-items: center; gap: var(--s-2); min-height: 36px; padding: 0 var(--s-1) 0 var(--s-2);
-  border-top: 1px solid var(--hairline-on-glass);
+.habit-week-head i.is-on { color: var(--ink); font-weight: 700; }
+/* a day: done filled green, skipped green-ruled, missed steel-ruled, nothing
+   mist, the page's day ruled in ink until it is ticked; the day picked
+   ringed in ink. Its hit is the row's height, so a tap lands on it. */
+.habit-day {
+  position: relative; flex: none; width: 9px; height: 9px; padding: 0; cursor: pointer;
+  border: 1.5px solid color-mix(in srgb, var(--mist) 60%, transparent); background: transparent;
 }
+.habit-day::after { content: ""; position: absolute; inset: -12px -2px; }
+.habit-day.done { background: var(--hue-4); border-color: var(--hue-4); }
+.habit-day.skipped { border-color: color-mix(in srgb, var(--hue-4) 55%, var(--paper)); }
+.habit-day.missed { border-color: var(--steel); }
+.habit-day.today { border-color: var(--ink); }
+.habit-day.picked { outline: 1px solid var(--ink); outline-offset: 1px; }
+.habit-day:not(.done):hover { border-color: var(--graphite); }
+.habit-list { margin: 0; padding: 0; list-style: none; }
+.habit-row { border-top: 1px solid var(--hairline-on-glass); }
 .habit-row:first-child { border-top: none; }
-.habit-row:hover, .habit-row:focus-within { background: var(--glass-row-hover); }
+.habit-row:is(:hover, :focus-within, .writing) { background: var(--glass-row-hover); }
+.habit-line { display: flex; align-items: center; gap: var(--s-2); min-height: 36px; padding: 0 var(--s-1) 0 var(--s-2); }
 .habit-box { position: relative; flex: none; display: grid; place-content: center; width: 24px; height: 24px; cursor: pointer; }
 .habit-box::before {
   content: ""; width: 14px; height: 14px;
@@ -2408,18 +2419,74 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   border: solid var(--paper); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg);
 }
 .habit-row.skipped .habit-box::before { border-color: var(--pewter); }
-.pad-habit-write {
-  flex: 1; min-width: 0; padding: 8px 0; text-align: left; cursor: pointer;
-  font-size: var(--t-body-sm); font-weight: 500; color: var(--ink);
-  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+/* its name, which opens the day's comment under the row: as far as it may
+   go, cut short with an ellipsis; a day with a comment has its bubble
+   after it, tinted green; then the room, to the week */
+.habit-name {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 5px; padding: 8px 0; margin-right: auto;
+  font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); text-align: left; cursor: pointer;
 }
-.habit-row.skipped .pad-habit-write { color: var(--pewter); }
-.pad-habit-write:hover { color: color-mix(in srgb, var(--hue-4) 85%, var(--ink)); }
+.habit-name-text { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.habit-row.skipped .habit-name { color: var(--pewter); }
+.habit-name:hover .habit-name-text, .habit-name[aria-expanded="true"] .habit-name-text {
+  color: color-mix(in srgb, var(--hue-4) 85%, var(--ink));
+}
+.habit-name svg {
+  display: none; flex: none; width: 14px; height: 14px;
+  fill: color-mix(in srgb, var(--hue-4) 22%, transparent); stroke: color-mix(in srgb, var(--hue-4) 85%, var(--ink));
+  stroke-width: 1.5; stroke-linejoin: round;
+}
+.habit-row.has-note .habit-name svg { display: block; }
 .habit-streak { flex: none; width: 26px; text-align: right; font: 500 var(--t-caption)/1 var(--font-num); color: var(--graphite); font-variant-numeric: tabular-nums; }
 .habit-row .task-sheet.pad-props { float: none; flex: none; justify-content: center; width: 24px; margin: 0; min-height: 24px; }
 .habit-row .task-sheet.pad-props .prop { justify-content: center; width: 24px; height: 24px; min-height: 0; margin: 0; padding: 0; }
 .habit-row .task-sheet.pad-props .prop-value { display: none; }
-.habit-none { padding: var(--s-3) var(--s-4); font-size: var(--t-caption); color: var(--pewter); }
+/* the drawer: the day's comment written under the name, on a green line
+   (the line ink while it is written), growing with what is written */
+.habit-drawer { padding: 0 var(--s-3) var(--s-2) calc(var(--s-2) + 24px + var(--s-2)); }
+.habit-drawer[hidden] { display: none; }
+.habit-note {
+  display: block; width: 100%; min-height: 30px; margin: 0; padding: 4px 0 5px; resize: none; overflow: hidden;
+  font-size: var(--t-body-sm); line-height: 20px; color: var(--ink);
+  background: transparent; border: none; border-radius: 0;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--hue-4) 55%, var(--paper));
+  transition: box-shadow var(--dur) var(--ease);
+}
+.habit-note::placeholder { color: var(--pewter); opacity: 1; }
+.habit-note:is(:focus, :focus-visible) { outline: none; box-shadow: inset 0 -2px 0 var(--ink); }
+/* under it, at the right: the habit's page, where its whole log is */
+.habit-open {
+  display: block; width: fit-content; margin: 6px 0 0 auto; font-size: var(--t-caption); color: var(--graphite);
+  text-decoration: underline; text-decoration-color: var(--mist); text-underline-offset: 3px;
+}
+.habit-open:hover { color: var(--ink); text-decoration-color: currentColor; }
+.habit-open::after { content: " ›"; }
+.habit-none { margin: 0; padding: var(--s-3) var(--s-4); font-size: var(--t-caption); color: var(--pewter); }
+/* the pane's foot: New habit (its name written in its place), All habits */
+.habit-foot {
+  display: flex; align-items: center; gap: var(--s-2); min-height: 36px; padding: 0 var(--s-3) 0 var(--s-2);
+  border-top: 1px solid var(--hairline-on-glass);
+}
+.habit-new-open {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 6px 0 5px;
+  font-size: var(--t-caption); font-weight: 500; color: var(--graphite); cursor: pointer; border-radius: var(--r-tag);
+}
+.habit-new-open svg { stroke: currentColor; }
+.habit-new-open:hover { color: var(--ink); background: var(--fog); }
+.habit-new-open[hidden], .habit-new[hidden] { display: none; }
+.habit-new { flex: 1; min-width: 0; padding-left: 6px; }
+.habit-new input {
+  display: block; width: 100%; height: 28px; margin: 0; padding: 0;
+  font-size: var(--t-body-sm); color: var(--ink); background: transparent; border: none;
+  box-shadow: inset 0 -2px 0 var(--ink);
+}
+.habit-new input::placeholder { color: var(--pewter); opacity: 1; }
+.habit-new input:is(:focus, :focus-visible) { outline: none; }
+.habit-all {
+  margin-left: auto; padding: 5px 0; font-size: var(--t-caption); color: var(--graphite); white-space: nowrap;
+  text-decoration: underline; text-decoration-color: var(--mist); text-underline-offset: 3px;
+}
+.habit-all:hover { color: var(--ink); text-decoration-color: currentColor; }
 /* Ruled like a spreadsheet: every row is 36px tall with its text in the
    middle, on its own rule, the rows numbered down the left (their headers),
    empty numbered rows to the box's bottom. A row too long for the box wraps
@@ -2486,14 +2553,13 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 
 /* every task: a graphite rule above its title and below its last row,
    across the row numbers too, nothing filled; the one the caret is in,
-   the same rules in ink. Right under another task (or reflection, habit,
+   the same rules in ink. Right under another task (or reflection,
    stay), there is one rule between them, the upper's: the lower draws no
    rule above it, and the shared one takes the lower's colour while the
    caret is in the lower. */
 .pad-editor .pad-current { --bracket: var(--ink); }
 .pad-editor .pad-then-current { --below: var(--ink); }
 .pad-editor .pad-then-current.pad-then-reflection { --below: var(--signal); }
-.pad-editor .pad-then-current.pad-then-habit { --below: var(--hue-4); }
 .pad-editor .pad-then-current.pad-then-stay { --below: var(--hue-3); }
 .pad-editor :is(.cm-line, .cm-gutterElement):is(.pad-first, .pad-last) {
   box-shadow: var(--rule-above, 0 0 transparent), var(--rule-below, 0 0 transparent);
@@ -2544,19 +2610,6 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .pad-editor .pad-reflection { --bracket: color-mix(in srgb, var(--signal) 45%, var(--paper)); }
 .pad-editor .pad-reflection.pad-current { --bracket: var(--signal); }
 .pad-kind.pad-reflection-name { font-size: var(--t-caption); color: var(--signal-deep); }
-/* a habit: the same rules in green (growth), let out toward the paper; the
-   one the caret is in, the green itself. Its box is ticked by default (it
-   was done); "Habit" in green, pewter once unticked (skipped); its name in
-   ink, underlined in red when it cannot be one. */
-.pad-editor .pad-habit { --bracket: color-mix(in srgb, var(--hue-4) 45%, var(--paper)); --habit: color-mix(in srgb, var(--hue-4) 85%, var(--ink)); }
-.pad-editor .pad-habit.pad-current { --bracket: var(--hue-4); }
-.pad-editor .cm-line.pad-head { display: flow-root; }
-.pad-habit .pad-kind.done .pad-kind-name { color: var(--habit); text-decoration: none; }
-.pad-habit .pad-kind:not(.done) .pad-kind-name { color: var(--pewter); }
-.pad-habit .pad-check[aria-checked="true"] { background: var(--habit); border-color: var(--habit); }
-.pad-habit-name { color: var(--ink); font-weight: 500; }
-.pad-habit-name.wrong { text-decoration: underline wavy var(--hue-8); text-underline-offset: 3px; }
-.pad-habit .pad-kind:not(.done) ~ .pad-habit-name { color: var(--pewter); }
 /* a stay: the same rules in amber (on the move), let out toward the paper;
    the one the caret is in, the amber itself. "Stay" in amber in its first
    row's indent; each item its box (ink once sorted) and its name, up to its
@@ -3992,3 +4045,105 @@ a.doc-row:hover .item-name { text-decoration: underline; text-underline-offset: 
 /* a task's file: its line one run of words, its path on disk breaking where it must */
 .task-doc .doc-rest { display: block; }
 .doc-stale { margin: 0 0 var(--s-3); }
+
+/* ---------- Habits: every habit a row of the sheet ---------- */
+
+/* its name in ink (to its page), its days and what it is after it in
+   graphite, wrapping under it when they do not fit; then its four weeks,
+   how many of their days it was done, and its streak, in columns */
+.habits-rows { margin: 0; padding: 0; list-style: none; }
+.habits-row { display: flex; align-items: flex-start; gap: 0 var(--s-4); }
+li.habits-row:not(.habits-empty):hover { background: var(--glass-row-hover); }
+.habits-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s-2); }
+.habits-name { color: var(--ink); font-weight: 500; text-decoration: none; overflow-wrap: anywhere; }
+.habits-name:hover { color: color-mix(in srgb, var(--hue-4) 85%, var(--ink)); text-decoration: underline; text-underline-offset: 3px; }
+.habits-days { font-size: var(--t-caption); color: var(--pewter); white-space: nowrap; }
+.habits-about { flex-basis: 100%; color: var(--graphite); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.habits-empty .habits-main { color: var(--pewter); }
+.habits-cell { flex: none; color: var(--graphite); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.habits-rate { width: 44px; text-align: right; }
+.habits-streak { width: 48px; text-align: right; }
+.sheet-head .habits-cell { font-size: var(--t-caption); font-weight: 500; color: var(--pewter); }
+.sheet-head .habits-main { font-weight: 600; color: var(--ink); }
+/* four weeks, a square a day as the pane's (a week's Monday a little
+   apart), level with the row's first line */
+.habits-strip { display: flex; align-items: center; gap: 2px; height: var(--pad-text); }
+.habits-strip i {
+  flex: none; width: 8px; height: 8px;
+  border: 1.5px solid color-mix(in srgb, var(--mist) 60%, transparent);
+}
+.habits-strip i.monday { margin-left: 4px; }
+.habits-strip i:first-child { margin-left: 0; }
+.habits-strip i.done { background: var(--hue-4); border-color: var(--hue-4); }
+.habits-strip i.skipped { border-color: color-mix(in srgb, var(--hue-4) 55%, var(--paper)); }
+.habits-strip i.missed { border-color: var(--steel); }
+.habits-strip i.today { border-color: var(--ink); }
+.habits-strip-head i { border: none; font: 500 9px/1 var(--font-num); font-style: normal; color: var(--pewter); text-align: center; }
+/* a new one, named on the row after the last */
+.habits-new { display: flex; align-items: center; gap: var(--s-3); padding-top: 0; padding-bottom: 0; }
+.habits-new .field-line { flex: 1; max-width: 360px; }
+.habits-new .field-line > input { height: 34px; }
+.habits-new .btn { padding: 4px 12px; }
+@media (max-width: 720px) {
+  .habits-sheet { --pad-rows: 34px; --pad-gap: var(--s-2); }
+  .habits-row { gap: 0 var(--s-3); }
+  .habits-rate { display: none; }
+}
+@media (max-width: 520px) {
+  .habits-strip { display: none; }
+}
+
+/* ---------- a habit's own page ---------- */
+
+/* the line under its name: its days (the repeat icon and their words), since
+   when, its file */
+.habit-rest { flex-wrap: wrap; gap: var(--s-1) var(--s-2); }
+.habit-rest .task-sheet.pad-props {
+  float: none; flex: none; width: auto; margin: 0 0 0 -6px; padding: 0; min-height: 0;
+  background: none; border: none; box-shadow: none;
+}
+.habit-rest .task-sheet.pad-props .prop { height: 28px; margin: 0; }
+.habit-rest .task-sheet.pad-props .prop-value { font-size: var(--t-body-sm); color: var(--graphite); }
+/* any day: said, as the others' days are */
+.habit-rest .prop-value:empty::before { content: "Any day"; }
+/* its half year: its figures, then its weeks as columns, Monday at the
+   top, this week last; months named over the week they start in */
+.habit-year {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s-4) var(--s-8);
+  margin: 0 0 var(--s-6); padding: var(--s-4); border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--paper) 35%, transparent);
+}
+.habit-figures { display: flex; flex-direction: column; gap: var(--s-2); margin: 0; min-width: 132px; }
+.habit-figures div { display: flex; flex-direction: column; }
+.habit-figures dt { font-size: var(--t-caption); color: var(--pewter); }
+.habit-figures dd { margin: 0; font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.habit-weeks { display: flex; min-width: 0; max-width: 100%; margin-left: auto; }
+/* its weeks, the newest at the right: past the room there is, the oldest
+   go under the left edge */
+.habit-weeks-cols { display: flex; justify-content: flex-end; gap: 3px; min-width: 0; overflow: hidden; }
+@media (max-width: 720px) {
+  .habit-weeks-cols { mask-image: linear-gradient(to right, transparent, #000 24px); }
+}
+.habit-weekdays, .habit-week-col { display: flex; flex-direction: column; gap: 3px; }
+.habit-weekdays { margin-right: 3px; }
+.habit-weekdays i, .habit-month {
+  height: 11px; font: 500 9px/11px var(--font-num); font-style: normal; color: var(--pewter);
+}
+.habit-weekdays::before { content: ""; height: 11px; }
+.habit-month { width: 11px; overflow: visible; white-space: nowrap; }
+.habit-week-col i {
+  position: relative; width: 11px; height: 11px;
+  border: 1.5px solid color-mix(in srgb, var(--mist) 60%, transparent);
+}
+.habit-week-col i.done { background: var(--hue-4); border-color: var(--hue-4); }
+.habit-week-col i.skipped { border-color: color-mix(in srgb, var(--hue-4) 55%, var(--paper)); }
+.habit-week-col i.missed { border-color: var(--steel); }
+.habit-week-col i.today { border-color: var(--ink); }
+/* a day with a comment: a dot in it, the paper's on green */
+.habit-week-col i.noted::after {
+  content: ""; position: absolute; inset: 2.5px; background: color-mix(in srgb, var(--hue-4) 85%, var(--ink));
+}
+.habit-week-col i.done.noted::after { background: var(--paper); }
+/* a habit's column head: its name, a way to its page */
+.ds-habit-link { color: inherit; text-decoration: none; }
+.ds-habit-link:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }

@@ -6,6 +6,8 @@ records are rows.
                  description, acceptance criteria and outcome (the file's)
     project.md   a project: its fields as front matter, its about (the file's)
     notebook/    a day's notes, the file's
+    habits/      a habit: its fields as front matter, what it is and its log
+                 (the file's)
 
 Settling an entity writes its file from the database, after reading in its
 words when the file was written outside the app since (its words' hash is
@@ -14,7 +16,7 @@ is then written back as the database has it, so an edit there does not
 stand. A task's folder is put where it belongs on the way (app.services.
 task_files.arrange).
 
-After every commit, the tasks, projects and pages it touched are settled
+After every commit, the tasks, projects, pages and habits it touched are settled
 in a session of their own (the hooks below); the app settles everything as
 it starts (settle_all), and a watcher reads in what changes outside it
 (sync, watch). Each holds LOCK throughout, and takes it before touching the
@@ -25,6 +27,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import os
 import threading
 import uuid
 from collections.abc import Iterable
@@ -37,6 +40,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import set_committed_value
 
 from app.models import (
+    Document,
+    Habit,
+    HabitCheck,
     NotebookPage,
     Project,
     ProjectRepo,
@@ -49,6 +55,7 @@ from app.models import (
 from app.services import (
     documents,
     everyday,
+    habit_md,
     notebook_md,
     project_md,
     readme,
@@ -266,13 +273,137 @@ def settle_page(db: Session, day: date, who: str | None = None) -> None:
     db.flush()
 
 
+# ---- a habit ----
+
+
+def habit_path(habit: Habit) -> Path:
+    return everyday.habits_dir() / f"{habit.slug}{everyday.DOC_SUFFIX}"
+
+
+def _habit_files(db: Session, habit_id: int) -> list[Document]:
+    """The index's rows of a habit's files: its own, and one under a name it
+    had (renamed, its file not yet moved)."""
+    return list(db.scalars(select(Document).where(Document.owner == f"habit:{habit_id}")))
+
+
+def settle_habit(db: Session, habit: Habit, who: str | None = None) -> None:
+    """The habit's file under its name (moved there when it was renamed), as
+    the database has it, its words read in first when the file was written
+    outside the app since."""
+    path = habit_path(habit)
+    place = documents.Place(f"habit:{habit.id}", path.name)
+    for doc in _habit_files(db, habit.id):
+        old = everyday.root() / doc.path
+        if old == path:
+            continue
+        if old.is_file():
+            if path.exists():
+                _to_trash(old)
+            else:
+                os.replace(old, path)
+                documents.moved(db, place.owner, doc.name, place.name)
+        documents.unindexed(db, doc.path)
+    current = _read(path)
+    if _outside(current, habit.file_hash):
+        _take_habit_words(db, habit, current or "")
+    elif current is not None and habit.file_hash is None:
+        _kept_before(db, place, current)
+    from app.services import habits
+
+    text = habit_md.render(habit, habits.log_of(db, habit))
+    habit.file_hash = _write(db, path, text, current, place, who or FILE)
+    db.flush()
+
+
+def _take_habit_words(db: Session, habit: Habit, text: str) -> None:
+    """A habit's words as its file has them: what it is, and its log."""
+    from app.services import habits
+
+    words = habit_md.parse(text)
+    if words.notes != habit.notes.strip():
+        habit.notes = words.notes
+    habits.take_log(db, habit, words.log)
+    log.info("Habit %s's words read in from its file", habit.slug)
+
+
+def adopt_habit(db: Session, path: Path) -> Habit | None:
+    """A file in habits/ that no habit has: a new habit, named by the file,
+    its days the front matter's, its words the file's. None for a file
+    whose name cannot be a habit's (left as it is)."""
+    from app.services import DomainError, habits
+
+    text = _read(path)
+    if text is None:
+        return None
+    try:
+        slug = habits.clean_slug(path.name.removesuffix(everyday.DOC_SUFFIX))
+    except DomainError:
+        log.info("%s is not a habit's name: left as it is", path.name)
+        return None
+    front, _ = everyday.split_front_matter(text)
+    habit = Habit(slug=slug, days=habit_md.days_of((front or {}).get("days")))
+    db.add(habit)
+    db.flush()
+    _take_habit_words(db, habit, text)
+    log.info("A new habit from its file: %s", path)
+    settle_habit(db, habit)
+    return habit
+
+
+def trash_habit(db: Session, habit_id: int) -> None:
+    """A habit deleted: its file to the trash, out of the index (its history
+    stays)."""
+    for doc in _habit_files(db, habit_id):
+        old = everyday.root() / doc.path
+        if old.is_file():
+            _to_trash(old)
+    documents.forget_owner(db, f"habit:{habit_id}")
+
+
+def _to_trash(path: Path) -> None:
+    """A habit's file to .trash/habits/, numbered on beside one of its name."""
+    folder = everyday.trash_dir() / "habits"
+    folder.mkdir(parents=True, exist_ok=True)
+    stem, n = path.stem, 1
+    target = folder / path.name
+    while target.exists():
+        n += 1
+        target = folder / f"{stem} ({n}){everyday.DOC_SUFFIX}"
+    os.replace(path, target)
+
+
+def _settle_habits(db: Session, *, everything: bool, adopt: bool) -> None:
+    """Every habit's file where it belongs (all of them written when
+    `everything`, else those whose file is missing); a file in habits/ no
+    habit has, a new habit (when `adopt`), unless it is one renamed whose
+    file is still to move."""
+    for habit in db.scalars(select(Habit)):
+        if everything or not habit_path(habit).is_file():
+            settle_habit(db, habit)
+    folder = everyday.habits_dir()
+    if not adopt or not folder.is_dir():
+        return
+    from app.services import habits
+
+    for path in sorted(folder.glob(f"*{everyday.DOC_SUFFIX}")):
+        if path.name.startswith(".") or habits.find(db, path.stem) is not None:
+            continue
+        doc = db.scalar(select(Document).where(Document.path == everyday.relative(path)))
+        owner = doc.owner if doc else ""
+        if owner.startswith("habit:") and (habit := db.get(Habit, int(owner[6:]))) is not None:
+            settle_habit(db, habit)
+        else:
+            adopt_habit(db, path)
+
+
 # ---- after every commit ----
 
 
 def _touched(session: Session) -> dict[str, set[Any]]:
     return session.info.setdefault(
         "settle", {"tasks": set(), "deleted": set(), "projects": set(), "renamed": set(),
-                   "workstreams": set(), "pages": set()}
+                   "workstreams": set(), "pages": set(), "habits": set(),
+                   "habits_deleted": set()}
     )
 
 
@@ -299,9 +430,18 @@ def _collect(session: Session, _flush_context: Any) -> None:
                 touched["workstreams"].add(obj.id)
         elif isinstance(obj, NotebookPage):
             touched["pages"].add(obj.day)
+        elif isinstance(obj, Habit):
+            touched["habits"].add(obj.id)
+        elif isinstance(obj, HabitCheck):
+            # A day's comment is in its habit's file.
+            touched["habits"].add(obj.habit_id)
     for obj in session.deleted:
         if isinstance(obj, Task):
             touched["deleted"].add(obj.id)
+        elif isinstance(obj, Habit):
+            touched["habits_deleted"].add(obj.id)
+        elif isinstance(obj, HabitCheck):
+            touched["habits"].add(obj.habit_id)
         elif isinstance(obj, (TaskPullRequest, TaskRepo)):
             touched["tasks"].add(obj.task_id)
         elif isinstance(obj, (Workstream, ProjectRepo)):
@@ -371,13 +511,20 @@ def settle(
                 trash_task(task_id)
         for day in sorted(touched["pages"]):
             settle_page(db, day, who)
+        for habit_id in sorted(touched["habits"] - touched["habits_deleted"]):
+            habit = db.get(Habit, habit_id)
+            if habit is not None:
+                settle_habit(db, habit, who)
+        for habit_id in sorted(touched["habits_deleted"]):
+            if db.get(Habit, habit_id) is None:
+                trash_habit(db, habit_id)
         db.flush()
         return {
             (type(obj), obj.id): {
                 c.key: copy.deepcopy(getattr(obj, c.key)) for c in inspect(obj).mapper.column_attrs
             }
             for obj in db.identity_map.values()
-            if isinstance(obj, (Task, Project, NotebookPage))
+            if isinstance(obj, (Task, Project, NotebookPage, Habit))
         }
 
 
@@ -435,7 +582,7 @@ def _claim(db: Session) -> bool:
         db.add(Setting(key=CLAIM_SETTING, value=mine))
     if theirs is not None or db.scalar(select(Task.id).where(Task.file_hash.is_not(None))):
         log.info("The everyday files at %s are this database's from now on", everyday.root())
-    for model in (Task, Project, NotebookPage):
+    for model in (Task, Project, NotebookPage, Habit):
         for row in db.scalars(select(model).where(model.file_hash.is_not(None))):
             row.file_hash = None
     everyday.write_text(path, mine + "\n")
@@ -467,6 +614,7 @@ def settle_all(db: Session) -> None:
         days = set(db.scalars(select(NotebookPage.day))) | set(_days_on_disk())
         for day in sorted(days):
             settle_page(db, day)
+        _settle_habits(db, everything=True, adopt=claimed)
         _rescan(db)
         readme.write()
         db.commit()
@@ -487,6 +635,7 @@ def sync(db: Session) -> None:
         for page in db.scalars(select(NotebookPage)):
             if page.file_hash is not None and not page_path(page.day).is_file():
                 settle_page(db, page.day)
+        _settle_habits(db, everything=False, adopt=True)
         for project in db.scalars(select(Project)):
             folder = project_files.folder_path(project)
             if folder is None or not (folder / documents.PROJECT_FILE).is_file():
@@ -572,6 +721,10 @@ def _rescan(db: Session) -> None:
                 settle_project(db, project)
         elif place.owner == "notebook" and (day := day_of(place.name)) is not None:
             settle_page(db, day)
+        elif place.owner.startswith("habit:"):
+            habit = db.get(Habit, int(place.owner.split(":")[1]))
+            if habit is not None:
+                settle_habit(db, habit)
 
 
 # ---- watched while the desktop app runs ----

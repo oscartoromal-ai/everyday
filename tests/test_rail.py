@@ -20,7 +20,7 @@ def hidden(db) -> set[str]:
 
 def test_the_rail_starts_as_the_code_lists_it(db) -> None:
     assert keys(db) == [
-        ("planner", ["today", "calendar"]),
+        ("planner", ["today", "calendar", "habits"]),
         ("projects", ["projects"]),
         ("health", ["nutrition", "me", "garmin"]),
         ("finances", ["spending", "accounts", "bills", "goals"]),
@@ -40,7 +40,7 @@ def test_sections_and_modules_keep_the_order_they_are_dragged_to(db) -> None:
     db.commit()
     assert keys(db)[:2] == [
         ("health", ["nutrition", "me", "garmin"]),
-        ("planner", ["calendar", "today"]),
+        ("planner", ["calendar", "today", "habits"]),
     ]
     # Modules not named keep their places after the ones named.
     assert dict(keys(db))["finances"] == ["goals", "spending", "accounts", "bills"]
@@ -57,13 +57,13 @@ def test_the_modules_showing_are_numbered_top_to_bottom_up_to_nine(db) -> None:
     assert numbers(db) == {
         "today": "1",
         "calendar": "2",
-        "projects": "3",
-        "nutrition": "4",
-        "me": "5",
-        "garmin": "6",
-        "spending": "7",
-        "accounts": "8",
-        "bills": "9",
+        "habits": "3",
+        "projects": "4",
+        "nutrition": "5",
+        "me": "6",
+        "garmin": "7",
+        "spending": "8",
+        "accounts": "9",
     }
     # A hidden module has none, and the ones after it move up.
     rail_svc.save_layout(
@@ -76,11 +76,12 @@ def test_the_modules_showing_are_numbered_top_to_bottom_up_to_nine(db) -> None:
         "repositories": "1",
         "calendar": "2",
         "today": "3",
-        "projects": "4",
-        "garmin": "5",
-        "spending": "6",
-        "bills": "7",
-        "goals": "8",
+        "habits": "4",
+        "projects": "5",
+        "garmin": "6",
+        "spending": "7",
+        "bills": "8",
+        "goals": "9",
     }
 
 

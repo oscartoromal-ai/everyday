@@ -295,7 +295,6 @@ SCOPES: tuple[Scope, ...] = (
     Scope("today", "Today", (
         Fixed("[-] [[] []] [Space]", "At a row's start: a task, written in the notes"),
         Fixed("/reflection", "At a row's start: a reflection, free text"),
-        Fixed("/habit name", "At a row's start: the habit, done today (untick: skipped)"),
         Fixed("/stay", "At a row's start: where you stay today, its items (place, "
               "accommodation) ticked once sorted"),
         Fixed("[Tab]", "From a task's title to the row under it; a row into the task above it, "
@@ -326,6 +325,10 @@ SCOPES: tuple[Scope, ...] = (
         Action("today.dismissNudge", "Dismiss the first nudge", click=".nudge-dismiss", menu=True,
                words="nudge reminder dismiss"),
         Fixed("[Esc]", "Out of the notes (in a task, once it is saved: Esc again)"),
+        Fixed("[Space]", "On a habit's box: ticks it done for the day, or unticks it"),
+        Fixed("[←] [→]", "On a habit's box: the day before or after, of its last seven, for "
+              "the boxes and comments; a click on one of its days does the same"),
+        Fixed("[Enter]", "In a habit's comment: saved and closed ([Shift] [Enter], a new line)"),
     ), where="On Today and any day's page"),
     Scope("calendar", "Calendar", (
         Action("calendar.day", "A day", ("D",), click="[data-calendar-view=day]", menu=True,

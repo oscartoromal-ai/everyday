@@ -1,0 +1,24 @@
+{# A habit's half year: its numbers (its streak, the days done of the last
+   thirty that count, its comments), then its weeks as columns, Monday at
+   the top and this week last, each day done (filled green), skipped with
+   a comment, missed, or nothing; a comment's day carries a dot. Drawn
+   again as its log or its days change (habits-page.js). #}
+<section class="habit-year" id="habit-year" aria-label="{{ habit.slug }}'s last half year">
+  <dl class="habit-figures">
+    <div><dt>Streak</dt><dd>{% if streak %}{{ streak }} {{ "day" if streak == 1 else "days" }}{% else %}None yet{% endif %}</dd></div>
+    <div><dt>Last 30 days</dt><dd>{{ rate }}</dd></div>
+    <div><dt>Comments</dt><dd>{{ comments or "None yet" }}</dd></div>
+  </dl>
+  <div class="habit-weeks" role="img" aria-label="Day by day: done filled, skipped ruled, missed in steel">
+    <span class="habit-weekdays" aria-hidden="true">{% for l in weekday_letters %}<i>{{ l }}</i>{% endfor %}</span>
+    {# The weeks, the newest kept in view: on a narrow page the oldest go past its left edge. #}
+    <span class="habit-weeks-cols">
+    {% for week in weeks %}
+    <span class="habit-week-col">
+      <b class="habit-month" aria-hidden="true">{{ week.month }}</b>
+      {%- for c in week.cells %}<i class="{{ c.state or 'none' }}{% if c.note %} noted{% endif %}" title="{{ c.tip }}"></i>{% endfor -%}
+    </span>
+    {% endfor %}
+    </span>
+  </div>
+</section>

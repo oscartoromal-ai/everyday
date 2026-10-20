@@ -53,16 +53,9 @@
    Ctrl+Enter goes on to a plain row after it. The notes save it as a
    reflection block, between the text around it.
 
-   "/habit morning-skin-care" checks a habit for the day: drawn as a ticked
-   box and the word Habit, then its name, what follows on the row and the
-   tabbed rows under it its note, bracketed in green, with its days' icon
-   at the right. Unticked, it reads "/habit [ ] name": skipped that day.
-   The notes save it as a habit block, which checks it (or not) for the
-   day. Beside the notes, the habits' pane: each habit due that day and
-   each written, its box (a habit not yet written: writes its row, ticked),
-   its name, its last seven days, its streak and its days' icon. After "/"
-   at a row's start the commands are offered, and after "/habit " the
-   habits' names.
+   After "/" at a row's start the commands are offered. Habits are not
+   written here: they are ticked in the habits' pane beside the notes
+   (habits.js).
 
    Beside the notes too, the plan: the day's tasks not yet written here,
    those for the day and those carried over from before (on today's page,
@@ -92,7 +85,7 @@
     Annotation, EditorSelection, EditorState, MapMode, Prec, RangeSetBuilder, StateEffect, StateField,
     Transaction, Decoration, EditorView, GutterMarker, ViewPlugin, WidgetType, drawSelection,
     gutterLineClass, keymap, lineNumberWidgetMarker, lineNumbers, placeholder, defaultKeymap, history,
-    historyKeymap, invertedEffects, isolateHistory, autocompletion, completionStatus, startCompletion,
+    historyKeymap, invertedEffects, isolateHistory, autocompletion, completionStatus,
   } = window.CM;
 
   const SAVE_AFTER_MS = 600;
@@ -101,12 +94,10 @@
   const BOX = 6; // its length
   const TAB = "\t"; // a task's or reflection's other rows start with one
   const REFLECTION = /^\/reflection(?: |$)/; // a reflection's first row, and its lead
-  const HABIT = /^\/habit (?:\[([ xX])\] )?/; // a habit's first row, and its lead
   const STAY = /^\/stay(?: |$)/; // a stay's first row, and its lead
   // A stay's item row: its tab and box, its name, its value.
   const ITEM = /^\t- \[([ xX])\] ([^:]*?)\s*(?::\s?(.*))?$/;
   const ITEM_LEAD = 7; // "\t- [ ] "
-  const HABIT_NAME = /^[a-z0-9][a-z0-9-]{0,79}$/; // as the server keeps them
 
   const source = () => document.getElementById("notepad");
   let view = null;
@@ -128,33 +119,18 @@
 
   const isTask = (line) => TASK.test(line.text);
   const isReflection = (line) => REFLECTION.test(line.text);
-  const isHabit = (line) => HABIT.test(line.text);
   const isStay = (line) => STAY.test(line.text);
-  // The rows the notepad draws itself: its tasks, reflections, habits and
-  // stays, and every tabbed row (theirs). On these the Markdown engine
-  // draws only the words' marks.
-  const owns = (line) => line.text.startsWith(TAB) || isTask(line) || isReflection(line) || isHabit(line) || isStay(line);
+  // The rows the notepad draws itself: its tasks, reflections and stays,
+  // and every tabbed row (theirs). On these the Markdown engine draws only
+  // the words' marks.
+  const owns = (line) => line.text.startsWith(TAB) || isTask(line) || isReflection(line) || isStay(line);
   // A row that is Markdown's own to go on from (a list item, an indented
   // note under one, a numbered item, a quote): Enter is the engine's there.
   const MARKUP = /^(?: +\S|[-*+][ \t]|\d{1,9}[.)](?:[ \t]|$)|>)/;
   // What a stay written here starts with (the last stay's items).
   let stayItems = ["place", "accommodation"];
   const stayTemplate = () => stayItems.map((name) => `\n\t- [ ] ${name}: `).join("");
-  // A habit's row read: its lead, done or skipped, its name as written and
-  // as kept, and the rest of the row (its note's first line).
-  const habitOf = (line) => {
-    const lead = HABIT.exec(line.text);
-    const rest = line.text.slice(lead[0].length);
-    const name = /^\S*/.exec(rest)[0];
-    const slug = name.toLowerCase();
-    return {
-      lead: lead[0].length, done: lead[1] !== " ", name, slug, valid: HABIT_NAME.test(slug),
-      note: rest.slice(name.length).replace(/^ /, ""),
-    };
-  };
 
-  // Every habit and its days (Monday 0 to Sunday 6, "" any day).
-  const habits = new Map();
   // Each project's colour (1 to 8, --hue-N), by id; and a task's, when it
   // is in one.
   const projectColors = new Map();
@@ -251,13 +227,13 @@
     });
   };
   const blocks = () => blocksOf(view.state);
-  // A reflection or a habit: its first row and the tabbed rows under it.
+  // A reflection or a stay: its first row and the tabbed rows under it.
   const writtenOf = (state) => {
     const doc = state.doc;
     const out = [];
     for (let n = 1; n <= doc.lines; n++) {
       const line = doc.line(n);
-      const kind = isReflection(line) ? "reflection" : isHabit(line) ? "habit" : isStay(line) ? "stay" : null;
+      const kind = isReflection(line) ? "reflection" : isStay(line) ? "stay" : null;
       if (!kind) continue;
       let last = n;
       while (last < doc.lines) {
@@ -269,7 +245,7 @@
     }
     return out;
   };
-  // The task, reflection or habit the caret is in.
+  // The task, reflection or stay the caret is in.
   const blockAt = (state) => {
     const n = state.doc.lineAt(state.selection.main.head).number;
     return [...blocksOf(state), ...writtenOf(state)].find((b) => n >= b.first && n <= b.last) || null;
@@ -284,10 +260,6 @@
     blocksOf(state).find((b) => line.number > b.first && line.number <= b.last) || null;
   const isSub = (state, line) => SUB.test(line.text) && !!taskOfRow(state, line);
 
-  // The habits a page has written (by name as kept).
-  const writtenHabits = (state) => new Set(
-    writtenOf(state).filter((b) => b.kind === "habit").map((b) => habitOf(state.doc.line(b.first)).slug),
-  );
   const contentOf = (block) => {
     const doc = view.state.doc;
     const notes = [];
@@ -298,7 +270,7 @@
 
   /* ---- how the rows are drawn ---- */
 
-  // In a task's (or habit's) row: its checkbox and the word Task (Habit).
+  // In a task's row: its checkbox and the word Task.
   // A task with rows under its title has its chevron after Task, to fold
   // it to its title (fold: null without rows, else whether it is folded).
   class Kind extends WidgetType {
@@ -456,50 +428,6 @@
     }
   }
 
-  // A habit's controls: its days, with the task sheet's repeat icon; one
-  // at its row's right and one in the strip under the notes, each change
-  // written to the habit and shown in both.
-  const daysTimers = new Map(); // name -> timer
-  const habitControls = (slug) => {
-    const form = document.getElementById("pad-habit-template").content.firstElementChild.cloneNode(true);
-    form.elements.days.value = habits.get(slug) ?? "";
-    form._habit = slug;
-    // Heard on the form: the strip may redraw while its menu is open.
-    form.addEventListener("sheet:field", (e) => {
-      const days = e.detail.value;
-      habits.set(slug, days);
-      for (const other of document.querySelectorAll(".pad-props")) {
-        if (other._habit !== slug || other === form) continue;
-        other.elements.days.value = days;
-        window.TaskSheet.refresh(other);
-      }
-      clearTimeout(daysTimers.get(slug));
-      daysTimers.set(slug, setTimeout(async () => {
-        const body = new URLSearchParams({ days: habits.get(slug) });
-        const res = await post(`/ui/habits/${encodeURIComponent(slug)}`, body).catch(() => null);
-        if (!res?.ok) window.toast("Could not set that habit's days.");
-      }, 300));
-      drawHabits();
-    });
-    document.dispatchEvent(new CustomEvent("htmx:load", { detail: { elt: form } }));
-    return form;
-  };
-  class HabitControls extends WidgetType {
-    constructor(slug) {
-      super();
-      this.slug = slug;
-    }
-    eq(other) {
-      return other.slug === this.slug;
-    }
-    toDOM() {
-      return habitControls(this.slug);
-    }
-    ignoreEvent() {
-      return true;
-    }
-  }
-
   // Under the last row, empty rows to the bottom of the box, numbered on:
   // exactly the room left (the last of them cut at the box's edge), so a
   // short page never scrolls; at least one row under the text.
@@ -627,8 +555,7 @@
   // Each row as it reads: a task's rows bracketed (the one the caret is in,
   // in ink), its title in ink with its box and controls, its other rows
   // indented; a reflection's rows bracketed in light blue, its first with
-  // the word Reflection; a habit's in green, its first with its box, the
-  // word Habit, its name and its days' icon; the row numbers alike, the
+  // the word Reflection; a stay's in amber; the row numbers alike, the
   // caret's in ink.
   const draw = (state) => {
     const doc = state.doc;
@@ -652,7 +579,6 @@
       if (!focused || n !== here) decos.push(UNCHECKED.range(line.from));
       const task = head && b.kind === "task";
       const reflection = head && b.kind === "reflection";
-      const habit = head && b.kind === "habit";
       const stay = head && b.kind === "stay";
       const tabbed = !head && line.text.startsWith(TAB);
       const item = tabbed && b?.kind === "stay" && ITEM.exec(line.text);
@@ -680,26 +606,12 @@
       }
       const row = [...kinds];
       if (task) row.push("pad-title");
-      else if (habit) row.push("pad-body", "pad-head");
       else if (reflection || stay || tabbed) row.push("pad-body");
       if (item) row.push(item[1] === " " ? "pad-item open" : "pad-item");
       if (sub) row.push("pad-sub");
       if (struck) row.push("pad-struck");
       if (row.length) decos.push(Decoration.line({ class: row.join(" ") }).range(line.from));
-      if (habit) {
-        const h = habitOf(line);
-        const box = Decoration.replace({ widget: new Kind(h.done, "Habit") });
-        decos.push(box.range(line.from, line.from + h.lead));
-        atomic.push(box.range(line.from, line.from + h.lead));
-        if (h.name) {
-          const name = Decoration.mark({
-            class: h.valid ? "pad-habit-name" : "pad-habit-name wrong",
-            attributes: h.valid ? {} : { title: "A habit's name is letters, digits and hyphens" },
-          });
-          decos.push(name.range(line.from + h.lead, line.from + h.lead + h.name.length));
-        }
-        if (h.valid) decos.push(Decoration.widget({ widget: new HabitControls(h.slug), side: 1 }).range(line.to));
-      } else if (reflection || stay) {
+      if (reflection || stay) {
         const lead = (reflection ? REFLECTION : STAY).exec(line.text)[0].length;
         const label = Decoration.replace({ widget: reflection ? REFLECTION_LABEL : STAY_LABEL });
         decos.push(label.range(line.from, line.from + lead));
@@ -758,7 +670,7 @@
 
   const leadOf = (line, state = null) => {
     if (isTask(line)) return BOX;
-    const lead = REFLECTION.exec(line.text) || HABIT.exec(line.text) || STAY.exec(line.text);
+    const lead = REFLECTION.exec(line.text) || STAY.exec(line.text);
     if (lead) return lead[0].length;
     if (state && (isItem(state, line) || isSub(state, line))) return ITEM_LEAD;
     return line.text.startsWith(TAB) ? 1 : 0;
@@ -843,11 +755,11 @@
     if (state.selection.ranges.length > 1) return false;
     const range = state.selection.main;
     const line = state.doc.lineAt(range.head);
-    if (isTask(line) || isReflection(line) || isHabit(line) || isStay(line)) {
+    if (isTask(line) || isReflection(line) || isStay(line)) {
       const lead = leadOf(line);
       if (range.empty && range.head === line.from + lead && line.length > lead) {
         // At a first row's first word: a plain row above it, the task (or
-        // reflection, habit or stay) moving down with its words.
+        // reflection or stay) moving down with its words.
         v.dispatch({ changes: { from: line.from, insert: "\n" }, selection: { anchor: range.head + 1 }, scrollIntoView: true, userEvent: "input" });
         return true;
       }
@@ -875,7 +787,7 @@
       v.dispatch(state.replaceSelection(`\n${TAB}- [ ] `), { scrollIntoView: true, userEvent: "input" });
       return true;
     } else if (line.text === TAB && range.empty) {
-      // An empty row of a task, reflection or habit: out of it, to a plain row.
+      // An empty row of a task, reflection or stay: out of it, to a plain row.
       v.dispatch({ changes: { from: line.from, to: line.to }, userEvent: "delete" });
       return true;
     }
@@ -884,7 +796,7 @@
   };
 
   // Tab and Shift+Tab stay in the notes, a step into or out of a task (or
-  // reflection, habit, stay) at a time. Tab from a first row goes under it
+  // reflection, stay) at a time. Tab from a first row goes under it
   // (to its first row, a new one when it has none); on a plain row right
   // under one, the row joins it; on a task's or stay's row, the row takes a
   // box (a sub-task, an item). Shift+Tab takes a box away, else a row's tab.
@@ -920,7 +832,7 @@
     return false;
   };
   const keepTab = Prec.low(keymap.of([{ key: "Tab", run: () => true, shift: () => true }]));
-  // A row deleted from inside a task (or reflection, habit, stay) goes
+  // A row deleted from inside a task (or reflection, stay) goes
   // whole: its words, box and tab deleted (by Backspace, Delete or a cut),
   // it would be left an empty plain row between two of the task's rows,
   // ending the task there and leaving the rows under it outside. The caret
@@ -944,7 +856,7 @@
     return [tr, { changes: { from: end, to: gap.to }, selection: { anchor: end }, sequential: true }];
   });
 
-  // Lines pasted inside a task (or reflection, habit, stay) stay inside it:
+  // Lines pasted inside a task (or reflection, stay) stay inside it:
   // each after the first is tabbed in as one of its rows ("- [ ] " ones
   // becoming sub-tasks), so a paste never ends it early or starts another.
   const pasteInside = EditorView.domEventHandlers({
@@ -1092,7 +1004,7 @@
   const keys = Prec.high(keymap.of([
     {
       // In a task: save it, and go on to a fresh plain row after it. In a
-      // reflection or habit: on to a plain row after it.
+      // reflection or stay: on to a plain row after it.
       key: "Mod-Enter",
       run: (v) => {
         let block = blockAt(v.state);
@@ -1166,9 +1078,8 @@
   };
 
   // The notes as the page's blocks: the text between reflections and
-  // habits (each with the rows that made tasks, by row), each reflection's
-  // words, and each habit (by name, done or not, its note). A habit row
-  // whose name is not one (empty, or with other signs) stays text.
+  // stays (each with the rows that made tasks, by row), and each
+  // reflection's and stay's words.
   // `adding`: the page is being left, so the task rows not added yet go
   // with the notes (a text block's `new`, by row), the server adding and
   // linking them in the same save; a separate add's answer, naming the
@@ -1200,14 +1111,11 @@
     for (let n = 1; n <= doc.lines; n++) {
       const line = doc.line(n);
       const block = written.get(n);
-      const habit = block?.kind === "habit" && habitOf(line);
-      if (block && (!habit || habit.valid)) {
+      if (block) {
         endText();
-        const words = [habit ? habit.note : line.text.slice(leadOf(line))];
+        const words = [line.text.slice(leadOf(line))];
         for (let k = n + 1; k <= block.last; k++) words.push(doc.line(k).text.slice(1));
-        out.push(habit
-          ? { kind: "habit", habit: habit.slug, done: habit.done, text: words.join("\n") }
-          : { kind: block.kind, text: words.join("\n") });
+        out.push({ kind: block.kind, text: words.join("\n") });
         n = block.last;
         continue;
       }
@@ -1253,10 +1161,7 @@
       if (res.ok) {
         version = answer.version;
         // Stood over by a later save of this window: that one is the saved.
-        if (!answer.superseded) {
-          saved = state;
-          learnHabits(page);
-        }
+        if (!answer.superseded) saved = state;
       } else if (res.status === 409) {
         stale = true;
         theirs = answer.version;
@@ -1412,8 +1317,7 @@
     view.dispatch({ changes: { from: at, to: at + 1, insert: done ? "x" : " " }, annotations: Transaction.addToHistory.of(false) });
   };
 
-  // Ticking a task's box ticks its task (and its row, in the notes); a
-  // habit's box is its row's own: unticked, the habit is skipped that day.
+  // Ticking a task's box ticks its task (and its row, in the notes).
   document.addEventListener("click", async (e) => {
     const box = e.target.closest?.(".pad-check");
     if (!box || !view?.dom.contains(box)) return;
@@ -1425,12 +1329,6 @@
       view.dispatch({ changes: { from: at, to: at + 1, insert: line.text[4] === " " ? "x" : " " }, userEvent: "input" });
       const task = taskOfRow(view.state, view.state.doc.lineAt(at));
       if (task?.m.id && !(await writeTask(task))) window.toast("Could not save that to the task.");
-      return;
-    }
-    if (isHabit(line)) {
-      const { lead, done } = habitOf(line);
-      const insert = done ? "/habit [ ] " : "/habit ";
-      view.dispatch({ changes: { from: line.from, to: line.from + lead, insert }, userEvent: "input" });
       return;
     }
     const m = taskOfBox(box);
@@ -1596,161 +1494,6 @@
     const line = view.state.doc.line(Math.min(Number(go.dataset.row), view.state.doc.lines));
     view.focus();
     view.dispatch({ selection: { anchor: line.to }, scrollIntoView: true });
-  });
-
-  /* ---- the habits' pane ---- */
-
-  // Each habit due this day (any day's, or one of its weekdays) and each
-  // written in the notes: its box (done in the notes, or not yet), its name,
-  // its last seven days (this one as the notes have it), its streak and its
-  // days' icon. A box or a name not yet written writes its row; a name
-  // written goes to its row, and its box ticks or unticks it there.
-  const weekday = () => {
-    const [y, m, d] = day.split("-").map(Number);
-    return String((new Date(y, m - 1, d).getDay() + 6) % 7);
-  };
-  // How each habit came into the day: {week: [{day, state}], streak}.
-  const standing = new Map();
-  // Each habit written in the notes, by name as kept: done (or skipped).
-  const habitStates = (state) => {
-    const out = new Map();
-    for (const b of writtenOf(state)) {
-      if (b.kind !== "habit") continue;
-      const { slug, done } = habitOf(state.doc.line(b.first));
-      out.set(slug, out.get(slug) || done);
-    }
-    return out;
-  };
-  // A habit first written here is one once the notes are saved (the save
-  // makes it), and goes again when its row went before a save kept it (a
-  // name typed on the way to another).
-  const fresh = new Set();
-  const learnHabits = (saved) => {
-    const written = new Set(saved.filter((b) => b.kind === "habit").map((b) => b.habit));
-    for (const slug of fresh) {
-      if (written.has(slug)) continue;
-      fresh.delete(slug);
-      habits.delete(slug);
-    }
-    for (const slug of written) {
-      if (habits.has(slug) || !HABIT_NAME.test(slug)) continue;
-      fresh.add(slug);
-      habits.set(slug, "");
-    }
-    drawHabits();
-  };
-  // The days before this one, oldest first: a habit's own, else none.
-  const weekOf = (slug) => {
-    const known = standing.get(slug)?.week || [];
-    const [y, m, d] = day.split("-").map(Number);
-    return Array.from({ length: 6 }, (_, i) => {
-      const at = new Date(y, m - 1, d - 6 + i);
-      const iso = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}`;
-      return known.find((k) => k.day === iso) || { day: iso, state: null };
-    });
-  };
-  const DAY_STATES = { done: "done", skipped: "skipped", missed: "missed" };
-  const dayName = (iso) => {
-    const [y, m, d] = iso.split("-").map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
-  };
-  let habitsShow = null;
-  function drawHabits() {
-    const pane = document.getElementById("pad-habits");
-    if (!pane || !view) return;
-    const written = habitStates(view.state);
-    const listed = [...habits.keys()].filter((slug) => {
-      const days = habits.get(slug);
-      return written.has(slug) || !days || days.includes(weekday());
-    }).sort();
-    const shows = JSON.stringify(listed.map((slug) => [slug, written.get(slug) ?? null, habits.get(slug)]));
-    if (shows === habitsShow) return;
-    habitsShow = shows;
-    pane.hidden = !habits.size;
-    const done = listed.filter((slug) => written.get(slug)).length;
-    pane.querySelector(".today-fold-summary .count").textContent = listed.length ? `${done}/${listed.length}` : "";
-    const list = pane.querySelector(".habit-list");
-    if (!listed.length) {
-      const none = document.createElement("li");
-      none.className = "habit-none";
-      none.textContent = "None due this day.";
-      list.replaceChildren(none);
-      return;
-    }
-    list.replaceChildren(...listed.map((slug) => {
-      const now = written.has(slug) ? (written.get(slug) ? "done" : "skipped") : "open";
-      const item = document.createElement("li");
-      item.className = `habit-row ${now}`;
-      item.dataset.habit = slug;
-      const box = document.createElement("button");
-      box.type = "button";
-      box.className = "habit-box";
-      box.setAttribute("role", "checkbox");
-      box.setAttribute("aria-checked", String(now === "done"));
-      box.setAttribute("aria-label", `${slug}, done`);
-      box.title = now === "open" ? `Done: writes /habit ${slug}` : now === "done" ? "Done (untick: skipped)" : "Skipped (tick: done)";
-      const write = document.createElement("button");
-      write.type = "button";
-      write.className = "pad-habit-write";
-      write.dataset.habit = slug;
-      write.textContent = slug;
-      write.title = now === "open" ? `Write it: /habit ${slug}` : "Go to its row";
-      // Its last days, then this one: done, skipped, missed or nothing.
-      const week = document.createElement("span");
-      week.className = "habit-week";
-      week.setAttribute("role", "img");
-      const days = [...weekOf(slug), { day, state: now === "open" ? "today" : now }];
-      week.setAttribute("aria-label", days.map(({ day: d, state }) =>
-        `${dayName(d)}: ${state === "today" ? "not yet" : DAY_STATES[state] || "nothing"}`).join(", "));
-      week.replaceChildren(...days.map(({ day: d, state }) => {
-        const cell = document.createElement("i");
-        cell.className = state || "none";
-        cell.title = `${dayName(d)}: ${state === "today" ? "not yet" : DAY_STATES[state] || "nothing"}`;
-        return cell;
-      }));
-      const run = (standing.get(slug)?.streak || 0) + (now === "done" ? 1 : 0);
-      const streak = document.createElement("span");
-      streak.className = "habit-streak";
-      streak.textContent = run ? `${run}d` : "";
-      if (run) streak.title = `${run} ${run === 1 ? "day" : "days"} in a row`;
-      item.append(box, write, week, streak, habitControls(slug));
-      return item;
-    }));
-  }
-
-  // A habit's row, written at the end of the notes (on its last row, when
-  // that is empty): from its name, the caret after it for a note; from its
-  // box, where the caret was.
-  const writeHabit = (slug, { focus }) => {
-    const doc = view.state.doc;
-    const last = doc.line(doc.lines);
-    const row = `/habit ${slug}`;
-    const from = last.text.trim() ? last.to : last.from;
-    const insert = last.text.trim() ? `\n${row}` : row;
-    if (focus) view.focus();
-    view.dispatch({
-      changes: { from, to: last.to, insert }, userEvent: "input",
-      ...(focus ? { selection: { anchor: from + insert.length }, scrollIntoView: true } : {}),
-    });
-  };
-  const habitLine = (slug) => {
-    const b = writtenOf(view.state).find((w) => w.kind === "habit" && habitOf(view.state.doc.line(w.first)).slug === slug);
-    return b ? view.state.doc.line(b.first) : null;
-  };
-  document.addEventListener("click", (e) => {
-    const target = e.target.closest?.("#pad-habits :is(.habit-box, .pad-habit-write)");
-    if (!target || !view) return;
-    const slug = target.closest(".habit-row").dataset.habit;
-    const line = habitLine(slug);
-    if (!line) {
-      writeHabit(slug, { focus: target.classList.contains("pad-habit-write") });
-    } else if (target.classList.contains("habit-box")) {
-      const { lead, done } = habitOf(line);
-      view.dispatch({ changes: { from: line.from, to: line.from + lead, insert: done ? "/habit [ ] " : "/habit " }, userEvent: "input" });
-    } else {
-      view.focus();
-      view.dispatch({ selection: { anchor: line.to }, scrollIntoView: true });
-    }
   });
 
   /* ---- the plan: the day's tasks, not yet written ---- */
@@ -2085,10 +1828,9 @@
     }).observe(nudges.querySelector(".nudge-list"), { childList: true });
   }
 
-  // Offered while writing: the commands, after "/" at a row's start, and
-  // the habits' names (and those this page has), after "/habit ".
+  // Offered while writing: the commands, after "/" at a row's start, and a
+  // stay's item names.
   const COMMANDS = [
-    { label: "/habit", apply: "/habit ", detail: "a habit, checked this day" },
     { label: "/reflection", apply: "/reflection ", detail: "free text" },
     { label: "/stay", apply: "/stay", detail: "where you stay this day" },
   ];
@@ -2100,7 +1842,6 @@
         from: line.from,
         options: COMMANDS.map((c) => ({
           ...c,
-          // Choosing /habit goes straight on to the names.
           apply: (v, completion, from, to) => {
             if (c.label === "/stay") {
               // Its items come with it, the caret at the first.
@@ -2110,8 +1851,6 @@
               return;
             }
             v.dispatch({ changes: { from, to, insert: c.apply }, selection: { anchor: from + c.apply.length }, userEvent: "input.complete" });
-            // Once the pick is done: the offer closes as part of it.
-            if (c.label === "/habit") setTimeout(() => startCompletion(v));
           },
         })),
         validFor: /^\/[a-z]*$/,
@@ -2134,18 +1873,7 @@
         validFor: /^[^:]*$/,
       };
     }
-    const lead = HABIT.exec(line.text);
-    if (!lead || context.pos < line.from + lead[0].length) return null;
-    const typed = before.slice(lead[0].length);
-    if (/\s/.test(typed)) return null; // past the name
-    const names = new Set([...habits.keys(), ...writtenHabits(context.state)]);
-    names.delete(typed.toLowerCase());
-    if (!names.size) return null;
-    return {
-      from: line.from + lead[0].length,
-      options: [...names].sort().map((slug) => ({ label: slug })),
-      validFor: /^[\w-]*$/,
-    };
+    return null;
   };
 
   /* ---- start ---- */
@@ -2227,7 +1955,6 @@
     EditorView.updateListener.of((u) => {
       if (u.docChanged && !u.transactions.some((tr) => tr.annotation(loading))) schedule();
       if (u.docChanged) {
-        drawHabits();
         drawPlan();
         drawStay();
       }
@@ -2242,21 +1969,11 @@
     const text = src.value;
     let rows = [];
     try { rows = JSON.parse(src.dataset.taskRows || "[]"); } catch { /* none */ }
-    let known = [];
-    try { known = JSON.parse(src.dataset.habits || "[]"); } catch { /* none */ }
     try { stayItems = JSON.parse(src.dataset.stayItems || "[]"); } catch { /* the defaults */ }
     if (!stayItems.length) stayItems = ["place", "accommodation"];
     dayTasks = { label: "", tasks: [] };
     try { dayTasks = JSON.parse(src.dataset.dayTasks || "null") || dayTasks; } catch { /* none */ }
     carryShows = null;
-    habitsShow = null;
-    habits.clear();
-    standing.clear();
-    fresh.clear();
-    for (const { slug, days, week, streak } of known) {
-      habits.set(slug, days);
-      standing.set(slug, { week: week || [], streak: streak || 0 });
-    }
     projectColors.clear();
     projectNames.clear();
     const projects = document.getElementById("pad-props-template")?.content.querySelector("[data-sheet-projects]");
@@ -2288,7 +2005,6 @@
     // What the notes say of each task now is what was last written to it.
     for (const block of blocks()) block.m.saved = contentOf(block);
     saved = snapshot();
-    drawHabits();
     drawPlan();
     drawStay();
   }

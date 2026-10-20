@@ -456,17 +456,26 @@ class NotebookPage(Base):
 
 class Habit(Base):
     """Something Oscar tracks doing, day by day (morning skin care,
-    exercise): written in a day's notes as "/habit morning-skin-care", which
-    checks it for that day. Its days say when it is meant to happen: the
-    weekdays it is due, Monday 0 to Sunday 6 ("0123456" every day, "1" only
-    Tuesdays), or "" for any day; a due day with no check is a miss."""
+    exercise): ticked on Today's habits pane or Calendar's sheet. Its days
+    say when it is meant to happen: the weekdays it is due, Monday 0 to
+    Sunday 6 ("0123456" every day, "1" only Tuesdays), or "" for any day; a
+    due day with no check is a miss. Its file, habits/<slug>.md in the
+    everyday files, holds its words: what it is (`notes`) and its log, a
+    comment a day (app.services.habit_md)."""
 
     __tablename__ = "habits"
+    # An id is never given twice: it names the habit's file in the index and
+    # its history, past its deletion.
+    __table_args__ = ({"sqlite_autoincrement": True},)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     slug: Mapped[str] = mapped_column(String(80), unique=True)
     days: Mapped[str] = mapped_column(String(7), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    # What it is, why and how: its file's words above its log, kept here too.
+    notes: Mapped[str] = mapped_column(Text, default="")
+    # Its file's words' hash as the app last wrote or read it (app.services.settling).
+    file_hash: Mapped[str | None] = mapped_column(String(16), default=None)
 
     checks: Mapped[list[HabitCheck]] = relationship(
         back_populates="habit", cascade="all, delete-orphan", passive_deletes=True
@@ -474,9 +483,9 @@ class Habit(Base):
 
 
 class HabitCheck(Base):
-    """A habit on a day: done, or skipped (its box unticked), with what Oscar
-    wrote about it. Kept by the day's notebook page, which is where it is
-    written: one per habit per day."""
+    """A habit on a day: done (ticked), or skipped (not ticked, with a
+    comment saying why); one per habit per day. Its note is the day's entry
+    in the habit's log, read from its file and written to it."""
 
     __tablename__ = "habit_checks"
     __table_args__ = (

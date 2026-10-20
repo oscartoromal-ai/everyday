@@ -1,7 +1,7 @@
 """Search across the planner for the command menu (Ctrl+K): tasks, projects,
 events and the days' notes whose words hold what was typed, and the files
-of projects and tasks whose words do (the everyday files' full-text index,
-app.services.documents)."""
+of projects, tasks and habits whose words do (the everyday files'
+full-text index, app.services.documents)."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.dates import short_date, upper_first
-from app.models import Event, NotebookPage, Project, Task, TaskOwner, TaskStatus
+from app.models import Event, Habit, NotebookPage, Project, Task, TaskOwner, TaskStatus
 from app.services import documents
 
 TASK_LIMIT = 8
@@ -172,13 +172,20 @@ def search(db: Session, query: str, now: datetime) -> dict[str, list[dict[str, A
 
 
 def _files(db: Session, query: str) -> list[dict[str, Any]]:
-    """Projects' documents and tasks' files whose words hold the query's,
-    each with where it opens: a task's task.md is the task, found above."""
+    """Projects' documents, tasks' files and habits' whose words hold the
+    query's, each with where it opens: a task's task.md is the task, found
+    above."""
     out = []
-    for found in documents.search(db, query, limit=FILE_LIMIT * 2, owners=("task:", "project:")):
+    owners = ("task:", "project:", "habit:")
+    for found in documents.search(db, query, limit=FILE_LIMIT * 2, owners=owners):
         kind, _, key = found["owner"].partition(":")
         name = found["name"]
-        if kind == "task":
+        if kind == "habit":
+            habit = db.get(Habit, int(key))
+            if habit is None:
+                continue
+            href, whose = f"/habits/{quote(habit.slug)}", "Habits"
+        elif kind == "task":
             task = db.get(Task, int(key))
             if task is None or name == documents.TASK_FILE:
                 continue

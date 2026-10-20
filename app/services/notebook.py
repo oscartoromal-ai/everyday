@@ -8,8 +8,6 @@ A page is its blocks, in the order they were written:
     {"kind": "text", "text": "Slow morning.\\nCalled Ana."}   prose, as written
     {"kind": "task", "id": 42}                              a task, by reference
     {"kind": "reflection", "text": "..."}                   a reflection, free text
-    {"kind": "habit", "habit": 3, "done": true, "text": ""} a habit checked that day,
-                                                            with a note (app.services.habits)
     {"kind": "stay", "text": "..."}                         where Oscar stays that day: a
                                                             note, then its items, each
                                                             "- [ ] name: value" (stay_items)
@@ -18,7 +16,8 @@ Tasks are only referenced: the page shows each as it stands now, wherever it
 was changed since, and a task deleted since shows as its last known title.
 A task written on a page carries that day in `written_on`; one whose
 reference never reached the page (a save lost to a closed tab) still shows
-on it, after what was written.
+on it, after what was written. Habits are not the page's: they are ticked
+beside it, and their comments are their own files' (app.services.habits).
 """
 
 from __future__ import annotations
@@ -31,9 +30,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Habit, NotebookPage, Task, TaskRevision
+from app.models import NotebookPage, Task, TaskRevision
 from app.services import DomainError
-from app.services import habits as habits_svc
 from app.services import tasks as tasks_svc
 
 
@@ -50,7 +48,7 @@ class SupersededSave(DomainError):
 saving = threading.Lock()
 
 
-KINDS = ("text", "task", "reflection", "habit", "stay")
+KINDS = ("text", "task", "reflection", "stay")
 # A stay's item: "- [ ] accommodation: Airbnb near Alfama" ("- [x] " once sorted).
 STAY_ITEM = re.compile(r"^- \[([ xX])\] ([^:]*?)\s*(?::\s?(.*))?$")
 # What a day's first stay lists, when no stay was written before it.
@@ -129,8 +127,8 @@ def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
                 out.append({"kind": "task", "id": task_id})
             continue
         # Prose keeps its blank lines (the notes' spacing), except at the
-        # page's top and bottom. A reflection's or habit's words keep a blank
-        # first line (written under its first row, not on it) but none after.
+        # page's top and bottom. A reflection's words keep a blank first
+        # line (written under its first row, not on it) but none after.
         lines = _clean_text(block.get("text", "")).split("\n")
         last = index == len(blocks) - 1
         lead = 0
@@ -142,19 +140,6 @@ def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
             while end > lead and not lines[end - 1].strip():
                 end -= 1
         text = "\n".join(lines[lead:end])
-        if kind == "habit":
-            # By name as written (or its id, as a page keeps it).
-            ref = block.get("habit")
-            if isinstance(ref, int):
-                habit = db.get(Habit, ref)
-                if habit is None:
-                    continue
-                slug = habit.slug
-            else:
-                slug = habits_svc.clean_slug(ref)
-            done = block.get("done", True) is not False
-            out.append({"kind": "habit", "habit": slug, "done": done, "text": text})
-            continue
         if not text.strip() and (kind in ("reflection", "stay") or not out or last):
             continue
         links: dict[int, int] = {}
@@ -226,12 +211,7 @@ def _store(db: Session, day: date, blocks: Any, *, writer: str, seq: int) -> Not
     if page is None:
         page = NotebookPage(day=day, blocks=[], version=0)
         db.add(page)
-    blocks = normalize(db, blocks)
-    # The day's habit checks are the page's; the page keeps each by id.
-    ids = habits_svc.sync_day(db, day, [b for b in blocks if b["kind"] == "habit"])
-    page.blocks = [
-        {**b, "habit": ids[b["habit"]]} if b["kind"] == "habit" else b for b in blocks
-    ]
+    page.blocks = normalize(db, blocks)
     page.version = current + 1
     page.writer, page.writer_seq = writer, seq
     page.updated_at = datetime.now()
@@ -265,10 +245,6 @@ def blocks_of(db: Session, day: date) -> list[dict[str, Any]]:
                 "task": task,
                 "last_known": None if task else gone.get(block["id"], {}),
             })
-        elif block["kind"] == "habit":
-            habit = db.get(Habit, block["habit"])
-            if habit is not None:
-                out.append({**block, "slug": habit.slug})
         else:
             out.append(dict(block))
     return out
@@ -305,33 +281,13 @@ def last_stay_items(db: Session, day: date) -> list[str]:
     return list(STAY_ITEMS)
 
 
-# Calendar's sheet writes a day's habits and stay as its notes would.
+# Calendar's sheet writes a day's stay as its notes would.
 
 
 def _stored(db: Session, day: date) -> tuple[list[dict[str, Any]], int]:
     """The day's page as kept (a copy to change), and its version."""
     page = get_page(db, day)
     return ([dict(b) for b in page.blocks] if page else []), (page.version if page else 0)
-
-
-def set_habit(db: Session, day: date, slug: str, done: bool) -> NotebookPage:
-    """Check a habit for the day, as "/habit name" in its notes would: its
-    row ticked if it was written unticked, else a row written after the
-    page's last habit (at its top when it has none). Not `done` takes its
-    rows off the page, so the day has nothing written for it."""
-    habit = habits_svc.get_or_create(db, slug)
-    blocks, version = _stored(db, day)
-    mine = [i for i, b in enumerate(blocks) if b["kind"] == "habit" and b["habit"] == habit.id]
-    if not done:
-        blocks = [b for i, b in enumerate(blocks) if i not in mine]
-    elif mine:
-        for i in mine:
-            blocks[i]["done"] = True
-    else:
-        written = [i for i, b in enumerate(blocks) if b["kind"] == "habit"]
-        at = written[-1] + 1 if written else 0
-        blocks.insert(at, {"kind": "habit", "habit": habit.id, "done": True, "text": ""})
-    return save_page(db, day, blocks, version=version)
 
 
 def _item_line(name: str, value: str, done: bool) -> str:

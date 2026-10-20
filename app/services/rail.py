@@ -40,6 +40,7 @@ SECTIONS: tuple[Section, ...] = (
         (
             Module("today", "Today", "/today"),
             Module("calendar", "Calendar", "/calendar"),
+            Module("habits", "Habits", "/habits"),
         ),
     ),
     Section("projects", None, (Module("projects", "Projects", "/projects"),)),
