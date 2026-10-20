@@ -6,53 +6,113 @@
 {% from "partials/today_fold.html" import fold_summary %}
 {% block title %}{% if is_today %}Today{% else %}{{ day.strftime("%a") }} {{ day.day }} {{ day.strftime("%b") }}{% endif %} · Personal Calendar{% endblock %}
 {% block content %}
-{# A day's page: a notepad for the day on the left, the day's timeline on
-   the right. The notepad is Markdown, drawn as it reads and saved as it is
-   written (notepad.js, on markdown-live.js). #}
+{# A day's page in panes under one header: at the left the plan (what asks
+   for attention, the day's tasks not yet written, those carried over) and
+   the habits, in the middle the notes, at the right the timeline. The
+   notes are Markdown, drawn as they read and saved as they are written
+   (notepad.js, on markdown-live.js); the plan and the habits write in them.
+   The plan's column and the timeline each fold away (shell.js). #}
 <div class="today-page">
+  <header class="day-header">
+    <div class="day-title">
+      <div class="weekday">{% if is_today %}Today{% else %}{{ day.strftime("%A") }}{% endif %}</div>
+      <nav class="day-nav" aria-label="Days">
+        <a class="day-step" href="/day/{{ prev_day.isoformat() }}" data-day-step="prev"
+           aria-label="Previous day" title="{{ keys.title('Previous day', 'day.prev') }}">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5 6.5 10l5.5 5.5"/></svg>
+        </a>
+        {% if not is_today %}<a class="day-today" href="/today">Today</a>{% endif %}
+        <a class="day-step" href="/day/{{ next_day.isoformat() }}" data-day-step="next"
+           aria-label="Next day" title="{{ keys.title('Next day', 'day.next') }}">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4.5 13.5 10 8 15.5"/></svg>
+        </a>
+      </nav>
+      <div class="rest">{% if is_today %}{{ day.strftime("%A") }} {% endif %}{{ day.day }} {{ day.strftime("%B %Y") }}</div>
+    </div>
+    {# The day at a glance, beside its name (under it, narrower): what is on
+       now and next, how the body came into it, and where Oscar stays (from
+       the notes' /stay: each item, sorted or not; a click goes to its row,
+       notepad.js). #}
+    <div class="day-facts">
+      {% include "partials/day_glance.html" %}
+      <ul class="day-stay" id="day-stay" aria-label="Stay" hidden></ul>
+    </div>
+    {# The panes at the sides, each folded away and back (their keys; shell.js). #}
+    <div class="day-panes" role="group" aria-label="Panes">
+      <button type="button" class="plan-toggle" aria-pressed="false" aria-label="Fold the plan away" title="{{ keys.title('Fold the plan away', 'today.plan') }}">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.75" y="3.75" width="14.5" height="12.5"/><path d="M7.5 3.75v12.5"/></svg>
+      </button>
+      <button type="button" class="timeline-toggle" aria-pressed="false" aria-label="Fold the timeline away" title="{{ keys.title('Fold the timeline away', 'today.timeline') }}">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.75" y="3.75" width="14.5" height="12.5"/><path d="M12.5 3.75v12.5"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <aside class="today-side" aria-label="Plan and habits">
+    {# What the day asks for: the nudges (today's page only), then the day's
+       tasks not yet written in the notes, those for the day and those
+       carried over from before. A title writes its rows in the notes, its
+       box writes them ticked, its calendar moves it to another day; Bring
+       all writes every one (notepad.js). Each group folds to its name and
+       count, and stays so (partials/today_fold.html). #}
+    <section class="pane today-plan" id="today-plan" aria-labelledby="today-plan-title">
+      <header class="pane-head">
+        <h2 id="today-plan-title">Plan</h2>
+        <button type="button" class="pad-carry-all" hidden title="{{ keys.title('Write every one in the notes', 'today.carryAll') }}">Bring all</button>
+      </header>
+      <div class="plan-body">
+        {% include "partials/nudges.html" %}
+        <details class="plan-group today-fold" id="pad-carry" data-fold="carry"{% if "carry" not in folded %} open{% endif %} hidden>
+          {{ fold_summary() }}
+          <ul class="plan-list"></ul>
+        </details>
+        <details class="plan-group today-fold" id="pad-late" data-fold="late"{% if "late" not in folded %} open{% endif %} hidden>
+          {{ fold_summary("Carried over") }}
+          <button type="button" class="plan-move-all" aria-haspopup="menu" aria-expanded="false" title="Move every task carried over to another day">Reschedule</button>
+          <ul class="plan-list"></ul>
+        </details>
+        <p class="plan-empty" hidden>Nothing planned{% if is_today %} for today{% endif %}. Tasks given this day, or due on it, show here.</p>
+      </div>
+    </section>
+    {# The habits due this day, and any written in its notes: each its box
+       (done in the notes, or not yet), its name, its last seven days, its
+       streak and its days. A box or a name not yet written writes its row
+       (notepad.js). #}
+    <details class="pane today-habits today-fold" id="pad-habits" data-fold="habits"{% if "habits" not in folded %} open{% endif %} hidden>
+      <summary class="today-fold-summary pane-head">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>
+        <span class="today-fold-label">Habits</span>
+        <span class="count"></span>
+        <span class="habit-week habit-week-head" aria-hidden="true">{% for d in habit_week %}<i title="{{ d.name }}">{{ d.letter }}</i>{% endfor %}</span>
+      </summary>
+      <ul class="habit-list"></ul>
+    </details>
+  </aside>
+
   <div class="today-pad">
-    <header class="day-header">
-      <div class="day-title">
-        <div class="weekday">{% if is_today %}Today{% else %}{{ day.strftime("%A") }}{% endif %}</div>
-        <nav class="day-nav" aria-label="Days">
-          <a class="day-step" href="/day/{{ prev_day.isoformat() }}" data-day-step="prev"
-             aria-label="Previous day" title="{{ keys.title('Previous day', 'day.prev') }}">
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4.5 6.5 10l5.5 5.5"/></svg>
-          </a>
-          {% if not is_today %}<a class="day-today" href="/today">Today</a>{% endif %}
-          <a class="day-step" href="/day/{{ next_day.isoformat() }}" data-day-step="next"
-             aria-label="Next day" title="{{ keys.title('Next day', 'day.next') }}">
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4.5 13.5 10 8 15.5"/></svg>
-          </a>
-        </nav>
+    <section class="pane notes-pane" aria-labelledby="today-notes-title">
+      <header class="pane-head">
+        <h2 id="today-notes-title">Notes</h2>
         {# The notes' Markdown modes, as a document's (editor.reading, notepad.js). #}
         {{ md_modes() }}
-        {# Folds the timeline away, the notes taking its room (its key, Ctrl+\; shell.js). #}
-        <button type="button" class="timeline-toggle" aria-pressed="false" aria-label="Fold the timeline away" title="{{ keys.title('Fold the timeline away', 'today.timeline') }}">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.75" y="3.75" width="14.5" height="12.5" rx="2"/><path d="M12.5 3.75v12.5"/></svg>
-        </button>
+      </header>
+      <div class="notepad-card">
+        {# The notes as the server has them; notepad.js puts its editor in their
+           place (rows numbered, tasks drawn with their box and controls). #}
+        <textarea class="notepad" id="notepad" data-day="{{ day.isoformat() }}" data-version="{{ notepad.version }}"
+                  data-task-rows='{{ notepad.task_rows | tojson }}'
+                  data-habits='{{ notepad.habits | tojson }}'
+                  data-stay-items='{{ notepad.stay_items | tojson }}'
+                  data-day-tasks='{{ day_tasks | tojson }}'
+                  spellcheck="true" aria-label="Notes" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
       </div>
-      <div class="rest">{% if is_today %}{{ day.strftime("%A") }} {% endif %}{{ day.day }} {{ day.strftime("%B %Y") }}</div>
-      {% include "partials/day_glance.html" %}
-      {# Where Oscar stays this day, from the notes' /stay: each item, sorted or
-         not; a click goes to its row (notepad.js). #}
-      <ul class="day-stay" id="day-stay" aria-label="Stay" hidden></ul>
-      <p class="keys-hint">{{ part("[- [ ]] task") }}{{ part("[/reflection]") }}{{ part("[/habit]") }}{{ part("[/stay]") }}{{ part("[Ctrl][Enter] close it") }}{{ part("days", "day.prev", "day.next") }}{{ part("all keys", "app.keys") }}</p>
-    </header>
-
-    {# What asks for attention today: dues, reviews, bills (today's page only). #}
-    {% include "partials/nudges.html" %}
-
-    <section class="notepad-card">
-      {# The notes as the server has them; notepad.js puts its editor in their
-         place (rows numbered, tasks drawn with their box and controls). #}
-      <textarea class="notepad" id="notepad" data-day="{{ day.isoformat() }}" data-version="{{ notepad.version }}"
-                data-task-rows='{{ notepad.task_rows | tojson }}'
-                data-habits='{{ notepad.habits | tojson }}'
-                data-stay-items='{{ notepad.stay_items | tojson }}'
-                data-day-tasks='{{ day_tasks | tojson }}'
-                spellcheck="true" aria-label="Notes" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
     </section>
+    <p class="keys-hint">{{ part("[- [ ]] task") }}{{ part("[/reflection]") }}{{ part("[/habit]") }}{{ part("[/stay]") }}{{ part("[Ctrl][Enter] close it") }}{{ part("days", "day.prev", "day.next") }}{{ part("all keys", "app.keys") }}</p>
+    <div class="pad-stale" id="pad-stale" role="alert" hidden>
+      <span>These notes were changed in another window.</span>
+      <button type="button" class="btn quiet" data-pad-reload>Show that version</button>
+      <button type="button" class="btn quiet" data-pad-keep>Keep mine</button>
+    </div>
     {# A task row's controls, after its title (notepad.js clones one
        per task): the task sheet's icons and menus alone (task-sheet.js,
        data-sheet="props"), over the task's fields, then a way to its page
@@ -93,7 +153,7 @@
       </form>
     </template>
     {# A habit's controls (notepad.js clones one per habit, for its row and
-       its place in the strip): its days, with the task sheet's repeat icon
+       its place in the habits' pane): its days, with the task sheet's repeat icon
        (task-sheet.js, data-sheet="props"). #}
     <template id="pad-habit-template">
       <form class="task-sheet pad-props" data-sheet="props" onsubmit="return false">
@@ -104,36 +164,11 @@
         </button>
       </form>
     </template>
-    {# The day's tasks not yet written here: those planned for it or due on
-       it, and on today's those overdue and those still open from the last
-       page before it. A title writes its rows (the same task, done this
-       day), Bring all writes every one (notepad.js). Each strip folds to
-       its name and count, and stays so (partials/today_fold.html). #}
-    <details class="pad-strip pad-carry today-fold" id="pad-carry" data-fold="carry"{% if "carry" not in folded %} open{% endif %} hidden>
-      {{ fold_summary() }}
-      <div class="pad-habits">
-        <ul class="pad-habits-list"></ul>
-        <button type="button" class="pad-carry-all">Bring all</button>
-      </div>
-    </details>
-    {# The habits due this day not yet written in the notes: a name writes its
-       row, its icon sets its days (notepad.js). #}
-    <details class="pad-strip today-fold" id="pad-habits" data-fold="habits"{% if "habits" not in folded %} open{% endif %} hidden>
-      {{ fold_summary("Habits not yet written") }}
-      <div class="pad-habits">
-        <ul class="pad-habits-list"></ul>
-      </div>
-    </details>
-    <div class="pad-stale" id="pad-stale" role="alert" hidden>
-      <span>These notes were changed in another window.</span>
-      <button type="button" class="btn quiet" data-pad-reload>Show that version</button>
-      <button type="button" class="btn quiet" data-pad-keep>Keep mine</button>
-    </div>
   </div>
 
-  <section class="today-timeline" aria-label="{{ 'Today' if is_today else day.strftime('%A') }}'s timeline">
-    <header class="timeline-header">
-      <h2>Timeline</h2>
+  <section class="pane today-timeline" aria-labelledby="today-timeline-title">
+    <header class="pane-head timeline-header">
+      <h2 id="today-timeline-title">Timeline</h2>
     </header>
     {% include "partials/calendar_grid.html" %}
   </section>

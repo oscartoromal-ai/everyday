@@ -142,19 +142,24 @@ def test_another_agent_is_chosen_from_the_head(browser_page, served) -> None:
     assert page.locator("#agent-panel textarea").get_attribute("placeholder") == "Ask Codex…"
 
 
-@pytest.mark.parametrize(("width", "beside"), [(1280, False), (1500, False), (1600, True)])
-def test_docked_beside_today_it_leaves_the_notes_room(browser_page, served, width, beside) -> None:
+@pytest.mark.parametrize(("width", "plan_beside", "timeline_beside"), [
+    (1280, False, False), (1500, True, False), (1600, True, False), (1840, True, True),
+])
+def test_docked_beside_today_it_leaves_the_notes_room(
+    browser_page, served, width, plan_beside, timeline_beside,
+) -> None:
     """Docked, the agent's window takes the page's width from Today: the
-    timeline goes under the notes until both fit side by side, the notes
-    never under the 405px they have beside it without the agent."""
+    timeline goes under the notes until the three fit side by side, then
+    the plan too, the notes never under the 405px they have beside it
+    without the agent."""
     page = browser_page
     page.set_viewport_size({"width": width, "height": 900})
     page.goto(f"{served}/today")
     page.locator(".rail-button[data-agent-toggle]").click()
-    # Once it has slid in and the page stands still: the notes and the
-    # timeline, read together.
-    pad, timeline = page.evaluate("""async () => {
-        const boxes = () => ['.today-pad', '.today-timeline'].map((s) => {
+    # Once it has slid in and the page stands still: the notes, the plan and
+    # the timeline, read together.
+    pad, side, timeline = page.evaluate("""async () => {
+        const boxes = () => ['.today-pad', '.today-side', '.today-timeline'].map((s) => {
             const r = document.querySelector(s).getBoundingClientRect();
             return { x: r.x, y: r.y, width: r.width, height: r.height };
         });
@@ -169,7 +174,11 @@ def test_docked_beside_today_it_leaves_the_notes_room(browser_page, served, widt
         return boxes();
     }""")
     assert pad["width"] >= 405
-    if beside:
+    if plan_beside:
+        assert side["x"] + side["width"] <= pad["x"]
+    else:
+        assert side["y"] >= pad["y"] + pad["height"]
+    if timeline_beside:
         assert timeline["x"] >= pad["x"] + pad["width"]
     else:
         assert timeline["y"] >= pad["y"] + pad["height"]

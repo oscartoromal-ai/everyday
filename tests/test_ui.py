@@ -17,7 +17,7 @@ def test_today_is_a_notepad_beside_the_timeline(client, db) -> None:
     page = client.get("/today").text
     pad = page.split('id="notepad"')[1].split("</textarea>")[0]
     assert 'data-version="1"' in pad and ">Slow morning." in pad
-    assert 'class="today-timeline"' in page
+    assert 'class="pane today-timeline"' in page
     # The notes are as written: the day's tasks are offered to write in
     # them ("For today"), not written for him.
     assert "write the plan" not in pad.split(">", 1)[1]
@@ -329,7 +329,7 @@ def test_today_page_has_timeline_with_its_events(client, db) -> None:
     events_svc.create_event(db, title="standup", start=morning, end=morning + timedelta(minutes=30))
 
     page = client.get("/today").text
-    timeline = page.split('class="today-timeline"')[1]
+    timeline = page.split('class="pane today-timeline"')[1]
     assert 'data-days="1"' in timeline
     assert "standup" in timeline
 

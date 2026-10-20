@@ -554,7 +554,7 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
 
 /* ---------- glass cards (resting surfaces: no shadow) ---------- */
 
-.list-section, .calendar-grid, .nudge-center {
+.list-section, .calendar-grid, .pane {
   background: var(--glass-card);
   backdrop-filter: blur(20px) saturate(1.1);
   border: 1px solid var(--glass-border);
@@ -1883,30 +1883,26 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .today-fold-summary svg { flex: none; stroke: currentColor; }
 .today-fold[open] > .today-fold-summary svg { transform: rotate(90deg); }
 
-/* ---------- nudges ---------- */
+/* ---------- nudges: the plan's first group ---------- */
 
-.nudge-center { margin-bottom: var(--s-6); overflow: clip; }
-/* its name and count, as a list's Done fold is */
-.nudge-center > .today-fold-summary {
-  padding: var(--s-3) var(--s-4);
-  font-size: var(--t-body-sm); font-weight: 500; color: var(--pewter);
+/* each its icon, its words (wrapping), its Open and its dismissal */
+.nudge-list { list-style: none; margin: 0; padding: 0; }
+.nudge {
+  display: flex; align-items: center; gap: var(--s-2); min-height: 36px; padding: 6px var(--s-1) 6px var(--s-3);
+  border-bottom: 1px solid var(--hairline-on-glass); font-size: var(--t-body-sm);
 }
-.nudge-center > .today-fold-summary:hover { color: var(--ink); background: var(--glass-row-hover); }
-.nudge-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hairline-on-glass); }
-.nudge { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); font-size: var(--t-body-sm); }
-.nudge + .nudge { border-top: 1px solid var(--hairline-on-glass); }
 .nudge svg { flex: none; stroke: var(--graphite); }
-.nudge-text { flex: 1; min-width: 0; color: var(--ink); }
+.nudge-text { flex: 1; min-width: 0; color: var(--ink); overflow-wrap: anywhere; }
 .nudge-action {
-  flex: none; padding: 6px var(--s-3); border-radius: var(--r-ctl);
-  font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); text-decoration: none;
+  flex: none; padding: 3px var(--s-2);
+  font-size: var(--t-caption); font-weight: 500; color: var(--ink); text-decoration: none;
   border: 1px solid var(--hairline); background: var(--glass-btn);
   transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .nudge-action:hover { background: var(--fog); border-color: var(--mist); }
 .nudge-dismiss {
-  flex: none; display: grid; place-content: center; width: 28px; height: 28px;
-  border-radius: var(--r-tag); color: var(--steel);
+  flex: none; display: grid; place-content: center; width: 24px; height: 24px;
+  color: var(--steel);
   transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 .nudge-dismiss:hover { color: var(--ink); background: var(--fog); }
@@ -2189,34 +2185,66 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   .calendar-grid[data-days="7"] :is(.grid-top, .grid-body) { min-width: 640px; }
 }
 
-/* ---------- a day's page: a notepad beside the day's timeline (notepad.js) ---------- */
+/* ---------- a day's page: panes under its header (notepad.js) ---------- */
 
-.today-page { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--s-8); align-items: start; }
-.today-timeline { position: sticky; top: var(--s-6); }
-.timeline-header { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); margin: 6px 0 var(--s-4); }
-.timeline-header h2 { font-size: var(--t-body); }
-/* the column holds the window's height: the hours in what is left under the header */
-.today-timeline { display: flex; flex-direction: column; max-height: calc(100dvh - 2 * var(--s-8)); }
-.today-timeline .calendar-grid { flex: 1 1 auto; min-height: 240px; overflow-y: auto; overscroll-behavior: contain; }
+/* The plan and the habits at the left, the notes in the middle, the
+   timeline at the right, the page as tall as the window and each pane
+   scrolling inside itself. A column folded away gives its room to the
+   notes. Narrower (the container queries further down), the timeline goes
+   under the notes and the page scrolls, the plan staying in view; then
+   everything goes under one another. */
+.today-page {
+  display: grid; gap: var(--s-4);
+  grid-template-columns: 340px minmax(0, 1fr) 300px;
+  grid-template-areas: "head head head" "side pad time";
+  grid-template-rows: auto minmax(0, 1fr);
+  height: max(560px, calc(100dvh - 2 * var(--s-8)));
+}
+:root[data-plan="folded"] .today-page { grid-template-columns: minmax(0, 1fr) 300px; grid-template-areas: "head head" "pad time"; }
+:root[data-timeline="folded"] .today-page { grid-template-columns: 340px minmax(0, 1fr); grid-template-areas: "head head" "side pad"; }
+:root[data-plan="folded"][data-timeline="folded"] .today-page { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "pad"; }
+:root[data-plan="folded"] .today-side, :root[data-timeline="folded"] .today-timeline { display: none; }
+
+/* a pane: a glass card under a title bar, its name at the left, its
+   controls at the right */
+.pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: clip; }
+.pane-head {
+  flex: none; display: flex; align-items: center; gap: var(--s-2);
+  min-height: 44px; padding: 0 var(--s-2) 0 var(--s-4);
+  border-bottom: 1px solid var(--hairline-on-glass-strong);
+}
+.pane-head h2, .pane-head .today-fold-label { margin: 0; font-family: var(--font-display); font-size: var(--t-body-sm); font-weight: 600; color: var(--ink); white-space: nowrap; }
+.pane-head .md-modes { margin: 0 0 0 auto; }
+
+.today-timeline { grid-area: time; }
+/* the hours in what is left under the pane's title */
+.today-timeline .calendar-grid {
+  flex: 1 1 auto; min-height: 240px; overflow-y: auto; overscroll-behavior: contain;
+  background: none; backdrop-filter: none; border: none; border-radius: 0;
+}
 
 .task-row[draggable="true"] { cursor: grab; }
 .task-row[draggable="true"] :is(button, input) { cursor: pointer; }
 
-.day-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
-/* at its right, the notes' Markdown modes, then the timeline's fold */
-.day-title .md-modes { margin-left: auto; }
-.day-title .md-modes + .timeline-toggle { margin-left: 0; }
-/* at the day's header's right: fold the timeline away, and back */
-.timeline-toggle {
-  display: grid; place-content: center; width: 32px; height: 32px; margin-left: auto;
-  border-radius: var(--r-ctl); color: var(--pewter); cursor: pointer;
+/* the header: the day's name, its days and its date, then the day's facts
+   as chips (wrapping in their column), and at the right the side panes'
+   folds; narrower, the facts under the name */
+.today-page > .day-header {
+  grid-area: head; display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "title facts panes"; align-items: start; gap: var(--s-2) var(--s-6); margin: 0;
+}
+.day-title { grid-area: title; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); min-height: 32px; }
+.day-title .rest { margin: 0; }
+.day-panes { grid-area: panes; display: flex; gap: 2px; }
+.day-panes button {
+  display: grid; place-content: center; width: 32px; height: 32px;
+  border-radius: var(--r-ctl); color: var(--graphite); cursor: pointer;
   transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
-.timeline-toggle svg { stroke: currentColor; }
-.timeline-toggle:hover { color: var(--ink); background: var(--glass-hover); }
-.timeline-toggle[aria-pressed="true"] { color: var(--graphite); }
-:root[data-timeline="folded"] .today-page { grid-template-columns: minmax(0, 1fr); }
-:root[data-timeline="folded"] .today-timeline { display: none; }
+.day-panes svg { stroke: currentColor; }
+.day-panes button:hover { color: var(--ink); background: var(--glass-hover); }
+/* a pane folded away: its button lit as pressed */
+.day-panes button[aria-pressed="true"] { color: var(--pewter); }
 .day-nav { display: flex; align-items: center; gap: var(--s-1); }
 .day-step {
   display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--r-ctl);
@@ -2231,48 +2259,167 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 }
 .day-today:hover { background: var(--glass-hover); }
 
-/* The notepad: the whole left column, one glass card as tall as the
-   window allows, for plain text at reading size. */
-.today-pad { display: flex; flex-direction: column; min-height: calc(100vh - 2 * var(--s-8)); }
-.today-pad .day-header { margin-bottom: var(--s-4); }
-/* under the date, the day's stay item by item: a small box (ink once
-   sorted, amber-ruled not yet), its name in pewter, its value in ink; a
-   click goes to its row */
-.day-stay { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-4); margin: var(--s-2) 0 0; padding: 0; list-style: none; }
+/* The notes' column: their pane as tall as the page's row (the window,
+   when the timeline is beside them), the keys' hint under it. */
+.today-pad { grid-area: pad; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.notes-pane { flex: 1; }
+.today-pad .keys-hint { margin-top: var(--s-2); }
+/* under the header's line, the day's facts as chips on one wrapping line:
+   what is on now and next (its wait in the time's cyan, its edge cyan),
+   the body's figures (a pewter name before the value in ink; one asking
+   for care in the warn badge), and where Oscar stays, item by item (a
+   small box, ink once sorted, amber-edged not yet; a click goes to its
+   row). The line is not drawn with nothing on it. */
+.day-facts { grid-area: facts; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; }
+.day-facts:not(:has(.glance-event, .glance-figure, .day-stay-item)) { display: none; }
+.day-facts > .day-glance:not(:has(*)) { display: none; }
+.day-glance, .glance-on, .glance-figures { display: contents; }
+.glance-on { margin: 0; padding: 0; list-style: none; }
 .day-stay[hidden] { display: none; }
-.day-stay-item {
-  display: inline-flex; align-items: center; gap: 6px; padding: 2px 0;
-  font-size: var(--t-body-sm); color: var(--ink); cursor: pointer;
+/* the stay one chip, its items side by side in it */
+.day-stay { gap: var(--s-3); margin: 0; list-style: none; }
+.glance-event, .glance-figure, .day-stay {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 var(--s-2);
+  border: 1px solid var(--hairline-on-glass); background: var(--glass-card);
+  font-size: var(--t-caption); color: var(--graphite); white-space: nowrap;
 }
-.day-stay-box { flex: none; width: 10px; height: 10px; border: 1.5px solid color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
-.day-stay-item.done .day-stay-box { background: var(--ink); border-color: var(--ink); }
-.day-stay-name { font-size: var(--t-caption); color: var(--pewter); }
-.day-stay-value:empty { display: none; }
-.day-stay-item:not(.done) .day-stay-value { color: color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
-.day-stay-item:hover .day-stay-value, .day-stay-item:hover .day-stay-name { text-decoration: underline; text-underline-offset: 3px; }
-/* under the date, the day at a glance (partials/day_glance.html): what is
-   on now and next, its wait written in the time's cyan, then the body's
-   figures, each a pewter name before its value in ink; one asking for
-   care in the warn badge */
-.day-glance { display: grid; gap: var(--s-2); margin-top: var(--s-3); }
-.day-glance:not(:has(*)) { display: none; }
-.glance-on { display: grid; gap: var(--s-1); margin: 0; padding: 0; list-style: none; }
-.glance-event { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--s-3); font-size: var(--t-body-sm); }
-.glance-when { color: var(--signal-deep); font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.glance-title { min-width: 0; color: var(--ink); font-weight: 500; overflow-wrap: anywhere; }
-.glance-span { font-size: var(--t-caption); color: var(--graphite); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.glance-join {
-  padding: 2px var(--s-3); border: 1px solid var(--hairline); border-radius: var(--r-pill);
-  background: var(--glass-btn); font-size: var(--t-caption); font-weight: 500; color: var(--ink); text-decoration: none; white-space: nowrap;
-}
+.glance-event { border-color: color-mix(in srgb, var(--signal) 55%, transparent); }
+.glance-when { color: var(--signal-deep); font-weight: 500; font-variant-numeric: tabular-nums; }
+.glance-title { min-width: 0; max-width: 32ch; overflow: hidden; text-overflow: ellipsis; font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); }
+.glance-span { color: var(--graphite); font-variant-numeric: tabular-nums; }
+.glance-join { margin-right: -4px; padding: 1px 6px; border: 1px solid var(--hairline); background: var(--glass-btn); font-weight: 500; color: var(--ink); text-decoration: none; }
 .glance-join:hover { background: var(--glass-hover); }
-.glance-figures { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-4); margin: 0; }
-.glance-figure { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
-.glance-figure dt { font-size: var(--t-caption); color: var(--pewter); }
+.glance-figure dt { color: var(--pewter); }
 .glance-figure dd { margin: 0; font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
 .glance-figure dd span { font-size: var(--t-caption); font-weight: 400; color: var(--graphite); }
 .glance-figure.over dd { padding: 0 var(--s-1); color: var(--warn-fg); background: var(--badge-warn-glass); }
 .glance-figure.over dd span { color: inherit; }
+.day-stay:has(.day-stay-item:not(.done)) { border-color: color-mix(in srgb, var(--hue-3) 60%, transparent); }
+.day-stay-item { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; color: var(--graphite); cursor: pointer; }
+.day-stay-box { flex: none; width: 10px; height: 10px; border: 1.5px solid color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
+.day-stay-item.done .day-stay-box { background: var(--ink); border-color: var(--ink); }
+.day-stay-name { color: var(--pewter); }
+.day-stay-value { font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); }
+.day-stay-value:empty { display: none; }
+.day-stay-item:not(.done) .day-stay-value { color: color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
+.day-stay-item:hover :is(.day-stay-name, .day-stay-value) { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---- the side column: the plan over the habits, as tall as the window,
+   the plan scrolling inside itself ---- */
+.today-side { grid-area: side; display: flex; flex-direction: column; gap: var(--s-4); min-width: 0; min-height: 0; }
+.today-plan { flex: 0 1 auto; }
+.plan-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.today-plan .pad-carry-all {
+  margin-left: auto; padding: 5px 6px; font-size: var(--t-caption); color: var(--graphite); cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--mist); text-underline-offset: 3px;
+}
+.today-plan .pad-carry-all:hover { color: var(--ink); text-decoration-color: currentColor; }
+.pad-carry-all[hidden] { display: none; }
+.plan-empty { margin: 0; padding: var(--s-3) var(--s-4); font-size: var(--t-caption); color: var(--pewter); }
+.plan-empty[hidden] { display: none; }
+
+/* a group of the plan: its name and count on a fog band, folding it; its
+   rows under it, full-bleed between hairlines */
+.plan-group { position: relative; }
+.plan-group[hidden] { display: none; }
+.plan-group > .today-fold-summary {
+  min-height: 32px; padding: 0 var(--s-2) 0 var(--s-3);
+  font-size: var(--t-caption); font-weight: 500; color: var(--graphite);
+  background: color-mix(in srgb, var(--fog) 45%, transparent);
+  border-bottom: 1px solid var(--hairline-on-glass);
+}
+.plan-group > .today-fold-summary:hover { color: var(--ink); background: var(--glass-row-hover); }
+.plan-group > .today-fold-summary .today-fold-label { font: inherit; color: inherit; }
+.plan-group > .today-fold-summary .count { color: var(--pewter); font-variant-numeric: tabular-nums; }
+/* Reschedule on Carried over's name line, at the right, while it is open */
+.plan-move-all {
+  position: absolute; top: 0; right: var(--s-2); height: 32px; padding: 0 4px;
+  font-size: var(--t-caption); color: var(--graphite); cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--mist); text-underline-offset: 3px;
+}
+.plan-move-all:hover, .plan-move-all[aria-expanded="true"] { color: var(--ink); text-decoration-color: currentColor; }
+.plan-list { margin: 0; padding: 0; list-style: none; }
+
+/* a task offered: its box (written in the notes, ticked), its title (written
+   there), after its project's flag and its priority's bars, when it was
+   meant for, and its calendar (another day), quiet until the row is hovered */
+.plan-item {
+  display: flex; align-items: center; gap: var(--s-2); min-height: 36px; padding: 0 var(--s-1) 0 var(--s-2);
+  border-bottom: 1px solid var(--hairline-on-glass); font-size: var(--t-body-sm);
+}
+.plan-item:hover, .plan-item:focus-within { background: var(--glass-row-hover); }
+.plan-tick { flex: none; display: grid; place-content: center; width: 24px; height: 24px; cursor: pointer; }
+.plan-tick::before { content: ""; width: 14px; height: 14px; border: 1.5px solid var(--steel); transition: border-color var(--dur) var(--ease); }
+.plan-tick:hover::before { border-color: var(--ink); }
+.pad-carry-write {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; padding: 8px 0;
+  font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); text-align: left; cursor: pointer;
+}
+.pad-carry-write:hover .pad-carry-title { text-decoration: underline; text-decoration-color: var(--mist); text-underline-offset: 3px; }
+.pad-carry-title { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pad-carry-priority { flex: none; display: inline-grid; place-content: center; }
+.plan-flag { flex: none; width: 10px; height: 10px; background: var(--project); }
+.pad-carry-due { flex: none; font-size: var(--t-caption); font-weight: 500; color: var(--warn-fg); white-space: nowrap; }
+#pad-late .pad-carry-due { font-weight: 400; color: var(--graphite); }
+.plan-since { flex: none; font-size: var(--t-caption); color: var(--pewter); white-space: nowrap; }
+.plan-move {
+  flex: none; display: grid; place-content: center; width: 24px; height: 24px;
+  color: var(--steel); opacity: 0; cursor: pointer;
+  transition: color var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.plan-item:is(:hover, :focus-within) .plan-move, .plan-move[aria-expanded="true"] { opacity: 1; }
+.plan-move:hover, .plan-move[aria-expanded="true"] { color: var(--ink); }
+@media (hover: none) { .plan-move { opacity: 1; } }
+.plan-move svg { stroke: currentColor; }
+/* the menu of days: the sheet's own, with the day in words at the right */
+.plan-move-menu .aside { margin-left: auto; font-size: var(--t-caption); color: var(--pewter); }
+.plan-move-pick { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+
+/* ---- the habits: each its box, its name, its week, its streak, its days ---- */
+.today-habits { flex: none; }
+.today-habits[hidden] { display: none; }
+.today-habits > .pane-head { cursor: pointer; padding: 0 var(--s-1) 0 var(--s-3); }
+.today-habits:not([open]) > .pane-head { border-bottom: none; }
+.today-habits > .pane-head .count { font-size: var(--t-caption); font-weight: 500; color: var(--pewter); font-variant-numeric: tabular-nums; }
+.habit-week { display: flex; gap: 3px; }
+.habit-week i { flex: none; width: 9px; height: 9px; border: 1.5px solid color-mix(in srgb, var(--mist) 60%, transparent); }
+.habit-week i.done { background: var(--hue-4); border-color: var(--hue-4); }
+.habit-week i.skipped { border-color: color-mix(in srgb, var(--hue-4) 55%, var(--paper)); }
+.habit-week i.missed { border-color: var(--steel); }
+.habit-week i.today { border-color: var(--ink); }
+/* the head's letters over the week's columns, past the streak and the days */
+.habit-week-head { margin-left: auto; margin-right: calc(24px + 26px + 2 * var(--s-2)); }
+.habit-week-head i { width: 9px; border: none; font: 500 9px/1 var(--font-num); font-style: normal; color: var(--pewter); text-align: center; }
+.habit-list { margin: 0; padding: 0; list-style: none; }
+.habit-row {
+  display: flex; align-items: center; gap: var(--s-2); min-height: 36px; padding: 0 var(--s-1) 0 var(--s-2);
+  border-top: 1px solid var(--hairline-on-glass);
+}
+.habit-row:first-child { border-top: none; }
+.habit-row:hover, .habit-row:focus-within { background: var(--glass-row-hover); }
+.habit-box { position: relative; flex: none; display: grid; place-content: center; width: 24px; height: 24px; cursor: pointer; }
+.habit-box::before {
+  content: ""; width: 14px; height: 14px;
+  border: 1.5px solid color-mix(in srgb, var(--hue-4) 70%, var(--steel));
+}
+.habit-row.done .habit-box::before { background: var(--hue-4); border-color: var(--hue-4); }
+.habit-row.done .habit-box::after {
+  content: ""; position: absolute; left: 10px; top: 7px; width: 4px; height: 7px;
+  border: solid var(--paper); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg);
+}
+.habit-row.skipped .habit-box::before { border-color: var(--pewter); }
+.pad-habit-write {
+  flex: 1; min-width: 0; padding: 8px 0; text-align: left; cursor: pointer;
+  font-size: var(--t-body-sm); font-weight: 500; color: var(--ink);
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.habit-row.skipped .pad-habit-write { color: var(--pewter); }
+.pad-habit-write:hover { color: color-mix(in srgb, var(--hue-4) 85%, var(--ink)); }
+.habit-streak { flex: none; width: 26px; text-align: right; font: 500 var(--t-caption)/1 var(--font-num); color: var(--graphite); font-variant-numeric: tabular-nums; }
+.habit-row .task-sheet.pad-props { float: none; flex: none; justify-content: center; width: 24px; margin: 0; min-height: 24px; }
+.habit-row .task-sheet.pad-props .prop { justify-content: center; width: 24px; height: 24px; min-height: 0; margin: 0; padding: 0; }
+.habit-row .task-sheet.pad-props .prop-value { display: none; }
+.habit-none { padding: var(--s-3) var(--s-4); font-size: var(--t-caption); color: var(--pewter); }
 /* Ruled like a spreadsheet: every row is 36px tall with its text in the
    middle, on its own rule, the rows numbered down the left (their headers),
    empty numbered rows to the box's bottom. A row too long for the box wraps
@@ -2293,7 +2440,6 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   --bracket: var(--graphite);
   position: relative; display: flex; flex: 1; min-height: 420px; overflow: hidden;
   background: color-mix(in srgb, var(--paper) 35%, transparent);
-  border: 1px solid var(--glass-border); border-radius: var(--r-ctl);
 }
 /* the notes before the editor takes them up (and without it) */
 .notepad {
@@ -2466,44 +2612,6 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .task-sheet .prop.file-into:is(:hover, [aria-expanded="true"]) svg.file-into__chevron { stroke: var(--ink); }
 .task-sheet.pad-props .task-delete { width: 24px; height: var(--pad-text); margin: 0; opacity: 1; }
 
-/* under the notes, each strip a fold under its name and count: the habits
-   due this day not yet written, each a name (writes its row) and its days'
-   icon */
-.pad-strip { position: relative; margin-top: var(--s-3); }
-.pad-strip[hidden] { display: none; }
-.pad-strip > .today-fold-summary { padding: 5px 0; font-size: var(--t-caption); color: var(--pewter); }
-.pad-habits { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-1); }
-.pad-habits-list { display: flex; flex-wrap: wrap; gap: var(--s-2); margin: 0; padding: 0; list-style: none; }
-.pad-habits-list > li {
-  display: flex; align-items: center; gap: 2px; padding: 0 4px 0 0;
-  background: color-mix(in srgb, var(--paper) 35%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hue-4) 45%, var(--paper));
-}
-.pad-habit-write {
-  padding: 5px 4px 5px 10px; font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); cursor: pointer;
-}
-.pad-habit-write:hover { color: color-mix(in srgb, var(--hue-4) 85%, var(--ink)); }
-.pad-habits .task-sheet.pad-props { float: none; margin-left: 0; }
-/* and the day's tasks not yet written (planned, due, overdue, or still open
-   from the last page), each a title (writes its rows) with its due in the
-   warning's amber, bracketed as a task is, then Bring all */
-.pad-carry .pad-habits-list > li { padding: 0; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--graphite) 45%, var(--paper)); }
-.pad-carry-write {
-  display: flex; align-items: baseline; gap: var(--s-2); max-width: 40ch; padding: 5px 10px;
-  font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); cursor: pointer;
-}
-.pad-carry-title { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.pad-carry-priority { flex: none; align-self: center; display: inline-grid; place-content: center; margin-right: -2px; }
-.pad-carry-due { flex: none; font-size: var(--t-caption); font-weight: 500; color: var(--warn-fg); }
-.pad-carry-write:hover { background: var(--fog); }
-.pad-carry-all {
-  padding: 5px 2px; font-size: var(--t-caption); color: var(--pewter); cursor: pointer;
-  text-decoration: underline; text-decoration-color: var(--mist); text-underline-offset: 3px;
-}
-.pad-carry-all:hover { color: var(--ink); text-decoration-color: currentColor; }
-.pad-carry-all[hidden] { display: none; }
-/* Bring all on its name's line, at the right, while it is open */
-.pad-carry .pad-carry-all { position: absolute; top: 0; right: 0; }
 .pad-stale { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-top: var(--s-3); font-size: var(--t-body-sm); color: var(--ink); }
 .pad-stale[hidden] { display: none; }
 .pad-stale span { margin-right: auto; }
@@ -2517,22 +2625,32 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .history-line { font-size: var(--t-caption); color: var(--graphite); overflow-wrap: anywhere; }
 .history-empty { margin: 0; font-size: var(--t-caption); color: var(--pewter); }
 
-/* the timeline under the notes once the page is too narrow for both side by
-   side (the notes under 405px): a narrow window, or the agent's window
-   docked beside the page */
+/* Narrower than the three side by side (the notes under 440px between
+   them): the timeline under the notes, the plan staying beside them; then,
+   the notes under 405px beside the plan, everything under one another (the
+   notes, the plan and the habits, the timeline). A narrow window, or the
+   agent's window docked beside the page. */
 .main:has(> .today-page) { container: day-page / inline-size; }
-@container day-page (width < 797px) {
-  .today-page { grid-template-columns: minmax(0, 1fr); gap: var(--s-6); }
-  .today-pad { min-height: 0; }
-  .notepad-card { min-height: 55vh; }
-  .today-timeline { position: static; max-height: none; }
+@container day-page (width < 1120px) {
+  .today-page > .day-header { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title panes" "facts facts"; }
+  .day-facts { margin-top: var(--s-1); }
+  .today-page { grid-template-columns: 340px minmax(0, 1fr); grid-template-areas: "head head" "side pad" "side time"; grid-template-rows: auto auto auto; align-items: start; height: auto; }
+  .today-side { position: sticky; top: var(--s-6); max-height: calc(100dvh - 2 * var(--s-6)); }
+  :root[data-plan="folded"] .today-page { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "pad" "time"; }
+  .notepad-card { min-height: max(420px, calc(100dvh - 240px)); }
   /* under the notes, the whole day scrolls in a window of its own, opened
      on now (calendar.js), the page's own scroll carrying on past its ends */
   .today-timeline .calendar-grid { max-height: 75vh; overscroll-behavior: auto; }
 }
+@container day-page (width < 768px) {
+  .today-page, :root[data-timeline="folded"] .today-page {
+    grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "pad" "side" "time"; grid-template-rows: none;
+  }
+  .today-side { position: static; max-height: none; }
+  .notepad-card { min-height: 55vh; }
+}
 @media (max-width: 720px) {
   .notepad-card { --pad-rows: 34px; --pad-gap: var(--s-2); --pad-tab: 70px; }
-  .pad-carry-write { max-width: calc(100vw - 2 * var(--s-4)); }
 }
 
 /* ---------- the segmented control (Calendar's views, a Gantt's scale) ---------- */

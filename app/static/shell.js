@@ -530,6 +530,26 @@
   });
   applyTimeline(root.dataset.timeline === "folded");
 
+  /* ---- Today's plan and habits: folded away, as the timeline is ---- */
+
+  const applyPlan = (folded) => {
+    if (folded) root.dataset.plan = "folded";
+    else delete root.dataset.plan;
+    const button = document.querySelector(".plan-toggle");
+    if (!button) return;
+    button.setAttribute("aria-pressed", String(folded));
+    button.title = window.Keys.title(folded ? "Show the plan" : "Fold the plan away", "today.plan");
+    button.setAttribute("aria-label", folded ? "Show the plan" : "Fold the plan away");
+    document.dispatchEvent(new CustomEvent("density:change"));
+  };
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".plan-toggle")) return;
+    const folded = root.dataset.plan !== "folded";
+    store("pc-plan", folded ? "folded" : "shown");
+    applyPlan(folded);
+  });
+  applyPlan(root.dataset.plan === "folded");
+
   /* ---- Today left open overnight: once the day has turned and the page is
      left alone (a minute with no key, click or scroll, or out of sight), it
      opens again as the new day's. What was written goes with the day before,

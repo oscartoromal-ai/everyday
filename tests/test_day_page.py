@@ -70,6 +70,30 @@ def test_todays_list_takes_in_what_the_last_page_left_open_once(db) -> None:
     assert tomorrow == {"label": "For tomorrow", "tasks": []}
 
 
+def test_a_task_not_meant_for_the_day_is_carried_over_and_says_since_when(db) -> None:
+    friday = DAY - timedelta(days=3)
+    tasks_svc.create_task(db, title="planned today", planned_for=DAY)
+    tasks_svc.create_task(db, title="due today", due=DAY)
+    tasks_svc.create_task(db, title="was due", due=DAY - timedelta(days=2))
+    tasks_svc.create_task(db, title="slipped", planned_for=DAY - timedelta(days=1))
+    undated = tasks_svc.create_task(db, title="undated")
+    notebook_svc.save_page(db, friday, [{
+        "kind": "text", "text": "- [ ] undated", "links": {"0": undated.id},
+    }], version=0)
+
+    offered = {t["title"]: t for t in day_tasks_ctx(db, DAY, DAY)["tasks"]}
+    meant = {title for title, t in offered.items() if not t["carried"]}
+    assert meant == {"planned today", "due today"}
+    # Since its do-date, else since the page it was left open on.
+    assert offered["slipped"]["since"] == "from yesterday"
+    assert offered["undated"]["since"] == "from Tue 29 Sep"
+    assert offered["was due"]["due"] == "due Wed 30 Sep"
+    assert offered["planned today"]["since"] == ""
+    # Its do-date as it stands, for a move to be put back.
+    assert offered["slipped"]["was"] == (DAY - timedelta(days=1)).isoformat()
+    assert offered["undated"]["was"] == ""
+
+
 # ---- the glance ----
 
 

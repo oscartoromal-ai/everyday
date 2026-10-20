@@ -58,14 +58,19 @@
    tabbed rows under it its note, bracketed in green, with its days' icon
    at the right. Unticked, it reads "/habit [ ] name": skipped that day.
    The notes save it as a habit block, which checks it (or not) for the
-   day. Under the notes, the habits due that day not yet written: a name
-   writes its row, its icon sets its days. After "/" at a row's start the
-   commands are offered, and after "/habit " the habits' names.
+   day. Beside the notes, the habits' pane: each habit due that day and
+   each written, its box (a habit not yet written: writes its row, ticked),
+   its name, its last seven days, its streak and its days' icon. After "/"
+   at a row's start the commands are offered, and after "/habit " the
+   habits' names.
 
-   On today's page, under the notes, the tasks still open from the last
-   page before it, not yet written here: a title writes its rows at the end
-   of the notes, its title row making that same task, and moves its do-date
-   to today; Bring all writes every one.
+   Beside the notes too, the plan: the day's tasks not yet written here,
+   those for the day and those carried over from before (on today's page,
+   overdue ones and those still open from the last page before it). A title
+   writes its rows at the end of the notes, its title row making that same
+   task, and moves its do-date to this day; its box writes them ticked; its
+   calendar moves it to another day (Reschedule moves every one carried
+   over); Bring all writes every one.
 
    "/stay" says where Oscar stays that day: a note, then its items, each a
    tabbed "- [ ] name: value" row drawn with its box (ticked once sorted),
@@ -474,7 +479,7 @@
         const res = await post(`/ui/habits/${encodeURIComponent(slug)}`, body).catch(() => null);
         if (!res?.ok) window.toast("Could not set that habit's days.");
       }, 300));
-      drawStrip();
+      drawHabits();
     });
     document.dispatchEvent(new CustomEvent("htmx:load", { detail: { elt: form } }));
     return form;
@@ -1248,7 +1253,10 @@
       if (res.ok) {
         version = answer.version;
         // Stood over by a later save of this window: that one is the saved.
-        if (!answer.superseded) saved = state;
+        if (!answer.superseded) {
+          saved = state;
+          learnHabits(page);
+        }
       } else if (res.status === 409) {
         stale = true;
         theirs = answer.version;
@@ -1427,8 +1435,10 @@
     }
     const m = taskOfBox(box);
     const block = m && blocks().find((b) => b.m === m);
-    if (!block) return;
-    const done = !isDone(block);
+    if (block) setDone(m, !isDone(block));
+  });
+  // A task ticked (or unticked): its row's box, then the task itself.
+  async function setDone(m, done) {
     mark(m, done);
     if (!m.id) return;
     const res = await post(`/ui/tasks/${m.id}/toggle`).catch(() => null);
@@ -1440,7 +1450,7 @@
     m.fields.status = done ? "done" : "todo";
     if (m.known) m.known.status = m.fields.status;
     htmx.trigger(document.body, "calendar:refresh");
-  });
+  }
 
   // Delete: an added task goes from the plan (asked first), and its rows
   // from the notes, as an edit undo can take back (the words come back, as
@@ -1588,115 +1598,273 @@
     view.dispatch({ selection: { anchor: line.to }, scrollIntoView: true });
   });
 
-  /* ---- habits not yet written ---- */
+  /* ---- the habits' pane ---- */
 
-  // Under the notes: each habit due this day (any day's, or one of its
-  // weekdays) not yet written, its name writing its row, its icon its days.
+  // Each habit due this day (any day's, or one of its weekdays) and each
+  // written in the notes: its box (done in the notes, or not yet), its name,
+  // its last seven days (this one as the notes have it), its streak and its
+  // days' icon. A box or a name not yet written writes its row; a name
+  // written goes to its row, and its box ticks or unticks it there.
   const weekday = () => {
     const [y, m, d] = day.split("-").map(Number);
     return String((new Date(y, m - 1, d).getDay() + 6) % 7);
   };
-  let stripShows = null;
-  function drawStrip() {
-    const strip = document.getElementById("pad-habits");
-    if (!strip || !view) return;
-    const written = writtenHabits(view.state);
-    const due = [...habits.keys()].sort().filter((slug) => {
-      const days = habits.get(slug);
-      return !written.has(slug) && (!days || days.includes(weekday()));
+  // How each habit came into the day: {week: [{day, state}], streak}.
+  const standing = new Map();
+  // Each habit written in the notes, by name as kept: done (or skipped).
+  const habitStates = (state) => {
+    const out = new Map();
+    for (const b of writtenOf(state)) {
+      if (b.kind !== "habit") continue;
+      const { slug, done } = habitOf(state.doc.line(b.first));
+      out.set(slug, out.get(slug) || done);
+    }
+    return out;
+  };
+  // A habit first written here is one once the notes are saved (the save
+  // makes it), and goes again when its row went before a save kept it (a
+  // name typed on the way to another).
+  const fresh = new Set();
+  const learnHabits = (saved) => {
+    const written = new Set(saved.filter((b) => b.kind === "habit").map((b) => b.habit));
+    for (const slug of fresh) {
+      if (written.has(slug)) continue;
+      fresh.delete(slug);
+      habits.delete(slug);
+    }
+    for (const slug of written) {
+      if (habits.has(slug) || !HABIT_NAME.test(slug)) continue;
+      fresh.add(slug);
+      habits.set(slug, "");
+    }
+    drawHabits();
+  };
+  // The days before this one, oldest first: a habit's own, else none.
+  const weekOf = (slug) => {
+    const known = standing.get(slug)?.week || [];
+    const [y, m, d] = day.split("-").map(Number);
+    return Array.from({ length: 6 }, (_, i) => {
+      const at = new Date(y, m - 1, d - 6 + i);
+      const iso = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}`;
+      return known.find((k) => k.day === iso) || { day: iso, state: null };
     });
-    const shows = due.join(" ");
-    if (shows === stripShows) return;
-    stripShows = shows;
-    strip.hidden = !due.length;
-    strip.querySelector(".today-fold-summary .count").textContent = due.length;
-    strip.querySelector(".pad-habits-list").replaceChildren(...due.map((slug) => {
+  };
+  const DAY_STATES = { done: "done", skipped: "skipped", missed: "missed" };
+  const dayName = (iso) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  };
+  let habitsShow = null;
+  function drawHabits() {
+    const pane = document.getElementById("pad-habits");
+    if (!pane || !view) return;
+    const written = habitStates(view.state);
+    const listed = [...habits.keys()].filter((slug) => {
+      const days = habits.get(slug);
+      return written.has(slug) || !days || days.includes(weekday());
+    }).sort();
+    const shows = JSON.stringify(listed.map((slug) => [slug, written.get(slug) ?? null, habits.get(slug)]));
+    if (shows === habitsShow) return;
+    habitsShow = shows;
+    pane.hidden = !habits.size;
+    const done = listed.filter((slug) => written.get(slug)).length;
+    pane.querySelector(".today-fold-summary .count").textContent = listed.length ? `${done}/${listed.length}` : "";
+    const list = pane.querySelector(".habit-list");
+    if (!listed.length) {
+      const none = document.createElement("li");
+      none.className = "habit-none";
+      none.textContent = "None due this day.";
+      list.replaceChildren(none);
+      return;
+    }
+    list.replaceChildren(...listed.map((slug) => {
+      const now = written.has(slug) ? (written.get(slug) ? "done" : "skipped") : "open";
       const item = document.createElement("li");
+      item.className = `habit-row ${now}`;
+      item.dataset.habit = slug;
+      const box = document.createElement("button");
+      box.type = "button";
+      box.className = "habit-box";
+      box.setAttribute("role", "checkbox");
+      box.setAttribute("aria-checked", String(now === "done"));
+      box.setAttribute("aria-label", `${slug}, done`);
+      box.title = now === "open" ? `Done: writes /habit ${slug}` : now === "done" ? "Done (untick: skipped)" : "Skipped (tick: done)";
       const write = document.createElement("button");
       write.type = "button";
       write.className = "pad-habit-write";
       write.dataset.habit = slug;
       write.textContent = slug;
-      write.title = `Write it: /habit ${slug}`;
-      item.append(write, habitControls(slug));
+      write.title = now === "open" ? `Write it: /habit ${slug}` : "Go to its row";
+      // Its last days, then this one: done, skipped, missed or nothing.
+      const week = document.createElement("span");
+      week.className = "habit-week";
+      week.setAttribute("role", "img");
+      const days = [...weekOf(slug), { day, state: now === "open" ? "today" : now }];
+      week.setAttribute("aria-label", days.map(({ day: d, state }) =>
+        `${dayName(d)}: ${state === "today" ? "not yet" : DAY_STATES[state] || "nothing"}`).join(", "));
+      week.replaceChildren(...days.map(({ day: d, state }) => {
+        const cell = document.createElement("i");
+        cell.className = state || "none";
+        cell.title = `${dayName(d)}: ${state === "today" ? "not yet" : DAY_STATES[state] || "nothing"}`;
+        return cell;
+      }));
+      const run = (standing.get(slug)?.streak || 0) + (now === "done" ? 1 : 0);
+      const streak = document.createElement("span");
+      streak.className = "habit-streak";
+      streak.textContent = run ? `${run}d` : "";
+      if (run) streak.title = `${run} ${run === 1 ? "day" : "days"} in a row`;
+      item.append(box, write, week, streak, habitControls(slug));
       return item;
     }));
   }
 
   // A habit's row, written at the end of the notes (on its last row, when
-  // that is empty), the caret after its name for a note.
-  document.addEventListener("click", (e) => {
-    const write = e.target.closest?.(".pad-habit-write");
-    if (!write || !view) return;
+  // that is empty): from its name, the caret after it for a note; from its
+  // box, where the caret was.
+  const writeHabit = (slug, { focus }) => {
     const doc = view.state.doc;
     const last = doc.line(doc.lines);
-    const row = `/habit ${write.dataset.habit}`;
+    const row = `/habit ${slug}`;
     const from = last.text.trim() ? last.to : last.from;
     const insert = last.text.trim() ? `\n${row}` : row;
-    view.focus();
-    view.dispatch({ changes: { from, to: last.to, insert }, selection: { anchor: from + insert.length }, scrollIntoView: true, userEvent: "input" });
+    if (focus) view.focus();
+    view.dispatch({
+      changes: { from, to: last.to, insert }, userEvent: "input",
+      ...(focus ? { selection: { anchor: from + insert.length }, scrollIntoView: true } : {}),
+    });
+  };
+  const habitLine = (slug) => {
+    const b = writtenOf(view.state).find((w) => w.kind === "habit" && habitOf(view.state.doc.line(w.first)).slug === slug);
+    return b ? view.state.doc.line(b.first) : null;
+  };
+  document.addEventListener("click", (e) => {
+    const target = e.target.closest?.("#pad-habits :is(.habit-box, .pad-habit-write)");
+    if (!target || !view) return;
+    const slug = target.closest(".habit-row").dataset.habit;
+    const line = habitLine(slug);
+    if (!line) {
+      writeHabit(slug, { focus: target.classList.contains("pad-habit-write") });
+    } else if (target.classList.contains("habit-box")) {
+      const { lead, done } = habitOf(line);
+      view.dispatch({ changes: { from: line.from, to: line.from + lead, insert: done ? "/habit [ ] " : "/habit " }, userEvent: "input" });
+    } else {
+      view.focus();
+      view.dispatch({ selection: { anchor: line.to }, scrollIntoView: true });
+    }
   });
 
-  /* ---- the day's tasks, not yet written ---- */
+  /* ---- the plan: the day's tasks, not yet written ---- */
 
   // The tasks planned for this day or due on it (on today's also those
   // overdue, and those still open from the last page before it), {label,
-  // tasks: [{id, title, notes, fields, moves, due}]}, each with its fields
-  // as they stand once brought here, whether that moves its do-date, and
-  // its due in words ("due today") when it has one.
+  // tasks: [{id, title, notes, fields, moves, carried, due, since, was}]},
+  // each with its fields as they stand once brought here, whether that
+  // moves its do-date, whether it is carried over from before (and since
+  // when, in words), its due in words ("due today") when it has one, and
+  // its do-date as it is now. Those for the day are listed first, those
+  // carried over under them.
   let dayTasks = { label: "", tasks: [] };
   let carryShows = null;
   const toBring = (state) => {
     const written = new Set(state.field(tasksField).map(({ m }) => m.id));
     return dayTasks.tasks.filter((t) => !written.has(t.id));
   };
-  function drawCarry() {
-    const strip = document.getElementById("pad-carry");
-    if (!strip || !view) return;
+  const CALENDAR = '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="13"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/></svg>';
+  const projectNames = new Map();
+  const planItem = (t) => {
+    const item = document.createElement("li");
+    item.className = "plan-item";
+    item.dataset.task = String(t.id);
+    // Its box: written in the notes, done.
+    const tick = document.createElement("button");
+    tick.type = "button";
+    tick.className = "plan-tick";
+    tick.setAttribute("role", "checkbox");
+    tick.setAttribute("aria-checked", "false");
+    tick.setAttribute("aria-label", `Done: ${t.title}`);
+    tick.title = "Done: written in the notes, ticked";
+    const write = document.createElement("button");
+    write.type = "button";
+    write.className = "pad-carry-write";
+    write.dataset.task = String(t.id);
+    write.title = `Bring it here, to do ${dayTasks.label.replace(/^For /, "")}`;
+    const title = document.createElement("span");
+    title.className = "pad-carry-title";
+    title.textContent = t.title;
+    write.append(title);
+    const project = projectColors.get(String(t.fields.project_id));
+    if (project) {
+      // Its project's flag, its name on hover.
+      const flag = document.createElement("span");
+      flag.className = "plan-flag";
+      flag.style.setProperty("--project", `var(--hue-${project})`);
+      flag.setAttribute("role", "img");
+      flag.setAttribute("aria-label", projectNames.get(String(t.fields.project_id)) || "Project");
+      flag.title = flag.getAttribute("aria-label");
+      title.before(flag);
+    }
+    if (t.fields.priority) {
+      // Its priority's bars, the controls' own icon, its word on hover.
+      const bars = document.getElementById("pad-props-template")?.content.querySelector(".priority-icon");
+      if (bars) {
+        const priority = document.createElement("span");
+        priority.className = "pad-carry-priority";
+        priority.setAttribute("role", "img");
+        const word = t.fields.priority[0].toUpperCase() + t.fields.priority.slice(1);
+        priority.title = `Priority: ${word}`;
+        priority.setAttribute("aria-label", priority.title);
+        const icon = bars.cloneNode(true);
+        icon.setAttribute("data-priority", t.fields.priority);
+        priority.append(icon);
+        title.before(priority);
+      }
+    }
+    item.append(tick, write);
+    // When it was meant for: its due, else since when it is carried.
+    if (t.due || t.since) {
+      const when = document.createElement("span");
+      when.className = t.due ? "pad-carry-due" : "plan-since";
+      when.textContent = t.due || t.since;
+      item.append(when);
+    }
+    const moveIt = document.createElement("button");
+    moveIt.type = "button";
+    moveIt.className = "plan-move";
+    moveIt.dataset.task = String(t.id);
+    moveIt.setAttribute("aria-haspopup", "menu");
+    moveIt.setAttribute("aria-expanded", "false");
+    moveIt.setAttribute("aria-label", `Move “${t.title}” to another day`);
+    moveIt.title = "Move to another day";
+    moveIt.innerHTML = CALENDAR;
+    item.append(moveIt);
+    return item;
+  };
+  // With nothing in it, the plan says so.
+  const drawPlanEmpty = () => {
+    const empty = document.querySelector("#today-plan .plan-empty");
+    if (empty) empty.hidden = !!document.querySelector("#today-plan .plan-group:not([hidden])");
+  };
+  function drawPlan() {
+    const carry = document.getElementById("pad-carry");
+    if (!carry || !view) return;
     const open = toBring(view.state);
     const shows = open.map((t) => t.id).join(" ");
     if (shows === carryShows) return;
     carryShows = shows;
-    strip.hidden = !open.length;
-    strip.querySelector(".today-fold-label").textContent = dayTasks.label;
-    strip.querySelector(".today-fold-summary .count").textContent = open.length;
-    strip.querySelector(".pad-carry-all").hidden = open.length < 2;
-    strip.querySelector(".pad-habits-list").replaceChildren(...open.map((t) => {
-      const item = document.createElement("li");
-      const write = document.createElement("button");
-      write.type = "button";
-      write.className = "pad-carry-write";
-      write.dataset.task = String(t.id);
-      write.title = `Bring it here, to do ${dayTasks.label.replace(/^For /, "")}`;
-      const title = document.createElement("span");
-      title.className = "pad-carry-title";
-      title.textContent = t.title;
-      write.append(title);
-      if (t.fields.priority) {
-        // Its priority's bars, the controls' own icon, its word on hover.
-        const bars = document.getElementById("pad-props-template")?.content.querySelector(".priority-icon");
-        if (bars) {
-          const priority = document.createElement("span");
-          priority.className = "pad-carry-priority";
-          priority.setAttribute("role", "img");
-          const word = t.fields.priority[0].toUpperCase() + t.fields.priority.slice(1);
-          priority.title = `Priority: ${word}`;
-          priority.setAttribute("aria-label", priority.title);
-          const icon = bars.cloneNode(true);
-          icon.setAttribute("data-priority", t.fields.priority);
-          priority.append(icon);
-          title.before(priority);
-        }
-      }
-      if (t.due) {
-        const due = document.createElement("span");
-        due.className = "pad-carry-due";
-        due.textContent = t.due;
-        write.append(due);
-      }
-      item.append(write);
-      return item;
-    }));
+    const groups = [
+      [carry, open.filter((t) => !t.carried), dayTasks.label],
+      [document.getElementById("pad-late"), open.filter((t) => t.carried), "Carried over"],
+    ];
+    for (const [fold, list, label] of groups) {
+      if (!fold) continue;
+      fold.hidden = !list.length;
+      fold.querySelector(".today-fold-label").textContent = label;
+      fold.querySelector(".today-fold-summary .count").textContent = list.length;
+      fold.querySelector(".plan-list").replaceChildren(...list.map(planItem));
+    }
+    const all = document.querySelector("#today-plan .pad-carry-all");
+    if (all) all.hidden = open.length < 2;
+    drawPlanEmpty();
   }
 
   // Tasks brought over: each written at the end of the notes (from its last
@@ -1726,13 +1894,169 @@
     if (moved.includes(false)) window.toast("Could not move every task to this day. Their rows are in the notes.");
     if (moved.length) htmx.trigger(document.body, "calendar:refresh");
   }
-  document.addEventListener("click", (e) => {
+  const offered = (id) => toBring(view.state).filter((t) => String(t.id) === id);
+  document.addEventListener("click", async (e) => {
+    if (!view) return;
     const write = e.target.closest?.(".pad-carry-write");
-    if (write) bring(toBring(view.state).filter((t) => String(t.id) === write.dataset.task));
+    const tick = e.target.closest?.(".plan-tick");
+    if (write) bring(offered(write.dataset.task));
     else if (e.target.closest?.(".pad-carry-all")) bring(toBring(view.state));
+    else if (tick) {
+      // Written, ticked there at once: done this day, in the notes; the
+      // task itself ticked once it is moved to the day.
+      const id = tick.closest(".plan-item").dataset.task;
+      const moving = bring(offered(id));
+      const block = blocks().find((b) => String(b.m.id) === id);
+      if (!block) return;
+      mark(block.m, true);
+      await moving;
+      setDone(block.m, true);
+    }
   });
 
-  /* ---- the page's folds: the nudges, and the strips under the notes ---- */
+  // Moved to another day: off this day's plan (Undo puts it back as it was).
+  async function moveTo(list, plannedFor) {
+    if (!list.length) return;
+    const before = dayTasks.tasks.slice();
+    const sent = await Promise.all(list.map((t) =>
+      post(`/ui/tasks/${t.id}/plan`, new URLSearchParams({ planned_for: plannedFor })).then((r) => r.ok, () => false)));
+    const moved = list.filter((_, i) => sent[i]);
+    const gone = new Set(moved.map((t) => t.id));
+    dayTasks.tasks = dayTasks.tasks.filter((t) => !gone.has(t.id));
+    carryShows = null;
+    drawPlan();
+    if (moved.length) htmx.trigger(document.body, "calendar:refresh");
+    if (moved.length < list.length) {
+      window.toast("Could not move every task. Those left are still here.");
+      return;
+    }
+    const to = plannedFor ? window.TaskSheet.shortDate(plannedFor) : "no date";
+    const what = moved.length === 1 ? `“${moved[0].title}”` : `${moved.length} tasks`;
+    window.toast(`Moved ${what} to ${to}.`, {
+      action: "Undo",
+      run: async () => {
+        const back = await Promise.all(moved.map((t) =>
+          post(`/ui/tasks/${t.id}/plan`, new URLSearchParams({ planned_for: t.was || "" })).then((r) => r.ok, () => false)));
+        const restored = new Set(moved.filter((_, i) => back[i]).map((t) => t.id));
+        dayTasks.tasks = before.filter((t) => !gone.has(t.id) || restored.has(t.id));
+        carryShows = null;
+        drawPlan();
+        htmx.trigger(document.body, "calendar:refresh");
+        if (restored.size < moved.length) window.toast("Could not put every task back.");
+      },
+    });
+  }
+
+  // A row's calendar, or Reschedule on Carried over: a menu of days, as the
+  // task sheet's do-date offers them (in the body, on the page's paper).
+  let moveMenu = null; // {button, el}
+  const closeMoveMenu = (restore = true) => {
+    if (!moveMenu) return;
+    const { button, el } = moveMenu;
+    moveMenu = null;
+    el.remove();
+    button.setAttribute("aria-expanded", "false");
+    if (restore && button.isConnected) button.focus();
+  };
+  function openMoveMenu(button, list) {
+    closeMoveMenu(false);
+    const el = document.createElement("div");
+    el.className = "sheet-menu plan-move-menu";
+    el.setAttribute("role", "menu");
+    el.setAttribute("aria-label", list.length === 1 ? "Move it to" : `Move ${list.length} tasks to`);
+    const choices = [...window.TaskSheet.soonDays(), ["Pick a date…", "pick"], ["No date", ""]];
+    for (const [label, value] of choices) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.tabIndex = -1;
+      item.setAttribute("role", "menuitemradio");
+      item.setAttribute("aria-checked", "false");
+      item.dataset.value = value;
+      item.innerHTML = '<span class="label"></span>';
+      item.querySelector(".label").textContent = label;
+      if (value && value !== "pick") {
+        const aside = document.createElement("span");
+        aside.className = "aside";
+        aside.textContent = window.TaskSheet.shortDate(value);
+        if (aside.textContent !== label.toLowerCase()) item.append(aside);
+      }
+      if (value === "pick") {
+        // The native picker anchors to its input, unseen under the item.
+        const input = document.createElement("input");
+        input.type = "date";
+        input.className = "plan-move-pick";
+        input.tabIndex = -1;
+        input.setAttribute("aria-hidden", "true");
+        input.addEventListener("change", () => {
+          if (!input.value) return;
+          closeMoveMenu();
+          moveTo(list, input.value);
+        });
+        item.append(input);
+      }
+      el.append(item);
+    }
+    document.body.append(el);
+    const at = button.getBoundingClientRect();
+    const below = window.innerHeight - at.bottom >= el.offsetHeight + 8;
+    el.style.top = `${Math.max(8, below ? at.bottom + 4 : at.top - el.offsetHeight - 4)}px`;
+    el.style.left = `${Math.max(8, Math.min(at.right - el.offsetWidth, window.innerWidth - el.offsetWidth - 8))}px`;
+    button.setAttribute("aria-expanded", "true");
+    moveMenu = { button, el, list };
+    el.firstElementChild.focus();
+  }
+  const chooseMove = (item) => {
+    const { list } = moveMenu;
+    if (item.dataset.value === "pick") {
+      const input = item.querySelector("input");
+      try { input.showPicker(); } catch { input.click(); }
+      return;
+    }
+    closeMoveMenu();
+    moveTo(list, item.dataset.value);
+  };
+  document.addEventListener("click", (e) => {
+    const one = e.target.closest?.(".plan-move");
+    const every = e.target.closest?.(".plan-move-all");
+    if ((one || every) && view) {
+      if (moveMenu?.button === (one || every)) { closeMoveMenu(); return; }
+      const list = one ? offered(one.dataset.task) : toBring(view.state).filter((t) => t.carried);
+      if (list.length) openMoveMenu(one || every, list);
+      return;
+    }
+    if (!moveMenu) return;
+    const item = e.target.closest?.(".plan-move-menu [data-value]");
+    if (item && moveMenu.el.contains(item)) {
+      if (!e.target.closest?.("input")) chooseMove(item);
+    } else if (!moveMenu.el.contains(e.target)) closeMoveMenu(false);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (!moveMenu || !moveMenu.el.contains(e.target)) return;
+    const items = [...moveMenu.el.querySelectorAll("[data-value]")];
+    const at = items.indexOf(e.target.closest("[data-value]"));
+    const handled = () => { e.preventDefault(); e.stopPropagation(); };
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      handled();
+      items[(at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus();
+    } else if (e.key === "Home" || e.key === "End") {
+      handled();
+      items[e.key === "Home" ? 0 : items.length - 1].focus();
+    } else if (e.key === "Enter" || e.key === " ") {
+      handled();
+      chooseMove(items[at]);
+    } else if (e.key === "Escape" || (e.key === "Tab" && !e.ctrlKey)) {
+      handled();
+      closeMoveMenu();
+    } else if (e.key !== "Tab") {
+      e.stopPropagation(); // the page's own keys stay out of the menu
+    }
+  }, true);
+  window.addEventListener("resize", () => closeMoveMenu(false));
+  document.addEventListener("scroll", (e) => {
+    if (moveMenu && !moveMenu.el.contains(e.target)) closeMoveMenu(false);
+  }, true);
+
+  /* ---- the page's folds: the plan's groups, and the habits ---- */
 
   // Those folded are kept in a cookie, the page drawn with them so
   // (partials/today_fold.html), on every day's page.
@@ -1749,13 +2073,15 @@
     document.cookie = `${FOLDED}=${[...names].join(".")}; path=/; max-age=31536000; samesite=strict`;
   }, true);
 
-  // A nudge dismissed: its count says so, and the last takes the center away.
+  // A nudge dismissed: its count says so, and the last takes the center
+  // away (the plan saying so when nothing else is in it).
   const nudges = document.getElementById("nudge-center");
   if (nudges) {
     new MutationObserver(() => {
       const left = nudges.querySelectorAll(".nudge").length;
       if (left) nudges.querySelector(".today-fold-summary .count").textContent = left;
       else nudges.remove();
+      drawPlanEmpty();
     }).observe(nudges.querySelector(".nudge-list"), { childList: true });
   }
 
@@ -1901,8 +2227,8 @@
     EditorView.updateListener.of((u) => {
       if (u.docChanged && !u.transactions.some((tr) => tr.annotation(loading))) schedule();
       if (u.docChanged) {
-        drawStrip();
-        drawCarry();
+        drawHabits();
+        drawPlan();
         drawStay();
       }
     }),
@@ -1923,12 +2249,22 @@
     dayTasks = { label: "", tasks: [] };
     try { dayTasks = JSON.parse(src.dataset.dayTasks || "null") || dayTasks; } catch { /* none */ }
     carryShows = null;
+    habitsShow = null;
     habits.clear();
-    for (const { slug, days } of known) habits.set(slug, days);
+    standing.clear();
+    fresh.clear();
+    for (const { slug, days, week, streak } of known) {
+      habits.set(slug, days);
+      standing.set(slug, { week: week || [], streak: streak || 0 });
+    }
     projectColors.clear();
+    projectNames.clear();
     const projects = document.getElementById("pad-props-template")?.content.querySelector("[data-sheet-projects]");
     try {
-      for (const { id, color } of JSON.parse(projects?.textContent || "[]")) projectColors.set(String(id), color);
+      for (const { id, name, color } of JSON.parse(projects?.textContent || "[]")) {
+        projectColors.set(String(id), color);
+        projectNames.set(String(id), name);
+      }
     } catch { /* none */ }
     const starts = [0];
     for (let i = 0; i < text.length; i++) if (text[i] === "\n") starts.push(i + 1);
@@ -1952,8 +2288,8 @@
     // What the notes say of each task now is what was last written to it.
     for (const block of blocks()) block.m.saved = contentOf(block);
     saved = snapshot();
-    drawStrip();
-    drawCarry();
+    drawHabits();
+    drawPlan();
     drawStay();
   }
 

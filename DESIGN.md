@@ -108,11 +108,11 @@ Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the spark
 Under 600px each tab is its icon, 44px wide; the tabs scroll sideways past the bar's width, it opens with the current page's tab in its middle, and an edge with tabs past it fades (`data-more`, `shell.js`).
 Content is 800px wide for list pages (Plan among them), where more width only lengthens a row; 1040px for a project's page, whose sections sit beside each other, and its Tasks; and up to 1600px for Projects, whose timeline lays its projects over weeks, and for Today and Calendar, so a wide window or a zoomed-out page widens them rather than their margins.
 Compact rows (the rail's toggle above the mode's, or C) set the ruled sheets and Today's notes 28px a row rather than 36px, the text its size: 3px above a 20px line, 4px below; the toggle's three lines close up while it is on, its label the state (Roomy, Compact).
-On Today a panel icon at the day header's right (or Ctrl+\) folds the timeline away, the notes taking its column, and back.
+On Today two panel icons at the day header's right fold the side panes away, the notes taking their room, and back: the plan and the habits (Alt+P), and the timeline (Ctrl+\).
 
 ## Components
 
-**List cards.** The nudge center (at the top of Today), the sections of a project's page and the task lists (a project's Tasks, Plan) are glass cards.
+**List cards.** The sections of a project's page and the task lists (a project's Tasks, Plan) are glass cards, as Today's panes are.
 A title row sits on a stronger hairline, and rows below are full-bleed, dividing with hairlines and lighting on hover with `--glass-row-hover`.
 
 **Task rows.** An 18px checkbox with a 6px radius fills with ink when checked; there is no draw-in animation.
@@ -170,13 +170,18 @@ Pasted "- [ ] " lines arrive as sub-tasks and "- " lines as bullets; the editor 
 Esc steps away but keeps a written draft open; Cancel clears it.
 The empty-list note hides once the list has a row.
 
-**Notepad.** Today, and every day's page (`/day/2026-09-25`), is a notepad beside the day's timeline.
-The header is the day's name at 24px ("Today" on today's), a pair of 32px chevrons for the day before and after, and on any other day a pill back to Today; the line under it gives the date, then the day's glance, and the key line names - [ ], Ctrl+Enter, the arrows and "? all keys".
-The glance is a few 14px lines, 12px under the date, 8px apart.
-What is on now and next comes first, a line each: "Now, till 19:40" or "Next, in 25m" in `--signal-deep` at 500 (cyan is time), the title in ink at 500, its times in 12px graphite tabular figures, and a meeting's "Join on zoom.us" as a 12px pill, as the pill back to Today is.
-Then the body's figures (Readiness, Sleep, Body battery), each a 12px pewter name before its value in 14px ink at 500 (tabular) and a 12px graphite note ("high", "score 87"), 16px apart; lengths are written as the task fields write them ("7h 31m").
+**Today's panes.** Today, and every day's page (`/day/2026-09-25`), is a header over panes (Oscar's call, 2026-10-20, replacing the notes stacked over strips): at the left the plan, 340px, over the habits; in the middle the notes; at the right the timeline, 300px.
+Each pane is a glass card under a 44px title bar: its name in 14px/600 ink at the left, its controls at the right, over a stronger hairline.
+Wide enough for the three (the notes at least 440px between them), the page is as tall as the window (at least 560px) and each pane scrolls inside itself.
+Narrower, the timeline goes under the notes and the page scrolls, the plan's column staying in view (sticky); and once the notes would be under 405px beside the plan, everything goes under one another: the notes, the plan and the habits, the timeline.
+The widths are the page's own (container queries), so the agent window docked takes from them as a narrow window does.
+The header is the day's name at 24px ("Today" on today's), a pair of 32px chevrons for the day before and after, on any other day a pill back to Today, and the date in 14px graphite; then the day's facts, and at the right the two folds' panel icons, graphite, pewter while their pane is folded.
+The facts are chips on a wrapping line, beside the name on a wide page and under it on a narrower one: each 28px, an 8px inset, a hairline edge on the glass, 6px apart.
+What is on now and next comes first, a chip each, edged in the signal's cyan: "Now, till 19:40" or "Next, in 25m" in `--signal-deep` at 500 (cyan is time), the title in 14px ink at 500 (cut with an ellipsis at 32ch), its times in 12px graphite tabular figures, and a meeting's "Join on zoom.us" as a small edged button.
+Then the body's figures (Readiness, Sleep, Body battery), each a 12px pewter name before its value in 14px ink at 500 (tabular) and a 12px graphite note ("high", "score 87"); lengths are written as the task fields write them ("7h 31m").
 A low readiness sits in the warn badge, value and note ("31 low, keep the day light"), as an overrun day's load does.
-The rest of the left column is one card, the paper at 35% (see-through, as every input), as tall as the window allows (at least 420px; 55vh once the timeline stacks under it), holding the notes ruled like a spreadsheet, written in 14px: the body grey (`--ink` 55% into `--graphite`, darker than the Task label), a task's first line in ink.
+The notes' pane is titled Notes, with Live, Source and Reading at its right; its card is the paper at 35% (see-through, as every input), filling the pane (at least 420px; 55vh once everything stacks), holding the notes ruled like a spreadsheet, written in 14px: the body grey (`--ink` 55% into `--graphite`, darker than the Task label), a task's first line in ink.
+Under it, the key line names - [ ], /reflection, /habit, /stay, Ctrl+Enter, the arrows and "? all keys".
 Every row is 36px tall with its text in the middle (7px above a 22px line, 6px below), on its own `--hairline` rule from the box's very top, and a 44px column of row numbers (12px pewter, tabular) runs down the left on a fog wash behind a hairline, like a spreadsheet's row headers (34px on phones); empty numbered rows fill the card under the last, the last of them cut at its edge, so a short page never scrolls.
 A row too long for the box wraps inside it, its lines 22px apart, and the row grows, its number level with its first line; nothing scrolls sideways.
 Plain rows start right after the numbers; a task's rows start one indent in, 76px (70px on phones), their wrapped lines too: in a task row's indent the page draws the task's box (square, 14px, graphite-ruled, ink with a paper tick once done) and "Task" in 12px graphite (struck through in pewter once done), neither of them text nor editable, and its other rows' indent is empty.
@@ -192,9 +197,20 @@ A habit is drawn as a task is: in its indent its box (ticked by default, filled 
 A stay is drawn as a reflection is, in amber (`--hue-3`: 45% into the paper for its rules, the amber itself while the caret is in it, 85% into ink for "Stay"): each item row its box (the task box, inline, 8px before the words) and its name up to its colon in graphite at 500, amber while unsorted.
 A task in a project has its rules in the project's colour, 55% into the paper (the colour itself while the caret is in it; the rule it shares with the task above takes the upper task's colour, and the lower's while the caret is in the lower), and its project control is the flag alone, filled in that colour.
 Light blue for reflection, green for habits, amber for stays and the projects' colours are the only colours in the notes that are not ink or grey.
-Under the date, a day with a stay lists it item by item on one wrapping line: a 10px box (ink once sorted, amber-ruled until), the name in pewter caption, the value in 14px ink (amber while unsorted, "not sorted" when it has none); each is a button to its row.
-Under the card, the day's tasks not yet written: "For today" in pewter caption and Bring all (12px pewter, underlined in mist) on a line, then each task's title (14px ink at 500, cut with an ellipsis at 40ch, after its priority's icon when it has one, the word on hover) inside a 1px graphite rule, its due after it in 12px `--warn-fg` ("due today"); none left, the list is gone.
-Then "Habits not yet written" in pewter caption and each habit due that day not written yet: its name (14px ink at 500) and its days' icon, on the see-through paper inside a 1px green rule; none due, the line is gone.
+Among the facts, a day with a stay is one chip, edged amber while an item is unsorted, its items side by side 12px apart: a 10px box (ink once sorted, amber-ruled until), the name in pewter caption, the value in 14px ink at 500 (amber while unsorted, "not sorted" when it has none); each is a button to its row.
+
+**The plan.** The left pane, titled Plan, with Bring all at its right (12px graphite, underlined in mist; shown with two tasks or more to bring), holds what the day asks for in groups, each folding under its name and count on a 32px band of fog (12px/500 graphite, the count pewter), its rows full-bleed between hairlines.
+Nudges first (today's page only): each its icon, its words wrapping in 14px ink, a small edged Open, and the steel dismiss.
+Then the day's tasks not yet written in the notes: under the day's label ("For today"), those planned for it or due on it; under Carried over, those meant for a day before (overdue, or left open on the last page), with Reschedule on the band's right while it is open.
+A task's row, 36px: its box (14px, steel, ink on hover, in a 24px target), its project's 10px flag in the project's colour and its priority's bars when it has them, its title in 14px ink at 500 (cut with an ellipsis, underlined on hover), when it was meant for in 12px ("due today" in `--warn-fg` at 500; under Carried over its due in graphite, or "from Mon 19 Oct" in pewter), and a 14px steel calendar shown while the row is hovered or focused (always on touch).
+The title writes the task's rows at the notes' end and moves its do-date to the day; the box does that and ticks it; the calendar, and Reschedule for every task carried over, open a menu of days, drawn as the task sheet's: Tomorrow and Next week with the day in pewter at the right, Pick a date (the native picker) and No date.
+A task moved leaves the plan, and the toast says where, with Undo.
+With nothing in it, the plan says so in 12px pewter ("Nothing planned for today.").
+
+**The habits.** Under the plan, a pane titled Habits, its count of those done ("1/4") in pewter, and over its rows' weeks the seven days' initials in 9px pewter; it folds to its title bar.
+Each habit due that day, and each written in the notes, is a 36px row: its box (14px, ruled in the habits' green, filled green with a paper tick once done in the notes, pewter-ruled when skipped), its name in 14px ink at 500 (pewter when skipped), its last seven days as 9px squares 3px apart (done filled green, skipped green-ruled, missed steel-ruled, nothing mist, this day ruled in ink until it is written), its streak in 12px graphite figures ("7d", the days done in a row, a day not its own passed over), and its days' icon.
+A box or a name not yet written writes the habit's row at the notes' end, ticked (the name moving the caret there for a note); a written habit's box ticks or unticks its row, and its name goes to it.
+With habits but none due, the pane says "None due this day."; with none at all, it is not drawn.
 What is offered while writing (after "/" at a row's start, and after "/habit ") is drawn as the icons' menus are: the paper, a hairline, the dropdown shadow, 32px rows, the matched letters in 600 and a pewter caption beside a command.
 No border, no focus ring and no resize handle; the pewter placeholder "Anything on your mind today."
 When the notes were saved in another window, a line under the card says so, with Show that version and Keep mine as secondary buttons.
@@ -346,7 +362,7 @@ The grid runs the whole day, 48px an hour, in a card that scrolls within the win
 Day heads are 12px pewter over a 14px/600 number, with today in `--spark-deep`, glowing at night.
 Under the number, a day to come carries its load in 12px figures: "45m planned" in graphite over "3h free" in pewter, one to a line; when the planned is more than the free, both sit in the warn badge.
 Today's timeline, which has no heads, carries the same on one line ("45m planned · 3h free") above its hours.
-The timeline's column holds the window's height, the card first and the hours in the rest; under the notes, on a narrow window, the hours scroll in 75% of it.
+Today's timeline is a pane titled Timeline, the hours in what its title bar leaves; under the notes, on a narrower page, the hours scroll in 75% of the window.
 Weekend columns carry `--ink-tint-faint`, whichever days are shown.
 Items are square tags with a 2px gap below, so back-to-back items never merge:
 
@@ -549,7 +565,7 @@ The notes are the text as stored: a task row is its "- [ ] " or "- [x] " line, d
 "/stay" at a row's start makes the row a stay, labelled like a reflection; Enter at its end, with nothing under it yet, writes its items (the last stay's names, from the server; place and accommodation the first time), the caret at the first value, as choosing /stay from what is offered does. Enter on an item starts the next ("\t- [ ] "), on an empty item takes its box away, and its box edits its "[ ]"; after an item's box its names are offered. The line under the date follows the notes as they are written.
 "/habit name" at a row's start checks a habit (its name the first word, the rest of the row and the tabbed rows under it its note); its box is its row's own lead, "/habit " when done and "/habit [ ] " when unticked, so ticking it edits the row (and undo takes it back).
 Its days' icon is the task sheet's (`data-sheet="props"`, one field, `days`): its menu offers Any day, Every day and Weekdays, then each weekday to tick on or off, the menu staying open; a change is written to the habit (`POST /ui/habits/<name>`) and shown in its other place on the page.
-The strip under the notes follows the notes as they are written; a name in it writes its row at the notes' end (on their last row, when empty), the caret after it for a note.
+The habits' pane follows the notes as they are written, a habit first written there joining it once the notes are saved; a name in it writes its row at the notes' end (on their last row, when empty), the caret after it for a note, and a box writes it where the caret was.
 What is offered comes from CodeMirror's autocompletion: the commands after "/" at a row's start (choosing /habit goes on to the names) and, after "/habit ", the habits' names and those the page has. Esc belongs to the notes except while an offer is on screen, when it closes it.
 A folded task's hidden rows follow its title on one line: a caret landing after them goes to the title's end, and an edit that would reach them (a row added under the title, Delete at its end, a selection across it) unfolds the task instead, the next edit doing what was meant; an undo goes through and unfolds it, and Ctrl+Enter leaves it folded. Folded task rows save with the notes (a text block's `folded`, by row).
 Home on a task's, reflection's or habit's row goes to its first word, a selection drawn back to a row's start stops there, Left from there goes on to the row above, and Backspace there takes its box, label or tab away, so the row is plain again.
