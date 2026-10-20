@@ -958,20 +958,20 @@ def test_compact_rows_and_folded_panes_are_kept(page, live) -> None:
     # Alt+P, in the notes too: the plan and the habits fold away as well.
     width = page.locator(".notepad-card").evaluate("e => e.getBoundingClientRect().width")
     page.keyboard.press("Alt+p")
-    assert page.locator(".today-side").is_hidden()
+    assert page.locator(".today-col[data-col=left]").is_hidden()
     assert page.locator(".notepad-card").evaluate("e => e.getBoundingClientRect().width") > width
-    assert page.locator(".plan-toggle").get_attribute("aria-pressed") == "true"
+    assert page.locator("[data-fold-col=left]").get_attribute("aria-pressed") == "true"
     assert text_of(page) == "c"
 
     page.reload()
     assert row_height() == 28
     assert page.locator(".today-timeline").is_hidden()
-    assert page.locator(".today-side").is_hidden()
-    page.locator(".timeline-toggle").click()
-    page.locator(".plan-toggle").click()
+    assert page.locator(".today-col[data-col=left]").is_hidden()
+    page.locator("[data-fold-col=right]").click()
+    page.locator("[data-fold-col=left]").click()
     page.locator(".density-toggle").click()
     assert page.locator(".today-timeline").is_visible()
-    assert page.locator(".today-side").is_visible()
+    assert page.locator(".today-col[data-col=left]").is_visible()
     assert row_height() == 36
 
 

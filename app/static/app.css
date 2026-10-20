@@ -636,7 +636,7 @@ label.me-row:hover, .weight-log .me-row:hover { background: var(--glass-row-hove
 .task-row[tabindex]:focus { outline: none; }
 .task-row[tabindex] { position: relative; }
 .task-row[tabindex]:focus-visible { border-radius: 0; box-shadow: none; background: var(--glass-row-hover); }
-.task-row[tabindex]:focus-visible::before, .done-fold > summary:focus-visible::before, .sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"]):focus-visible::before {
+.task-row[tabindex]:focus-visible::before, .done-fold > summary:focus-visible::before, .sheet-menu :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):focus-visible::before {
   content: ""; position: absolute; left: 0; top: 8px; bottom: 8px;
   width: 3px; border-radius: 0;
   background: var(--spark); box-shadow: var(--spark-glow);
@@ -1099,19 +1099,19 @@ a.attention-link:hover { text-decoration: underline; text-underline-offset: 3px;
   box-shadow: var(--shadow-dropdown);
   font-size: var(--t-body-sm);
 }
-.sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"]) {
+.sheet-menu :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]) {
   position: relative; display: flex; align-items: center; gap: var(--s-2);
   width: 100%; min-height: 32px; padding: 6px 10px; border-radius: var(--r-tag);
   color: var(--ink); text-align: left; cursor: pointer;
 }
-.sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"]).indent { padding-left: 26px; color: var(--graphite); }
+.sheet-menu :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]).indent { padding-left: 26px; color: var(--graphite); }
 /* --fog, not a glass tint: the menu is opaque paper. The keyboard's item
    also takes the rows' spark bar, the one cursor the app draws. */
-.sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"]):hover, .sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"]):focus-visible {
+.sheet-menu :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):hover, .sheet-menu :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):focus-visible {
   outline: none; box-shadow: none; background: var(--fog);
 }
-.sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"]):focus-visible::before { top: 7px; bottom: 7px; }
-.sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"]):focus { outline: none; }
+.sheet-menu :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):focus-visible::before { top: 7px; bottom: 7px; }
+.sheet-menu :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):focus { outline: none; }
 .sheet-menu [aria-checked="true"] { font-weight: 600; }
 /* a menu's second part (a habit's weekdays, after its usual sets) */
 .sheet-menu .sep { margin-top: 5px; box-shadow: 0 -5px 0 -4px var(--hairline); }
@@ -1132,8 +1132,8 @@ a.attention-link:hover { text-decoration: underline; text-underline-offset: 3px;
 .sheet-menu-find::placeholder { color: var(--pewter); }
 .sheet-menu-find:is(:focus, :focus-visible) { outline: none; box-shadow: none; border-radius: 0; border-bottom-color: var(--ink); }
 .sheet-menu [hidden] { display: none; }
-.sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"])[data-active] { background: var(--fog); }
-.sheet-menu :is([role="menuitemradio"], [role="menuitemcheckbox"])[data-active]::before {
+.sheet-menu :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"])[data-active] { background: var(--fog); }
+.sheet-menu :is([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"])[data-active]::before {
   content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px;
   background: var(--spark); box-shadow: var(--spark-glow);
 }
@@ -2185,25 +2185,96 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   .calendar-grid[data-days="7"] :is(.grid-top, .grid-body) { min-width: 640px; }
 }
 
-/* ---------- a day's page: panes under its header (notepad.js) ---------- */
+/* ---------- a day's page: panes under its header (today-layout.js) ---------- */
 
-/* The plan and the habits at the left, the notes in the middle, the
-   timeline at the right, the page as tall as the window and each pane
-   scrolling inside itself. A column folded away gives its room to the
-   notes. Narrower (the container queries further down), the timeline goes
-   under the notes and the page scrolls, the plan staying in view; then
-   everything goes under one another. */
+/* The panes in three columns under the header, as Oscar placed them: the
+   left 340px, the middle the rest, the right 300px; the page as tall as
+   the window and each pane scrolling inside itself (a column too, with
+   more in it than the window holds). A column with no pane showing, or
+   folded away, goes (not in data-cols), its room the middle's; with none
+   in the middle, the columns left share the width. Narrower (the container
+   queries further down), the right column goes under the middle one and
+   the page scrolls, the left staying in view; then everything goes under
+   one another. */
 .today-page {
   display: grid; gap: var(--s-4);
-  grid-template-columns: 340px minmax(0, 1fr) 300px;
-  grid-template-areas: "head head head" "side pad time";
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr);
   height: max(560px, calc(100dvh - 2 * var(--s-8)));
 }
-:root[data-plan="folded"] .today-page { grid-template-columns: minmax(0, 1fr) 300px; grid-template-areas: "head head" "pad time"; }
-:root[data-timeline="folded"] .today-page { grid-template-columns: 340px minmax(0, 1fr); grid-template-areas: "head head" "side pad"; }
-:root[data-plan="folded"][data-timeline="folded"] .today-page { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "pad"; }
-:root[data-plan="folded"] .today-side, :root[data-timeline="folded"] .today-timeline { display: none; }
+.today-body { position: relative; display: flex; gap: var(--s-4); min-width: 0; min-height: 0; }
+.today-col {
+  display: flex; flex-direction: column; gap: var(--s-4); min-width: 0; min-height: 0;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+}
+.today-col[data-col="left"] { flex: 0 0 340px; }
+.today-col[data-col="center"] { flex: 1 1 0; }
+.today-col[data-col="right"] { flex: 0 0 300px; }
+.today-body:not([data-cols*="l"]) > [data-col="left"],
+.today-body:not([data-cols*="c"]) > [data-col="center"],
+.today-body:not([data-cols*="r"]) > [data-col="right"] { display: none; }
+.today-body:not([data-cols*="c"]) > .today-col { flex: 1 1 0; }
+.today-pane[hidden] { display: none; }
+/* In a column, the notes and the timeline take the room the others leave,
+   never less than they need to be read; the plan its rows', scrolling
+   inside itself when the column is short; the habits theirs. */
+.today-col > :is(.today-pad, .today-timeline) { flex: 1 1 0; }
+.today-col > .today-pad { min-height: 360px; }
+.today-col > .today-timeline { min-height: 280px; }
+
+/* a pane's grip, in its title bar's left edge on hover or focus (six steel
+   dots, as a Gantt row's), and its eye after its name, hiding it; both
+   unseen until then, in room the bar leaves empty */
+.pane-head { position: relative; }
+.pane-grip {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 14px; cursor: grab;
+  opacity: 0; transition: opacity var(--dur) var(--ease);
+}
+.pane-grip::before {
+  content: ""; position: absolute; left: 4px; top: 50%; width: 6px; height: 10px; margin-top: -5px;
+  background: radial-gradient(circle, var(--steel) 1px, transparent 1.2px) 0 0 / 3px 4px;
+}
+.pane-grip:hover::before { background-image: radial-gradient(circle, var(--ink) 1px, transparent 1.2px); }
+.pane-grip:focus-visible { border-radius: 0; box-shadow: none; background: var(--spark-tint); }
+.pane-grip:focus-visible::before { background-image: radial-gradient(circle, var(--spark-deep) 1px, transparent 1.2px); }
+.pane-hide {
+  flex: none; display: grid; place-content: center; width: 24px; height: 24px; margin-left: -4px;
+  border-radius: var(--r-tag); color: var(--steel);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease), background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.pane-hide:hover { color: var(--ink); background: var(--glass-hover); }
+.pane-hide svg {
+  width: 14px; height: 14px; fill: none; stroke: currentColor;
+  stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+}
+.pane-head:is(:hover, :focus-within) :is(.pane-grip, .pane-hide) { opacity: 1; }
+.today-body[data-dragging] :is(.pane-grip, .pane-hide) { opacity: 0; transition: none; }
+@media (hover: none) { .pane-hide { opacity: 1; } }
+@media (max-width: 720px) { .pane-grip { display: none; } }
+
+/* A pane in hand: faint where it was, its name lifted under the pointer
+   on the page's paper; a 2px spark line where it would land, or, for a
+   column not showing, a drop zone at its edge, the spark tint inside a
+   dashed spark edge (lit while the pointer is in it). */
+.today-body[data-dragging], .today-body[data-dragging] * { cursor: grabbing; user-select: none; }
+.today-pane.is-dragging { opacity: 0.4; }
+.pane-lift {
+  position: fixed; z-index: 60; padding: 8px var(--s-4); pointer-events: none;
+  background: var(--paper); border-radius: var(--r-ctl); box-shadow: var(--shadow-dropdown);
+  font-family: var(--font-display); font-size: var(--t-body-sm); font-weight: 600; color: var(--ink);
+}
+.pane-drop-line {
+  position: absolute; z-index: 5; height: 2px; margin-top: -1px;
+  background: var(--spark); box-shadow: var(--spark-glow); pointer-events: none;
+}
+.pane-drop-zone {
+  position: absolute; z-index: 4; top: 0; bottom: 0; width: 96px;
+  display: grid; place-content: center; padding: var(--s-2); pointer-events: none;
+  border: 1.5px dashed var(--spark); border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--spark-tint) 70%, transparent);
+  font-size: var(--t-caption); font-weight: 500; color: var(--spark-deep); text-align: center;
+}
+.pane-drop-zone.is-over { background: var(--spark-tint); }
 
 /* a pane: a glass card under a title bar, its name at the left, its
    controls at the right */
@@ -2216,7 +2287,6 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .pane-head h2, .pane-head .today-fold-label { margin: 0; font-family: var(--font-display); font-size: var(--t-body-sm); font-weight: 600; color: var(--ink); white-space: nowrap; }
 .pane-head .md-modes { margin: 0 0 0 auto; }
 
-.today-timeline { grid-area: time; }
 /* the hours in what is left under the pane's title */
 .today-timeline .calendar-grid {
   flex: 1 1 auto; min-height: 240px; overflow-y: auto; overscroll-behavior: contain;
@@ -2230,7 +2300,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
    as chips (wrapping in their column), and at the right the side panes'
    folds; narrower, the facts under the name */
 .today-page > .day-header {
-  grid-area: head; display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas: "title facts panes"; align-items: start; gap: var(--s-2) var(--s-6); margin: 0;
 }
 .day-title { grid-area: title; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); min-height: 32px; }
@@ -2245,6 +2315,8 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .day-panes button:hover { color: var(--ink); background: var(--glass-hover); }
 /* a pane folded away: its button lit as pressed */
 .day-panes button[aria-pressed="true"] { color: var(--pewter); }
+.day-panes button[hidden] { display: none; }
+.day-panes .panes-open[aria-expanded="true"] { color: var(--ink); background: var(--glass-hover); }
 .day-nav { display: flex; align-items: center; gap: var(--s-1); }
 .day-step {
   display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--r-ctl);
@@ -2261,7 +2333,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 
 /* The notes' column: their pane as tall as the page's row (the window,
    when the timeline is beside them), the keys' hint under it. */
-.today-pad { grid-area: pad; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.today-pad { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .notes-pane { flex: 1; }
 .today-pad .keys-hint { margin-top: var(--s-2); }
 /* under the header's line, the day's facts as chips on one wrapping line:
@@ -2304,9 +2376,7 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .day-stay-item:not(.done) .day-stay-value { color: color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
 .day-stay-item:hover :is(.day-stay-name, .day-stay-value) { text-decoration: underline; text-underline-offset: 3px; }
 
-/* ---- the side column: the plan over the habits, as tall as the window,
-   the plan scrolling inside itself ---- */
-.today-side { grid-area: side; display: flex; flex-direction: column; gap: var(--s-4); min-width: 0; min-height: 0; }
+/* ---- the plan: its groups, scrolling inside it ---- */
 .today-plan { flex: 0 1 auto; }
 .plan-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .today-plan .pad-carry-all {
@@ -2678,28 +2748,39 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .history-line { font-size: var(--t-caption); color: var(--graphite); overflow-wrap: anywhere; }
 .history-empty { margin: 0; font-size: var(--t-caption); color: var(--pewter); }
 
-/* Narrower than the three side by side (the notes under 440px between
-   them): the timeline under the notes, the plan staying beside them; then,
-   the notes under 405px beside the plan, everything under one another (the
-   notes, the plan and the habits, the timeline). A narrow window, or the
-   agent's window docked beside the page. */
+/* Narrower than the three side by side (the middle under 440px between
+   them): the right column under the middle one, the left staying beside
+   them; then, the middle under 405px beside the left, everything under one
+   another (the middle, the left, the right). A narrow window, or the
+   agent's window docked beside the page. In a column, the panes are their
+   own height, the page scrolling. */
 .main:has(> .today-page) { container: day-page / inline-size; }
 @container day-page (width < 1120px) {
   .today-page > .day-header { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title panes" "facts facts"; }
   .day-facts { margin-top: var(--s-1); }
-  .today-page { grid-template-columns: 340px minmax(0, 1fr); grid-template-areas: "head head" "side pad" "side time"; grid-template-rows: auto auto auto; align-items: start; height: auto; }
-  .today-side { position: sticky; top: var(--s-6); max-height: calc(100dvh - 2 * var(--s-6)); }
-  :root[data-plan="folded"] .today-page { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "pad" "time"; }
+  .today-page { grid-template-rows: auto auto; height: auto; }
+  .today-body { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  .today-body[data-cols*="l"]:not([data-cols="l"]) { grid-template-columns: 340px minmax(0, 1fr); }
+  .today-col { overflow: visible; }
+  .today-col[data-col="left"] { grid-column: 1; grid-row: 1 / span 2; }
+  .today-col[data-col="center"] { grid-column: -2; grid-row: 1; }
+  .today-col[data-col="right"] { grid-column: -2; grid-row: 2; }
+  .today-body:not([data-cols*="c"]) > [data-col="right"] { grid-row: 1; }
+  /* the left column in view as the page scrolls, its panes inside it (not
+     with the notes in it: they would not fit) */
+  .today-col[data-col="left"]:not(:has(> .today-pad:not([hidden]))) {
+    position: sticky; top: var(--s-6); max-height: calc(100dvh - 2 * var(--s-6)); overflow-y: auto;
+  }
+  :is(.today-col:not([data-col="left"]), .today-col:has(> .today-pad:not([hidden]))) > .today-pane { flex: none; min-height: 0; }
   .notepad-card { min-height: max(420px, calc(100dvh - 240px)); }
   /* under the notes, the whole day scrolls in a window of its own, opened
      on now (calendar.js), the page's own scroll carrying on past its ends */
   .today-timeline .calendar-grid { max-height: 75vh; overscroll-behavior: auto; }
 }
 @container day-page (width < 768px) {
-  .today-page, :root[data-timeline="folded"] .today-page {
-    grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "pad" "side" "time"; grid-template-rows: none;
-  }
-  .today-side { position: static; max-height: none; }
+  .today-page .today-body[data-cols] { grid-template-columns: minmax(0, 1fr); }
+  .today-page .today-col[data-col] { grid-column: 1; grid-row: auto; position: static; max-height: none; overflow: visible; }
+  .today-col[data-col="center"] { order: -1; }
   .notepad-card { min-height: 55vh; }
 }
 @media (max-width: 720px) {

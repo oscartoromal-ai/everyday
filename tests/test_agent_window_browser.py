@@ -159,7 +159,7 @@ def test_docked_beside_today_it_leaves_the_notes_room(
     # Once it has slid in and the page stands still: the notes, the plan and
     # the timeline, read together.
     pad, side, timeline = page.evaluate("""async () => {
-        const boxes = () => ['.today-pad', '.today-side', '.today-timeline'].map((s) => {
+        const boxes = () => ['.today-pad', '[data-col=left]', '.today-timeline'].map((s) => {
             const r = document.querySelector(s).getBoundingClientRect();
             return { x: r.x, y: r.y, width: r.width, height: r.height };
         });

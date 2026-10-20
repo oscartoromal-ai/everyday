@@ -507,49 +507,6 @@
   });
   applyDensity(root.dataset.density === "compact");
 
-  /* ---- Today's timeline: folded away (its key, or its button), remembered ---- */
-
-  const applyTimeline = (folded) => {
-    if (folded) root.dataset.timeline = "folded";
-    else delete root.dataset.timeline;
-    const button = document.querySelector(".timeline-toggle");
-    if (!button) return;
-    button.setAttribute("aria-pressed", String(folded));
-    button.title = window.Keys.title(folded ? "Show the timeline" : "Fold the timeline away", "today.timeline");
-    button.setAttribute("aria-label", folded ? "Show the timeline" : "Fold the timeline away");
-    document.dispatchEvent(new CustomEvent("density:change"));
-  };
-  const toggleTimeline = () => {
-    const folded = root.dataset.timeline !== "folded";
-    store("pc-timeline", folded ? "folded" : "shown");
-    applyTimeline(folded);
-  };
-  // Its key presses it (keys.js), anywhere on Today, writing in the notes too.
-  document.addEventListener("click", (e) => {
-    if (e.target.closest(".timeline-toggle")) toggleTimeline();
-  });
-  applyTimeline(root.dataset.timeline === "folded");
-
-  /* ---- Today's plan and habits: folded away, as the timeline is ---- */
-
-  const applyPlan = (folded) => {
-    if (folded) root.dataset.plan = "folded";
-    else delete root.dataset.plan;
-    const button = document.querySelector(".plan-toggle");
-    if (!button) return;
-    button.setAttribute("aria-pressed", String(folded));
-    button.title = window.Keys.title(folded ? "Show the plan" : "Fold the plan away", "today.plan");
-    button.setAttribute("aria-label", folded ? "Show the plan" : "Fold the plan away");
-    document.dispatchEvent(new CustomEvent("density:change"));
-  };
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".plan-toggle")) return;
-    const folded = root.dataset.plan !== "folded";
-    store("pc-plan", folded ? "folded" : "shown");
-    applyPlan(folded);
-  });
-  applyPlan(root.dataset.plan === "folded");
-
   /* ---- Today left open overnight: once the day has turned and the page is
      left alone (a minute with no key, click or scroll, or out of sight), it
      opens again as the new day's. What was written goes with the day before,

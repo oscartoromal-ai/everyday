@@ -1801,19 +1801,12 @@
 
   /* ---- the page's folds: the plan's groups, and the habits ---- */
 
-  // Those folded are kept in a cookie, the page drawn with them so
-  // (partials/today_fold.html), on every day's page.
-  const FOLDED = "today_folded";
-  const folded = () => new Set((document.cookie.split("; ").find((c) => c.startsWith(`${FOLDED}=`)) || "")
-    .slice(FOLDED.length + 1).split(".").filter(Boolean));
+  // Those folded are kept in a cookie (today-layout.js), the page drawn
+  // with them so (partials/today_fold.html), on every day's page.
   // "toggle" does not bubble; capture it on the way down.
   document.addEventListener("toggle", (e) => {
     const fold = e.target;
-    if (!fold.matches?.("details[data-fold]")) return;
-    const names = folded();
-    if (fold.open) names.delete(fold.dataset.fold);
-    else names.add(fold.dataset.fold);
-    document.cookie = `${FOLDED}=${[...names].join(".")}; path=/; max-age=31536000; samesite=strict`;
+    if (fold.matches?.("details[data-fold]")) window.TodayFolds.set(fold.dataset.fold, !fold.open);
   }, true);
 
   // A nudge dismissed: its count says so, and the last takes the center
