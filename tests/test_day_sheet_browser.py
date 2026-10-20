@@ -11,6 +11,7 @@ import pytest
 from app.models import Task, TaskStatus
 from app.services import habits as habits_svc
 from app.services import notebook
+from app.services import stays as stays_svc
 from app.services import tasks as tasks_svc
 from app.ui.day_sheet_view import home_start
 
@@ -31,9 +32,7 @@ def open_sheet(page, live) -> None:
 
 def stay(app_db, day: date) -> list[dict]:
     with app_db() as db:
-        page = notebook.get_page(db, day)
-        blocks = [b for b in (page.blocks if page else []) if b["kind"] == "stay"]
-        return notebook.stay_items(blocks[0]["text"]) if blocks else []
+        return stays_svc.as_dicts(stays_svc.items_on(db, day))
 
 
 def test_a_stay_is_written_ticked_and_filled_down(page, live, app_db) -> None:
@@ -254,8 +253,8 @@ def test_cells_are_copied_and_pasted_as_a_spreadsheets(page, live, app_db) -> No
     monday = START
     wednesday, thursday, saturday = (START + timedelta(days=i) for i in (2, 3, 5))
     with app_db() as db:
-        notebook.set_stay_item(db, monday, "place", value="Leiden")
-        notebook.set_stay_item(db, monday, "accommodation", done=True)
+        stays_svc.set_item(db, monday, "place", value="Leiden")
+        stays_svc.set_item(db, monday, "accommodation", done=True)
         tasks_svc.create_task(db, title="Pay rent", planned_for=monday)
         tasks_svc.create_task(db, title='Call "mum"', planned_for=monday)
         habits_svc.set_days(db, "morning-run", "")

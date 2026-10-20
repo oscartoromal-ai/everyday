@@ -29,6 +29,7 @@ from app.services import habits as habits_svc
 from app.services import history as history_svc
 from app.services import notebook as notebook_svc
 from app.services import projects as projects_svc
+from app.services import stays as stays_svc
 from app.services import tasks as tasks_svc
 
 INSTRUCTIONS = (
@@ -54,9 +55,9 @@ INSTRUCTIONS = (
     "outcome, its pull requests): never as far as done, which its pull requests "
     "merging, or Oscar, says. "
     "Each day has a notebook page Oscar writes in: prose, the tasks he wrote there "
-    "(as they stand now), reflections, and where he stays (a stay: its items, such as "
-    "place and accommodation, each sorted or not); read it for context with "
-    "get_notebook, which adds the habits he ticked that day. How consistent he is "
+    "(as they stand now) and reflections; read it for context with get_notebook, "
+    "which adds where he stays that day (a stay: its items, such as place and "
+    "accommodation, each sorted or not) and the habits he ticked. How consistent he is "
     "with each habit, and his comments on them: get_habits; each habit's file "
     "(habits/<name>.md) says what it is and holds its log of comments."
 )
@@ -312,14 +313,11 @@ def get_agenda(start: date | None = None, days: int = 1) -> dict[str, Any]:
 def _notebook_payload(db, day: date, *, brief: bool = False) -> list[dict[str, Any]]:  # noqa: ANN001
     """A day's notebook page as blocks: prose and reflections as written, and
     each task as it stands now (brief: its id, title and status only); then
-    the habits ticked that day, or skipped with a comment."""
+    where he stays that day, and the habits ticked that day, or skipped with
+    a comment."""
     out: list[dict[str, Any]] = []
     for block in notebook_svc.blocks_of(db, day):
-        if block["kind"] == "stay":
-            # Where he stays that day: each item (place, accommodation...), sorted or not.
-            out.append({"kind": "stay", "text": block["text"],
-                        "items": notebook_svc.stay_items(block["text"])})
-        elif block["kind"] != "task":
+        if block["kind"] != "task":
             out.append({"kind": block["kind"], "text": block["text"]})
         elif block["task"] is None:
             out.append({"kind": "task", "task_id": block["id"], "deleted": True,
@@ -330,6 +328,10 @@ def _notebook_payload(db, day: date, *, brief: bool = False) -> list[dict[str, A
                         "status": task.status})
         else:
             out.append({"kind": "task", "task": task_out(block["task"]).model_dump()})
+    stay = stays_svc.items_on(db, day)
+    if stay:
+        # Each item (place, accommodation...): its value, sorted or not.
+        out.append({"kind": "stay", "items": stays_svc.as_dicts(stay)})
     for row in habits_svc.grid(db, day, 1):
         check = row["checks"][0]
         if check["state"] in ("done", "skipped"):
@@ -342,9 +344,10 @@ def _notebook_payload(db, day: date, *, brief: bool = False) -> list[dict[str, A
 def get_notebook(start: date | None = None, days: int = 1) -> dict[str, Any]:
     """Oscar's notebook pages for `days` days from `start` (default today), in
     the order he wrote them: prose ("text"), tasks written there ("task", as
-    they stand now; a deleted one keeps its last title), reflections and
-    where he stays; then the habits he ticked that day ("habit", done, or
-    not done with a comment saying why: skipped).
+    they stand now; a deleted one keeps its last title) and reflections; then
+    where he stays ("stay": its items, each a name, value and sorted or not)
+    and the habits he ticked that day ("habit", done, or not done with a
+    comment saying why: skipped).
     Read-only: the notebook is Oscar's own writing."""
     with session_scope("claude") as db:
         first = start or date.today()

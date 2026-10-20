@@ -18,9 +18,9 @@
    click on a Plan cell opens its day's page.
 
    Every edit is one POST of ops (/ui/day-sheet), written into the days'
-   notes and tasks as they would be there, answered with the sheet drawn
-   again; the cursor and the scroll come through the swap. Requests go one
-   at a time, in order. */
+   stays, habits and tasks as Today would write them, answered with the
+   sheet drawn again; the cursor and the scroll come through the swap.
+   Requests go one at a time, in order. */
 
 (() => {
   const sheet = document.getElementById("day-sheet");

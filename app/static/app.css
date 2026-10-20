@@ -2339,9 +2339,9 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 /* under the header's line, the day's facts as chips on one wrapping line:
    what is on now and next (its wait in the time's cyan, its edge cyan),
    the body's figures (a pewter name before the value in ink; one asking
-   for care in the warn badge), and where Oscar stays, item by item (a
-   small box, ink once sorted, amber-edged not yet; a click goes to its
-   row). The line is not drawn with nothing on it. */
+   for care in the warn badge), and where Oscar stays, item by item
+   (accommodation's small box, ink once sorted, amber-edged not yet; a click
+   goes to it in the stay's pane). The line is not drawn with nothing on it. */
 .day-facts { grid-area: facts; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; }
 .day-facts:not(:has(.glance-event, .glance-figure, .day-stay-item)) { display: none; }
 .day-facts > .day-glance:not(:has(*)) { display: none; }
@@ -2366,14 +2366,14 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .glance-figure dd span { font-size: var(--t-caption); font-weight: 400; color: var(--graphite); }
 .glance-figure.over dd { padding: 0 var(--s-1); color: var(--warn-fg); background: var(--badge-warn-glass); }
 .glance-figure.over dd span { color: inherit; }
-.day-stay:has(.day-stay-item:not(.done)) { border-color: color-mix(in srgb, var(--hue-3) 60%, transparent); }
+.day-stay:has(.day-stay-item.open) { border-color: color-mix(in srgb, var(--hue-3) 60%, transparent); }
 .day-stay-item { display: inline-flex; align-items: center; gap: 6px; min-height: 26px; color: var(--graphite); cursor: pointer; }
 .day-stay-box { flex: none; width: 10px; height: 10px; border: 1.5px solid color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
 .day-stay-item.done .day-stay-box { background: var(--ink); border-color: var(--ink); }
 .day-stay-name { color: var(--pewter); }
 .day-stay-value { font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); }
 .day-stay-value:empty { display: none; }
-.day-stay-item:not(.done) .day-stay-value { color: color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
+.day-stay-item.open .day-stay-value { color: color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
 .day-stay-item:hover :is(.day-stay-name, .day-stay-value) { text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---- the plan: its groups, scrolling inside it ---- */
@@ -2447,9 +2447,9 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 
 /* ---- the habits: each its box, its name, its comment, its week, its
    streak, its days; a comment's drawer under its row ---- */
-.today-habits { flex: none; }
-.today-habits > .pane-head { cursor: pointer; padding: 0 var(--s-1) 0 var(--s-3); }
-.today-habits:not([open]) > .pane-head { border-bottom: none; }
+.today-habits, .today-stay { flex: none; }
+:is(.today-habits, .today-stay) > .pane-head { cursor: pointer; padding: 0 var(--s-1) 0 var(--s-3); }
+:is(.today-habits, .today-stay):not([open]) > .pane-head { border-bottom: none; }
 .today-habits > .pane-head .count { font-size: var(--t-caption); font-weight: 500; color: var(--pewter); font-variant-numeric: tabular-nums; }
 /* the day picked, when it is not the page's: its name in ink after the count */
 .today-habits > .pane-head .habit-on { font-size: var(--t-caption); font-weight: 500; color: var(--ink); white-space: nowrap; }
@@ -2537,26 +2537,109 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
   display: flex; align-items: center; gap: var(--s-2); min-height: 36px; padding: 0 var(--s-3) 0 var(--s-2);
   border-top: 1px solid var(--hairline-on-glass);
 }
-.habit-new-open {
+.habit-new-open, .stay-foot > button {
   display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 6px 0 5px;
   font-size: var(--t-caption); font-weight: 500; color: var(--graphite); cursor: pointer; border-radius: var(--r-tag);
 }
-.habit-new-open svg { stroke: currentColor; }
-.habit-new-open:hover { color: var(--ink); background: var(--fog); }
-.habit-new-open[hidden], .habit-new[hidden] { display: none; }
-.habit-new { flex: 1; min-width: 0; padding-left: 6px; }
-.habit-new input {
+:is(.habit-new-open, .stay-foot > button) svg { flex: none; stroke: currentColor; }
+:is(.habit-new-open, .stay-foot > button):is(:hover, [aria-expanded="true"]) { color: var(--ink); background: var(--fog); }
+:is(.habit-new-open, .habit-new, .stay-foot > *)[hidden] { display: none; }
+.habit-new, .stay-new { flex: 1; min-width: 0; padding-left: 6px; }
+:is(.habit-new, .stay-new) input {
   display: block; width: 100%; height: 28px; margin: 0; padding: 0;
   font-size: var(--t-body-sm); color: var(--ink); background: transparent; border: none;
   box-shadow: inset 0 -2px 0 var(--ink);
 }
-.habit-new input::placeholder { color: var(--pewter); opacity: 1; }
-.habit-new input:is(:focus, :focus-visible) { outline: none; }
+:is(.habit-new, .stay-new) input::placeholder { color: var(--pewter); opacity: 1; }
+:is(.habit-new, .stay-new) input:is(:focus, :focus-visible) { outline: none; }
 .habit-all {
   margin-left: auto; padding: 5px 0; font-size: var(--t-caption); color: var(--graphite); white-space: nowrap;
   text-decoration: underline; text-decoration-color: var(--mist); text-underline-offset: 3px;
 }
 .habit-all:hover { color: var(--ink); text-decoration-color: currentColor; }
+
+/* ---- where Oscar stays: each item its name and its value, written in
+   place; accommodation's box before it, amber (on the move) while not
+   sorted ---- */
+.today-stay { --stay: color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
+/* after its name: "not sorted" in amber while an item is, else "sorted" */
+.today-stay > .pane-head .stay-sum { font-size: var(--t-caption); font-weight: 500; color: var(--pewter); white-space: nowrap; }
+.today-stay > .pane-head .stay-sum.open { color: var(--stay); }
+/* the names in a column as wide as the widest (up to 140px), the values
+   after them in line */
+.stay-list {
+  display: grid; grid-template-columns: 24px fit-content(140px) minmax(0, 1fr) 24px; column-gap: var(--s-2);
+  margin: 0; padding: 0; list-style: none;
+}
+.stay-row {
+  grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center;
+  min-height: 36px; padding: 0 var(--s-1) 0 var(--s-2); border-top: 1px solid var(--hairline-on-glass);
+}
+.stay-row:first-child { border-top: none; }
+.stay-row:is(:hover, :focus-within) { background: var(--glass-row-hover); }
+/* its box: amber-ruled until sorted, then ink with a paper tick, as the
+   date's line has it; an item of words alone keeps its place empty */
+.stay-box { position: relative; display: grid; place-content: center; width: 24px; height: 24px; }
+button.stay-box { cursor: pointer; }
+button.stay-box::before {
+  content: ""; width: 14px; height: 14px;
+  border: 1.5px solid color-mix(in srgb, var(--hue-3) 85%, var(--steel));
+}
+.stay-row.done .stay-box::before { background: var(--ink); border-color: var(--ink); }
+.stay-row.done .stay-box::after {
+  content: ""; position: absolute; left: 10px; top: 7px; width: 4px; height: 7px;
+  border: solid var(--paper); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg);
+}
+.stay-name {
+  min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-size: var(--t-caption); font-weight: 500; color: var(--graphite); cursor: text;
+}
+.stay-row.open .stay-name { color: var(--stay); }
+/* its value, written on the row: a line under it on hover, ink while written */
+.stay-value {
+  display: block; width: 100%; min-width: 0; height: 28px; margin: 0; padding: 0;
+  font-size: var(--t-body-sm); color: var(--ink); text-overflow: ellipsis;
+  background: transparent; border: none; border-radius: 0;
+  transition: box-shadow var(--dur) var(--ease);
+}
+.stay-value::placeholder { color: var(--pewter); opacity: 1; }
+.stay-value:hover { box-shadow: inset 0 -1px 0 var(--mist); }
+.stay-value:is(:focus, :focus-visible) { outline: none; box-shadow: inset 0 -2px 0 var(--ink); }
+/* its ×, on the row's hover: taken away, with Undo */
+.stay-remove {
+  display: grid; place-content: center; width: 24px; height: 24px; border-radius: var(--r-tag);
+  color: var(--steel); cursor: pointer; opacity: 0;
+  transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.stay-remove svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.stay-row:is(:hover, :focus-within) .stay-remove { opacity: 1; }
+.stay-remove:hover { color: var(--err-fg); background: var(--err-bg); }
+@media (hover: none) { .stay-remove { opacity: 1; } }
+/* the pane's foot: the last stay again (its first value after it), Carry
+   on and how far the stay already runs, then Item at the right */
+.stay-foot {
+  display: flex; align-items: center; gap: var(--s-1); min-height: 36px; padding: 0 var(--s-2);
+  border-top: 1px solid var(--hairline-on-glass);
+}
+.stay-foot > .stay-same { min-width: 0; }
+.stay-same-value { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 400; color: var(--pewter); }
+.stay-same-value::before { content: "· "; }
+.stay-through { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 4px; font-size: var(--t-caption); color: var(--pewter); }
+.stay-foot > .stay-new-open { flex: none; margin-left: auto; }
+.stay-new { padding-left: 4px; }
+/* the values written before, under the value being written: the sheet's menu */
+.stay-offer [role="option"] {
+  position: relative; display: flex; align-items: center; min-height: 32px; padding: 6px 10px;
+  border-radius: var(--r-tag); color: var(--ink); cursor: pointer;
+}
+.stay-offer [role="option"]:hover { background: var(--fog); }
+.stay-offer [role="option"][data-active] { background: var(--fog); }
+.stay-offer [role="option"][data-active]::before {
+  content: ""; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px;
+  background: var(--spark); box-shadow: var(--spark-glow);
+}
+/* Carry on's days: the sheet's menu, the day in words at the right */
+.stay-carry-menu .aside { margin-left: auto; padding-left: var(--s-3); font-size: var(--t-caption); color: var(--pewter); }
 /* Ruled like a spreadsheet: every row is 36px tall with its text in the
    middle, on its own rule, the rows numbered down the left (their headers),
    empty numbered rows to the box's bottom. A row too long for the box wraps
@@ -2623,14 +2706,13 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 
 /* every task: a graphite rule above its title and below its last row,
    across the row numbers too, nothing filled; the one the caret is in,
-   the same rules in ink. Right under another task (or reflection,
-   stay), there is one rule between them, the upper's: the lower draws no
-   rule above it, and the shared one takes the lower's colour while the
-   caret is in the lower. */
+   the same rules in ink. Right under another task (or reflection), there
+   is one rule between them, the upper's: the lower draws no rule above it,
+   and the shared one takes the lower's colour while the caret is in the
+   lower. */
 .pad-editor .pad-current { --bracket: var(--ink); }
 .pad-editor .pad-then-current { --below: var(--ink); }
 .pad-editor .pad-then-current.pad-then-reflection { --below: var(--signal); }
-.pad-editor .pad-then-current.pad-then-stay { --below: var(--hue-3); }
 .pad-editor :is(.cm-line, .cm-gutterElement):is(.pad-first, .pad-last) {
   box-shadow: var(--rule-above, 0 0 transparent), var(--rule-below, 0 0 transparent);
 }
@@ -2680,16 +2762,8 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .pad-editor .pad-reflection { --bracket: color-mix(in srgb, var(--signal) 45%, var(--paper)); }
 .pad-editor .pad-reflection.pad-current { --bracket: var(--signal); }
 .pad-kind.pad-reflection-name { font-size: var(--t-caption); color: var(--signal-deep); }
-/* a stay: the same rules in amber (on the move), let out toward the paper;
-   the one the caret is in, the amber itself. "Stay" in amber in its first
-   row's indent; each item its box (ink once sorted) and its name, up to its
-   colon, set as a label in graphite. */
-.pad-editor .pad-stay { --bracket: color-mix(in srgb, var(--hue-3) 45%, var(--paper)); --stay: color-mix(in srgb, var(--hue-3) 85%, var(--ink)); }
-.pad-editor .pad-stay.pad-current { --bracket: var(--hue-3); }
-.pad-kind.pad-stay-name { font-size: var(--t-caption); color: var(--stay); }
-.pad-editor .pad-check.pad-item-check { display: inline-grid; vertical-align: -2px; margin-right: 8px; text-indent: 0; }
-.pad-item-name { color: var(--graphite); font-weight: 500; }
-.pad-item.open .pad-item-name { color: var(--stay); }
+/* a sub-task's box, inline before its words */
+.pad-editor .pad-check.pad-sub-check { display: inline-grid; vertical-align: -2px; margin-right: 8px; text-indent: 0; }
 /* the caret's row, and the rows of the task it is in: numbers in ink */
 .pad-editor .cm-gutterElement:is(.here, .pad-current) { color: var(--ink); font-weight: 600; }
 

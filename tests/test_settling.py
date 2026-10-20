@@ -231,7 +231,6 @@ def test_a_projects_about_is_its_project_md(db) -> None:
 def test_a_days_notes_are_their_file(db) -> None:
     task = a_task(db)
     blocks = [
-        {"kind": "stay", "text": "\n- [ ] place: Lisbon"},
         {"kind": "text", "text": "Slow morning.\n- [ ] Fix the feed\n\tits words",
          "links": {"1": task.id}, "folded": [1]},
         {"kind": "reflection", "text": "Calmer."},
@@ -241,7 +240,7 @@ def test_a_days_notes_are_their_file(db) -> None:
     path = settling.page_path(DAY)
     assert path == everyday.notebook_dir() / "2026" / "2026-10-11.md"
     assert path.read_text(encoding="utf-8") == (
-        "/stay\n\t- [ ] place: Lisbon\nSlow morning.\n"
+        "Slow morning.\n"
         f"- [ ] Fix the feed <!-- task:{task.id} folded -->\n\tits words\n/reflection Calmer.\n"
     )
     # Read back as the page's blocks.
@@ -255,15 +254,60 @@ def test_notes_written_in_their_file_are_the_days(db) -> None:
     notebook.save_page(db, DAY, [{"kind": "text", "text": "Morning."}], version=0)
     db.commit()
     version = notebook.version_of(db, DAY)
-    settling.page_path(DAY).write_text("Morning.\n/habit stretch\nEvening.\n", encoding="utf-8")
+    settling.page_path(DAY).write_text(
+        "Morning.\n/habit stretch\n/stay\n\t- [ ] place: Lisbon\nEvening.\n", encoding="utf-8"
+    )
     settling.sync(db)
     page = notebook.get_page(db, DAY)
     db.refresh(page)
-    # A habit is not the notes': "/habit" is words like any other there.
-    assert page.blocks == [{"kind": "text", "text": "Morning.\n/habit stretch\nEvening."}]
+    # Nor a habit nor a stay is the notes': "/habit" and "/stay" are words
+    # like any other there.
+    assert page.blocks == [{"kind": "text", "text": (
+        "Morning.\n/habit stretch\n/stay\n\t- [ ] place: Lisbon\nEvening."
+    )}]
     assert db.scalars(select(HabitCheck)).first() is None
     # A window with the page open is out of date now.
     assert page.version == version + 1
+
+
+def test_a_day_whose_notes_are_emptied_has_no_file(db) -> None:
+    notebook.save_page(db, DAY, [{"kind": "text", "text": "Morning."}], version=0)
+    db.commit()
+    path = settling.page_path(DAY)
+    assert path.is_file()
+    notebook.save_page(db, DAY, [], version=notebook.version_of(db, DAY))
+    db.commit()
+    assert not path.exists()
+    assert documents.search(db, "Morning") == []
+    # Emptied is a step of its history, as any change.
+    assert documents.history(db, "notebook", settling.page_name(DAY))[0].body == ""
+    # A file written for it then (by hand, by an agent) is its notes again.
+    path.write_text("Evening.\n", encoding="utf-8")
+    settling.sync(db)
+    page = notebook.get_page(db, DAY)
+    db.refresh(page)
+    assert page.blocks == [{"kind": "text", "text": "Evening."}]
+    assert path.read_text(encoding="utf-8") == "Evening.\n"
+
+
+def test_an_emptied_page_takes_its_file_away_from_a_folder_another_databases(db) -> None:
+    # A page with nothing left on it (its stay moved out, say), its file
+    # still holding the words: the files another database's, the database's
+    # side wins, as for every file, and the file goes.
+    notebook.save_page(db, DAY, [{"kind": "text", "text": "Morning."}], version=0)
+    db.commit()
+    page = notebook.get_page(db, DAY)
+    page.blocks = []
+    settling.enabled = False
+    try:
+        db.commit()
+    finally:
+        settling.enabled = True
+    (everyday.root() / settling.CLAIM_FILE).write_text("another\n", encoding="utf-8")
+    settling.settle_all(db)
+    assert not settling.page_path(DAY).exists()
+    db.refresh(page)
+    assert page.blocks == []
 
 
 def test_a_file_for_a_day_with_no_page_makes_it(db) -> None:

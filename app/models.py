@@ -503,6 +503,27 @@ class HabitCheck(Base):
     habit: Mapped[Habit] = relationship(back_populates="checks")
 
 
+class StayItem(Base):
+    """Where Oscar stays on a day, an item of it: its name (place and
+    accommodation to begin with, any other his to name), its value, and
+    whether it is sorted. A day's stay is its items, in order; a day with
+    none has no stay. Fields alone, so the database's, with no file of
+    their own (app.services.stays)."""
+
+    __tablename__ = "stay_items"
+    __table_args__ = (UniqueConstraint("day", "name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    day: Mapped[date] = mapped_column(Date)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    name: Mapped[str] = mapped_column(String(80))
+    value: Mapped[str] = mapped_column(Text, default="")
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, onupdate=datetime.now
+    )
+
+
 class Sex(enum.StrEnum):
     female = "female"
     male = "male"

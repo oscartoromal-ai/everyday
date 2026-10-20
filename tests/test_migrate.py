@@ -358,3 +358,60 @@ def test_habits_leave_the_notes_their_checks_kept(tmp_path) -> None:
     # A check keeps its note; one not done with nothing said goes.
     assert checks == [(1, 1, "5k")]
     assert "AUTOINCREMENT" in sql
+
+
+def test_stays_leave_the_notes_their_items_kept(tmp_path) -> None:
+    import json
+
+    from alembic import command
+
+    path = tmp_path / "app.db"
+    command.upgrade(migrate._config(path), "b7e3c1a95d42")  # the version before
+    pages = {
+        # Its prose after it, a blank row between them, starts the page now.
+        "2026-10-02": [
+            {"kind": "stay", "text": "a note\n- [x] place: Leiden\n- [ ] accommodation:"},
+            {"kind": "text", "text": "\nSlow morning.\n- [ ] Pay rent", "links": {"2": 7},
+             "folded": [2]},
+        ],
+        # A page that held its stay alone; a name written twice is one item.
+        "2026-10-03": [{"kind": "stay", "text": "\n- [ ] Place: Delft\n- [x] place: x\n- [ ]"}],
+    }
+    with closing(sqlite3.connect(path)) as db:
+        db.executemany(
+            "INSERT INTO notebook_pages (day, blocks, version, writer, writer_seq, updated_at)"
+            " VALUES (?, ?, 3, '', 0, '2026-10-02 08:00:00')",
+            [(day, json.dumps(blocks)) for day, blocks in pages.items()],
+        )
+        db.commit()
+    migrate.upgrade(path)
+    with closing(sqlite3.connect(path)) as db:
+        kept = db.execute("SELECT day, blocks, version FROM notebook_pages ORDER BY day").fetchall()
+        items = db.execute(
+            "SELECT day, position, name, value, done FROM stay_items ORDER BY day, position"
+        ).fetchall()
+    # The pages hold their words alone, and a window open on one is out of date.
+    assert [(day, json.loads(blocks), version) for day, blocks, version in kept] == [
+        ("2026-10-02", [
+            {"kind": "text", "text": "Slow morning.\n- [ ] Pay rent", "links": {"1": 7},
+             "folded": [1]},
+        ], 4),
+        ("2026-10-03", [], 4),
+    ]
+    assert items == [
+        ("2026-10-02", 0, "place", "Leiden", 1),
+        ("2026-10-02", 1, "accommodation", "", 0),
+        ("2026-10-03", 0, "Place", "Delft", 0),
+    ]
+    # Taken back, the stays are the pages' again, first on each.
+    command.downgrade(migrate._config(path), "b7e3c1a95d42")
+    with closing(sqlite3.connect(path)) as db:
+        back = db.execute("SELECT day, blocks FROM notebook_pages ORDER BY day").fetchall()
+    assert [(day, json.loads(blocks)) for day, blocks in back] == [
+        ("2026-10-02", [
+            {"kind": "stay", "text": "\n- [x] place: Leiden\n- [ ] accommodation:"},
+            {"kind": "text", "text": "Slow morning.\n- [ ] Pay rent", "links": {"1": 7},
+             "folded": [1]},
+        ]),
+        ("2026-10-03", [{"kind": "stay", "text": "\n- [ ] Place: Delft"}]),
+    ]

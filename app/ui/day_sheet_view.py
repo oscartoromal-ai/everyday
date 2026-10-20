@@ -12,18 +12,15 @@ from typing import Any
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import EventSource, NotebookPage, Task, TaskOwner, TaskStatus
+from app.models import EventSource, Task, TaskOwner, TaskStatus
 from app.services import events as events_svc
 from app.services import habits as habits_svc
-from app.services import notebook as notebook_svc
+from app.services import stays as stays_svc
 from app.services import tasks as tasks_svc
 
 # Four weeks: the last one, this one, and two to plan.
 SHEET_DAYS = 28
 HABIT_STATES = {"done": "Done", "skipped": "Skipped", "missed": "Missed"}
-# Stay items read as a checkbox, whether they are sorted, as Oscar's Excel
-# had its AC column (Oscar's call on 2026-10-03); the rest are their words.
-CHECK_ITEMS = ("accommodation",)
 
 
 def home_start(today: date) -> date:
@@ -33,18 +30,11 @@ def home_start(today: date) -> date:
 
 
 def _stays(db: Session, first: date, last: date) -> dict[date, dict[str, dict[str, Any]]]:
-    """Each day's stay, its items by name (lower case), as its page has it."""
-    pages = db.scalars(
-        select(NotebookPage).where(NotebookPage.day >= first, NotebookPage.day <= last)
-    )
-    out: dict[date, dict[str, dict[str, Any]]] = {}
-    for page in pages:
-        stay = next((b for b in page.blocks if b["kind"] == "stay"), None)
-        if stay is not None:
-            out[page.day] = {
-                i["name"].lower(): i for i in notebook_svc.stay_items(stay["text"])
-            }
-    return out
+    """Each day's stay, its items by name (lower case)."""
+    return {
+        day: {i["name"].lower(): i for i in stays_svc.as_dicts(items)}
+        for day, items in stays_svc.between(db, first, last).items()
+    }
 
 
 def _stay_columns(
@@ -56,7 +46,7 @@ def _stay_columns(
     for day in sorted(stays):
         for item in stays[day].values():
             names.setdefault(item["name"].lower(), item["name"])
-    return list(names.values()) or notebook_svc.last_stay_items(db, first)
+    return list(names.values()) or stays_svc.starting_items(db, first)
 
 
 def _tasks(
@@ -167,7 +157,7 @@ def day_sheet_ctx(db: Session, first: date, today: date, days: int = SHEET_DAYS)
             {
                 "name": name,
                 "label": name[:1].upper() + name[1:],
-                "check": name.lower() in CHECK_ITEMS,
+                "check": stays_svc.is_check(name),
             }
             for name in columns
         ],

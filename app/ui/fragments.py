@@ -643,20 +643,16 @@ def day_sheet_edit(
                                                   progress, done, then to do again
         {"op": "status", "task", "status"}        a task's status, from its menu
         {"op": "delete", "task"}                  a task deleted
-    applied in order, as the habits' pane, the day's notes and its tasks
-    would have them; answers
-    the sheet drawn again, naming the last task written (X-Task-Created) for
-    the sheet to open its page."""
-    from app.services import notebook as notebook_svc
+    applied in order, as the habits' and stay's panes and the day's tasks
+    would have them; answers the sheet drawn again, naming the last task
+    written (X-Task-Created) for the sheet to open its page."""
     from app.ui.day_sheet_view import day_sheet_ctx
 
     ops = body.get("ops") if isinstance(body, dict) else None
     if not isinstance(ops, list):
         raise DomainError("Expected a list of ops")
-    # Its stays are writes to the days' pages (notebook_svc.saving).
-    with notebook_svc.saving:
-        created = _apply_sheet_ops(db, ops)
-        db.commit()
+    created = _apply_sheet_ops(db, ops)
+    db.commit()
     response = templates.TemplateResponse(
         request,
         "partials/day_sheet.html",
@@ -671,7 +667,7 @@ def _apply_sheet_ops(db: Session, ops: list) -> Task | None:
     """Calendar's sheet's ops applied in order (day_sheet_edit); the last
     task written, if any."""
     from app.services import habits as habits_svc
-    from app.services import notebook as notebook_svc
+    from app.services import stays as stays_svc
 
     created = None
     for op in ops:
@@ -704,7 +700,7 @@ def _apply_sheet_ops(db: Session, ops: list) -> Task | None:
             habits_svc.set_done(db, habit, day, op.get("done") is True)
         elif kind == "stay":
             value, done = op.get("value"), op.get("done")
-            notebook_svc.set_stay_item(
+            stays_svc.set_item(
                 db, day, str(op.get("name", "")),
                 value=None if value is None else str(value),
                 done=None if done is None else done is True,
