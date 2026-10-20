@@ -21,7 +21,7 @@ comes. Settings' Check for updates (partials/update_check.html) looks now
 rather than at the next look, and starts the update when the release is past
 the installed commit.
 
-The repo is private: GitHub shows its releases to a token that can read it,
+GitHub shows a private repo's releases only to a token that can read it:
 the one pasted in Settings ([github] update_token_file), else the GitHub
 CLI's, when it is signed in on the machine. Without one the watch is locked
 out, and Settings says so and takes a token.

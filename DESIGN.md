@@ -9,7 +9,7 @@ Since 2026-09-26 the planner wears "Neon Signage", at Oscar's request, picked fr
 It replaced Brasa v2, which the planner wore from 2026-09-25; before that it had its own "calm paper planner" look.
 
 The system is not defined here.
-It lives in Oscar's central repo `C:/Users/me/design-language`, beside Brasa, Tokyo Night and Sumi & Neon, all filling one token contract (`CONTRACT.md` there).
+It lives in Oscar's central repo `design-language`, beside Brasa, Tokyo Night and Sumi & Neon, all filling one token contract (`CONTRACT.md` there).
 Its rules are in that repo's `systems/neon-signage/SYSTEM.md`.
 `app/static/design/` holds the installed copy: `design.css` (fonts, shared scales and the system's tokens), the fonts, and `design-language.json` (which system, which version, its mode names, the fonts to preload).
 That folder is generated: never edit it; switch or update it with the repo's tool:

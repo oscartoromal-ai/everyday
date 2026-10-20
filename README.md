@@ -52,7 +52,7 @@ A restart that fails comes back up on the version it was running, with the datab
 **Update** shows only when the app has not started one itself; Settings' Check for updates looks at GitHub at once.
 Windows' Installed apps lists the version with the commit it was built from.
 
-The repo is private, so GitHub shows its releases only to a token that can read it.
+GitHub shows a private repo's releases only to a token that can read it.
 The app uses the one pasted in Settings, kept in `local/github-update-token.txt`, else the GitHub CLI's, when `gh` is signed in on the machine.
 Without either, Settings' Check for updates says so and takes a token, with a link to GitHub's page making one, filled in to read the repo's contents and nothing else (choose Only select repositories, then the repo).
 
@@ -124,7 +124,7 @@ The app writes a file after every commit that changes what it shows, reads in wh
 The daily backup zips the folder (but `repos/` and `work/`) beside the database's snapshot.
 
 Run from the repo, the app keeps its own `everyday-files/` in it (git-ignored), never the real one.
-On Oscar's machine the home's `config.toml` keeps Nutrition's files in the repo (`[nutrition].dir`), where git keeps their history.
+Nutrition's files go in the home's `nutrition/` (git-ignored when the home is the repo) unless its `config.toml` names another folder (`[nutrition].dir`): they are personal, so they are never committed.
 
 ## Keys
 
@@ -204,8 +204,8 @@ uv run python -m improve.scan                 # over the live app's data; --only
 uv run python -m improve.ledger list
 uv run python -m improve.ledger mark <fingerprint> ignored --note "why"
 uv run python -m improve.check                # the gate a fix passes: lint and tests (--build builds the app too)
-uv run python -m improve.run follow --repo C:\Users\me\personal-calendar
-uv run python -m improve.run launch --repo C:\Users\me\personal-calendar
+uv run python -m improve.run follow --repo <checkout>
+uv run python -m improve.run launch --repo <checkout>
 ```
 
 `[improve] enabled = false` in the home's `config.toml` turns the daily scan off, and `runner = ""` keeps the scan but launches no agent.
@@ -264,7 +264,7 @@ An agent whose CLI is not installed or not signed in says so in the window, with
 
 ## Finances setup
 
-Finances (Spending, Accounts, Bills, Goals) is fed by the CSV exports of Oscar's banks: Revolut and ING Australia.
+Finances (Spending, Accounts, Bills, Goals) is fed by the CSV exports of the two banks it reads: Revolut and ING Australia.
 
 1. Export a statement as CSV from the bank's app or website.
 2. On Accounts, choose the file and the account it goes into ("A new account" names one after the bank), then Import.

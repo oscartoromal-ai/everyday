@@ -37,5 +37,8 @@ node_modules/
 # The everyday files of a run from the repo (repos/, projects/, work/; app/config.py).
 /everyday-files/
 
+# Nutrition's files of a run from the repo (personal; [nutrition].dir in app/config.py).
+/nutrition/
+
 # What an improvement run that found nothing to fix leaves for improve/run.py.
 /improve-outcome.md
