@@ -63,8 +63,9 @@ def _tasks(
     db: Session, first: date, last: date, today: date
 ) -> dict[date, list[dict[str, Any]]]:
     """Each day's tasks: Oscar's planned for it (done ones too), then those
-    still open due on it, a deadline still open saying so (urgent once it is
-    past or due soon, as everywhere else); each by priority, then as written,
+    still open due on it, a deadline still open saying so: flagged overdue
+    only once it is past, not done, a deadline to come just a deadline, soon
+    or not (Oscar's call on 2026-10-20); each by priority, then as written,
     and each in its project's colour."""
     found = db.scalars(
         select(Task)
@@ -76,7 +77,6 @@ def _tasks(
         .options(selectinload(Task.project))
         .order_by(Task.created_at)
     )
-    soon = today + timedelta(days=tasks_svc.DUE_SOON_DAYS)
     out: dict[date, list[dict[str, Any]]] = {}
     for task in found:
         done = task.status == TaskStatus.done
@@ -85,7 +85,7 @@ def _tasks(
             "priority": task.priority.value if task.priority else "",
             "priority_label": task.priority.label if task.priority else "",
             "rank": tasks_svc.priority_rank(task),
-            "due_soon": bool(task.due and task.due <= soon),
+            "overdue": bool(task.due and task.due < today and not done),
             "project": (
                 {"name": task.project.name, "color": task.project.color}
                 if task.project else None
