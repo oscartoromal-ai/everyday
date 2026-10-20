@@ -107,7 +107,8 @@ Find a task by its id: `{root.as_posix()}/projects/*/tasks/12-*` or `{root.as_po
   The description, acceptance and outcome are the file's: write them here and the task has them.
 - **A new task**: make a folder in a project's `tasks/` (or the top `tasks/`) holding a task.md, its front matter at least a `title`; the app makes it a task (its folder then takes its id).
 - **project.md**: front matter the app's (id, name, status, workstreams, repos), then the project's about, the file's.
-- **notebook/<year>/<day>.md**: the day's notes as Oscar writes them in the app: rows; `- [ ] ` rows are tasks, their tabbed rows under them their description, a task's row ending in `<!-- task:<id> -->` (the task it made); `/reflection` a reflection, `/stay` where he stays, its tabbed `- [ ] name: value` items; their other rows tabbed in.
+- **notebook/<year>/<day>.md**: the day's notes as Oscar writes them in the app: rows; `- [ ] ` rows are tasks, their tabbed rows under them their description, a task's row ending in `<!-- task:<id> -->` (the task it made); `/reflection` a reflection, its other rows tabbed in.
+  Where he stays each day is not in the notes: it is fields, the database's, read through `get_notebook`.
 - **habits/<name>.md**: a habit, named by its file (lower case, hyphens: `morning-skin-care.md`).
   Its front matter is the app's (id, name, days, since): an edit there is put back.
   Then what the habit is, why and how, then `## Log`: a comment a day, the newest first, `- 2026-10-20: words`, its other lines indented under it.

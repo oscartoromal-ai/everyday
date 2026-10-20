@@ -93,6 +93,7 @@ async def test_domain_errors_surface_as_tool_errors(app_db) -> None:
 async def test_claude_reads_the_notebook_and_a_tasks_history(app_db) -> None:
     from app.services import habits as habits_svc
     from app.services import notebook as notebook_svc
+    from app.services import stays as stays_svc
     from app.services import tasks as tasks_svc
 
     with app_db() as db:
@@ -104,10 +105,10 @@ async def test_claude_reads_the_notebook_and_a_tasks_history(app_db) -> None:
                 {"kind": "text", "text": "Slow morning."},
                 {"kind": "task", "id": task.id},
                 {"kind": "reflection", "text": "Calmer."},
-                {"kind": "stay", "text": "\n- [x] place: Lisbon\n- [ ] accommodation:"},
             ],
             version=0,
         )
+        stays_svc.set_item(db, TODAY, "place", value="Lisbon", done=True)
         stretch = habits_svc.create(db, "stretch")
         habits_svc.set_done(db, stretch, TODAY, True)
         habits_svc.set_note(db, stretch, TODAY, "Ten minutes.")
@@ -117,17 +118,17 @@ async def test_claude_reads_the_notebook_and_a_tasks_history(app_db) -> None:
     async with Client(mcp) as client:
         await client.call_tool("update_task_status", {"task_id": task_id, "status": "done"})
         pages = (await client.call_tool("get_notebook", {})).data
-        # The page as written, then the habits ticked that day.
+        # The page as written, then where he stays and the habits ticked that day.
         [text, written, reflection, stay, habit] = pages[TODAY.isoformat()]
         assert text == {"kind": "text", "text": "Slow morning."}
         assert written["task"]["title"] == "Call the dentist"
         assert written["task"]["status"] == "done"
         assert reflection == {"kind": "reflection", "text": "Calmer."}
         assert habit == {"kind": "habit", "habit": "stretch", "done": True, "note": "Ten minutes."}
-        assert stay["items"] == [
+        assert stay == {"kind": "stay", "items": [
             {"name": "place", "value": "Lisbon", "done": True},
             {"name": "accommodation", "value": "", "done": False},
-        ]
+        ]}
 
         # How consistent he is: each habit, day by day.
         [row] = (await client.call_tool("get_habits", {"days": 2})).data

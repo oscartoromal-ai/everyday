@@ -6,15 +6,14 @@ wrote it:
     - [ ] Buy the tickets <!-- task:42 -->
     →its description, a tab in
     /reflection Calmer than yesterday.
-    /stay
-    →- [ ] place: Lisbon
-    →- [x] accommodation: Airbnb near Alfama
+    →its other rows, a tab in
 
 A task's row ends in "<!-- task:<id> -->" ("<!-- task:<id> folded -->"
-when it shows folded to its title): the task it made. A reflection's or
-stay's other rows are tabbed in (→ above is a tab), as a task's
-description is. Habits are not in the notes: each has a file of its own
-(app.services.habit_md).
+when it shows folded to its title): the task it made. A reflection's
+other rows are tabbed in (→ above is a tab), as a task's description is.
+Habits are not in the notes: each has a file of its own
+(app.services.habit_md). Nor is where Oscar stays: its items are fields,
+the database's (app.services.stays).
 
 blocks_text writes a page's blocks so; parse reads them back as the
 notepad's save would (notepad.js, serialize).
@@ -33,7 +32,6 @@ TAB = "\t"
 TASK_ROW = re.compile(r"^- \[([ xX])\] ")
 MARK = re.compile(r"\s*<!-- task:(\d+)( folded)? -->\s*$")
 REFLECTION = re.compile(r"^/reflection(?: |$)")
-STAY = re.compile(r"^/stay(?: |$)")
 
 
 def _mark(task_id: int, folded: bool) -> str:
@@ -58,9 +56,9 @@ def blocks_text(db: Session, blocks: list[dict[str, Any]]) -> str:
                 box = "x" if task and task.status == TaskStatus.done else " "
                 lines.append(f"- [{box}] {title}" + (_mark(task.id, False) if task else ""))
             continue
-        if kind in ("reflection", "stay"):
+        if kind == "reflection":
             first, *rest = block["text"].split("\n")
-            lines.append(f"/{kind} {first}".rstrip(" "))
+            lines.append(f"/reflection {first}".rstrip(" "))
             lines.extend(f"{TAB}{line}" for line in rest)
             continue
         rows = block["text"].split("\n")
@@ -74,17 +72,11 @@ def blocks_text(db: Session, blocks: list[dict[str, Any]]) -> str:
     return text + "\n" if text else ""
 
 
-def _lead(line: str, kind: str) -> int:
-    pattern = REFLECTION if kind == "reflection" else STAY
-    found = pattern.match(line)
-    return found.end() if found else 0
-
-
 def parse(text: str) -> list[dict[str, Any]]:
     """A day's file read as the page's blocks, as the notepad would save
-    them: the text between reflections and stays (each task row's task by
-    its row, `links`, and the rows shown folded, `folded`), and each
-    reflection's and stay's words."""
+    them: the text between reflections (each task row's task by its row,
+    `links`, and the rows shown folded, `folded`), and each reflection's
+    words."""
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     if lines and lines[-1] == "":
         lines.pop()
@@ -108,19 +100,15 @@ def parse(text: str) -> list[dict[str, Any]]:
     n = 0
     while n < len(lines):
         line = lines[n]
-        kind = (
-            "reflection" if REFLECTION.match(line)
-            else "stay" if STAY.match(line)
-            else None
-        )
-        if kind is not None:
+        lead = REFLECTION.match(line)
+        if lead:
             end_text()
             last = n
             while last + 1 < len(lines) and lines[last + 1].startswith(TAB):
                 last += 1
-            words = [line[_lead(line, kind):]]
+            words = [line[lead.end():]]
             words += [lines[k][1:] for k in range(n + 1, last + 1)]
-            out.append({"kind": kind, "text": "\n".join(words)})
+            out.append({"kind": "reflection", "text": "\n".join(words)})
             n = last + 1
             continue
         if rows is None:

@@ -1,5 +1,5 @@
 """Calendar's sheet: the days as rows (where Oscar stays, the day's plan, a
-column per habit), and what writing in it does to the days' notes, habits and tasks."""
+column per habit), and what writing in it does to the days' stays, habits and tasks."""
 
 from datetime import date, datetime, time, timedelta
 
@@ -8,6 +8,7 @@ from app.services import events as events_svc
 from app.services import habits as habits_svc
 from app.services import notebook
 from app.services import projects as projects_svc
+from app.services import stays as stays_svc
 from app.services import tasks as tasks_svc
 from app.ui.day_sheet_view import day_sheet_ctx, home_start
 
@@ -41,31 +42,9 @@ def test_a_habit_ticked_on_the_sheet_is_ticked_not_written_in_the_notes(client, 
     assert client.post(url, json={"ops": [other]}).status_code == 422
 
 
-def test_a_stay_written_on_the_sheet_is_the_days_stay(db) -> None:
-    # Nothing to write leaves a day with no stay without one.
-    assert notebook.set_stay_item(db, MONDAY, "place", value="  ") is None
-    notebook.save_page(db, MONDAY, [{"kind": "text", "text": "Packed."}], version=0)
-    notebook.set_stay_item(db, MONDAY, "place", value=" Leiden,   Netherlands ")
-    # A new stay at the page's top, with the items a stay starts with.
-    [stay, _] = notebook.get_page(db, MONDAY).blocks
-    assert stay["text"] == "\n- [ ] place: Leiden, Netherlands\n- [ ] accommodation:"
-    notebook.set_stay_item(db, MONDAY, "Accommodation", value="Canal house")
-    notebook.set_stay_item(db, MONDAY, "accommodation", done=True)
-    notebook.set_stay_item(db, MONDAY, "ferry", value="F4")
-    assert notebook.stay_items(notebook.get_page(db, MONDAY).blocks[0]["text"]) == [
-        {"name": "place", "value": "Leiden, Netherlands", "done": False},
-        {"name": "accommodation", "value": "Canal house", "done": True},
-        {"name": "ferry", "value": "F4", "done": False},
-    ]
-    # The next day's starts with the items this one has.
-    notebook.set_stay_item(db, MONDAY + timedelta(days=1), "place", value="Delft")
-    text = notebook.get_page(db, MONDAY + timedelta(days=1)).blocks[0]["text"]
-    assert text == "\n- [ ] place: Delft\n- [ ] accommodation:\n- [ ] ferry:"
-
-
 def test_the_sheet_reads_each_days_stay_plan_and_habits(db) -> None:
-    notebook.set_stay_item(db, MONDAY, "place", value="Leiden")
-    notebook.set_stay_item(db, MONDAY, "accommodation", value="Canal house", done=True)
+    stays_svc.set_item(db, MONDAY, "place", value="Leiden")
+    stays_svc.set_item(db, MONDAY, "accommodation", value="Canal house", done=True)
     habits_svc.set_done(db, habits_svc.create(db, "exercise-run"), MONDAY, True)
     planned = tasks_svc.create_task(db, title="Book driving test", planned_for=MONDAY)
     tasks_svc.create_task(db, title="Do taxes", planned_for=MONDAY, status=TaskStatus.done)
@@ -148,7 +127,11 @@ def test_writing_in_the_sheet(client, db) -> None:
     assert 'data-name="place" data-value="Leiden"' in answer.text
     assert 'data-name="accommodation" data-done="true"' in answer.text
     assert answer.text.count('data-slug="morning-run" data-state="done"') == 2
-    assert [b["kind"] for b in notebook.blocks_of(db, MONDAY)] == ["stay"]
+    # Its stay is the day's, not written in its notes.
+    assert [(i.name, i.value, i.done) for i in stays_svc.items_on(db, MONDAY)] == [
+        ("place", "Leiden", False), ("accommodation", "", True),
+    ]
+    assert notebook.blocks_of(db, MONDAY) == []
     assert {(c.habit.slug, c.day) for c in db.query(HabitCheck).all()} == {
         ("morning-run", MONDAY), ("morning-run", TUESDAY),
     }

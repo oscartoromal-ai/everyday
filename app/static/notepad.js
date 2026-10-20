@@ -65,13 +65,8 @@
    calendar moves it to another day (Reschedule moves every one carried
    over); Bring all writes every one.
 
-   "/stay" says where Oscar stays that day: a note, then its items, each a
-   tabbed "- [ ] name: value" row drawn with its box (ticked once sorted),
-   bracketed in amber. A new stay starts with the items the last one had
-   (place and accommodation, the first time); Enter on an item starts the
-   next, on an empty one steps back to a plain tabbed row. Under the date,
-   the day's stay item by item, each a way to its row. The notes save it as
-   a stay block.
+   Where Oscar stays is not written here: it has a pane of its own
+   (stays.js), as the habits have.
 
    The notes are saved as text, the task each row made by row (links), a
    moment after each change, when the tab is hidden, and when the page is
@@ -94,10 +89,7 @@
   const BOX = 6; // its length
   const TAB = "\t"; // a task's or reflection's other rows start with one
   const REFLECTION = /^\/reflection(?: |$)/; // a reflection's first row, and its lead
-  const STAY = /^\/stay(?: |$)/; // a stay's first row, and its lead
-  // A stay's item row: its tab and box, its name, its value.
-  const ITEM = /^\t- \[([ xX])\] ([^:]*?)\s*(?::\s?(.*))?$/;
-  const ITEM_LEAD = 7; // "\t- [ ] "
+  const SUB_LEAD = 7; // a sub-task's tab and box, "\t- [ ] "
 
   const source = () => document.getElementById("notepad");
   let view = null;
@@ -119,17 +111,13 @@
 
   const isTask = (line) => TASK.test(line.text);
   const isReflection = (line) => REFLECTION.test(line.text);
-  const isStay = (line) => STAY.test(line.text);
-  // The rows the notepad draws itself: its tasks, reflections and stays,
+  // The rows the notepad draws itself: its tasks and reflections,
   // and every tabbed row (theirs). On these the Markdown engine draws only
   // the words' marks.
-  const owns = (line) => line.text.startsWith(TAB) || isTask(line) || isReflection(line) || isStay(line);
+  const owns = (line) => line.text.startsWith(TAB) || isTask(line) || isReflection(line);
   // A row that is Markdown's own to go on from (a list item, an indented
   // note under one, a numbered item, a quote): Enter is the engine's there.
   const MARKUP = /^(?: +\S|[-*+][ \t]|\d{1,9}[.)](?:[ \t]|$)|>)/;
-  // What a stay written here starts with (the last stay's items).
-  let stayItems = ["place", "accommodation"];
-  const stayTemplate = () => stayItems.map((name) => `\n\t- [ ] ${name}: `).join("");
 
   // Each project's colour (1 to 8, --hue-N), by id; and a task's, when it
   // is in one.
@@ -227,33 +215,28 @@
     });
   };
   const blocks = () => blocksOf(view.state);
-  // A reflection or a stay: its first row and the tabbed rows under it.
+  // A reflection: its first row and the tabbed rows under it.
   const writtenOf = (state) => {
     const doc = state.doc;
     const out = [];
     for (let n = 1; n <= doc.lines; n++) {
       const line = doc.line(n);
-      const kind = isReflection(line) ? "reflection" : isStay(line) ? "stay" : null;
-      if (!kind) continue;
+      if (!isReflection(line)) continue;
       let last = n;
       while (last < doc.lines) {
         const next = doc.line(last + 1);
         if (!next.text.startsWith(TAB) || isTask(next)) break;
         last++;
       }
-      out.push({ first: n, last, kind });
+      out.push({ first: n, last, kind: "reflection" });
     }
     return out;
   };
-  // The task, reflection or stay the caret is in.
+  // The task or reflection the caret is in.
   const blockAt = (state) => {
     const n = state.doc.lineAt(state.selection.main.head).number;
     return [...blocksOf(state), ...writtenOf(state)].find((b) => n >= b.first && n <= b.last) || null;
   };
-  // A row of a stay, under its first: its items are there.
-  const inStay = (state, line) =>
-    writtenOf(state).some((b) => b.kind === "stay" && line.number > b.first && line.number <= b.last);
-  const isItem = (state, line) => ITEM.test(line.text) && inStay(state, line);
   // A task's sub-task: a "- [ ] " (or "- [x] ") row under its title.
   const SUB = /^\t- \[([ xX])\] /;
   const taskOfRow = (state, line) =>
@@ -308,8 +291,7 @@
     }
   }
 
-  // In a reflection's (or stay's) first row, for its "/reflection": the
-  // word Reflection (Stay).
+  // In a reflection's first row, for its "/reflection": the word Reflection.
   class Label extends WidgetType {
     constructor(name, className) {
       super();
@@ -327,25 +309,23 @@
     }
   }
   const REFLECTION_LABEL = new Label("Reflection", "pad-reflection-name");
-  const STAY_LABEL = new Label("Stay", "pad-stay-name");
 
-  // In a stay's item, for its "- [ ] ": its box, ticked once it is sorted.
-  class ItemBox extends WidgetType {
-    constructor(done, label = "Sorted") {
+  // In a sub-task, for its "- [ ] ": its box, ticked once it is done.
+  class SubBox extends WidgetType {
+    constructor(done) {
       super();
       this.done = done;
-      this.label = label;
     }
     eq(other) {
-      return other.done === this.done && other.label === this.label;
+      return other.done === this.done;
     }
     toDOM() {
       const box = document.createElement("button");
       box.type = "button";
-      box.className = "pad-check pad-item-check";
+      box.className = "pad-check pad-sub-check";
       box.setAttribute("role", "checkbox");
       box.setAttribute("aria-checked", String(this.done));
-      box.setAttribute("aria-label", this.label);
+      box.setAttribute("aria-label", "Done");
       return box;
     }
     ignoreEvent() {
@@ -555,7 +535,7 @@
   // Each row as it reads: a task's rows bracketed (the one the caret is in,
   // in ink), its title in ink with its box and controls, its other rows
   // indented; a reflection's rows bracketed in light blue, its first with
-  // the word Reflection; a stay's in amber; the row numbers alike, the
+  // the word Reflection; the row numbers alike, the
   // caret's in ink.
   const draw = (state) => {
     const doc = state.doc;
@@ -579,9 +559,7 @@
       if (!focused || n !== here) decos.push(UNCHECKED.range(line.from));
       const task = head && b.kind === "task";
       const reflection = head && b.kind === "reflection";
-      const stay = head && b.kind === "stay";
       const tabbed = !head && line.text.startsWith(TAB);
-      const item = tabbed && b?.kind === "stay" && ITEM.exec(line.text);
       const sub = tabbed && b?.kind === "task" && SUB.exec(line.text);
       // A ticked task is crossed out, title and rows; a ticked sub-task, its row.
       const struck = (b?.kind === "task" && TASK.exec(doc.line(b.first).text)[1] !== " ") || (sub && sub[1] !== " ");
@@ -606,14 +584,13 @@
       }
       const row = [...kinds];
       if (task) row.push("pad-title");
-      else if (reflection || stay || tabbed) row.push("pad-body");
-      if (item) row.push(item[1] === " " ? "pad-item open" : "pad-item");
+      else if (reflection || tabbed) row.push("pad-body");
       if (sub) row.push("pad-sub");
       if (struck) row.push("pad-struck");
       if (row.length) decos.push(Decoration.line({ class: row.join(" ") }).range(line.from));
-      if (reflection || stay) {
-        const lead = (reflection ? REFLECTION : STAY).exec(line.text)[0].length;
-        const label = Decoration.replace({ widget: reflection ? REFLECTION_LABEL : STAY_LABEL });
+      if (reflection) {
+        const lead = REFLECTION.exec(line.text)[0].length;
+        const label = Decoration.replace({ widget: REFLECTION_LABEL });
         decos.push(label.range(line.from, line.from + lead));
         atomic.push(label.range(line.from, line.from + lead));
       } else if (task) {
@@ -635,18 +612,9 @@
         decos.push(tab.range(line.from, line.from + 1));
         atomic.push(tab.range(line.from, line.from + 1));
         if (sub) {
-          const box = Decoration.replace({ widget: new ItemBox(sub[1] !== " ", "Done") });
-          decos.push(box.range(line.from + 1, line.from + ITEM_LEAD));
-          atomic.push(box.range(line.from + 1, line.from + ITEM_LEAD));
-        }
-        if (item) {
-          // Its box, then its name (up to its colon) set as a label.
-          const box = Decoration.replace({ widget: new ItemBox(item[1] !== " ") });
-          decos.push(box.range(line.from + 1, line.from + ITEM_LEAD));
-          atomic.push(box.range(line.from + 1, line.from + ITEM_LEAD));
-          const colon = line.text.indexOf(":", ITEM_LEAD);
-          const end = colon < 0 ? line.length : colon + 1;
-          if (end > ITEM_LEAD) decos.push(Decoration.mark({ class: "pad-item-name" }).range(line.from + ITEM_LEAD, line.from + end));
+          const box = Decoration.replace({ widget: new SubBox(sub[1] !== " ") });
+          decos.push(box.range(line.from + 1, line.from + SUB_LEAD));
+          atomic.push(box.range(line.from + 1, line.from + SUB_LEAD));
         }
       }
       if (focused && n === here) kinds.push("here");
@@ -670,9 +638,9 @@
 
   const leadOf = (line, state = null) => {
     if (isTask(line)) return BOX;
-    const lead = REFLECTION.exec(line.text) || STAY.exec(line.text);
+    const lead = REFLECTION.exec(line.text);
     if (lead) return lead[0].length;
-    if (state && (isItem(state, line) || isSub(state, line))) return ITEM_LEAD;
+    if (state && isSub(state, line)) return SUB_LEAD;
     return line.text.startsWith(TAB) ? 1 : 0;
   };
   // A caret landing at a boxed, labelled or tabbed row's very start goes to
@@ -755,20 +723,12 @@
     if (state.selection.ranges.length > 1) return false;
     const range = state.selection.main;
     const line = state.doc.lineAt(range.head);
-    if (isTask(line) || isReflection(line) || isStay(line)) {
+    if (isTask(line) || isReflection(line)) {
       const lead = leadOf(line);
       if (range.empty && range.head === line.from + lead && line.length > lead) {
         // At a first row's first word: a plain row above it, the task (or
-        // reflection or stay) moving down with its words.
+        // reflection) moving down with its words.
         v.dispatch({ changes: { from: line.from, insert: "\n" }, selection: { anchor: range.head + 1 }, scrollIntoView: true, userEvent: "input" });
-        return true;
-      }
-      const next = line.number < state.doc.lines && state.doc.line(line.number + 1);
-      if (isStay(line) && range.empty && range.head === line.to && !next?.text.startsWith(TAB)) {
-        // A stay with nothing under it yet: its items, the caret at the first.
-        const items = stayTemplate();
-        const first = items.indexOf(": ") + 2;
-        v.dispatch({ changes: { from: line.to, insert: items }, selection: { anchor: line.to + first }, scrollIntoView: true, userEvent: "input" });
         return true;
       }
     } else if (!line.text.startsWith(TAB)) {
@@ -778,16 +738,16 @@
       if (MARKUP.test(line.text)) return false;
       v.dispatch(state.replaceSelection("\n"), { scrollIntoView: true, userEvent: "input" });
       return true;
-    } else if (isItem(state, line) || isSub(state, line)) {
+    } else if (isSub(state, line)) {
       if (range.empty && /^\t- \[[ xX]\] $/.test(line.text)) {
-        // An empty item (or sub-task): a plain tabbed row (Enter again steps out).
+        // An empty sub-task: a plain tabbed row (Enter again steps out).
         v.dispatch({ changes: { from: line.from + 1, to: line.to }, userEvent: "delete" });
         return true;
       }
       v.dispatch(state.replaceSelection(`\n${TAB}- [ ] `), { scrollIntoView: true, userEvent: "input" });
       return true;
     } else if (line.text === TAB && range.empty) {
-      // An empty row of a task, reflection or stay: out of it, to a plain row.
+      // An empty row of a task or reflection: out of it, to a plain row.
       v.dispatch({ changes: { from: line.from, to: line.to }, userEvent: "delete" });
       return true;
     }
@@ -796,10 +756,10 @@
   };
 
   // Tab and Shift+Tab stay in the notes, a step into or out of a task (or
-  // reflection, stay) at a time. Tab from a first row goes under it
-  // (to its first row, a new one when it has none); on a plain row right
-  // under one, the row joins it; on a task's or stay's row, the row takes a
-  // box (a sub-task, an item). Shift+Tab takes a box away, else a row's tab.
+  // reflection) at a time. Tab from a first row goes under it (to its first
+  // row, a new one when it has none); on a plain row right under one, the
+  // row joins it; on a task's row, the row takes a box (a sub-task).
+  // Shift+Tab takes a box away, else a row's tab.
   // On any other row, Tab and Shift+Tab are Markdown's (a list item nests,
   // or steps back out), and otherwise do nothing (keepTab).
   const blockOfLine = (state, n) =>
@@ -819,8 +779,7 @@
       return true;
     }
     if (block) {
-      const boxes = block.kind === "task" || block.kind === "stay";
-      if (boxes && line.text.startsWith(TAB) && !SUB.test(line.text)) {
+      if (block.kind === "task" && line.text.startsWith(TAB) && !SUB.test(line.text)) {
         v.dispatch({ changes: { from: line.from + 1, insert: "- [ ] " }, scrollIntoView: true, userEvent: "input" });
       }
       return true;
@@ -832,7 +791,7 @@
     return false;
   };
   const keepTab = Prec.low(keymap.of([{ key: "Tab", run: () => true, shift: () => true }]));
-  // A row deleted from inside a task (or reflection, stay) goes
+  // A row deleted from inside a task (or reflection) goes
   // whole: its words, box and tab deleted (by Backspace, Delete or a cut),
   // it would be left an empty plain row between two of the task's rows,
   // ending the task there and leaving the rows under it outside. The caret
@@ -856,7 +815,7 @@
     return [tr, { changes: { from: end, to: gap.to }, selection: { anchor: end }, sequential: true }];
   });
 
-  // Lines pasted inside a task (or reflection, stay) stay inside it:
+  // Lines pasted inside a task (or reflection) stay inside it:
   // each after the first is tabbed in as one of its rows ("- [ ] " ones
   // becoming sub-tasks), so a paste never ends it early or starts another.
   const pasteInside = EditorView.domEventHandlers({
@@ -878,7 +837,7 @@
     const line = state.doc.lineAt(state.selection.main.head);
     if (!line.text.startsWith(TAB) || !blockOfLine(state, line.number)) return false;
     const boxed = SUB.test(line.text);
-    const change = boxed ? { from: line.from + 1, to: line.from + ITEM_LEAD } : { from: line.from, to: line.from + 1 };
+    const change = boxed ? { from: line.from + 1, to: line.from + SUB_LEAD } : { from: line.from, to: line.from + 1 };
     v.dispatch({ changes: change, scrollIntoView: true, userEvent: "delete" });
     return true;
   };
@@ -1004,7 +963,7 @@
   const keys = Prec.high(keymap.of([
     {
       // In a task: save it, and go on to a fresh plain row after it. In a
-      // reflection or stay: on to a plain row after it.
+      // reflection: on to a plain row after it.
       key: "Mod-Enter",
       run: (v) => {
         let block = blockAt(v.state);
@@ -1077,9 +1036,8 @@
     return { title, notes, planned_for, time, due, repeat, project_id, workstream_id, estimate, priority, done: isDone(block) };
   };
 
-  // The notes as the page's blocks: the text between reflections and
-  // stays (each with the rows that made tasks, by row), and each
-  // reflection's and stay's words.
+  // The notes as the page's blocks: the text between reflections (each
+  // with the rows that made tasks, by row), and each reflection's words.
   // `adding`: the page is being left, so the task rows not added yet go
   // with the notes (a text block's `new`, by row), the server adding and
   // linking them in the same save; a separate add's answer, naming the
@@ -1322,9 +1280,9 @@
     const box = e.target.closest?.(".pad-check");
     if (!box || !view?.dom.contains(box)) return;
     const line = view.state.doc.lineAt(view.posAtDOM(box));
-    if (isItem(view.state, line) || isSub(view.state, line)) {
-      // A stay's item: sorted, or not yet. A sub-task: done, or not; an
-      // added task has its description written at once.
+    if (isSub(view.state, line)) {
+      // A sub-task: done, or not; an added task has its description
+      // written at once.
       const at = line.from + 4;
       view.dispatch({ changes: { from: at, to: at + 1, insert: line.text[4] === " " ? "x" : " " }, userEvent: "input" });
       const task = taskOfRow(view.state, view.state.doc.lineAt(at));
@@ -1451,49 +1409,6 @@
   // Back from the browser's cache: written in again.
   window.addEventListener("pageshow", (e) => {
     if (e.persisted) left = false;
-  });
-
-  /* ---- the day's stay, under the date ---- */
-
-  // Each item of the day's stays: its box, its name, its value; unsorted in
-  // amber. A click goes to its row.
-  let stayShows = null;
-  function drawStay() {
-    const list = document.getElementById("day-stay");
-    if (!list || !view) return;
-    const doc = view.state.doc;
-    const items = [];
-    for (const b of writtenOf(view.state)) {
-      if (b.kind !== "stay") continue;
-      for (let n = b.first + 1; n <= b.last; n++) {
-        const item = ITEM.exec(doc.line(n).text);
-        if (item && item[2].trim()) items.push({ n, name: item[2].trim(), value: (item[3] || "").trim(), done: item[1] !== " " });
-      }
-    }
-    const shows = JSON.stringify(items);
-    if (shows === stayShows) return;
-    stayShows = shows;
-    list.hidden = !items.length;
-    list.replaceChildren(...items.map(({ n, name, value, done }) => {
-      const li = document.createElement("li");
-      const go = document.createElement("button");
-      go.type = "button";
-      go.className = done ? "day-stay-item done" : "day-stay-item";
-      go.dataset.row = String(n);
-      go.innerHTML = '<span class="day-stay-box" aria-hidden="true"></span><span class="day-stay-name"></span><span class="day-stay-value"></span>';
-      go.querySelector(".day-stay-name").textContent = name.charAt(0).toUpperCase() + name.slice(1);
-      go.querySelector(".day-stay-value").textContent = value || (done ? "" : "not sorted");
-      go.setAttribute("aria-label", `${name}: ${value || "no value"}, ${done ? "sorted" : "not sorted"}`);
-      li.append(go);
-      return li;
-    }));
-  }
-  document.addEventListener("click", (e) => {
-    const go = e.target.closest?.(".day-stay-item");
-    if (!go || !view) return;
-    const line = view.state.doc.line(Math.min(Number(go.dataset.row), view.state.doc.lines));
-    view.focus();
-    view.dispatch({ selection: { anchor: line.to }, scrollIntoView: true });
   });
 
   /* ---- the plan: the day's tasks, not yet written ---- */
@@ -1821,11 +1736,9 @@
     }).observe(nudges.querySelector(".nudge-list"), { childList: true });
   }
 
-  // Offered while writing: the commands, after "/" at a row's start, and a
-  // stay's item names.
+  // Offered while writing: the commands, after "/" at a row's start.
   const COMMANDS = [
     { label: "/reflection", apply: "/reflection ", detail: "free text" },
-    { label: "/stay", apply: "/stay", detail: "where you stay this day" },
   ];
   const offer = (context) => {
     const line = context.state.doc.lineAt(context.pos);
@@ -1836,34 +1749,10 @@
         options: COMMANDS.map((c) => ({
           ...c,
           apply: (v, completion, from, to) => {
-            if (c.label === "/stay") {
-              // Its items come with it, the caret at the first.
-              const insert = c.apply + stayTemplate();
-              const anchor = from + c.apply.length + stayTemplate().indexOf(": ") + 2;
-              v.dispatch({ changes: { from, to, insert }, selection: { anchor }, userEvent: "input.complete" });
-              return;
-            }
             v.dispatch({ changes: { from, to, insert: c.apply }, selection: { anchor: from + c.apply.length }, userEvent: "input.complete" });
           },
         })),
         validFor: /^\/[a-z]*$/,
-      };
-    }
-    // A stay's item names: those it started with, and those this page has.
-    const naming = /^\t- \[[ xX]\] ([^:]*)$/.exec(before);
-    if (naming && inStay(context.state, line)) {
-      const names = new Set(stayItems);
-      for (const b of writtenOf(context.state)) {
-        if (b.kind !== "stay") continue;
-        for (let n = b.first + 1; n <= b.last; n++) {
-          const other = ITEM.exec(context.state.doc.line(n).text);
-          if (other && n !== line.number && other[2].trim()) names.add(other[2].trim());
-        }
-      }
-      return {
-        from: line.from + ITEM_LEAD,
-        options: [...names].map((name) => ({ label: name, apply: `${name}: ` })),
-        validFor: /^[^:]*$/,
       };
     }
     return null;
@@ -1947,10 +1836,7 @@
     autocompletion({ override: [offer], icons: false }),
     EditorView.updateListener.of((u) => {
       if (u.docChanged && !u.transactions.some((tr) => tr.annotation(loading))) schedule();
-      if (u.docChanged) {
-        drawPlan();
-        drawStay();
-      }
+      if (u.docChanged) drawPlan();
     }),
     theme,
   ];
@@ -1962,8 +1848,6 @@
     const text = src.value;
     let rows = [];
     try { rows = JSON.parse(src.dataset.taskRows || "[]"); } catch { /* none */ }
-    try { stayItems = JSON.parse(src.dataset.stayItems || "[]"); } catch { /* the defaults */ }
-    if (!stayItems.length) stayItems = ["place", "accommodation"];
     dayTasks = { label: "", tasks: [] };
     try { dayTasks = JSON.parse(src.dataset.dayTasks || "null") || dayTasks; } catch { /* none */ }
     carryShows = null;
@@ -1999,7 +1883,6 @@
     for (const block of blocks()) block.m.saved = contentOf(block);
     saved = snapshot();
     drawPlan();
-    drawStay();
   }
 
   // Compact rows, or the timeline folded: the rows' size or the box's width changed.

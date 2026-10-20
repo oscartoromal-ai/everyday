@@ -80,6 +80,10 @@ enabled = True
 CLAIM_SETTING = "everyday_claim"
 CLAIM_FILE = ".planner-id"
 
+# The version of a page with nothing written, and so no file: one written
+# for it since is read in as written outside the app.
+EMPTY_PAGE = everyday.version("")
+
 
 # ---- where the files are ----
 
@@ -246,7 +250,10 @@ def settle_project(db: Session, project: Project, who: str | None = None) -> Non
 def settle_page(db: Session, day: date, who: str | None = None) -> None:
     """The day's file as its page has it, the file read in first when it
     was written outside the app since (or when the day has no page yet: a
-    file written for it is its first)."""
+    file written for it is its first). A day with nothing written has no
+    file: the file goes once the page is emptied, the page keeping the
+    version of no words (EMPTY_PAGE), so a file written for it later is
+    read in as one written outside the app."""
     from app.services import notebook
 
     page = notebook.get_page(db, day)
@@ -267,7 +274,14 @@ def settle_page(db: Session, day: date, who: str | None = None) -> None:
     elif current is not None and page.file_hash is None:
         _kept_before(db, place, current)
     text = notebook_md.blocks_text(db, page.blocks)
-    if not text and current is None:
+    if not text:
+        if current is not None:
+            # Emptied, a step of its history, and gone.
+            documents.record(db, place, "", who or FILE)
+            path.unlink(missing_ok=True)
+            documents.unindexed(db, everyday.relative(path))
+        page.file_hash = EMPTY_PAGE
+        db.flush()
         return
     page.file_hash = _write(db, path, text, current, place, who or FILE)
     db.flush()
@@ -633,7 +647,7 @@ def sync(db: Session) -> None:
         _rescan(db)
         _settle_tasks(db, everything=False, adopt=True)
         for page in db.scalars(select(NotebookPage)):
-            if page.file_hash is not None and not page_path(page.day).is_file():
+            if page.file_hash not in (None, EMPTY_PAGE) and not page_path(page.day).is_file():
                 settle_page(db, page.day)
         _settle_habits(db, everything=False, adopt=True)
         for project in db.scalars(select(Project)):

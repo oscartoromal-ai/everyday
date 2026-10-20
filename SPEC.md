@@ -82,14 +82,14 @@ Per the planning model, decided against interactive prototypes:
 - **Filing by drag**: on a task list a task is dragged onto a workstream, another project, or No project to file it there.
 - **Today is a notepad beside the day's timeline** (Oscar's call on 2026-09-27, "for now"): the whole left column is one plain notepad for the day, the right the day's timeline.
   The notes are Markdown (Oscar's call on 2026-10-04: one Markdown editor everywhere), saved as they are written and drawn as they read by the engine a task's description and a project's documents use (`markdown-live.js`): headings, emphasis, code, links, lists, quotes, rules, fenced code and tables, their marks showing where the caret is, with its Live, Source and Reading modes at the day's header (Ctrl+E in and out of Reading), remembered for the notes.
-  The rows below that are the notepad's own (a task's, a reflection's, a stay's, and every row tabbed under one) keep their shape, lead and keys; the engine draws only their words' Markdown, and none in a task's title, which is plain words wherever the task shows.
+  The rows below that are the notepad's own (a task's, a reflection's, and every row tabbed under one) keep their shape, lead and keys; the engine draws only their words' Markdown, and none in a task's title, which is plain words wherever the task shows.
   A plain row's Enter goes on as Markdown has it for a list, a numbered item or a quote, and otherwise starts a plain row, never one taken into a task just above it; Tab nests a list item where the notepad has nothing to step into.
   A row too long for the box wraps inside its row; nothing scrolls sideways.
   Spelling is marked only in the row being written (Oscar's call on 2026-09-28): a row left, and every row once out of the notes, shows no marks; the task sheet's title and description lines likewise.
   A task is written in them: "- [ ] " at a row's start makes the row a task, drawn indented as a checkbox and "Task" (not text); the rows added under it with Enter are indented the same way and are its description, and "- [ ] " on one of them makes it a sub-task, with its own box; plain rows stay at the left.
   A ticked sub-task is crossed out, and a ticked task, title and rows; a sub-task's tick is written to its task's description at once.
   Writing a task never needs the mouse (Oscar's call on 2026-09-28): Tab and Shift+Tab stay in the notes, Tab going from a task's title to the row under it (a new one when it has none), taking a plain row right under a task into it, and making a task's row a sub-task, Shift+Tab stepping back out; and as in the task sheet, "friday", "due friday", "every week" or "30m" and a space in a task's title set that field, a title's last words taken as it is closed; since a word can be meant as a word, each is an undo step of its own that Ctrl+Z (or Backspace straight after) takes back with its field, the words then staying words, and a title closed with words taken says so in its toast ("Task added: Book flights, due Fri 2 Oct"), with Undo.
-  Lines pasted inside a task (its title or a row) stay inside it: each after the first becomes one of its rows, a "- [ ] " line a sub-task, so a paste never ends a task early or starts another (reflections and stays likewise).
+  Lines pasted inside a task (its title or a row) stay inside it: each after the first becomes one of its rows, a "- [ ] " line a sub-task, so a paste never ends a task early or starts another (reflections likewise).
   A row deleted from inside a task (by Backspace, Delete or a cut, its words, box and tab all gone) goes whole, the caret at the end of the row above, so the rows under it stay the task's.
   Every task stays bracketed by a rule above and below its rows (one rule between two right under each other), and one with rows under its title folds to its title and back, and stays so; Ctrl+Enter or Esc in a task saves it (added for that day, or the task it made updated), Ctrl+Enter then going on to a plain row.
   At the right of a task's title come its controls, the task sheet's icons: do date, time, due, repeat and project, set before the task is added or changed on it after; on the title's last line when they fit there, else on a line of their own under it, within the same row.
@@ -113,17 +113,21 @@ Per the planning model, decided against interactive prototypes:
   A title writes the task's rows at the end of the notes, its title row that same task (not a copy) and its description its rows, and moves its do-date to the page's day; its box writes them ticked, done that day; Bring all writes every one.
   A task's calendar moves it to another day (tomorrow, next week, a date picked, or none), and Reschedule every one carried over, off the plan; Undo puts them back as they were.
   The earlier page keeps its rows as written, each showing its task as it stands, so a task finished today reads ticked there too.
-  Where Oscar stays is written in them too (Oscar's call on 2026-09-27: he moves around, and does not always have a bed sorted): "/stay" on a day's page, then its items, each "- [ ] name: value" with a box ticked once sorted, bracketed in amber.
-  Its items are his to name (place and accommodation to begin with; a new stay starts with the items the last one had), and among the header's facts the day's stay reads item by item, the unsorted ones in amber.
-  A stay is written day by day, not as a range; Calendar's sheet shows the days' stays together, and fills one down the days.
+  Where Oscar stays has a pane of its own beside the notes (Oscar's call on 2026-09-27: he moves around, and does not always have a bed sorted; out of the notes, as the habits went, on 2026-10-20, "/stay" then being words like any other there).
+  A stay is its items, each its name and its value written in place: place and accommodation to begin with, any other his to name (Item, at the pane's foot, adds one; its ×, with Undo, takes it away), a new stay starting with the items the last one had.
+  Accommodation is a checkbox too, ticked once sorted (as on Calendar's sheet, his Excel's AC column); the pane's head says "not sorted", in amber, until it is.
+  A value is offered what the item was written as before, the last first, so a place is written the same way each time; Enter writes it and goes on to the next item, Esc puts it back.
+  A stay is written day by day, not as a range (Oscar's call on 2026-10-20 again): a day with none offers the last day's ("Same as yesterday", or as the day it was), and a day's stay is carried on to the days after it (Carry on: the next day, to Sunday, a week on, or a date picked), each made the same, Undo putting them back; the pane says how far the same stay already runs ("Same to Sun 1 Nov"). Calendar's sheet shows the days' stays together, and fills one down the days.
+  Among the header's facts the day's stay reads item by item, accommodation in amber until sorted; a click goes to the item in the pane.
+  The stay is the database's alone, a day's items as rows (fields, no words: [Files first](#files-first)); Claude reads it with the day's notes (`get_notebook`).
   Every day has its notepad: Left and Right (outside the text) go a day back or on, and past days stay editable.
   A glance in the header, beside the date (Oscar's call on 2026-10-02, after Oura's and Garmin's morning scores and Notion Calendar's next meeting), reads the day at once as a line of facts; whether its plan fits is the timeline's line above its hours.
   On today's it names the event on now (till when) and the next (in how long), each with its meeting link's Join; a cancelled meeting and an all-day event are passed over.
   Then how Oscar came into the day, from his watch: readiness (a low one, Garmin's POOR or LOW, asking to keep the day light), sleep and its score, and body battery; a past day's page shows its own.
   Today's is redrawn each minute and as the calendar changes.
-  The page is in panes under that header (Oscar's call on 2026-10-20, after Sunsama, Akiflow and Amie, the notes stacked over their lists having grown cramped): the plan and the habits at the left, the notes in the middle, the timeline at the right, each pane scrolling inside itself; the side columns fold away, the middle taking their room (the left Alt+P, the right Ctrl+\), and stay so.
+  The page is in panes under that header (Oscar's call on 2026-10-20, after Sunsama, Akiflow and Amie, the notes stacked over their lists having grown cramped): the plan, the habits and the stay at the left, the notes in the middle, the timeline at the right, each pane scrolling inside itself; the side columns fold away, the middle taking their room (the left Alt+P, the right Ctrl+\), and stay so.
   Oscar arranges the panes (his call on 2026-10-20, "then this becomes more customizable"): each dragged by its title bar to another place in its column or another column, a column not showing made by dropping on its zone; hidden by its eye and shown again from Panes, at the day's header, which also sets them back as they were. The layout is a setting in the database, so it holds on every device and every day's page; a column with no pane showing goes.
-  Narrower, the timeline goes under the notes; on a phone the page stacks: the header with its glance first, so the next thing on is the first thing seen, then the notes, the plan and the habits, then the timeline in a window of its own (75% of the screen), opened on now.
+  Narrower, the timeline goes under the notes; on a phone the page stacks: the header with its glance first, so the next thing on is the first thing seen, then the notes, the plan, the habits and the stay, then the timeline in a window of its own (75% of the screen), opened on now.
   N writes a new task from Today in the capture window, as on Calendar and every page without a list of its own; the sidebar's New task opens that window on every page, filing the task into a project and workstream as it is written (Oscar's ask on 2026-10-04).
   Today's plan opens with the nudge center, each nudge saying its days from today ("due today" for one raised yesterday as "due tomorrow").
   It replaces [the notebook](#the-notebook-decided-2026-09-26), where lines became tasks and reflections, and the storyboard sheet that followed it; both are in git history.
@@ -139,8 +143,8 @@ Per the planning model, decided against interactive prototypes:
 - **Calendar's sheet** (Oscar's call on 2026-10-02, after the Excel sheet he planned his days in: "a view that is kind of Excel like", habits drawn on it) is the days as the rows of a spreadsheet, a fourth view beside the grid's three.
   It shows four weeks from a Monday: opened on today, last week first, so the days just gone sit above those to plan; Left and Right (outside the sheet) step four weeks.
   A row a day: the day (a link to its notes), where Oscar stays (a column per item of the stays shown, place and accommodation to begin with), Plan, and a column per habit.
-  A stay's cell is its item's value; writing in it writes the day's stay as "/stay" in its notes would (a day with none gets one at its page's top, with the items the last stay had).
-  Accommodation is a checkbox (Oscar's call on 2026-10-03, as his Excel's AC column): its box alone, ticked once sorted (edged amber while a stay has it unsorted), ticked as a habit is, its words kept in the notes and its tooltip.
+  A stay's cell is its item's value; writing in it writes the day's stay as Today's stay pane would (a day with none gets one, with the items the last stay had).
+  Accommodation is a checkbox (Oscar's call on 2026-10-03, as his Excel's AC column): its box alone, ticked once sorted (edged amber while a stay has it unsorted), ticked as a habit is, its words kept in the stay and its tooltip.
   Plan is the day's tasks, Oscar's planned for it (done ones struck through) and then those still open due on it ("due", urgent once due within three days or past), each in its project's colour and by priority, and then his own events, all day first (work meetings stay on the grid); writing in it adds a task planned for the day.
   A task's box is clicked through its work (Oscar's call on 2026-10-03): a click starts it (in progress, the box filled inside), the next makes it done, one more takes it back to to do; a chevron beside the box opens the statuses it can be given here, In progress and Done, the one it has chosen again taking it back to to do.
   A task's title opens its page, as Ctrl+Enter on a Plan cell opens its first task's; writing a task, Ctrl+Enter writes it and opens it, to be written out there (Oscar's call on 2026-10-03).
@@ -264,7 +268,7 @@ Recorded by the ORM on every flush that touches a task, whatever path made the c
 It is shown under the task's sheet and read by Claude through `get_task_history`.
 A description written over a while is one step: an edit to the description alone, by the same hand within ten minutes of that task's last step, itself such an edit, folds into it, so a page saving as it is written leaves one "Description edited".
 
-**NotebookPage**: one per day, its file `notebook/<year>/<day>.md` ([Files first](#files-first)); its blocks in the order they were written and a version (text, tasks by reference, reflections and stays, whose items are read from their "- [ ] name: value" lines). Today's notepad writes it as one text block; a page written in the notebook's time (with task references and reflections) reads back as text.
+**NotebookPage**: one per day, its file `notebook/<year>/<day>.md` ([Files first](#files-first)); its blocks in the order they were written and a version (text, tasks by reference, reflections). Today's notepad writes it as one text block; a page written in the notebook's time (with task references and reflections) reads back as text.
 A save names the version it was made from, and a save from an older copy is refused, so two windows never silently overwrite each other; the page asks which to keep.
 
 **Event**: title, start, end, all-day flag, source (local / work), read-only flag, external id.
@@ -278,6 +282,7 @@ Habits do not use it (see Habit).
 
 **Habit**: a name (lower case, hyphens: `morning-skin-care`), its days, the weekdays it is due (Monday 0 to Sunday 6; "" for any day), and what it is, its file's words; its file is `habits/<name>.md` ([Files first](#files-first)).
 **HabitCheck**: a habit on a day: done (ticked), or skipped (not ticked, with a comment); one per habit per day; its note is the day's comment, an entry in its habit's log.
+**StayItem**: where Oscar stays on a day, an item of it: its name (place, accommodation, or one he named), its value, whether it is sorted, and its place in the stay; one per name per day. A day's stay is its items; a day with none has no stay. Fields alone, with no file.
 A day ticked, or commented on, has a check; unticked with no comment, it has none.
 A day is missed when it is one of the habit's days, since the habit began, the day is past, and it was not ticked.
 
@@ -328,7 +333,7 @@ Hook commands need a short HTTP timeout so a down app never delays sessions.
 
 ### Notebook and history
 
-- `get_notebook(start, days)` reads Oscar's notes for each day (his notepad: prose, the tasks he wrote there, reflections, and where he stays, each stay's items as name, value and sorted or not), then the habits he ticked that day (done, or skipped with a comment).
+- `get_notebook(start, days)` reads Oscar's notes for each day (his notepad: prose, the tasks he wrote there, reflections), then where he stays (the stay's items as name, value and sorted or not) and the habits he ticked that day (done, or skipped with a comment).
 - `get_habits(start, days)` reads each habit day by day: done, skipped, missed, or nothing (not due, or today still open), with his comment.
   `get_agenda` carries each day's page in brief too, so planning with Claude starts from what Oscar wrote.
   The notebook is read-only to Claude: it is Oscar's own writing.
@@ -530,8 +535,9 @@ The planner only: Health, Finances and Code keep their own storage.
   Its other files sit beside `task.md`, as before.
   A folder with a `task.md` and no id the database has, made in a project's `tasks/` or the top `tasks/`, is a new task: its title the front matter's or the folder's name, its project the folder it is in, the other fields its front matter gives; its folder then takes its id.
   A task's folder deleted by hand is written again from the database.
-- **A day's notes are `notebook/<year>/<day>.md`**: the notes as Today's notepad has them (rows, "- [ ] " tasks with their tabbed rows, "/reflection", "/stay" and its items), a task's row ending in `<!-- task:<id> -->` (`<!-- task:<id> folded -->` when it shows folded).
+- **A day's notes are `notebook/<year>/<day>.md`**: the notes as Today's notepad has them (rows, "- [ ] " tasks with their tabbed rows, "/reflection"), a task's row ending in `<!-- task:<id> -->` (`<!-- task:<id> folded -->` when it shows folded).
   Written in the file, the notes are the day's page, as a save from the notepad would be; a window with the page open is then out of date and asks which to keep.
+  A day with nothing written has no file: emptied, its file goes, and one written for it later is its notes again.
 - **A habit is `habits/<name>.md`**: its front matter the database's (its id, name, days in words, since when), then what the habit is, then `## Log`, a comment a day, the newest first (`- 2026-10-20: words`, its other lines indented under it).
   The words are the file's: what it is is the habit's, and each entry is its day's comment (a day not ticked then skipped; an entry taken out, the day's comment gone).
   Whether a day was done is never the file's: the app ticks it.

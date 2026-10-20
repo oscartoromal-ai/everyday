@@ -106,21 +106,10 @@ def test_folded_task_rows_follow_their_text(db) -> None:
     ]
 
 
-def test_a_stay_keeps_its_items_as_written(db) -> None:
-    text = "\n- [x] place: Lisbon\n- [ ] accommodation:\n- [ ] ferry\nno rush"
-    page = notebook.save_page(
-        db, TODAY - timedelta(days=1), [{"kind": "stay", "text": text + "\n\n"}], version=0
-    )
-    assert page.blocks == [{"kind": "stay", "text": text}]
-    # Its items: each named, its value, sorted or not; its other lines its note.
-    assert notebook.stay_items(text) == [
-        {"name": "place", "value": "Lisbon", "done": True},
-        {"name": "accommodation", "value": "", "done": False},
-        {"name": "ferry", "value": "", "done": False},
-    ]
-    # A stay written later starts with them; the first ever with place and accommodation.
-    assert notebook.last_stay_items(db, TODAY) == ["place", "accommodation", "ferry"]
-    assert notebook.last_stay_items(db, TODAY - timedelta(days=1)) == ["place", "accommodation"]
+def test_a_stay_is_not_the_pages(db) -> None:
+    # Where Oscar stays has a pane of its own (app.services.stays).
+    with pytest.raises(DomainError, match="Unknown block"):
+        notebook.save_page(db, TODAY, [{"kind": "stay", "text": "- [ ] place: Lisbon"}], version=0)
 
 
 def test_the_tasks_still_open_from_the_last_page_with_tasks(db) -> None:

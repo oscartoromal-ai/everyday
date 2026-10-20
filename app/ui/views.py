@@ -38,6 +38,7 @@ from app.services import notebook as notebook_svc
 from app.services import projects as projects_svc
 from app.services import rail as rail_svc
 from app.services import recurrence as recurrence_svc
+from app.services import stays as stays_svc
 from app.services import tasks as tasks_svc
 from app.ui import habits_view
 from app.ui.agent_window_view import window_ctx
@@ -588,11 +589,10 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
                     links[len(lines)] = task.id
                 lines.append(f"- [ ] {title}")
             continue
-        if block["kind"] in ("reflection", "stay"):
-            # Written as it was: its "/reflection" (or "/stay") row, its other
-            # rows tabbed in.
+        if block["kind"] == "reflection":
+            # Written as it was: its "/reflection" row, its other rows tabbed in.
             first, *rest = block["text"].split("\n")
-            lines.append(f"/{block['kind']} {first}".rstrip(" "))
+            lines.append(f"/reflection {first}".rstrip(" "))
             lines.extend(f"\t{line}" for line in rest)
             continue
         start = len(lines)
@@ -627,8 +627,6 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
         "text": "\n".join(lines),
         "task_rows": task_rows,
         "projects": project_choices(db),
-        # What a stay written here starts with: the last stay's items.
-        "stay_items": notebook_svc.last_stay_items(db, day),
         "version": notebook_svc.version_of(db, day),
     }
 
@@ -750,6 +748,8 @@ def day_page_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
         "glance": day_glance_ctx(db, day, now),
         # Every habit, for the habits' pane beside the notes.
         "habits": habits_view.pane_ctx(db, day, now.date()),
+        # Where Oscar stays that day, for the stay's pane.
+        "stay": stays_svc.standing(db, day),
         # The habits' week, this day last: each day's initial over its column.
         "habit_week": [
             {"letter": d.strftime("%a")[0], "name": d.strftime("%A"), "day": d.isoformat()}

@@ -8,21 +8,18 @@ A page is its blocks, in the order they were written:
     {"kind": "text", "text": "Slow morning.\\nCalled Ana."}   prose, as written
     {"kind": "task", "id": 42}                              a task, by reference
     {"kind": "reflection", "text": "..."}                   a reflection, free text
-    {"kind": "stay", "text": "..."}                         where Oscar stays that day: a
-                                                            note, then its items, each
-                                                            "- [ ] name: value" (stay_items)
 
 Tasks are only referenced: the page shows each as it stands now, wherever it
 was changed since, and a task deleted since shows as its last known title.
 A task written on a page carries that day in `written_on`; one whose
 reference never reached the page (a save lost to a closed tab) still shows
 on it, after what was written. Habits are not the page's: they are ticked
-beside it, and their comments are their own files' (app.services.habits).
+beside it, and their comments are their own files' (app.services.habits);
+nor is where Oscar stays, written beside it too (app.services.stays).
 """
 
 from __future__ import annotations
 
-import re
 import threading
 from datetime import date, datetime
 from typing import Any
@@ -48,11 +45,7 @@ class SupersededSave(DomainError):
 saving = threading.Lock()
 
 
-KINDS = ("text", "task", "reflection", "stay")
-# A stay's item: "- [ ] accommodation: Airbnb near Alfama" ("- [x] " once sorted).
-STAY_ITEM = re.compile(r"^- \[([ xX])\] ([^:]*?)\s*(?::\s?(.*))?$")
-# What a day's first stay lists, when no stay was written before it.
-STAY_ITEMS = ("place", "accommodation")
+KINDS = ("text", "task", "reflection")
 
 
 def get_page(db: Session, day: date) -> NotebookPage | None:
@@ -140,7 +133,7 @@ def normalize(db: Session, blocks: Any) -> list[dict[str, Any]]:
             while end > lead and not lines[end - 1].strip():
                 end -= 1
         text = "\n".join(lines[lead:end])
-        if not text.strip() and (kind in ("reflection", "stay") or not out or last):
+        if not text.strip() and (kind == "reflection" or not out or last):
             continue
         links: dict[int, int] = {}
         folded: set[int] = set()
@@ -248,86 +241,6 @@ def blocks_of(db: Session, day: date) -> list[dict[str, Any]]:
         else:
             out.append(dict(block))
     return out
-
-
-def stay_items(text: str) -> list[dict[str, Any]]:
-    """A stay's items, in order: each a name (as written, trimmed), its value
-    and whether it is sorted. Its other lines are its note."""
-    items = []
-    for line in text.split("\n"):
-        item = STAY_ITEM.match(line.strip())
-        if item and item[2].strip():
-            items.append({
-                "name": item[2].strip(), "value": (item[3] or "").strip(), "done": item[1] in "xX",
-            })
-    return items
-
-
-def last_stay_items(db: Session, day: date) -> list[str]:
-    """The items the stay written last before `day` lists (a new stay starts
-    with them), or place and accommodation."""
-    pages = db.scalars(
-        select(NotebookPage)
-        .where(NotebookPage.day < day)
-        .order_by(NotebookPage.day.desc())
-        .limit(60)
-    )
-    for page in pages:
-        for block in reversed(page.blocks):
-            if block["kind"] == "stay":
-                names = [item["name"] for item in stay_items(block["text"])]
-                if names:
-                    return names
-    return list(STAY_ITEMS)
-
-
-# Calendar's sheet writes a day's stay as its notes would.
-
-
-def _stored(db: Session, day: date) -> tuple[list[dict[str, Any]], int]:
-    """The day's page as kept (a copy to change), and its version."""
-    page = get_page(db, day)
-    return ([dict(b) for b in page.blocks] if page else []), (page.version if page else 0)
-
-
-def _item_line(name: str, value: str, done: bool) -> str:
-    return f"- [{'x' if done else ' '}] {name}: {value}".rstrip(" ")
-
-
-def set_stay_item(
-    db: Session, day: date, name: str, *, value: str | None = None, done: bool | None = None
-) -> NotebookPage | None:
-    """Set an item of the day's stay, as its notes would: its value, or
-    whether it is sorted (None leaves either as it was). A day with no stay
-    gets one at the top of its page, with the items the last stay had; an
-    item the stay does not list joins it at its end."""
-    name = name.strip()
-    if not name or ":" in name or "\n" in name:
-        raise DomainError(f"Not a stay item: {name!r}")
-    if value is not None:
-        value = " ".join(value.split())
-    blocks, version = _stored(db, day)
-    at = next((i for i, b in enumerate(blocks) if b["kind"] == "stay"), None)
-    if at is None:
-        if not value and not done:
-            return get_page(db, day)  # nothing to write
-        lines = [""] + [_item_line(item, "", False) for item in last_stay_items(db, day)]
-        blocks.insert(0, {"kind": "stay", "text": "\n".join(lines)})
-        at = 0
-    lines = blocks[at]["text"].split("\n")
-    for row, line in enumerate(lines):
-        item = STAY_ITEM.match(line.strip())
-        if item and item[2].strip().lower() == name.lower():
-            lines[row] = _item_line(
-                item[2].strip(),
-                (item[3] or "").strip() if value is None else value,
-                item[1] in "xX" if done is None else done,
-            )
-            break
-    else:
-        lines.append(_item_line(name, value or "", bool(done)))
-    blocks[at] = {**blocks[at], "text": "\n".join(lines)}
-    return save_page(db, day, blocks, version=version)
 
 
 def task_ids_on(db: Session, day: date) -> list[int]:

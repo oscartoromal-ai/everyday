@@ -345,65 +345,27 @@ def test_a_reflection_is_written_in_the_notes(page, live, app_db) -> None:
     assert page.locator(".pad-editor .cm-line.pad-reflection").count() == 0
 
 
-def test_habits_are_not_written_in_the_notes(page, live, app_db) -> None:
-    from app.models import HabitCheck
+def test_habits_and_stays_are_not_written_in_the_notes(page, live, app_db) -> None:
+    from app.models import HabitCheck, StayItem
 
     page.goto(f"{live}/today")
-    # "/" offers the notes' own commands: a habit is not one of them.
+    # "/" offers the notes' own commands: a habit and a stay are not among them.
     write_in(page)
     page.keyboard.type("/")
     offered = page.locator(".cm-tooltip-autocomplete li")
     offered.first.wait_for()
-    assert [t.split()[0] for t in offered.all_inner_texts()] == ["/reflection", "/stay"]
+    assert [t.split()[0] for t in offered.all_inner_texts()] == ["/reflection"]
     page.keyboard.press("Escape")
-    # Written anyway, "/habit" is words like any other, and ticks nothing.
+    # Written anyway, "/habit" and "/stay" are words like any other, and
+    # tick or write nothing.
     page.keyboard.type("habit stretch")
-    saved_as(app_db, [{"kind": "text", "text": "/habit stretch"}])
-    assert page.locator(".pad-editor .cm-line.pad-habit").count() == 0
+    page.keyboard.press("Enter")
+    page.keyboard.type("/stay")
+    saved_as(app_db, [{"kind": "text", "text": "/habit stretch\n/stay"}])
+    assert page.locator(".pad-editor .cm-line:is(.pad-habit, .pad-stay)").count() == 0
     with app_db() as db:
         assert db.query(HabitCheck).count() == 0
-
-
-def test_a_stay_is_written_in_the_notes(page, live, app_db) -> None:
-    page.goto(f"{live}/today")
-    write_in(page)
-    # "/stay" comes with its items (place and accommodation, the first time).
-    page.keyboard.type("/st")
-    page.locator(".cm-tooltip-autocomplete li", has_text="/stay").wait_for()
-    page.wait_for_timeout(150)  # CodeMirror's interactionDelay
-    page.keyboard.press("Enter")
-    page.keyboard.type("Lisbon")
-    page.keyboard.press("ArrowDown")
-    page.keyboard.press("End")
-    page.keyboard.type("Airbnb")
-    # Enter on an item starts the next; its name is offered from the others.
-    page.keyboard.press("Enter")
-    page.keyboard.type("ferry: Sunday")
-    written = "/stay\n\t- [ ] place: Lisbon\n\t- [ ] accommodation: Airbnb\n\t- [ ] ferry: Sunday"
-    assert page.evaluate("Notepad.text()") == written
-    stay = page.locator(".pad-editor .cm-line.pad-stay")
-    assert stay.first.locator(".pad-stay-name").inner_text() == "Stay"
-    assert stay.locator(".pad-item-check").count() == 3
-
-    # Its box: sorted.
-    stay.locator(".pad-item-check").first.click()
-    assert page.evaluate("Notepad.text()").startswith("/stay\n\t- [x] place: Lisbon\n")
-    # Under the date, item by item; a click goes to its row.
-    line = page.locator("#day-stay .day-stay-item")
-    assert [t.split() for t in line.all_inner_texts()] == [
-        ["Place", "Lisbon"], ["Accommodation", "Airbnb"], ["Ferry", "Sunday"],
-    ]
-    assert line.nth(0).get_attribute("class") == "day-stay-item done"
-    line.nth(1).click()
-    caret_row = "(s => s.doc.lineAt(s.selection.main.head).number)(Notepad.view.state)"
-    assert page.evaluate(caret_row) == 3
-
-    # Saved as a stay, and read back as written.
-    stay_text = "\n- [x] place: Lisbon\n- [ ] accommodation: Airbnb\n- [ ] ferry: Sunday"
-    saved_as(app_db, [{"kind": "stay", "text": stay_text}])
-    page.reload()
-    assert page.evaluate("Notepad.text()") == written.replace("[ ] place", "[x] place")
-    assert line.count() == 3
+        assert db.query(StayItem).count() == 0
 
 
 def test_a_task_folds_to_its_title(page, live, app_db) -> None:

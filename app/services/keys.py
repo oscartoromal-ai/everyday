@@ -295,8 +295,6 @@ SCOPES: tuple[Scope, ...] = (
     Scope("today", "Today", (
         Fixed("[-] [[] []] [Space]", "At a row's start: a task, written in the notes"),
         Fixed("/reflection", "At a row's start: a reflection, free text"),
-        Fixed("/stay", "At a row's start: where you stay today, its items (place, "
-              "accommodation) ticked once sorted"),
         Fixed("[Tab]", "From a task's title to the row under it; a row into the task above it, "
               "or into a sub-task"),
         Fixed("[Shift] [Tab]", "A step back out: a sub-task to a row, a row out of its task"),
