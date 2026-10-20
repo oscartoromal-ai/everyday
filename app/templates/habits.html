@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Habits · Personal Calendar{% endblock %}
+{% block content %}
+{# Habits: every habit, a row of the sheet: its name (to its page), its days
+   and what it is, its last four weeks day by day (done, skipped with a
+   comment, missed), how many of their days that count it was done, and its
+   streak. A new one is named at the foot, and opens on its page. They are
+   ticked on Today's habits pane and Calendar's sheet. #}
+<div class="me-page habits-page">
+  <header class="page-header">
+    <div>
+      <h1>Habits</h1>
+      <p class="rest">Ticked on Today, day by day. Each has a page: what it is, and its log of comments.</p>
+    </div>
+  </header>
+  <div class="ruled-sheet habits-sheet">
+    <section class="sheet-group" aria-labelledby="habits-all">
+      <h2 class="sheet-row sheet-head habits-row" id="habits-all">
+        <span class="habits-main">Habits <span class="count">{{ habits | length }}</span></span>
+        <span class="habits-cell habits-strip habits-strip-head" aria-hidden="true">{% for d in strip_head %}<i title="{{ d.name }}"{% if d.monday %} class="monday"{% endif %}>{{ d.letter }}</i>{% endfor %}</span>
+        <span class="habits-cell habits-rate" title="The days done of the last four weeks: of its own days, when it has days">Done</span>
+        <span class="habits-cell habits-streak">Streak</span>
+      </h2>
+      <ul class="habits-rows">
+        {% for h in habits %}
+        <li class="sheet-row habits-row">
+          <span class="habits-main">
+            <a class="habits-name" href="{{ h.href }}">{{ h.slug }}</a>
+            <span class="habits-days">{{ h.days }}</span>
+            {% if h.about %}<span class="habits-about">{{ h.about }}</span>{% endif %}
+          </span>
+          <span class="habits-cell habits-strip" role="img" aria-label="{{ h.slug }}'s last four weeks: {{ h.said | lower }}">
+            {%- for c in h.cells %}<i class="{{ c.state or 'none' }}{% if c.note %} noted{% endif %}{% if strip_head[loop.index0].monday %} monday{% endif %}" title="{{ c.tip }}"></i>{% endfor -%}
+          </span>
+          <span class="habits-cell habits-rate" title="{{ h.said }}">{{ h.rate }}</span>
+          <span class="habits-cell habits-streak">{% if h.streak %}{{ h.streak }}d{% endif %}</span>
+        </li>
+        {% else %}
+        <li class="sheet-row habits-row habits-empty"><span class="habits-main">No habits yet. Name one below, then tick it on Today, day by day.</span></li>
+        {% endfor %}
+      </ul>
+    </section>
+    <form class="sheet-row habits-new" hx-post="/ui/habits" hx-swap="none">
+      <span class="field-line"><input name="name" aria-label="New habit's name" placeholder="New habit: its name, as morning-skin-care" autocomplete="off" spellcheck="false" maxlength="80" required></span>
+      <button type="submit" class="btn quiet">Start it</button>
+    </form>
+    {# The empty rows under the last, numbered on, to the sheet's foot. #}
+    <div class="sheet-filler" aria-hidden="true"><ol>{% for _ in range(30) %}<li></li>{% endfor %}</ol></div>
+  </div>
+</div>
+{% endblock %}

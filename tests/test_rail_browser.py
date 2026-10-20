@@ -93,15 +93,16 @@ def test_modules_hide_and_come_back_from_settings(page, live, app_db) -> None:
     until(lambda: ("finances", [], True) in saved(app_db))
     page.reload()
     assert page.locator("#nav-finances").is_hidden()
-    # Hidden, they have no number: Repositories, past them, is Alt+7.
+    # Hidden, they have no number: Repositories, past them, is Alt+8.
     assert numbers(page) == {
         "today": "1",
         "calendar": "2",
-        "projects": "3",
-        "nutrition": "4",
-        "me": "5",
-        "garmin": "6",
-        "repositories": "7",
+        "habits": "3",
+        "projects": "4",
+        "nutrition": "5",
+        "me": "6",
+        "garmin": "7",
+        "repositories": "8",
     }
 
     # Settings lists the four, each with its section; Show brings one back.
@@ -120,17 +121,17 @@ def test_modules_hide_and_come_back_from_settings(page, live, app_db) -> None:
     assert dialog.locator(".settings-empty").is_visible()
     page.keyboard.press("Escape")
     until(lambda: ("finances", ["spending", "accounts", "bills", "goals"], False) in saved(app_db))
-    # Shown again, they are numbered again, at once: Goals is the tenth, past Alt+9.
+    # Shown again, they are numbered again, at once: Bills and Goals are past Alt+9.
     assert numbers(page) == {
         "today": "1",
         "calendar": "2",
-        "projects": "3",
-        "nutrition": "4",
-        "me": "5",
-        "garmin": "6",
-        "spending": "7",
-        "accounts": "8",
-        "bills": "9",
+        "habits": "3",
+        "projects": "4",
+        "nutrition": "5",
+        "me": "6",
+        "garmin": "7",
+        "spending": "8",
+        "accounts": "9",
     }
 
 
@@ -144,7 +145,7 @@ def test_modules_sections_and_projects_drag_within_their_own_place(page, live, a
 
     # Calendar above Today, within Planner.
     drag(page, nav.locator('a[href="/calendar"]'), nav.locator('a[href="/today"]'))
-    assert modules(page, "planner") == ["calendar", "today"]
+    assert modules(page, "planner") == ["calendar", "today", "habits"]
     assert page.url == f"{live}/today"  # the drop is not a click
 
     # Health above Planner, by its name.
@@ -178,22 +179,22 @@ def test_modules_sections_and_projects_drag_within_their_own_place(page, live, a
 
     page.reload()
     assert sections(page) == ["health", "planner", "finances", "projects", "code"]
-    assert modules(page, "planner") == ["calendar", "today"]
+    assert modules(page, "planner") == ["calendar", "today", "habits"]
     assert modules(page, "finances") == ["accounts", "bills", "goals", "spending"]
     assert rail.locator(".nav-label").all_inner_texts() == ["Gamma", "Alpha", "Beta"]
     with app_db() as db:
         assert [p.name for p in projects_svc.list_projects(db)] == ["Gamma", "Alpha", "Beta"]
-    # Numbers follow the place: Health's three first, then Calendar and Today.
+    # Numbers follow the place: Health's three first, then Calendar, Today and Habits.
     assert list(numbers(page)) == [
         "nutrition",
         "me",
         "garmin",
         "calendar",
         "today",
+        "habits",
         "accounts",
         "bills",
         "goals",
-        "spending",
     ]
     page.keyboard.press("Alt+4")
     page.wait_for_url(f"{live}/calendar")
@@ -226,7 +227,7 @@ def test_alt_and_a_number_go_to_the_module_showing_there(page, live) -> None:
     today.locator("[data-nav-hide]").click()
     assert figures.all_inner_texts() == [str(n) for n in range(1, 10)]
     assert numbers(page)["calendar"] == "1"
-    page.keyboard.press("Alt+2")
+    page.keyboard.press("Alt+3")
     page.wait_for_url(f"{live}/projects")
 
 
@@ -238,10 +239,10 @@ def test_escape_puts_a_drag_back_and_alt_arrows_move_the_focused_one(page, live,
     page.mouse.down()
     calendar = nav.locator('a[href="/calendar"]').bounding_box()
     page.mouse.move(today["x"] + 30, calendar["y"] + calendar["height"] - 2, steps=10)
-    assert modules(page, "planner") == ["calendar", "today"]
+    assert modules(page, "planner") == ["calendar", "today", "habits"]
     page.keyboard.press("Escape")
     page.mouse.up()
-    assert modules(page, "planner") == ["today", "calendar"]
+    assert modules(page, "planner") == ["today", "calendar", "habits"]
 
     nav.locator('a[href="/me"]').focus()
     page.keyboard.press("Alt+ArrowUp")

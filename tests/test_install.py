@@ -85,10 +85,11 @@ def test_without_finances_its_pages_are_gone(client_without) -> None:
     assert 'data-section="finances"' not in html
     assert 'href="/spending"' not in html
     assert 'data-section="health"' in html and 'data-section="code"' in html
-    # The pages left are numbered without Finances': Repositories moves up to Alt+7.
+    # The pages left are numbered without Finances': Repositories moves up to Alt+8.
     assert keys(html) == [
         "today",
         "calendar",
+        "habits",
         "projects",
         "nutrition",
         "me",
@@ -110,6 +111,7 @@ def test_without_health_its_pages_and_keys_are_gone(client_without) -> None:
     assert keys(html) == [
         "today",
         "calendar",
+        "habits",
         "projects",
         "spending",
         "accounts",
@@ -122,7 +124,7 @@ def test_without_health_its_pages_and_keys_are_gone(client_without) -> None:
 def test_with_only_the_planner_the_settings_name_every_module_left_out(client_without) -> None:
     client = client_without("health", "finances", "code")
     html = client.get("/today").text
-    assert keys(html) == ["today", "calendar", "projects"]
+    assert keys(html) == ["today", "calendar", "habits", "projects"]
     assert (
         "Not installed on this machine: Health, Finances and Code. "
         "Run the installer again to add them." in html
@@ -133,9 +135,9 @@ def test_with_only_the_planner_the_settings_name_every_module_left_out(client_wi
 def test_with_every_module_nothing_is_said_of_installing(client) -> None:
     html = client.get("/today").text
     assert "Not installed" not in html
-    # Nine pages have a number; Goals and Repositories, past them, none.
-    every = ["today", "calendar", "projects", "nutrition", "me", "garmin", "spending"]
-    assert keys(html) == [*every, "accounts", "bills"]
+    # Nine pages have a number; Bills, Goals and Repositories, past them, none.
+    every = ["today", "calendar", "habits", "projects", "nutrition", "me", "garmin", "spending"]
+    assert keys(html) == [*every, "accounts"]
     for path in ("/spending", "/me", "/garmin", "/nutrition", "/repositories"):
         assert client.get(path).status_code == 200, path
 

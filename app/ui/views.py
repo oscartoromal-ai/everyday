@@ -32,7 +32,6 @@ from app.models import (
 )
 from app.services import events as events_svc
 from app.services import garmin as garmin_svc
-from app.services import habits as habits_svc
 from app.services import health as health_svc
 from app.services import keys as keys_svc
 from app.services import notebook as notebook_svc
@@ -40,6 +39,7 @@ from app.services import projects as projects_svc
 from app.services import rail as rail_svc
 from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
+from app.ui import habits_view
 from app.ui.agent_window_view import window_ctx
 from app.ui.calendar_view import link_host
 
@@ -562,9 +562,6 @@ def plan_page_ctx(db: Session, now: datetime) -> dict[str, Any]:
 
 
 TASK_ROW = re.compile(r"^- \[[ xX]\] ")
-# What starts a habit's row: "/habit name" when done, "/habit [ ] name" when
-# its box is unticked (the notepad saves it as a habit block).
-HABIT = "/habit"
 # A task's fields as the sheet posts them (fragments.save_task).
 TASK_FIELDS = (
     "planned_for", "due", "repeat", "project_id", "workstream_id", "status", "owner", "estimate",
@@ -596,13 +593,6 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
             # rows tabbed in.
             first, *rest = block["text"].split("\n")
             lines.append(f"/{block['kind']} {first}".rstrip(" "))
-            lines.extend(f"\t{line}" for line in rest)
-            continue
-        if block["kind"] == "habit":
-            # Its row, its box as written, its name, then its note.
-            first, *rest = block["text"].split("\n")
-            box = "" if block["done"] else "[ ] "
-            lines.append(f"{HABIT} {box}{block['slug']} {first}".rstrip(" "))
             lines.extend(f"\t{line}" for line in rest)
             continue
         start = len(lines)
@@ -637,23 +627,10 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
         "text": "\n".join(lines),
         "task_rows": task_rows,
         "projects": project_choices(db),
-        # Every habit and its days, for the habits' pane (with its last days
-        # before this one and its streak) and the names offered after "/habit ".
-        "habits": habits_ctx(db, day),
         # What a stay written here starts with: the last stay's items.
         "stay_items": notebook_svc.last_stay_items(db, day),
         "version": notebook_svc.version_of(db, day),
     }
-
-
-def habits_ctx(db: Session, day: date) -> list[dict[str, Any]]:
-    """Every habit for a day's page: its name and days, and how it comes into
-    the day (habits.standing): its last six days and its streak."""
-    standing = habits_svc.standing(db, day)
-    return [
-        {"slug": h.slug, "days": h.days, **standing.get(h.slug, {"week": [], "streak": 0})}
-        for h in habits_svc.list_habits(db)
-    ]
 
 
 def day_tasks_ctx(db: Session, day: date, today: date) -> dict[str, Any]:
@@ -771,9 +748,11 @@ def day_page_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
         "notepad": notepad_ctx(db, day),
         "day_tasks": day_tasks_ctx(db, day, now.date()),
         "glance": day_glance_ctx(db, day, now),
+        # Every habit, for the habits' pane beside the notes.
+        "habits": habits_view.pane_ctx(db, day, now.date()),
         # The habits' week, this day last: each day's initial over its column.
         "habit_week": [
-            {"letter": d.strftime("%a")[0], "name": d.strftime("%A")}
+            {"letter": d.strftime("%a")[0], "name": d.strftime("%A"), "day": d.isoformat()}
             for d in (day - timedelta(days=i) for i in range(6, -1, -1))
         ],
     }

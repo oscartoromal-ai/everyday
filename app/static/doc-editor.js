@@ -109,6 +109,8 @@
         });
         page.dispatchEvent(new CustomEvent("doc:moved", { bubbles: true, detail: answer }));
       }
+      // Heard by the page around it (a habit's half year, habits-page.js).
+      page.dispatchEvent(new CustomEvent("doc:saved", { bubbles: true, detail: answer }));
       if (!Object.keys(pending()).length) sayState("Saved");
     }).catch((err) => {
       sayState("Not saved");

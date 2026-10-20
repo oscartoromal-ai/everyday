@@ -1,5 +1,5 @@
 """The everyday files' Markdown, indexed (SPEC.md, Files first): every file
-in projects/, tasks/ and notebook/ a row of `documents` (whose it is, its
+in projects/, tasks/, notebook/ and habits/ a row of `documents` (whose it is, its
 path, its words' version, its size and time) and its words a row of
 documents_fts, SQLite's full-text index, for search; and each file's
 history, `document_revisions`, but for a task's task.md, whose words are in
@@ -11,6 +11,7 @@ Whose a file is (its owner) is read from where it is:
     tasks/<id>-<words>/<name>                     "task:<id>"
     projects/<folder>/<name>                      "project:<id>", by the folder
     notebook/<name>                               "notebook"
+    habits/<name>.md                              "habit:<id>", by its name
 
 The files are the master copy: this is their index, read again from them
 (rescan) and as the app writes them (indexed).
@@ -32,7 +33,7 @@ from typing import Any
 from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
-from app.models import DOCUMENTS_FTS, Document, DocumentRevision, Project
+from app.models import DOCUMENTS_FTS, Document, DocumentRevision, Habit, Project
 from app.services import everyday
 
 log = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ PROJECT_FILE = "project.md"
 # A task's folder: its id, then its title's words.
 TASK_FOLDER = re.compile(r"^(\d+)(?:-|$)")
 # The folders of everyday files the index reads.
-INDEXED = ("projects", "tasks", "notebook")
+INDEXED = ("projects", "tasks", "notebook", "habits")
 
 
 def actor(db: Session) -> str:
@@ -101,6 +102,14 @@ def place_of(db: Session, path: str, folders: dict[str, int] | None = None) -> P
     top = parts[0]
     if top == "notebook":
         return Place("notebook", "/".join(parts[1:]))
+    if top == "habits":
+        # A habit's file, by its name; one no habit has is not the index's
+        # (yet: settling makes it a new habit).
+        if len(parts) != 2 or not parts[1].endswith(everyday.DOC_SUFFIX):
+            return None
+        slug = parts[1].removesuffix(everyday.DOC_SUFFIX)
+        habit_id = db.scalar(select(Habit.id).where(Habit.slug == slug))
+        return None if habit_id is None else Place(f"habit:{habit_id}", parts[1])
     if top == "tasks":
         task_id = task_id_of(parts[1])
         if task_id is None or len(parts) < 3:

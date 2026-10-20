@@ -33,7 +33,7 @@
         {% endfor %}
         <th class="ds-plan" scope="col">Plan</th>
         {% for h in sheet.habits %}
-        <th class="ds-habit" scope="col" title="{{ h.slug }}">{% for part in h.slug.split("-") %}{{ part }}{% if not loop.last %}-<wbr>{% endif %}{% endfor %}</th>
+        <th class="ds-habit" scope="col"><a class="ds-habit-link" href="/habits/{{ h.slug | urlencode }}" title="{{ h.slug }}: its page, its log">{% for part in h.slug.split("-") %}{{ part }}{% if not loop.last %}-<wbr>{% endif %}{% endfor %}</a></th>
         {% endfor %}
       </tr>
     </thead>
@@ -98,6 +98,6 @@
     </tbody>
   </table>
   {% if not sheet.habits %}
-  <p class="ds-empty">A habit checked in a day's notes (<kbd>/habit</kbd> name) gets a column here.</p>
+  <p class="ds-empty">Each habit gets a column here. Start one on Today's habits pane, or on <a href="/habits">Habits</a>.</p>
   {% endif %}
 </div>

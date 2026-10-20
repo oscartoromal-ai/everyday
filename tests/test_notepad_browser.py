@@ -345,101 +345,23 @@ def test_a_reflection_is_written_in_the_notes(page, live, app_db) -> None:
     assert page.locator(".pad-editor .cm-line.pad-reflection").count() == 0
 
 
-def test_a_habit_is_checked_from_the_notes(page, live, app_db) -> None:
-    from app.models import Habit, HabitCheck
-    from app.services import habits as habits_svc
-
-    today = str(TODAY.weekday())
-    other = str((TODAY.weekday() + 1) % 7)
-    with app_db() as db:
-        habits_svc.set_days(db, "stretch", "")  # any day: due today
-        habits_svc.set_days(db, "evening-skin-care", other)  # not today
-        db.commit()
-
-    def checks() -> dict[str, tuple[bool, str]]:
-        with app_db() as db:
-            return {c.habit.slug: (c.done, c.note) for c in db.query(HabitCheck).all()}
-
-    def states() -> dict[str, str]:
-        """Each habit in the pane, by its row's state (done, skipped, open)."""
-        return dict(strip.locator(".habit-row").evaluate_all(
-            "rows => rows.map((r) => [r.dataset.habit, r.classList[1]])"))
+def test_habits_are_not_written_in_the_notes(page, live, app_db) -> None:
+    from app.models import HabitCheck
 
     page.goto(f"{live}/today")
-    # Beside the notes, the habits due today, none written yet.
-    strip = page.locator("#pad-habits")
-    assert strip.locator(".pad-habit-write").all_inner_texts() == ["stretch"]
-    assert states() == {"stretch": "open"}
-    assert strip.locator(".today-fold-summary .count").inner_text() == "0/1"
-
-    # "/" offers the commands; "/habit " the names.
+    # "/" offers the notes' own commands: a habit is not one of them.
     write_in(page)
-    page.keyboard.type("/ha")
-    page.locator(".cm-tooltip-autocomplete li", has_text="/habit").wait_for()
-    # Enter picks from what is offered once it has been on screen a moment
-    # (CodeMirror's interactionDelay: a key pressed at once still types).
-    page.wait_for_timeout(150)
-    page.keyboard.press("Enter")
-    page.locator(".cm-tooltip-autocomplete li", has_text="evening-skin-care").wait_for()
-    page.keyboard.type("morning-skin-care new serum")
-    # Past its name nothing is offered, and Ctrl+Enter goes on to a plain row.
-    assert page.locator(".cm-tooltip-autocomplete").count() == 0
-    habit = page.locator(".pad-editor .cm-line.pad-habit")
-    assert habit.first.locator(".pad-kind-name").inner_text() == "Habit"
-    assert habit.first.locator(".pad-check").get_attribute("aria-checked") == "true"
-    page.keyboard.press("Control+Enter")
-    assert page.evaluate("Notepad.text()") == "/habit morning-skin-care new serum\n"
-
-    # A name in the pane writes its row; written, it stays there, done. A
-    # habit first written in the notes joins the pane once they are saved.
-    strip.locator(".pad-habit-write", has_text="stretch").click()
-    assert page.evaluate("Notepad.text()") == "/habit morning-skin-care new serum\n/habit stretch"
-    end = time.monotonic() + 5
-    while states() != {"morning-skin-care": "done", "stretch": "done"}:
-        assert time.monotonic() < end, states()
-        time.sleep(0.1)
-    assert strip.locator(".today-fold-summary .count").inner_text() == "2/2"
-    # Today's square in its week, and its streak, say so.
-    row = strip.locator(".habit-row[data-habit=stretch]")
-    assert row.locator(".habit-week i").last.get_attribute("class") == "done"
-    assert row.locator(".habit-streak").inner_text() == "1d"
-    page.keyboard.type(" ten minutes")
-    end = time.monotonic() + 5
-    while checks() != {"morning-skin-care": (True, "new serum"), "stretch": (True, "ten minutes")}:
-        assert time.monotonic() < end, checks()
-        time.sleep(0.1)
-
-    # Unticked, it is skipped that day, and reads back so.
-    habit.first.locator(".pad-check").click()
-    assert page.evaluate("Notepad.text()").startswith("/habit [ ] morning-skin-care new serum\n")
-    end = time.monotonic() + 5
-    while checks().get("morning-skin-care") != (False, "new serum"):
-        assert time.monotonic() < end, checks()
-        time.sleep(0.1)
-    page.reload()
-    assert habit.first.locator(".pad-check").get_attribute("aria-checked") == "false"
-    assert states()["morning-skin-care"] == "skipped"
-    # Its box in the pane ticks it again, in the notes.
-    strip.locator(".habit-row[data-habit=morning-skin-care] .habit-box").click()
-    assert page.evaluate("Notepad.text()").startswith("/habit morning-skin-care new serum\n")
-    assert states()["morning-skin-care"] == "done"
-
-    # Its icon sets its days: not due today, written today, it stays.
-    habit.nth(1).locator(".prop[data-prop=days]").click()
-    page.locator(".sheet-menu [role=menuitemcheckbox]", has_text=[
-        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
-    ][int(other)]).click()
+    page.keyboard.type("/")
+    offered = page.locator(".cm-tooltip-autocomplete li")
+    offered.first.wait_for()
+    assert [t.split()[0] for t in offered.all_inner_texts()] == ["/reflection", "/stay"]
     page.keyboard.press("Escape")
-    assert habit.nth(1).locator(".prop[data-prop=days] .prop-value").inner_text() != ""
-    end = time.monotonic() + 5
-    while True:
-        with app_db() as db:
-            if db.query(Habit).filter_by(slug="stretch").one().days == other:
-                break
-        assert time.monotonic() < end
-        time.sleep(0.1)
-    assert today != other
-    assert "stretch" in states()
+    # Written anyway, "/habit" is words like any other, and ticks nothing.
+    page.keyboard.type("habit stretch")
+    saved_as(app_db, [{"kind": "text", "text": "/habit stretch"}])
+    assert page.locator(".pad-editor .cm-line.pad-habit").count() == 0
+    with app_db() as db:
+        assert db.query(HabitCheck).count() == 0
 
 
 def test_a_stay_is_written_in_the_notes(page, live, app_db) -> None:
@@ -777,11 +699,13 @@ def test_the_plan_ticks_and_moves_its_tasks(page, live, app_db) -> None:
     late.wait_for(state="hidden")
     assert page.locator(".plan-empty").is_visible()
 
-    # A habit's box in its pane writes its row, done, the caret left where it was.
-    page.locator("#pad-habits .habit-row[data-habit=stretch] .habit-box").click()
-    assert text_of(page) == "- [x] File the report\n/habit stretch"
-    stretch = page.locator("#pad-habits .habit-row[data-habit=stretch]")
-    assert stretch.get_attribute("class") == "habit-row done"
+    # A habit's box in its pane ticks it, and writes nothing in the notes.
+    with app_db() as db:
+        stretch_id = habits_svc.find(db, "stretch").id
+    stretch = page.locator(f"#pad-habits .habit-row[data-habit='{stretch_id}']")
+    stretch.locator(".habit-box").click()
+    until(lambda: "done" in stretch.get_attribute("class").split())
+    assert text_of(page) == "- [x] File the report"
     assert not page.evaluate("Notepad.view.hasFocus")
 
 

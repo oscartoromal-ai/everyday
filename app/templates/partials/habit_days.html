@@ -1,0 +1,12 @@
+{# A habit's days, the weekdays it is due: the task sheet's repeat icon and
+   its menu (task-sheet.js, data-sheet="props"), its one field announced as
+   it changes (sheet:field) for the page to write (habits.js). #}
+{% macro habit_days(days="") %}
+<form class="task-sheet pad-props habit-days" data-sheet="props" onsubmit="return false">
+  <input type="hidden" name="days" value="{{ days }}">
+  <button type="button" class="prop" data-prop="days" aria-haspopup="menu" title="Days">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 9.5V8a3 3 0 0 1 3-3h10l-2.5-2.5"/><path d="M16.5 10.5V12a3 3 0 0 1-3 3h-10l2.5 2.5"/></svg>
+    <span class="prop-value"></span>
+  </button>
+</form>
+{% endmacro %}

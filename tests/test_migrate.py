@@ -318,3 +318,43 @@ def test_a_task_id_is_never_given_twice_once_upgraded(tmp_path) -> None:
             assert tasks_svc.create_task(db, title="Newer").id == new.id + 1
     finally:
         engine.dispose()
+
+
+def test_habits_leave_the_notes_their_checks_kept(tmp_path) -> None:
+    import json
+
+    from alembic import command
+
+    path = tmp_path / "app.db"
+    command.upgrade(migrate._config(path), "9380518192ab")  # the version before
+    blocks = [
+        {"kind": "text", "text": "Slow morning."},
+        {"kind": "habit", "habit": 1, "done": True, "text": "5k"},
+        {"kind": "habit", "habit": 2, "done": False, "text": ""},
+    ]
+    with closing(sqlite3.connect(path)) as db:
+        db.executemany(
+            "INSERT INTO habits (id, slug, days, created_at) VALUES (?, ?, '', '2026-10-01')",
+            [(1, "run"), (2, "stretch")],
+        )
+        db.executemany(
+            "INSERT INTO habit_checks (habit_id, day, done, note, updated_at)"
+            " VALUES (?, '2026-10-02', ?, ?, '2026-10-02 08:00:00')",
+            [(1, True, "5k"), (2, False, "")],
+        )
+        db.execute(
+            "INSERT INTO notebook_pages (day, blocks, version, writer, writer_seq, updated_at)"
+            " VALUES ('2026-10-02', ?, 3, '', 0, '2026-10-02 08:00:00')",
+            (json.dumps(blocks),),
+        )
+        db.commit()
+    migrate.upgrade(path)
+    with closing(sqlite3.connect(path)) as db:
+        [(kept, version)] = db.execute("SELECT blocks, version FROM notebook_pages").fetchall()
+        checks = db.execute("SELECT habit_id, done, note FROM habit_checks").fetchall()
+        [sql] = db.execute("SELECT sql FROM sqlite_master WHERE name = 'habits'").fetchone()
+    # The page holds its words alone, and a window open on it is out of date.
+    assert (json.loads(kept), version) == ([{"kind": "text", "text": "Slow morning."}], 4)
+    # A check keeps its note; one not done with nothing said goes.
+    assert checks == [(1, 1, "5k")]
+    assert "AUTOINCREMENT" in sql

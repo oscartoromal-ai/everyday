@@ -1,5 +1,5 @@
 """Calendar's sheet: the days as rows (where Oscar stays, the day's plan, a
-column per habit), and what writing in it does to the day's notes and tasks."""
+column per habit), and what writing in it does to the days' notes, habits and tasks."""
 
 from datetime import date, datetime, time, timedelta
 
@@ -20,34 +20,25 @@ def row(sheet: dict, day: date) -> dict:
     return next(r for r in sheet["rows"] if r["date"] == day)
 
 
-def test_a_habit_ticked_on_the_sheet_is_written_in_the_days_notes(db) -> None:
+def test_a_habit_ticked_on_the_sheet_is_ticked_not_written_in_the_notes(client, db) -> None:
     notebook.save_page(db, MONDAY, [{"kind": "text", "text": "Slow morning."}], version=0)
-    notebook.set_habit(db, MONDAY, "exercise-run", True)
-    # As "/habit exercise-run" would: a row on the page, at its top with no
-    # habit before it, and its check.
-    assert [b["kind"] for b in notebook.get_page(db, MONDAY).blocks] == ["habit", "text"]
-    notebook.set_habit(db, MONDAY, "vitamin-d", True)
-    blocks = notebook.blocks_of(db, MONDAY)
-    assert [b.get("slug", b["kind"]) for b in blocks] == ["exercise-run", "vitamin-d", "text"]
-    assert notebook.get_page(db, MONDAY).version == 3
-
-    # One written unticked (skipped) is ticked where it is.
-    notebook.save_page(
-        db, MONDAY + timedelta(days=1),
-        [{"kind": "text", "text": "x"}, {"kind": "habit", "habit": "vitamin-d", "done": False}],
-        version=0,
-    )
-    notebook.set_habit(db, MONDAY + timedelta(days=1), "vitamin-d", True)
-    [_, habit] = notebook.get_page(db, MONDAY + timedelta(days=1)).blocks
-    assert habit["done"] is True
-
-    # Unticked, its row leaves the page and the day has nothing for it.
-    notebook.set_habit(db, MONDAY, "exercise-run", False)
-    kept = [b.get("slug", b["kind"]) for b in notebook.blocks_of(db, MONDAY)]
-    assert kept == ["vitamin-d", "text"]
-    assert {(c.habit.slug, c.day) for c in db.query(HabitCheck).all()} == {
-        ("vitamin-d", MONDAY), ("vitamin-d", MONDAY + timedelta(days=1)),
+    habit = habits_svc.create(db, "exercise-run")
+    habits_svc.set_note(db, habit, MONDAY, "Rain.")  # skipped, and why
+    db.commit()
+    url = f"/ui/day-sheet?start={MONDAY.isoformat()}"
+    tick = {"op": "habit", "day": MONDAY.isoformat(), "slug": "exercise-run", "done": True}
+    assert client.post(url, json={"ops": [tick]}).status_code == 200
+    # The notes are as they were; the day is done, its comment kept.
+    assert notebook.get_page(db, MONDAY).blocks == [{"kind": "text", "text": "Slow morning."}]
+    assert {(c.day, c.done, c.note) for c in db.query(HabitCheck).all()} == {
+        (MONDAY, True, "Rain."),
     }
+    # Unticked, the comment says why it was skipped.
+    assert client.post(url, json={"ops": [{**tick, "done": False}]}).status_code == 200
+    assert {(c.day, c.done) for c in db.query(HabitCheck).all()} == {(MONDAY, False)}
+    # A habit there is not is not one the sheet makes.
+    other = {**tick, "slug": "vitamin-d"}
+    assert client.post(url, json={"ops": [other]}).status_code == 422
 
 
 def test_a_stay_written_on_the_sheet_is_the_days_stay(db) -> None:
@@ -75,7 +66,7 @@ def test_a_stay_written_on_the_sheet_is_the_days_stay(db) -> None:
 def test_the_sheet_reads_each_days_stay_plan_and_habits(db) -> None:
     notebook.set_stay_item(db, MONDAY, "place", value="Leiden")
     notebook.set_stay_item(db, MONDAY, "accommodation", value="Canal house", done=True)
-    notebook.set_habit(db, MONDAY, "exercise-run", True)
+    habits_svc.set_done(db, habits_svc.create(db, "exercise-run"), MONDAY, True)
     planned = tasks_svc.create_task(db, title="Book driving test", planned_for=MONDAY)
     tasks_svc.create_task(db, title="Do taxes", planned_for=MONDAY, status=TaskStatus.done)
     tasks_svc.create_task(db, title="File it", due=MONDAY)
@@ -141,6 +132,7 @@ def test_the_sheet_opens_on_last_weeks_monday(client) -> None:
 
 def test_writing_in_the_sheet(client, db) -> None:
     task = tasks_svc.create_task(db, title="Send documents", planned_for=MONDAY)
+    habits_svc.create(db, "morning-run")
     ops = [
         {"op": "stay", "day": MONDAY.isoformat(), "name": "place", "value": "Leiden"},
         {"op": "stay", "day": MONDAY.isoformat(), "name": "accommodation", "done": True},
@@ -156,7 +148,10 @@ def test_writing_in_the_sheet(client, db) -> None:
     assert 'data-name="place" data-value="Leiden"' in answer.text
     assert 'data-name="accommodation" data-done="true"' in answer.text
     assert answer.text.count('data-slug="morning-run" data-state="done"') == 2
-    assert [b.get("slug") for b in notebook.blocks_of(db, MONDAY)] == ["morning-run", None]
+    assert [b["kind"] for b in notebook.blocks_of(db, MONDAY)] == ["stay"]
+    assert {(c.habit.slug, c.day) for c in db.query(HabitCheck).all()} == {
+        ("morning-run", MONDAY), ("morning-run", TUESDAY),
+    }
     assert db.query(Task).filter_by(title="Book driving test").one().planned_for == MONDAY
     assert db.query(Task).count() == 2
     assert tasks_svc.get_task(db, task.id).status == TaskStatus.in_progress

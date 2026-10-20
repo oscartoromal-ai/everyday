@@ -197,7 +197,7 @@ def test_a_tasks_status_is_chosen_from_its_menu(page, live, app_db) -> None:
 def test_a_habits_days_are_painted_with_a_drag(page, live, app_db) -> None:
     with app_db() as db:
         habits_svc.set_days(db, "morning-run", "")
-        notebook.set_habit(db, START, "morning-run", True)
+        habits_svc.set_done(db, habits_svc.find(db, "morning-run"), START, True)
         db.commit()
     open_sheet(page, live)
     first = cell(page, START + timedelta(days=1), '[data-slug="morning-run"]').bounding_box()
@@ -259,7 +259,7 @@ def test_cells_are_copied_and_pasted_as_a_spreadsheets(page, live, app_db) -> No
         tasks_svc.create_task(db, title="Pay rent", planned_for=monday)
         tasks_svc.create_task(db, title='Call "mum"', planned_for=monday)
         habits_svc.set_days(db, "morning-run", "")
-        notebook.set_habit(db, monday, "morning-run", True)
+        habits_svc.set_done(db, habits_svc.find(db, "morning-run"), monday, True)
         db.commit()
     page.context.grant_permissions(["clipboard-read", "clipboard-write"], origin=live)
     open_sheet(page, live)

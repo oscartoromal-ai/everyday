@@ -110,14 +110,14 @@ def test_a_second_account_added_then_disconnected(page, live, app_db, github, cl
 
 
 def test_reached_by_its_key_and_the_command_menu(page, live, app_db, github) -> None:
-    # Finances hidden, Repositories is the seventh module showing.
+    # Finances hidden, Repositories is the eighth module showing.
     with app_db() as db:
         rail_svc.save_layout(
             db, sections=[], modules={}, hidden=["spending", "accounts", "bills", "goals"]
         )
         db.commit()
     page.goto(f"{live}/today")
-    page.keyboard.press("Alt+7")
+    page.keyboard.press("Alt+8")
     page.wait_for_url(f"{live}/repositories")
     assert page.get_by_role("link", name="Repositories").get_attribute("aria-current") == "page"
 

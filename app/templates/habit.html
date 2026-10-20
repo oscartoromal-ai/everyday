@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "partials/md_modes.html" import md_modes %}
+{% from "partials/habit_days.html" import habit_days %}
+{% block title %}{{ habit.slug }} · Habits · Personal Calendar{% endblock %}
+{% block content %}
+{# A habit's own page: back to the Habits, whether it is saved and the
+   Markdown's modes at the header's right; its name as the heading, written
+   in place (its bin at the right); its days, since when it is kept and its
+   file; its half year; then its file's words, what it is and its log (a
+   comment a day, the newest first), drawn as they read while they are
+   written and saved as they are written (doc-editor.js). Its file,
+   habits/<name>.md, is the master copy: a save names the version it was
+   written over, and one the file has moved on from asks which to keep. #}
+<div class="doc-page habit-page" data-save-url="/ui/habits/{{ habit.id }}/file" data-path="{{ habit.slug }}" data-version="{{ version }}" data-habit="{{ habit.id }}">
+  <header class="task-page-header">
+    <a class="page-back" href="/habits">Habits</a>
+    <div class="page-header-end">
+      <span class="task-page-state" data-page-state role="status" aria-live="polite"></span>
+      {{ md_modes() }}
+    </div>
+  </header>
+  <div class="doc-title">
+    <h1><input class="doc-name" data-doc-name value="{{ habit.slug }}" aria-label="Habit's name" autocomplete="off" spellcheck="false" maxlength="80"></h1>
+    <button type="button" class="task-delete" title="Delete this habit" aria-label="Delete {{ habit.slug }}"
+            hx-post="/ui/habits/{{ habit.id }}/delete" data-follows-path
+            hx-confirm="Delete habit?"
+            data-confirm-title="Delete habit?"
+            data-confirm-name="{{ habit.slug }}"
+            data-confirm-detail="will be deleted, with every day it was ticked. Its file goes to the trash."
+            data-confirm-action="Delete">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>
+    </button>
+  </div>
+  <div class="rest doc-rest habit-rest">{{ habit_days(habit.days) }}<span>· since {{ since }}</span><span>· <span class="doc-file" data-habit-file>{{ file }}</span></span></div>
+  <div class="pad-stale doc-stale" data-doc-stale role="alert" hidden>
+    <span>This habit's file was changed elsewhere.</span>
+    <button type="button" class="btn quiet" data-doc-reload>Show that version</button>
+    <button type="button" class="btn quiet" data-doc-keep>Keep mine</button>
+  </div>
+  {% include "partials/habit_year.html" %}
+  <div class="doc-body notes-editor" data-doc-editor>
+    <textarea class="doc-source" data-doc-body aria-label="{{ habit.slug }}: what it is, and its log" data-placeholder="What it is, why, how." hidden>{{ body }}</textarea>
+  </div>
+</div>
+<script src="{{ asset('doc-editor.js') }}" defer></script>
+<script src="{{ asset('habits-page.js') }}" defer></script>
+{% endblock %}

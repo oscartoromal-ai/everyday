@@ -33,12 +33,15 @@ TABLES = {
     "task_revisions": "Every change to a task, the task as it stood after it, and who "
     "made it (oscar, claude, agent, system, or file).",
     "notebook_pages": "A day's page: its blocks (the day's file read in), version.",
-    "habits": "A habit: its name (as `/habit name` writes it) and its days.",
-    "habit_checks": "A habit on a day: done or skipped, with its note.",
+    "habits": "A habit: its name (its file's, habits/<name>.md), its days (the weekdays "
+    "it is due, Monday 0 to Sunday 6; empty for any day), what it is (`notes`: its "
+    "file's words above its log).",
+    "habit_checks": "A habit on a day: done (ticked), or skipped (not ticked, with a "
+    "comment); its note is the day's comment, its file's log entry.",
     "events": "A calendar event: title, start, end, source (local, work).",
     "recurrence_templates": "A repeating task's or event's rule.",
     "documents": "Every Markdown file here, as the app last read it: whose it is "
-    "(`owner`: task:12, project:3, notebook), its path, its version.",
+    "(`owner`: task:12, project:3, notebook, habit:4), its path, its version.",
     "documents_fts": "Their words, for full-text search (SQLite FTS5): "
     "`SELECT d.path FROM documents_fts f JOIN documents d ON d.id = f.rowid "
     "WHERE documents_fts MATCH 'word*'`.",
@@ -87,7 +90,8 @@ What the app keeps track of (a task's status, dates, owner, project; events, hab
       <files>.md, <folders>/      its other files: plans, research, notes
   tasks/<id>-<title>/             a task in no project, as above
   notebook/<year>/<day>.md        a day's notes
-  repos/                          each repository's main clone
+  habits/<name>.md                a habit: front matter (the app's), what it is, then ## Log
+  repos/                         each repository's main clone
   work/                           the folders agent runs work in
   .trash/                         the folders of tasks deleted
 ```
@@ -103,7 +107,12 @@ Find a task by its id: `{root.as_posix()}/projects/*/tasks/12-*` or `{root.as_po
   The description, acceptance and outcome are the file's: write them here and the task has them.
 - **A new task**: make a folder in a project's `tasks/` (or the top `tasks/`) holding a task.md, its front matter at least a `title`; the app makes it a task (its folder then takes its id).
 - **project.md**: front matter the app's (id, name, status, workstreams, repos), then the project's about, the file's.
-- **notebook/<year>/<day>.md**: the day's notes as Oscar writes them in the app: rows; `- [ ] ` rows are tasks, their tabbed rows under them their description, a task's row ending in `<!-- task:<id> -->` (the task it made); `/reflection` a reflection, `/habit name` a habit done that day (`/habit [ ] name`: skipped), `/stay` where he stays, its tabbed `- [ ] name: value` items; their other rows tabbed in.
+- **notebook/<year>/<day>.md**: the day's notes as Oscar writes them in the app: rows; `- [ ] ` rows are tasks, their tabbed rows under them their description, a task's row ending in `<!-- task:<id> -->` (the task it made); `/reflection` a reflection, `/stay` where he stays, its tabbed `- [ ] name: value` items; their other rows tabbed in.
+- **habits/<name>.md**: a habit, named by its file (lower case, hyphens: `morning-skin-care.md`).
+  Its front matter is the app's (id, name, days, since): an edit there is put back.
+  Then what the habit is, why and how, then `## Log`: a comment a day, the newest first, `- 2026-10-20: words`, its other lines indented under it.
+  Whether a day was done is the database's (`habit_checks`), ticked in the app; a comment on a day not ticked says why it was skipped.
+  The words are the file's: write them here and the habit has them; a new file here, its name a habit's, is a new habit.
 - **AGENTS.md and the other documents**: Markdown, as written.
 
 ## Changing what the files only show

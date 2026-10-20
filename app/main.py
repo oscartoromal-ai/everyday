@@ -24,6 +24,7 @@ from app.ui import agent_window as ui_agent_window
 from app.ui import fragments as ui_fragments
 from app.ui import gantt as ui_gantt
 from app.ui import garmin as ui_garmin
+from app.ui import habits as ui_habits
 from app.ui import keys as ui_keys
 from app.ui import me as ui_me
 from app.ui import models as ui_models
@@ -99,6 +100,7 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     app.include_router(ui_fragments.router, dependencies=ui)
     app.include_router(ui_gantt.router, dependencies=ui)
     app.include_router(ui_project.router, dependencies=ui)
+    app.include_router(ui_habits.router, dependencies=ui)
     app.include_router(ui_task_run.router, dependencies=ui)
     app.include_router(ui_task_files.router, dependencies=ui)
     app.include_router(ui_models.router, dependencies=ui)

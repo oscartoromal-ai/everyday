@@ -183,6 +183,8 @@ def test_keys_that_work_anywhere(page, live, tasks) -> None:
     press(page, "Alt+1")
     page.wait_for_url("**/today")
     press(page, "Alt+3")
+    page.wait_for_url("**/habits")
+    press(page, "Alt+4")
     page.wait_for_url("**/projects")
 
 

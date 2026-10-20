@@ -49,15 +49,16 @@ INSTRUCTIONS = (
     "there; beside it, the task's other files (files), its plans, research and notes, "
     "which you may read and write. Change a task's fields with the tools, not its "
     "front matter. search finds words in every file: projects' documents, tasks' "
-    "files, days' notes. "
+    "files, days' notes, habits' files. "
     "Working on a task, report on it with report_task (how far it got, a note, the "
     "outcome, its pull requests): never as far as done, which its pull requests "
     "merging, or Oscar, says. "
     "Each day has a notebook page Oscar writes in: prose, the tasks he wrote there "
-    "(as they stand now), reflections, the habits he checked that day, and where he "
-    "stays (a stay: its items, such as place and accommodation, each sorted or not); "
-    "read it for context with get_notebook. How consistent he is with each habit: "
-    "get_habits."
+    "(as they stand now), reflections, and where he stays (a stay: its items, such as "
+    "place and accommodation, each sorted or not); read it for context with "
+    "get_notebook, which adds the habits he ticked that day. How consistent he is "
+    "with each habit, and his comments on them: get_habits; each habit's file "
+    "(habits/<name>.md) says what it is and holds its log of comments."
 )
 # What each optional module adds to the instructions, in this order.
 MODULE_INSTRUCTIONS = {
@@ -310,13 +311,11 @@ def get_agenda(start: date | None = None, days: int = 1) -> dict[str, Any]:
 
 def _notebook_payload(db, day: date, *, brief: bool = False) -> list[dict[str, Any]]:  # noqa: ANN001
     """A day's notebook page as blocks: prose and reflections as written, and
-    each task as it stands now (brief: its id, title and status only)."""
+    each task as it stands now (brief: its id, title and status only); then
+    the habits ticked that day, or skipped with a comment."""
     out: list[dict[str, Any]] = []
     for block in notebook_svc.blocks_of(db, day):
-        if block["kind"] == "habit":
-            out.append({"kind": "habit", "habit": block["slug"], "done": block["done"],
-                        "note": block["text"].strip()})
-        elif block["kind"] == "stay":
+        if block["kind"] == "stay":
             # Where he stays that day: each item (place, accommodation...), sorted or not.
             out.append({"kind": "stay", "text": block["text"],
                         "items": notebook_svc.stay_items(block["text"])})
@@ -331,6 +330,11 @@ def _notebook_payload(db, day: date, *, brief: bool = False) -> list[dict[str, A
                         "status": task.status})
         else:
             out.append({"kind": "task", "task": task_out(block["task"]).model_dump()})
+    for row in habits_svc.grid(db, day, 1):
+        check = row["checks"][0]
+        if check["state"] in ("done", "skipped"):
+            out.append({"kind": "habit", "habit": row["slug"], "done": check["state"] == "done",
+                        "note": check["note"]})
     return out
 
 
@@ -338,7 +342,9 @@ def _notebook_payload(db, day: date, *, brief: bool = False) -> list[dict[str, A
 def get_notebook(start: date | None = None, days: int = 1) -> dict[str, Any]:
     """Oscar's notebook pages for `days` days from `start` (default today), in
     the order he wrote them: prose ("text"), tasks written there ("task", as
-    they stand now; a deleted one keeps its last title) and reflections.
+    they stand now; a deleted one keeps its last title), reflections and
+    where he stays; then the habits he ticked that day ("habit", done, or
+    not done with a comment saying why: skipped).
     Read-only: the notebook is Oscar's own writing."""
     with session_scope("claude") as db:
         first = start or date.today()
@@ -351,11 +357,12 @@ def get_notebook(start: date | None = None, days: int = 1) -> dict[str, Any]:
 @tool
 def get_habits(start: date | None = None, days: int = 14) -> list[dict[str, Any]]:
     """Oscar's habits over `days` days from `start` (default: the 14 days up to
-    today), day by day: "done", "skipped" (written, its box unticked),
-    "missed" (one of its days, not written, the day past) or null (not due,
-    or today still open), with his note. A habit's `days` are the weekdays it
-    is due, Monday 0 to Sunday 6, or "" for any day (never missed).
-    Read-only: habits are checked in his notes."""
+    today), day by day: "done", "skipped" (not ticked, with a comment why),
+    "missed" (one of its days, not ticked, the day past) or null (not due,
+    or today still open), with his comment that day. A habit's `days` are
+    the weekdays it is due, Monday 0 to Sunday 6, or "" for any day (never
+    missed). Read-only: Oscar ticks his habits himself, in the app; what each
+    is and its comments are its file, habits/<name>.md."""
     with session_scope("claude") as db:
         first = start or date.today() - timedelta(days=days - 1)
         return [
@@ -493,10 +500,10 @@ def get_task_history(task_id: int) -> list[dict[str, Any]]:
 def search(query: str, limit: int = 20) -> list[dict[str, Any]]:
     """Find words in the everyday files' Markdown: projects' documents
     (project.md, AGENTS.md and the rest), tasks' task.md and other files,
-    and days' notes. Every word of `query` must be there, each matching a
-    word's start; the best matches first, each its path from the everyday
-    files' folder, whose it is ("task:12", "project:3", "notebook"), its
-    path there, its title and a snippet around what matched."""
+    days' notes and habits' files. Every word of `query` must be there, each
+    matching a word's start; the best matches first, each its path from the
+    everyday files' folder, whose it is ("task:12", "project:3", "notebook",
+    "habit:4"), its path there, its title and a snippet around what matched."""
     with session_scope("claude") as db:
         return documents_svc.search(db, query, limit=max(1, min(limit, 50)))
 

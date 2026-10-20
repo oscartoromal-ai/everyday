@@ -7,6 +7,7 @@ C:\\everyday-files unless Setup chose another ([everyday_files] dir).
                  documents, and tasks/, a folder for each of its tasks
     tasks/       a folder for each task in no project (app.services.task_files)
     notebook/    a day's notes a file: notebook/<year>/<day>.md
+    habits/      a habit a file: habits/<name>.md, what it is and its log
     work/        the folders runs work in
     .trash/      the folders of tasks deleted
 
@@ -69,13 +70,19 @@ def notebook_dir() -> Path:
     return root() / "notebook"
 
 
+def habits_dir() -> Path:
+    return root() / "habits"
+
+
 def trash_dir() -> Path:
     return root() / ".trash"
 
 
 def ensure() -> None:
     """The folders, made where missing."""
-    for folder in (repos_dir(), projects_dir(), tasks_dir(), notebook_dir(), work_dir()):
+    for folder in (
+        repos_dir(), projects_dir(), tasks_dir(), notebook_dir(), habits_dir(), work_dir()
+    ):
         folder.mkdir(parents=True, exist_ok=True)
 
 
