@@ -53,15 +53,15 @@ def test_an_event_found_opens_its_card(page, live, app_db) -> None:
     start = datetime.combine(TODAY + timedelta(days=2), time(11, 30))
     with app_db() as db:
         db.add(Event(
-            title="Design review - Huddle", start=start, end=start + timedelta(hours=1),
+            title="Design review - Roadmap", start=start, end=start + timedelta(hours=1),
             source=EventSource.work, read_only=True, external_id="h",
             location="https://example.zoom.us/j/1",
         ))
         db.commit()
     page.goto(f"{live}/today")
-    menu(page, "huddle")
-    page.locator(".command-item", has_text="Design review - Huddle").click()
-    page.locator(".event-card", has_text="Design review - Huddle").wait_for()
+    menu(page, "roadmap")
+    page.locator(".command-item", has_text="Design review - Roadmap").click()
+    page.locator(".event-card", has_text="Design review - Roadmap").wait_for()
     # The card is opened once: the address no longer asks for it.
     assert "event=" not in page.url
 

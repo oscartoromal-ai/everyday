@@ -51,10 +51,10 @@ def test_items_starting_together_sit_side_by_side_and_later_ones_lie_over(db) ->
 
 
 def test_an_item_laid_over_another_stops_the_words_under_it(db) -> None:
-    work(db, "Post Gate Team Alignment - what happened - commentary update", at(13), at(15))
-    work(db, "OPTIMETRSIT", at(14, 30), at(15))
+    work(db, "Quarterly planning review - what happened - follow-up notes", at(13), at(15))
+    work(db, "Standup", at(14, 30), at(15))
     alone = grid_ctx(db, DAY, at(8), day_count=1)["days"][0]["entries"]
-    under = next(i for i in alone if i["title"].startswith("Post Gate"))
+    under = next(i for i in alone if i["title"].startswith("Quarterly planning"))
     # 90 minutes (72px) above the item laid over it: three lines and the time,
     # not the six lines its whole two hours would take.
     assert under["covered_from"] == at(14, 30)
@@ -64,10 +64,10 @@ def test_an_item_laid_over_another_stops_the_words_under_it(db) -> None:
 def test_a_short_meeting_lays_out_as_tall_as_it_is_drawn(db) -> None:
     # Five minutes, drawn 20px (25 minutes) tall: the 12:15 meeting would
     # land on its title, so the two sit side by side instead.
-    work(db, "KPI Refreshes", at(12), at(12, 5))
-    work(db, "New Business Case", at(12, 15), at(12, 45))
+    work(db, "Metrics sync", at(12), at(12, 5))
+    work(db, "Budget review", at(12, 15), at(12, 45))
     items = items_of(db)
-    assert items["KPI Refreshes"]["lanes"] == items["New Business Case"]["lanes"] == 2
+    assert items["Metrics sync"]["lanes"] == items["Budget review"]["lanes"] == 2
 
 
 def test_a_cancelled_meeting_shows_struck_and_takes_no_time(db) -> None:
@@ -136,13 +136,13 @@ def test_a_view_switch_keeps_today_in_view(client) -> None:
 
 
 def test_a_work_meetings_card_reads_and_joins(client, db) -> None:
-    event = work(db, "Design review - Huddle", at(11, 30), at(12, 30))
-    event.location = "https://breville.zoom.us/j/96951788104?from=addon"
+    event = work(db, "Design review - Roadmap", at(11, 30), at(12, 30))
+    event.location = "https://example.zoom.us/j/123456789?from=addon"
     db.flush()
     card = client.get(f"/ui/events/{event.id}/card").text
-    assert "Design review - Huddle" in card
+    assert "Design review - Roadmap" in card
     assert "11:30–12:30" in card
-    assert 'href="https://breville.zoom.us/j/96951788104?from=addon"' in card
+    assert 'href="https://example.zoom.us/j/123456789?from=addon"' in card
     assert "Join on zoom.us" in card
     assert "read-only" in card and "<form" not in card
     # Nothing it changes reaches a work meeting.

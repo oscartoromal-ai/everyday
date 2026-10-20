@@ -68,22 +68,22 @@ def test_a_series_shows_once_at_its_next_meeting(db) -> None:
     for days in (-7, 3, 10):
         start = NOW + timedelta(days=days)
         db.add(Event(
-            title="Design review - Huddle", start=start, end=start + timedelta(hours=1),
+            title="Design review - Roadmap", start=start, end=start + timedelta(hours=1),
             source=EventSource.work, read_only=True, external_id=f"h{days}",
         ))
     db.add(Event(
-        title="Canceled: Huddle retro", start=NOW, end=NOW + timedelta(hours=1),
+        title="Canceled: Roadmap retro", start=NOW, end=NOW + timedelta(hours=1),
         source=EventSource.work, read_only=True, external_id="r",
     ))
     db.flush()
-    events = search_svc.search(db, "huddle", NOW)["events"]
-    huddle = next(e for e in events if e["title"] == "Design review - Huddle")
-    assert huddle["day"] == (TODAY + timedelta(days=3)).isoformat()
-    assert len([e for e in events if e["title"] == "Design review - Huddle"]) == 1
-    retro = next(e for e in events if e["title"] == "Huddle retro")
+    events = search_svc.search(db, "roadmap", NOW)["events"]
+    review = next(e for e in events if e["title"] == "Design review - Roadmap")
+    assert review["day"] == (TODAY + timedelta(days=3)).isoformat()
+    assert len([e for e in events if e["title"] == "Design review - Roadmap"]) == 1
+    retro = next(e for e in events if e["title"] == "Roadmap retro")
     assert retro["cancelled"]
     # Its day as words, the month in capitals ("Mon 5 Oct", never "Mon 5 oct").
-    assert huddle["when"][:1].isupper() and huddle["when"].endswith(f", {NOW:%H:%M}")
+    assert review["when"][:1].isupper() and review["when"].endswith(f", {NOW:%H:%M}")
 
 
 def test_notes_by_their_words_without_their_marks(db) -> None:
