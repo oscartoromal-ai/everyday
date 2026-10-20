@@ -81,7 +81,7 @@ Uninstalling it (Installed apps) removes the program and its sign-in entry and k
 
 ### Another machine
 
-The latest release's `Personal-Calendar-Setup.exe` is the whole app: download it on another Windows 10 or 11 machine (`gh release download --repo oscartoromal-ai/everyday-app --pattern "*Setup.exe"`, or from the repo's Releases on GitHub) and run it, with nothing else to install (WebView2 comes with Windows).
+The latest release's `Personal-Calendar-Setup.exe` is the whole app: download it on another Windows 10 or 11 machine (`gh release download --repo oscartoromal-ai/everyday --pattern "*Setup.exe"`, or from the repo's Releases on GitHub) and run it, with nothing else to install (WebView2 comes with Windows).
 Windows warns about it first, since it is not signed (More info, then Run anyway).
 For work, untick Finances (or Health) on Setup's Modules page.
 That machine starts with an empty database of its own, and updates as every install does, once it can read the repo's releases: open Settings, where Check for updates takes a token, unless `gh` is signed in there.
