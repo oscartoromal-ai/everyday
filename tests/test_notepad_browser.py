@@ -360,10 +360,17 @@ def test_a_habit_is_checked_from_the_notes(page, live, app_db) -> None:
         with app_db() as db:
             return {c.habit.slug: (c.done, c.note) for c in db.query(HabitCheck).all()}
 
+    def states() -> dict[str, str]:
+        """Each habit in the pane, by its row's state (done, skipped, open)."""
+        return dict(strip.locator(".habit-row").evaluate_all(
+            "rows => rows.map((r) => [r.dataset.habit, r.classList[1]])"))
+
     page.goto(f"{live}/today")
-    # Under the notes, the habits due today not yet written.
+    # Beside the notes, the habits due today, none written yet.
     strip = page.locator("#pad-habits")
     assert strip.locator(".pad-habit-write").all_inner_texts() == ["stretch"]
+    assert states() == {"stretch": "open"}
+    assert strip.locator(".today-fold-summary .count").inner_text() == "0/1"
 
     # "/" offers the commands; "/habit " the names.
     write_in(page)
@@ -383,10 +390,19 @@ def test_a_habit_is_checked_from_the_notes(page, live, app_db) -> None:
     page.keyboard.press("Control+Enter")
     assert page.evaluate("Notepad.text()") == "/habit morning-skin-care new serum\n"
 
-    # A name in the strip writes its row.
+    # A name in the pane writes its row; written, it stays there, done. A
+    # habit first written in the notes joins the pane once they are saved.
     strip.locator(".pad-habit-write", has_text="stretch").click()
     assert page.evaluate("Notepad.text()") == "/habit morning-skin-care new serum\n/habit stretch"
-    assert strip.is_hidden()
+    end = time.monotonic() + 5
+    while states() != {"morning-skin-care": "done", "stretch": "done"}:
+        assert time.monotonic() < end, states()
+        time.sleep(0.1)
+    assert strip.locator(".today-fold-summary .count").inner_text() == "2/2"
+    # Today's square in its week, and its streak, say so.
+    row = strip.locator(".habit-row[data-habit=stretch]")
+    assert row.locator(".habit-week i").last.get_attribute("class") == "done"
+    assert row.locator(".habit-streak").inner_text() == "1d"
     page.keyboard.type(" ten minutes")
     end = time.monotonic() + 5
     while checks() != {"morning-skin-care": (True, "new serum"), "stretch": (True, "ten minutes")}:
@@ -402,8 +418,13 @@ def test_a_habit_is_checked_from_the_notes(page, live, app_db) -> None:
         time.sleep(0.1)
     page.reload()
     assert habit.first.locator(".pad-check").get_attribute("aria-checked") == "false"
+    assert states()["morning-skin-care"] == "skipped"
+    # Its box in the pane ticks it again, in the notes.
+    strip.locator(".habit-row[data-habit=morning-skin-care] .habit-box").click()
+    assert page.evaluate("Notepad.text()").startswith("/habit morning-skin-care new serum\n")
+    assert states()["morning-skin-care"] == "done"
 
-    # Its icon sets its days: not due today, it leaves the strip.
+    # Its icon sets its days: not due today, written today, it stays.
     habit.nth(1).locator(".prop[data-prop=days]").click()
     page.locator(".sheet-menu [role=menuitemcheckbox]", has_text=[
         "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
@@ -418,6 +439,7 @@ def test_a_habit_is_checked_from_the_notes(page, live, app_db) -> None:
         assert time.monotonic() < end
         time.sleep(0.1)
     assert today != other
+    assert "stretch" in states()
 
 
 def test_a_stay_is_written_in_the_notes(page, live, app_db) -> None:
@@ -630,9 +652,12 @@ def test_tasks_still_open_yesterday_are_brought_to_today(page, live, app_db) -> 
             return tuple(db.get(Task, i).planned_for for i in ids)
 
     page.goto(f"{live}/today")
-    # Under the notes: yesterday's open tasks, the done one left behind.
-    strip = page.locator("#pad-carry")
-    assert folded_to(strip) == ("For today", "2")
+    # In the plan, carried over: yesterday's open tasks, the done one left
+    # behind, each saying since when.
+    strip = page.locator("#pad-late")
+    assert folded_to(strip) == ("Carried over", "2")
+    assert page.locator("#pad-carry").is_hidden()
+    assert strip.locator(".plan-since").all_inner_texts() == ["from yesterday", "from yesterday"]
     assert strip.locator(".pad-carry-write").all_inner_texts() == ["Call the bank", "Pay rent"]
 
     # A title writes its rows, its title row the same task, its do-date today.
@@ -640,7 +665,7 @@ def test_tasks_still_open_yesterday_are_brought_to_today(page, live, app_db) -> 
     bank_rows = "- [ ] Call the bank\n\t- [ ] ask about fees\n\t- [x] find the card"
     assert text_of(page) == bank_rows
     assert strip.locator(".pad-carry-write").all_inner_texts() == ["Pay rent"]
-    assert strip.locator(".pad-carry-all").is_hidden()  # one left: its title is enough
+    assert page.locator(".pad-carry-all").is_hidden()  # one left: its title is enough
     saved_as(app_db, [{"kind": "text", "text": bank_rows, "links": {"0": ids[0]}}])
     end = time.monotonic() + 5
     while planned()[0] != TODAY:
@@ -656,7 +681,7 @@ def test_tasks_still_open_yesterday_are_brought_to_today(page, live, app_db) -> 
     page.keyboard.press("Control+z")
     assert text_of(page) == ""
     assert strip.locator(".pad-carry-write").all_inner_texts() == ["Call the bank", "Pay rent"]
-    strip.locator(".pad-carry-all").click()
+    page.locator(".pad-carry-all").click()
     assert text_of(page) == bank_rows + "\n- [ ] Pay rent"
     assert strip.is_hidden()
     saved_as(app_db, [{
@@ -682,6 +707,82 @@ def test_tasks_still_open_yesterday_are_brought_to_today(page, live, app_db) -> 
     # Only today's page offers them.
     page.goto(f"{live}/day/{TODAY + timedelta(days=1)}")
     assert strip.is_hidden()
+
+
+def test_the_plan_ticks_and_moves_its_tasks(page, live, app_db) -> None:
+    from datetime import timedelta
+
+    from app.models import Task, TaskStatus
+    from app.services import habits as habits_svc
+    from app.services import tasks as tasks_svc
+
+    yesterday = TODAY - timedelta(days=1)
+    with app_db() as db:
+        report = tasks_svc.create_task(db, title="File the report", due=TODAY)
+        bank = tasks_svc.create_task(db, title="Call the bank", planned_for=yesterday)
+        rent = tasks_svc.create_task(db, title="Pay rent", planned_for=TODAY - timedelta(days=3))
+        habits_svc.set_days(db, "stretch", "")
+        db.commit()
+        ids = {"report": report.id, "bank": bank.id, "rent": rent.id}
+
+    def task(name: str) -> tuple:
+        with app_db() as db:
+            t = db.get(Task, ids[name])
+            return t.status, t.planned_for
+
+    def until(check, timeout: float = 5) -> None:  # noqa: ANN001
+        end = time.monotonic() + timeout
+        while not check():
+            assert time.monotonic() < end
+            time.sleep(0.1)
+
+    page.set_viewport_size({"width": 1600, "height": 900})
+    page.goto(f"{live}/today")
+    today, late = page.locator("#pad-carry"), page.locator("#pad-late")
+
+    def carried() -> list[str]:
+        return sorted(late.locator(".pad-carry-title").all_inner_texts())
+
+    # For today, what is meant for it; carried over, what was meant before.
+    assert today.locator(".pad-carry-title").all_inner_texts() == ["File the report"]
+    assert carried() == ["Call the bank", "Pay rent"]
+    assert page.locator(".plan-empty").is_hidden()
+
+    # Its box: written in the notes, ticked, and the task done.
+    today.locator(".plan-tick").click()
+    assert text_of(page) == "- [x] File the report"
+    until(lambda: task("report")[0] == TaskStatus.done)
+    assert today.is_hidden()
+
+    # Its calendar moves it to another day: off the plan, Undo puts it back.
+    row = late.locator(".plan-item", has_text="Call the bank")
+    row.hover()
+    row.locator(".plan-move").click()
+    page.locator(".plan-move-menu [role=menuitemradio]", has_text="Tomorrow").click()
+    until(lambda: task("bank")[1] == TODAY + timedelta(days=1))
+    # The plan redrawn once the move is answered, a moment after it is saved.
+    until(lambda: carried() == ["Pay rent"])
+    toast = page.locator(".cal-toast.show", has_text="Moved “Call the bank” to tomorrow.")
+    toast.locator(".toast-action").click()
+    until(lambda: task("bank")[1] == yesterday)
+    until(lambda: carried() == ["Call the bank", "Pay rent"])
+
+    # Reschedule moves every one carried over, from the keyboard too.
+    late.locator(".plan-move-all").focus()
+    page.keyboard.press("Enter")
+    page.locator(".plan-move-menu").wait_for()
+    page.keyboard.press("End")
+    page.keyboard.press("Enter")  # No date
+    until(lambda: task("bank")[1] is None and task("rent")[1] is None)
+    late.wait_for(state="hidden")
+    assert page.locator(".plan-empty").is_visible()
+
+    # A habit's box in its pane writes its row, done, the caret left where it was.
+    page.locator("#pad-habits .habit-row[data-habit=stretch] .habit-box").click()
+    assert text_of(page) == "- [x] File the report\n/habit stretch"
+    stretch = page.locator("#pad-habits .habit-row[data-habit=stretch]")
+    assert stretch.get_attribute("class") == "habit-row done"
+    assert not page.evaluate("Notepad.view.hasFocus")
 
 
 def test_tab_stays_in_the_notes_a_step_into_or_out_of_a_task(page, live) -> None:
@@ -906,11 +1007,13 @@ def test_a_row_deleted_from_inside_a_task_leaves_the_rest_inside(page, live) -> 
     assert page.locator(".pad-editor .cm-line.pad-title").count() == 1
 
 
-def test_compact_rows_and_a_folded_timeline_are_kept(page, live) -> None:
+def test_compact_rows_and_folded_panes_are_kept(page, live) -> None:
     def row_height() -> float:
         first = page.locator(".pad-editor .cm-line").first
         return first.evaluate("e => e.getBoundingClientRect().height")
 
+    # Wide enough for the plan, the notes and the timeline side by side.
+    page.set_viewport_size({"width": 1600, "height": 900})
     page.goto(f"{live}/today")
     assert row_height() == 36
     # C, outside the text: compact rows, remembered; the text keeps its size.
@@ -928,13 +1031,23 @@ def test_compact_rows_and_a_folded_timeline_are_kept(page, live) -> None:
     page.keyboard.type("c")
     assert text_of(page) == "c"
     assert row_height() == 28
+    # Alt+P, in the notes too: the plan and the habits fold away as well.
+    width = page.locator(".notepad-card").evaluate("e => e.getBoundingClientRect().width")
+    page.keyboard.press("Alt+p")
+    assert page.locator(".today-side").is_hidden()
+    assert page.locator(".notepad-card").evaluate("e => e.getBoundingClientRect().width") > width
+    assert page.locator(".plan-toggle").get_attribute("aria-pressed") == "true"
+    assert text_of(page) == "c"
 
     page.reload()
     assert row_height() == 28
     assert page.locator(".today-timeline").is_hidden()
+    assert page.locator(".today-side").is_hidden()
     page.locator(".timeline-toggle").click()
+    page.locator(".plan-toggle").click()
     page.locator(".density-toggle").click()
     assert page.locator(".today-timeline").is_visible()
+    assert page.locator(".today-side").is_visible()
     assert row_height() == 36
 
 

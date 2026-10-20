@@ -1365,6 +1365,10 @@
     // For Today's notes, whose task titles take the same words: the field
     // the words ending `text` make ({name, value, start}), or null.
     fieldOfWords,
+    // For Today's plan, whose tasks move to another day: the days the
+    // sheet's menu offers first ([label, ISO date]), and a day in words.
+    soonDays: () => [["Tomorrow", iso(plusDays(today(), 1))], ["Next week", iso(nextWeekday(1))]],
+    shortDate,
     // Set one field of a sheet of controls, as its menus do (sheet:field).
     setField(form, name, value) {
       setField(form, name, value);

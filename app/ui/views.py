@@ -637,13 +637,23 @@ def notepad_ctx(db: Session, day: date) -> dict[str, Any]:
         "text": "\n".join(lines),
         "task_rows": task_rows,
         "projects": project_choices(db),
-        # Every habit and its days: for the strip of those not yet written,
-        # and the names offered after "/habit ".
-        "habits": [{"slug": h.slug, "days": h.days} for h in habits_svc.list_habits(db)],
+        # Every habit and its days, for the habits' pane (with its last days
+        # before this one and its streak) and the names offered after "/habit ".
+        "habits": habits_ctx(db, day),
         # What a stay written here starts with: the last stay's items.
         "stay_items": notebook_svc.last_stay_items(db, day),
         "version": notebook_svc.version_of(db, day),
     }
+
+
+def habits_ctx(db: Session, day: date) -> list[dict[str, Any]]:
+    """Every habit for a day's page: its name and days, and how it comes into
+    the day (habits.standing): its last six days and its streak."""
+    standing = habits_svc.standing(db, day)
+    return [
+        {"slug": h.slug, "days": h.days, **standing.get(h.slug, {"week": [], "streak": 0})}
+        for h in habits_svc.list_habits(db)
+    ]
 
 
 def day_tasks_ctx(db: Session, day: date, today: date) -> dict[str, Any]:
@@ -651,10 +661,12 @@ def day_tasks_ctx(db: Session, day: date, today: date) -> dict[str, Any]:
     planned for the day or due on it, overdue ones on today's, and on today's
     also those still open from the last page before it (notebook.still_open);
     each with its words, its fields as they will stand once brought (do-date
-    this day), and its due."""
+    this day), and its due. One neither planned for the day nor due on it is
+    carried over from before, and says since when ("from Mon 19 Oct")."""
     tasks = tasks_svc.for_day(db, day, today)
+    page_day = None
     if day == today:
-        _, still_open = notebook_svc.still_open(db, day)
+        page_day, still_open = notebook_svc.still_open(db, day)
         tasks += [t for t in still_open if t not in tasks]
     out = []
     for task in tasks:
@@ -663,10 +675,15 @@ def day_tasks_ctx(db: Session, day: date, today: date) -> dict[str, Any]:
         moves = task.planned_for != day
         if moves:
             fields["planned_for"] = day.isoformat()
+        carried = day not in (task.planned_for, task.due)
+        since = task.planned_for if task.planned_for and task.planned_for < day else page_day
         out.append({
             "id": task.id, "title": task.title, "notes": task.notes or "",
-            "fields": fields, "moves": moves,
+            "fields": fields, "moves": moves, "carried": carried,
             "due": f"due {short_date(task.due, today)}" if task.due else "",
+            "since": f"from {short_date(since, today)}" if carried and since else "",
+            # Its do-date as it stands, for putting back a move to another day.
+            "was": task.planned_for.isoformat() if task.planned_for else "",
         })
     return {"label": f"For {short_date(day, today)}", "tasks": out}
 
@@ -754,6 +771,11 @@ def day_page_ctx(db: Session, day: date, now: datetime) -> dict[str, Any]:
         "notepad": notepad_ctx(db, day),
         "day_tasks": day_tasks_ctx(db, day, now.date()),
         "glance": day_glance_ctx(db, day, now),
+        # The habits' week, this day last: each day's initial over its column.
+        "habit_week": [
+            {"letter": d.strftime("%a")[0], "name": d.strftime("%A")}
+            for d in (day - timedelta(days=i) for i in range(6, -1, -1))
+        ],
     }
 
 

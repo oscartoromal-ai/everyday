@@ -129,3 +129,28 @@ def grid(db: Session, start: date, days: int) -> list[dict[str, Any]]:
             row.append({"day": day, "state": state, "note": check.note if check else ""})
         out.append({"slug": habit.slug, "days": habit.days, "checks": row})
     return out
+
+
+def standing(db: Session, day: date, days: int = 6, reach: int = 366) -> dict[str, dict[str, Any]]:
+    """How each habit comes into `day`, by name: its last `days` days before
+    it, as the grid reads them ([{day, state}], oldest first), and its
+    streak, the days in a row it was done up to the day before (a day it is
+    not meant to happen passed over, any other day not done ending it),
+    looking back `reach` days at most."""
+    out = {}
+    for row in grid(db, day - timedelta(days=reach), reach):
+        streak = 0
+        for check in reversed(row["checks"]):
+            off_day = row["days"] and str(check["day"].weekday()) not in row["days"]
+            if check["state"] == "done":
+                streak += 1
+            elif check["state"] is None and off_day:
+                continue
+            else:
+                break
+        week = row["checks"][-days:]
+        out[row["slug"]] = {
+            "week": [{"day": c["day"].isoformat(), "state": c["state"]} for c in week],
+            "streak": streak,
+        }
+    return out

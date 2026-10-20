@@ -1,9 +1,10 @@
-{# The nudge center (pages.py): each nudge's words as of today, what it
-   names to open (a bill's page, a task's own page), and its dismissal.
-   It folds to its count, and stays so (notepad.js). #}
+{# The nudge center, the plan pane's first group (pages.py): each nudge's
+   words as of today, what it names to open (a bill's page, a task's own
+   page), and its dismissal. It folds to its count, and stays so
+   (notepad.js). #}
 {% from "partials/today_fold.html" import fold_summary %}
 {% if nudges %}
-<details class="nudge-center today-fold" id="nudge-center" data-fold="nudges"{% if "nudges" not in folded %} open{% endif %}>
+<details class="plan-group nudge-center today-fold" id="nudge-center" data-fold="nudges"{% if "nudges" not in folded %} open{% endif %}>
   {{ fold_summary("Nudges", nudges | length) }}
   <ul class="nudge-list">
     {% for n in nudges %}

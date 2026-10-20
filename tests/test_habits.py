@@ -72,3 +72,35 @@ def test_the_grid_reads_done_skipped_missed_and_open(db) -> None:
     # Before it began, and today (still open), nothing is missed.
     [row] = [r for r in habits_svc.grid(db, TODAY, 1) if r["slug"] == "stretch"]
     assert row["checks"][0]["state"] is None
+
+
+def test_a_habit_comes_into_a_day_with_its_week_and_streak(db) -> None:
+    monday = TODAY - timedelta(days=TODAY.weekday() + 7)
+    weekdays = habits_svc.set_days(db, "stretch", habits_svc.WEEKDAYS)
+    anyday = habits_svc.get_or_create(db, "read")
+    for habit in (weekdays, anyday):
+        habit.created_at = datetime.combine(monday - timedelta(days=30), datetime.min.time())
+
+    def day(n: int) -> date:  # n days before the Monday
+        return monday - timedelta(days=n)
+
+    # Stretch done Thursday and Friday, not written on Tuesday or Wednesday;
+    # read done the weekend, not on Friday.
+    notebook.save_page(db, day(4), [{"kind": "habit", "habit": "stretch"}], version=0)
+    notebook.save_page(db, day(3), [{"kind": "habit", "habit": "stretch"}], version=0)
+    for n in (2, 1):
+        notebook.save_page(db, day(n), [{"kind": "habit", "habit": "read"}], version=0)
+
+    standing = habits_svc.standing(db, monday)
+    # Its last six days before the Monday, oldest first.
+    week = [d["day"] for d in standing["stretch"]["week"]]
+    assert week == [day(n).isoformat() for n in range(6, 0, -1)]
+    assert [d["state"] for d in standing["stretch"]["week"]] == [
+        "missed", "missed", "done", "done", None, None,
+    ]
+    # The weekend is not stretch's: its streak runs over it, to Wednesday's miss.
+    assert standing["stretch"]["streak"] == 2
+    # A habit for any day not written on one ends its streak there.
+    assert standing["read"]["streak"] == 2
+    # Nothing done the day before: no streak.
+    assert habits_svc.standing(db, day(2))["read"]["streak"] == 0

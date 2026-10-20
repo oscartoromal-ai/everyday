@@ -315,8 +315,12 @@ SCOPES: tuple[Scope, ...] = (
         Action("today.timeline", "Fold the timeline away, the notes taking its room, or back "
                "(in the notes too)", ("Ctrl+\\",), click=".timeline-toggle", menu=True,
                words="timeline fold calendar"),
-        Action("today.carryAll", "Bring every task carried over from before into today",
-               ("Alt+C",), click=".pad-carry-all", menu=True, words="carry over yesterday"),
+        Action("today.plan", "Fold the plan and the habits away, the notes taking their room, "
+               "or back (in the notes too)", ("Alt+P",), click=".plan-toggle", menu=True,
+               words="plan habits tasks fold pane"),
+        Action("today.carryAll", "Bring every task of the plan into the day's notes",
+               ("Alt+C",), click=".pad-carry-all", menu=True,
+               words="carry over yesterday bring all"),
         Action("today.nudge", "Act on the first nudge", click=".nudge-action", menu=True,
                words="nudge reminder"),
         Action("today.dismissNudge", "Dismiss the first nudge", click=".nudge-dismiss", menu=True,
