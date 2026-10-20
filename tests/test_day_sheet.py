@@ -203,34 +203,48 @@ def test_a_task_is_deleted_from_the_sheet(client, db) -> None:
     assert [t.title for t in db.query(Task).all()] == ["Pay rent"]
 
 
-def test_a_deadline_is_due_only_once_due_soon_and_a_task_wears_its_projects_colour(
+def test_only_a_missed_deadline_is_flagged_and_a_task_wears_its_projects_colour(
     client, db,
 ) -> None:
     # Oscar's reports: on 2026-10-04 deadlines weeks out read as urgent as
-    # tomorrow's, and on 2026-10-20 still said "due". A deadline warns "due"
-    # only once due soon, as a task row's due does, "overdue" once past, and
-    # further out says only that it is one.
+    # tomorrow's, and on 2026-10-20 still said "due", soon ones in warning.
+    # His call: flag only what has not been done, a deadline passed with its
+    # task open, "overdue"; one to come, today's or soon or not, is not
+    # flagged, its title keeping the line's room (screen readers still hear
+    # that it is a deadline).
     project = projects_svc.create_project(db, name="Garden Planner", color=8)
     past_day = TODAY - timedelta(days=1)
     soon_day = TODAY + timedelta(days=tasks_svc.DUE_SOON_DAYS)
     later_day = soon_day + timedelta(days=1)
     tasks_svc.create_task(db, title="Water the beds", due=past_day)
+    tasks_svc.create_task(
+        db, title="Mow the lawn", planned_for=past_day, due=past_day, status=TaskStatus.done
+    )
+    tasks_svc.create_task(db, title="Order seeds", due=TODAY)
     tasks_svc.create_task(db, title="Ship the beta", due=soon_day, project_id=project.id)
     tasks_svc.create_task(db, title="Ship docs", due=later_day)
     sheet = day_sheet_ctx(db, home_start(TODAY), TODAY)
-    [past] = row(sheet, past_day)["tasks"]
+    tags = {
+        t["title"]: (t["due"], t["overdue"])
+        for day in (past_day, TODAY, soon_day, later_day)
+        for t in row(sheet, day)["tasks"]
+    }
+    assert tags == {
+        "Mow the lawn": (False, False),  # done: nothing to flag
+        "Water the beds": (True, True),
+        "Order seeds": (True, False),
+        "Ship the beta": (True, False),
+        "Ship docs": (True, False),
+    }
+    # Each task in its project's colour, the project named on hover.
     [soon] = row(sheet, soon_day)["tasks"]
     [later] = row(sheet, later_day)["tasks"]
-    assert (past["due"], past["due_soon"], past["due_tag"]) == (True, True, "overdue")
-    assert (soon["due"], soon["due_soon"], soon["due_tag"]) == (True, True, "due")
-    assert (later["due"], later["due_soon"], later["due_tag"]) == (True, False, "deadline")
-    # Each task in its project's colour, the project named on hover.
     assert soon["project"] == {"name": "Garden Planner", "color": 8}
     assert later["project"] is None
 
     page = client.get("/calendar?view=sheet").text
-    assert page.count('<span class="ds-due soon">overdue</span>') == 1
-    assert page.count('<span class="ds-due soon">due</span>') == 1
-    assert page.count('<span class="ds-due">deadline</span>') == 1
+    assert page.count('<span class="ds-due">overdue</span>') == 1
+    assert page.count('<span class="visually-hidden">, deadline</span>') == 3
+    assert ">due</span>" not in page
     assert 'class="ds-task in-project" style="--project: var(--hue-8)"' in page
     assert 'title="Project: Garden Planner"' in page

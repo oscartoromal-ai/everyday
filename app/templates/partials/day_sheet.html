@@ -6,8 +6,9 @@
    stay item that is a checkbox (accommodation) is its box alone, ticked once
    sorted. A task in the plan is its box (a click: in progress, then done),
    its status menu's chevron, its priority's bars when it has one, its title
-   (which opens its page), its deadline's tag on that day ("deadline", then
-   warning "due" once due soon, "overdue" once past), and at the end its bin; a task in a project is tinted in its
+   (which opens its page), "overdue" on its deadline once that is past with
+   the task still open (a deadline to come is not flagged), and at the end
+   its bin; a task in a project is tinted in its
    colour, the project named on hover. A day whose plan runs over a line folds to its first (its
    chevron), and stays so in that browser. #}
 {% from "partials/priority.html" import priority_icon %}
@@ -72,7 +73,7 @@
               <button type="button" class="ds-status" data-status-menu="{{ t.id }}" data-status="{{ t.status }}" tabindex="-1" aria-haspopup="menu" aria-expanded="false" title="Status" aria-label="Status of “{{ t.title }}”">{{ chevron() }}</button>
               {% if t.priority %}<span class="ds-priority" role="img" title="Priority: {{ t.priority_label }}" aria-label="Priority: {{ t.priority_label }}">{{ priority_icon(t.priority) }}</span>
               {%- else %}<span class="ds-priority" aria-hidden="true"></span>{% endif %}
-              <a class="ds-title" href="/tasks/{{ t.id }}" tabindex="-1" title="Open the task">{{ t.title }}</a>{% if t.due %}<span class="ds-due{% if t.due_soon %} soon{% endif %}">{{ t.due_tag }}</span>{% endif %}{% if loop.first %}{{ more }}{% endif %}
+              <a class="ds-title" href="/tasks/{{ t.id }}" tabindex="-1" title="Open the task">{{ t.title }}</a>{% if t.due %}{% if t.overdue %}<span class="ds-due">overdue</span>{% else %}<span class="visually-hidden">, deadline</span>{% endif %}{% endif %}{% if loop.first %}{{ more }}{% endif %}
               <button type="button" class="ds-delete" data-delete-task="{{ t.id }}" data-title="{{ t.title }}" tabindex="-1" title="Delete task" aria-label="Delete “{{ t.title }}”">{{ bin() }}</button>
             </li>
             {% endfor %}
