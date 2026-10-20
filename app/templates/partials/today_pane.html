@@ -1,0 +1,12 @@
+{# A Today pane's own controls in its title bar (today-layout.js): its grip,
+   in the bar's left edge, dragged (or, in focus, moved by the arrow keys)
+   to another place in its column or another column; and its eye, after
+   its name, hiding it until Panes, at the day's header, shows it. #}
+{% macro pane_grip(label) %}
+<button type="button" class="pane-grip" data-pane-grip aria-label="Move {{ label }}" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight" title="Drag to move {{ label }}; in focus, the arrow keys move it"></button>
+{% endmacro %}
+{% macro pane_hide(label) %}
+<button type="button" class="pane-hide" data-pane-hide aria-label="Hide {{ label }}" title="Hide {{ label }} (Panes, at the day's header, shows it again)">
+  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8s2.2-4.25 6-4.25S14 8 14 8s-2.2 4.25-6 4.25S2 8 2 8z"/><circle cx="8" cy="8" r="1.75"/><path d="M3 13 13 3"/></svg>
+</button>
+{% endmacro %}

@@ -108,7 +108,7 @@ Below 720px the sidebar becomes a bottom tab bar on `--glass-tab-bar`, the spark
 Under 600px each tab is its icon, 44px wide; the tabs scroll sideways past the bar's width, it opens with the current page's tab in its middle, and an edge with tabs past it fades (`data-more`, `shell.js`).
 Content is 800px wide for list pages (Plan among them), where more width only lengthens a row; 1040px for a project's page, whose sections sit beside each other, and its Tasks; and up to 1600px for Projects, whose timeline lays its projects over weeks, and for Today and Calendar, so a wide window or a zoomed-out page widens them rather than their margins.
 Compact rows (the rail's toggle above the mode's, or C) set the ruled sheets and Today's notes 28px a row rather than 36px, the text its size: 3px above a 20px line, 4px below; the toggle's three lines close up while it is on, its label the state (Roomy, Compact).
-On Today two panel icons at the day header's right fold the side panes away, the notes taking their room, and back: the plan and the habits (Alt+P), and the timeline (Ctrl+\).
+On Today two panel icons at the day header's right fold the side columns away, the middle taking their room, and back: the left (Alt+P), and the right (Ctrl+\).
 
 ## Components
 
@@ -170,12 +170,21 @@ Pasted "- [ ] " lines arrive as sub-tasks and "- " lines as bullets; the editor 
 Esc steps away but keeps a written draft open; Cancel clears it.
 The empty-list note hides once the list has a row.
 
-**Today's panes.** Today, and every day's page (`/day/2026-09-25`), is a header over panes (Oscar's call, 2026-10-20, replacing the notes stacked over strips): at the left the plan, 340px, over the habits; in the middle the notes; at the right the timeline, 300px.
+**Today's panes.** Today, and every day's page (`/day/2026-09-25`), is a header over panes (Oscar's call, 2026-10-20, replacing the notes stacked over strips) in three columns: the left 340px, the middle the rest, the right 300px.
+As the code lists them, the plan over the habits at the left, the notes in the middle, the timeline at the right; Oscar arranges them as he likes (his call, 2026-10-20), kept as the `today` setting in the database (`app/services/today_layout.py`), so it holds on every device and every day's page.
 Each pane is a glass card under a 44px title bar: its name in 14px/600 ink at the left, its controls at the right, over a stronger hairline.
-Wide enough for the three (the notes at least 440px between them), the page is as tall as the window (at least 560px) and each pane scrolls inside itself.
-Narrower, the timeline goes under the notes and the page scrolls, the plan's column staying in view (sticky); and once the notes would be under 405px beside the plan, everything goes under one another: the notes, the plan and the habits, the timeline.
+On hover or focus, the bar shows the pane's grip in its left edge (14px wide, six steel dots as a Gantt row's grip, ink on hover; in focus the spark tint behind dots in `--spark-deep`) and, right after its name, its eye (14px, `--steel`, in a 24px target), as the sidebar's eye hides a page; both sit in room the bar leaves empty, so the bar at rest is as it was.
+A press on the bar (not on its controls) that moves 5px picks the pane up: it goes 40% faint where it was, its name follows the pointer on `--paper` with `--shadow-dropdown`, and a 2px spark line (glowing at night) across the column marks where it would land, before the first pane whose middle is under the pointer; landing where it is, there is no line.
+A column not showing gets a 96px drop zone at its place while a pane is in hand, the edge the column would take (the middle's between the two sides), `--spark-tint` at 70% inside a 1.5px dashed spark edge, "A column here" in 12px `--spark-deep`, the tint full while the pointer is in it.
+The panes slide to their new places (160ms); Esc puts the pane back; the drop is never a click (the habits' bar does not fold).
+With its grip in focus, the arrow keys move the pane up or down its column or into the column beside it, at the same place; Delete hides it.
+The eye hides its pane, the toast saying where it comes back ("Habits hidden. Panes, at the day's header, shows it again.") with Undo; a hidden pane keeps its place.
+A column with no pane showing goes, its room the middle's; with nothing in the middle, the columns left share the width.
+Wide enough for the three (the middle at least 440px between them), the page is as tall as the window (at least 560px) and each pane scrolls inside itself; the notes and the timeline take what their column leaves (at least 360px and 280px), the plan its rows' height, scrolling inside itself when its column is short, and a column with more than the window holds scrolls.
+Narrower, the right column goes under the middle one and the page scrolls, the left column staying in view (sticky, unless the notes are in it); and once the middle would be under 405px beside the left, everything goes under one another: the middle, the left, the right.
 The widths are the page's own (container queries), so the agent window docked takes from them as a narrow window does.
-The header is the day's name at 24px ("Today" on today's), a pair of 32px chevrons for the day before and after, on any other day a pill back to Today, and the date in 14px graphite; then the day's facts, and at the right the two folds' panel icons, graphite, pewter while their pane is folded.
+The header is the day's name at 24px ("Today" on today's), a pair of 32px chevrons for the day before and after, on any other day a pill back to Today, and the date in 14px graphite; then the day's facts, and at the right the two columns' folds' panel icons, graphite, pewter while their column is folded, named for the panes in it ("Fold Plan and Habits away") and gone while it has none; and Panes, a grid of three panels in the same 32px button.
+Panes opens a menu on the page's paper: each pane in the code's order, ticked (and at 600) while shown, a click showing or hiding it in its place with the menu kept open; then, under a hairline, "Set them back as they were", which puts every pane where the code lists it, shown and unfolded, the toast offering Undo.
 The facts are chips on a wrapping line, beside the name on a wide page and under it on a narrower one: each 28px, an 8px inset, a hairline edge on the glass, 6px apart.
 What is on now and next comes first, a chip each, edged in the signal's cyan: "Now, till 19:40" or "Next, in 25m" in `--signal-deep` at 500 (cyan is time), the title in 14px ink at 500 (cut with an ellipsis at 32ch), its times in 12px graphite tabular figures, and a meeting's "Join on zoom.us" as a small edged button.
 Then the body's figures (Readiness, Sleep, Body battery), each a 12px pewter name before its value in 14px ink at 500 (tabular) and a 12px graphite note ("high", "score 87"); lengths are written as the task fields write them ("7h 31m").

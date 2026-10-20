@@ -25,6 +25,7 @@ from app.services import projects as projects_svc
 from app.services import rail as rail_svc
 from app.services import recurrence as recurrence_svc
 from app.services import tasks as tasks_svc
+from app.services import today_layout as today_layout_svc
 from app.ui.calendar_view import event_card_ctx
 from app.ui.views import (
     back_link,
@@ -486,6 +487,19 @@ def save_rail(db: DbSession, layout: RailLayout) -> None:
     rail_svc.save_layout(
         db, sections=layout.sections, modules=layout.modules, hidden=layout.hidden
     )
+    db.commit()
+
+
+class TodayLayout(BaseModel):
+    columns: list[list[str]]
+    hidden: list[str]
+
+
+@router.put("/today/layout", status_code=204)
+def save_today_layout(db: DbSession, layout: TodayLayout) -> None:
+    """Today's panes as they now stand, one dragged, hidden or brought back:
+    today-layout.js has them so on the page already, and this keeps them."""
+    today_layout_svc.save_layout(db, columns=layout.columns, hidden=layout.hidden)
     db.commit()
 
 

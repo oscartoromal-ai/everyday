@@ -311,12 +311,18 @@ SCOPES: tuple[Scope, ...] = (
         Fixed("Markdown", "The notes are Markdown, as a task's description is (# heading, "
               "**bold**, `code`, [words](link), - list, > quote), shown as they read, their "
               "marks where the caret is; Live, Source and Reading at the day's header"),
-        Action("today.timeline", "Fold the timeline away, the notes taking its room, or back "
-               "(in the notes too)", ("Ctrl+\\",), click=".timeline-toggle", menu=True,
-               words="timeline fold calendar"),
-        Action("today.plan", "Fold the plan and the habits away, the notes taking their room, "
-               "or back (in the notes too)", ("Alt+P",), click=".plan-toggle", menu=True,
-               words="plan habits tasks fold pane"),
+        Action("today.timeline", "Fold the right column away (the timeline, as it starts), the "
+               "middle taking its room, or back (in the notes too)", ("Ctrl+\\",),
+               click='[data-fold-col="right"]', menu=True, words="timeline fold calendar column"),
+        Action("today.plan", "Fold the left column away (the plan and the habits, as it starts), "
+               "the middle taking its room, or back (in the notes too)", ("Alt+P",),
+               click='[data-fold-col="left"]', menu=True,
+               words="plan habits tasks fold pane column"),
+        Fixed("[↑] [↓] [←] [→]", "On a pane's grip (its title bar's left edge, Tab reaches it): "
+              "the pane up or down its column, or into the column beside it; dragging its "
+              "title bar does the same"),
+        Fixed("[Delete]", "On a pane's grip: hides the pane (Panes, at the day's header, shows "
+              "it again, or sets every pane back as it was)"),
         Action("today.carryAll", "Bring every task of the plan into the day's notes",
                ("Alt+C",), click=".pad-carry-all", menu=True,
                words="carry over yesterday bring all"),

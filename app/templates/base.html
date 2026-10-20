@@ -25,11 +25,10 @@
     // flashes. shell.js keeps them.
     (() => {
       const root = document.documentElement;
-      let theme = null, rail = null, density = null, timeline = null, plan = null, railProjects = null, agent = null;
+      let theme = null, rail = null, density = null, railProjects = null, agent = null;
       try {
         theme = localStorage.getItem("pc-theme"); rail = localStorage.getItem("pc-rail");
-        density = localStorage.getItem("pc-density"); timeline = localStorage.getItem("pc-timeline");
-        plan = localStorage.getItem("pc-plan");
+        density = localStorage.getItem("pc-density");
         railProjects = localStorage.getItem("pc-rail-projects"); agent = localStorage.getItem("pc-agent");
       } catch {}
       if (agent === "open") root.dataset.agent = "open";
@@ -39,8 +38,6 @@
       if (theme === "dark") root.dataset.theme = "dark";
       if (rail === "collapsed") root.dataset.rail = "collapsed";
       if (density === "compact") root.dataset.density = "compact";
-      if (timeline === "folded") root.dataset.timeline = "folded";
-      if (plan === "folded") root.dataset.plan = "folded";
       if (railProjects === "folded") root.dataset.railProjects = "folded";
     })();
     // Double-submit CSRF: echo the cookie on every htmx request.

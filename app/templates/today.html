@@ -5,15 +5,23 @@
 {% from "partials/md_modes.html" import md_modes %}
 {% from "partials/today_fold.html" import fold_summary %}
 {% from "partials/habit_days.html" import habit_days %}
+{% from "partials/today_pane.html" import pane_grip, pane_hide %}
 {% block title %}{% if is_today %}Today{% else %}{{ day.strftime("%a") }} {{ day.day }} {{ day.strftime("%b") }}{% endif %} · Personal Calendar{% endblock %}
 {% block content %}
-{# A day's page in panes under one header: at the left the plan (what asks
-   for attention, the day's tasks not yet written, those carried over) and
-   the habits, in the middle the notes, at the right the timeline. The
-   notes are Markdown, drawn as they read and saved as they are written
-   (notepad.js, on markdown-live.js); the plan writes in them. The habits
-   are ticked and commented on beside them (habits.js). The plan's column
-   and the timeline each fold away (shell.js). #}
+{# A day's page in panes under one header, in three columns: at first, at
+   the left the plan (what asks for attention, the day's tasks not yet
+   written, those carried over) and the habits, in the middle the notes, at
+   the right the timeline; each pane dragged to another place or column,
+   hidden and shown again, as Oscar has them (app/services/today_layout.py,
+   today-layout.js). The notes are Markdown, drawn as they read and saved
+   as they are written (notepad.js, on markdown-live.js); the plan writes in
+   them. The habits are ticked and commented on beside them (habits.js).
+   The side columns each fold away (today-layout.js). #}
+{# The columns showing, by their initials: those with a pane showing, and
+   not folded away. #}
+{% set shown_cols %}{% for column in columns if not column.empty and column.key not in folded %}{{ column.key[0] }}{% endfor %}{% endset %}
+{# A side column's fold, in words: the panes showing in it. #}
+{% macro fold_words(column) %}{% set names = column.panes | rejectattr("hidden") | map(attribute="pane.label") | list %}{{ names[:-1] | join(", ") }}{% if names | length > 1 %} and {% endif %}{{ names[-1] if names }}{% endmacro %}
 <div class="today-page">
   <header class="day-header">
     <div class="day-title">
@@ -39,142 +47,170 @@
       {% include "partials/day_glance.html" %}
       <ul class="day-stay" id="day-stay" aria-label="Stay" hidden></ul>
     </div>
-    {# The panes at the sides, each folded away and back (their keys; shell.js). #}
+    {# The side columns, each folded away and back (their keys), named for
+       the panes in them; then Panes, a menu of them all, ticked while
+       shown (today-layout.js). #}
     <div class="day-panes" role="group" aria-label="Panes">
-      <button type="button" class="plan-toggle" aria-pressed="false" aria-label="Fold the plan away" title="{{ keys.title('Fold the plan away', 'today.plan') }}">
-        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.75" y="3.75" width="14.5" height="12.5"/><path d="M7.5 3.75v12.5"/></svg>
+      {% for column in columns if column.key != "center" %}
+      {% set side = column.key %}
+      {% set is_folded = side in folded %}
+      {% set words = ("Show " if is_folded else "Fold ") ~ fold_words(column) ~ ("" if is_folded else " away") %}
+      <button type="button" class="fold-col" data-fold-col="{{ side }}" aria-pressed="{{ 'true' if is_folded else 'false' }}" aria-label="{{ words }}" title="{{ keys.title(words, 'today.plan' if side == 'left' else 'today.timeline') }}"{% if column.empty %} hidden{% endif %}>
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.75" y="3.75" width="14.5" height="12.5"/><path d="{{ 'M7.5 3.75v12.5' if side == 'left' else 'M12.5 3.75v12.5' }}"/></svg>
       </button>
-      <button type="button" class="timeline-toggle" aria-pressed="false" aria-label="Fold the timeline away" title="{{ keys.title('Fold the timeline away', 'today.timeline') }}">
-        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.75" y="3.75" width="14.5" height="12.5"/><path d="M12.5 3.75v12.5"/></svg>
+      {% endfor %}
+      <button type="button" class="panes-open" aria-haspopup="menu" aria-expanded="false" aria-label="Panes" title="Panes: show or hide each, or set them back as they were">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.75" y="3.75" width="5.5" height="12.5"/><rect x="11.75" y="3.75" width="5.5" height="5.25"/><rect x="11.75" y="11" width="5.5" height="5.25"/></svg>
       </button>
     </div>
   </header>
 
-  <aside class="today-side" aria-label="Plan and habits">
-    {# What the day asks for: the nudges (today's page only), then the day's
-       tasks not yet written in the notes, those for the day and those
-       carried over from before. A title writes its rows in the notes, its
-       box writes them ticked, its calendar moves it to another day; Bring
-       all writes every one (notepad.js). Each group folds to its name and
-       count, and stays so (partials/today_fold.html). #}
-    <section class="pane today-plan" id="today-plan" aria-labelledby="today-plan-title">
-      <header class="pane-head">
-        <h2 id="today-plan-title">Plan</h2>
-        <button type="button" class="pad-carry-all" hidden title="{{ keys.title('Write every one in the notes', 'today.carryAll') }}">Bring all</button>
-      </header>
-      <div class="plan-body">
-        {% include "partials/nudges.html" %}
-        <details class="plan-group today-fold" id="pad-carry" data-fold="carry"{% if "carry" not in folded %} open{% endif %} hidden>
-          {{ fold_summary() }}
-          <ul class="plan-list"></ul>
+  <div class="today-body" data-cols="{{ shown_cols }}" data-default-cols="{{ default_columns | tojson | forceescape }}">
+    {% for column in columns %}
+    <div class="today-col" data-col="{{ column.key }}">
+      {% for placed in column.panes %}
+      {% if placed.pane.key == "plan" %}
+        {# What the day asks for: the nudges (today's page only), then the day's
+           tasks not yet written in the notes, those for the day and those
+           carried over from before. A title writes its rows in the notes, its
+           box writes them ticked, its calendar moves it to another day; Bring
+           all writes every one (notepad.js). Each group folds to its name and
+           count, and stays so (partials/today_fold.html). #}
+        <section class="pane today-pane today-plan" id="today-plan" data-pane="plan" aria-labelledby="today-plan-title"{% if placed.hidden %} hidden{% endif %}>
+          <header class="pane-head">
+            {{ pane_grip("Plan") }}
+            <h2 id="today-plan-title">Plan</h2>
+            {{ pane_hide("Plan") }}
+            <button type="button" class="pad-carry-all" hidden title="{{ keys.title('Write every one in the notes', 'today.carryAll') }}">Bring all</button>
+          </header>
+          <div class="plan-body">
+            {% include "partials/nudges.html" %}
+            <details class="plan-group today-fold" id="pad-carry" data-fold="carry"{% if "carry" not in folded %} open{% endif %} hidden>
+              {{ fold_summary() }}
+              <ul class="plan-list"></ul>
+            </details>
+            <details class="plan-group today-fold" id="pad-late" data-fold="late"{% if "late" not in folded %} open{% endif %} hidden>
+              {{ fold_summary("Carried over") }}
+              <button type="button" class="plan-move-all" aria-haspopup="menu" aria-expanded="false" title="Move every task carried over to another day">Reschedule</button>
+              <ul class="plan-list"></ul>
+            </details>
+            <p class="plan-empty" hidden>Nothing planned{% if is_today %} for today{% endif %}. Tasks given this day, or due on it, show here.</p>
+          </div>
+        </section>
+      {% elif placed.pane.key == "habits" %}
+        {# The habits due this day, and any ticked on it: each its box, its name
+           (to its page), its comment, its last seven days, its streak and its
+           days. A day of the seven picked, the boxes and comments are that
+           day's. A habit begins at the pane's foot (habits.js). #}
+        <details class="pane today-pane today-habits today-fold" id="pad-habits" data-pane="habits" data-fold="habits" data-day="{{ day.isoformat() }}"{% if "habits" not in folded %} open{% endif %}{% if placed.hidden %} hidden{% endif %}>
+          <summary class="today-fold-summary pane-head">
+            {{ pane_grip("Habits") }}
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>
+            <span class="today-fold-label">Habits</span>
+            <span class="count"></span>
+            <span class="habit-on" hidden></span>
+            {{ pane_hide("Habits") }}
+            <span class="habit-week habit-week-head" aria-hidden="true">{% for d in habit_week %}<i data-day="{{ d.day }}" title="{{ d.name }}">{{ d.letter }}</i>{% endfor %}</span>
+          </summary>
+          <ul class="habit-list"></ul>
+          <div class="habit-foot">
+            <button type="button" class="habit-new-open">
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M10 4.5v11"/><path d="M4.5 10h11"/></svg>
+              New habit
+            </button>
+            <form class="habit-new" hidden>
+              <input name="name" aria-label="New habit's name" placeholder="Its name, as morning-skin-care" autocomplete="off" spellcheck="false" maxlength="80">
+            </form>
+            <a class="habit-all" href="/habits">All habits</a>
+          </div>
+          <script type="application/json" class="habit-data">{{ habits | tojson }}</script>
+          <template class="habit-days-template">{{ habit_days() }}</template>
         </details>
-        <details class="plan-group today-fold" id="pad-late" data-fold="late"{% if "late" not in folded %} open{% endif %} hidden>
-          {{ fold_summary("Carried over") }}
-          <button type="button" class="plan-move-all" aria-haspopup="menu" aria-expanded="false" title="Move every task carried over to another day">Reschedule</button>
-          <ul class="plan-list"></ul>
-        </details>
-        <p class="plan-empty" hidden>Nothing planned{% if is_today %} for today{% endif %}. Tasks given this day, or due on it, show here.</p>
-      </div>
-    </section>
-    {# The habits due this day, and any ticked on it: each its box, its name
-       (to its page), its comment, its last seven days, its streak and its
-       days. A day of the seven picked, the boxes and comments are that
-       day's. A habit begins at the pane's foot (habits.js). #}
-    <details class="pane today-habits today-fold" id="pad-habits" data-fold="habits" data-day="{{ day.isoformat() }}"{% if "habits" not in folded %} open{% endif %}>
-      <summary class="today-fold-summary pane-head">
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>
-        <span class="today-fold-label">Habits</span>
-        <span class="count"></span>
-        <span class="habit-on" hidden></span>
-        <span class="habit-week habit-week-head" aria-hidden="true">{% for d in habit_week %}<i data-day="{{ d.day }}" title="{{ d.name }}">{{ d.letter }}</i>{% endfor %}</span>
-      </summary>
-      <ul class="habit-list"></ul>
-      <div class="habit-foot">
-        <button type="button" class="habit-new-open">
-          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M10 4.5v11"/><path d="M4.5 10h11"/></svg>
-          New habit
-        </button>
-        <form class="habit-new" hidden>
-          <input name="name" aria-label="New habit's name" placeholder="Its name, as morning-skin-care" autocomplete="off" spellcheck="false" maxlength="80">
-        </form>
-        <a class="habit-all" href="/habits">All habits</a>
-      </div>
-      <script type="application/json" class="habit-data">{{ habits | tojson }}</script>
-      <template class="habit-days-template">{{ habit_days() }}</template>
-    </details>
-  </aside>
-
-  <div class="today-pad">
-    <section class="pane notes-pane" aria-labelledby="today-notes-title">
-      <header class="pane-head">
-        <h2 id="today-notes-title">Notes</h2>
-        {# The notes' Markdown modes, as a document's (editor.reading, notepad.js). #}
-        {{ md_modes() }}
-      </header>
-      <div class="notepad-card">
-        {# The notes as the server has them; notepad.js puts its editor in their
-           place (rows numbered, tasks drawn with their box and controls). #}
-        <textarea class="notepad" id="notepad" data-day="{{ day.isoformat() }}" data-version="{{ notepad.version }}"
-                  data-task-rows='{{ notepad.task_rows | tojson }}'
-                  data-stay-items='{{ notepad.stay_items | tojson }}'
-                  data-day-tasks='{{ day_tasks | tojson }}'
-                  spellcheck="true" aria-label="Notes" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
-      </div>
-    </section>
-    <p class="keys-hint">{{ part("[- [ ]] task") }}{{ part("[/reflection]") }}{{ part("[/stay]") }}{{ part("[Ctrl][Enter] close it") }}{{ part("days", "day.prev", "day.next") }}{{ part("all keys", "app.keys") }}</p>
-    <div class="pad-stale" id="pad-stale" role="alert" hidden>
-      <span>These notes were changed in another window.</span>
-      <button type="button" class="btn quiet" data-pad-reload>Show that version</button>
-      <button type="button" class="btn quiet" data-pad-keep>Keep mine</button>
+      {% elif placed.pane.key == "notes" %}
+        {# The notes, the keys' hint under them, and what says they were changed
+           in another window. #}
+        <div class="today-pane today-pad" data-pane="notes"{% if placed.hidden %} hidden{% endif %}>
+          <section class="pane notes-pane" aria-labelledby="today-notes-title">
+            <header class="pane-head">
+              {{ pane_grip("Notes") }}
+              <h2 id="today-notes-title">Notes</h2>
+              {{ pane_hide("Notes") }}
+              {# The notes' Markdown modes, as a document's (editor.reading, notepad.js). #}
+              {{ md_modes() }}
+            </header>
+            <div class="notepad-card">
+              {# The notes as the server has them; notepad.js puts its editor in their
+                 place (rows numbered, tasks drawn with their box and controls). #}
+              <textarea class="notepad" id="notepad" data-day="{{ day.isoformat() }}" data-version="{{ notepad.version }}"
+                        data-task-rows='{{ notepad.task_rows | tojson }}'
+                        data-stay-items='{{ notepad.stay_items | tojson }}'
+                        data-day-tasks='{{ day_tasks | tojson }}'
+                        spellcheck="true" aria-label="Notes" placeholder="Anything on your mind today.">{{ notepad.text }}</textarea>
+            </div>
+          </section>
+          <p class="keys-hint">{{ part("[- [ ]] task") }}{{ part("[/reflection]") }}{{ part("[/stay]") }}{{ part("[Ctrl][Enter] close it") }}{{ part("days", "day.prev", "day.next") }}{{ part("all keys", "app.keys") }}</p>
+          <div class="pad-stale" id="pad-stale" role="alert" hidden>
+            <span>These notes were changed in another window.</span>
+            <button type="button" class="btn quiet" data-pad-reload>Show that version</button>
+            <button type="button" class="btn quiet" data-pad-keep>Keep mine</button>
+          </div>
+          {# A task row's controls, after its title (notepad.js clones one
+             per task): the task sheet's icons and menus alone (task-sheet.js,
+             data-sheet="props"), over the task's fields, then a way to its page
+             once it is added, and Delete. #}
+          <template id="pad-props-template">
+            <form class="task-sheet pad-props" data-sheet="props" onsubmit="return false">
+              {% for name in ["planned_for", "due", "repeat", "estimate", "priority", "project_id", "workstream_id", "status", "owner"] %}
+              <input type="hidden" name="{{ name }}" value="">
+              {% endfor %}
+              <button type="button" class="prop" data-prop="planned_for" aria-haspopup="menu" title="Do date" aria-label="Do date">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/></svg>
+                <span class="prop-value"></span>
+              </button>
+              <button type="button" class="prop" data-prop="due" aria-haspopup="menu" title="Due" aria-label="Due">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 2.75h9"/><path d="M5.5 17.25h9"/><path d="M6.5 2.75c0 4 7 4.5 7 7.25s-7 3.25-7 7.25"/><path d="M13.5 2.75c0 4-7 4.5-7 7.25s7 3.25 7 7.25"/></svg>
+                <span class="prop-value"></span>
+              </button>
+              <button type="button" class="prop" data-prop="repeat" aria-haspopup="menu" title="Repeat" aria-label="Repeat">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 9.5V8a3 3 0 0 1 3-3h10l-2.5-2.5"/><path d="M16.5 10.5V12a3 3 0 0 1-3 3h-10l2.5 2.5"/></svg>
+              </button>
+              <button type="button" class="prop" data-prop="estimate" aria-haspopup="menu" title="Estimate" aria-label="Estimate">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="11" r="6.25"/><path d="M8 2.5h4"/><path d="M10 2.5v2.25"/><path d="M10 11V8"/><path d="M15 5.5l1.25-1.25"/></svg>
+                <span class="prop-value"></span>
+              </button>
+              <button type="button" class="prop" data-prop="priority" aria-haspopup="menu" title="Priority" aria-label="Priority">
+                {{ priority_icon() }}
+                <span class="prop-value"></span>
+              </button>
+              <button type="button" class="prop" data-prop="project" aria-haspopup="menu" title="Project and workstream">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
+                <span class="prop-value" data-empty=""></span>
+              </button>
+              <a class="prop pad-open" href="" data-open-task hidden title="{{ keys.title('Open the task on its page', 'today.openTask') }}" aria-label="Open the task on its page">{{ open_icon() }}</a>
+              <button type="button" class="task-delete" data-pad-remove title="Delete task" aria-label="Delete task">
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>
+              </button>
+              <script type="application/json" data-sheet-projects>{{ notepad.projects | tojson }}</script>
+            </form>
+          </template>
+        </div>
+      {% elif placed.pane.key == "timeline" %}
+        {# The day's hours, and what is on in them. #}
+        <section class="pane today-pane today-timeline" data-pane="timeline" aria-labelledby="today-timeline-title"{% if placed.hidden %} hidden{% endif %}>
+          <header class="pane-head timeline-header">
+            {{ pane_grip("Timeline") }}
+            <h2 id="today-timeline-title">Timeline</h2>
+            {{ pane_hide("Timeline") }}
+          </header>
+          {% include "partials/calendar_grid.html" %}
+        </section>
+      {% endif %}
+      {% endfor %}
     </div>
-    {# A task row's controls, after its title (notepad.js clones one
-       per task): the task sheet's icons and menus alone (task-sheet.js,
-       data-sheet="props"), over the task's fields, then a way to its page
-       once it is added, and Delete. #}
-    <template id="pad-props-template">
-      <form class="task-sheet pad-props" data-sheet="props" onsubmit="return false">
-        {% for name in ["planned_for", "due", "repeat", "estimate", "priority", "project_id", "workstream_id", "status", "owner"] %}
-        <input type="hidden" name="{{ name }}" value="">
-        {% endfor %}
-        <button type="button" class="prop" data-prop="planned_for" aria-haspopup="menu" title="Do date" aria-label="Do date">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/></svg>
-          <span class="prop-value"></span>
-        </button>
-        <button type="button" class="prop" data-prop="due" aria-haspopup="menu" title="Due" aria-label="Due">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 2.75h9"/><path d="M5.5 17.25h9"/><path d="M6.5 2.75c0 4 7 4.5 7 7.25s-7 3.25-7 7.25"/><path d="M13.5 2.75c0 4-7 4.5-7 7.25s7 3.25 7 7.25"/></svg>
-          <span class="prop-value"></span>
-        </button>
-        <button type="button" class="prop" data-prop="repeat" aria-haspopup="menu" title="Repeat" aria-label="Repeat">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 9.5V8a3 3 0 0 1 3-3h10l-2.5-2.5"/><path d="M16.5 10.5V12a3 3 0 0 1-3 3h-10l2.5 2.5"/></svg>
-        </button>
-        <button type="button" class="prop" data-prop="estimate" aria-haspopup="menu" title="Estimate" aria-label="Estimate">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="11" r="6.25"/><path d="M8 2.5h4"/><path d="M10 2.5v2.25"/><path d="M10 11V8"/><path d="M15 5.5l1.25-1.25"/></svg>
-          <span class="prop-value"></span>
-        </button>
-        <button type="button" class="prop" data-prop="priority" aria-haspopup="menu" title="Priority" aria-label="Priority">
-          {{ priority_icon() }}
-          <span class="prop-value"></span>
-        </button>
-        <button type="button" class="prop" data-prop="project" aria-haspopup="menu" title="Project and workstream">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
-          <span class="prop-value" data-empty=""></span>
-        </button>
-        <a class="prop pad-open" href="" data-open-task hidden title="{{ keys.title('Open the task on its page', 'today.openTask') }}" aria-label="Open the task on its page">{{ open_icon() }}</a>
-        <button type="button" class="task-delete" data-pad-remove title="Delete task" aria-label="Delete task">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5h13"/><path d="M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5"/><path d="M5 5.5l.8 10.1A1.5 1.5 0 0 0 7.3 17h5.4a1.5 1.5 0 0 0 1.5-1.4L15 5.5"/><path d="M8.5 9v4.5"/><path d="M11.5 9v4.5"/></svg>
-        </button>
-        <script type="application/json" data-sheet-projects>{{ notepad.projects | tojson }}</script>
-      </form>
-    </template>
+    {% endfor %}
   </div>
-
-  <section class="pane today-timeline" aria-labelledby="today-timeline-title">
-    <header class="pane-head timeline-header">
-      <h2 id="today-timeline-title">Timeline</h2>
-    </header>
-    {% include "partials/calendar_grid.html" %}
-  </section>
 </div>
+<script src="{{ asset('today-layout.js') }}" defer></script>
 <script src="{{ asset('calendar.js') }}" defer></script>
 <script src="{{ asset('notepad.js') }}" defer></script>
 <script src="{{ asset('habits.js') }}" defer></script>
