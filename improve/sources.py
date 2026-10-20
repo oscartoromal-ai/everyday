@@ -465,7 +465,7 @@ def outdated_dependencies(checkout: Path) -> list[Finding]:
 
 
 def repo_slug(checkout: Path) -> str | None:
-    """The repo's owner/name on its origin ("oscartoromal-ai/everyday-app")."""
+    """The repo's owner/name on its origin ("oscartoromal-ai/everyday")."""
     out = run_tool(["git", "remote", "get-url", "origin"], checkout, timeout=30)
     match = re.search(r"[:/]([^/:]+/[^/]+?)(?:\.git)?/?$", out.stdout.strip())
     return match[1] if match else None
