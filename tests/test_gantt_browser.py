@@ -671,6 +671,32 @@ def test_a_task_opens_on_its_page_and_comes_back(page, live, app_db, project) ->
     page.wait_for_url(f"{live}/tasks/{loose}")
 
 
+def test_enter_twice_quickly_opens_the_task_on_its_page(page, live, app_db, project) -> None:
+    with app_db() as db:
+        loose = db.query(Task).filter_by(title="Loose end").one().id
+    page.goto(f"{live}/projects/{project}/gantt")
+    # Slowly, Enter writes in the cell and Enter again keeps it: no page.
+    _row(page, "Loose end").locator(".gantt-title .gantt-text").click()
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(600)
+    page.keyboard.press("Enter")
+    assert page.locator(".gantt-input").count() == 0
+    assert page.url.startswith(f"{live}/projects/{project}/gantt")
+    # Quickly, from any cell written in: the task on its page.
+    _row(page, "Loose end").locator(".gantt-title .gantt-text").click()
+    page.keyboard.press("Enter")
+    page.keyboard.press("Enter")
+    page.wait_for_url(f"{live}/tasks/{loose}")
+    page.go_back()
+    page.wait_for_url(f"{live}/projects/{project}/gantt*")
+    _row(page, "Loose end").locator(".gantt-due").click()
+    page.keyboard.press("Enter")
+    page.keyboard.press("Enter")
+    page.wait_for_url(f"{live}/tasks/{loose}")
+    with app_db() as db:
+        assert db.query(Task).filter_by(id=loose).one().title == "Loose end"
+
+
 def test_alt_w_writes_a_new_workstream_from_anywhere_on_the_page(page, live, project) -> None:
     page.goto(f"{live}/projects/{project}/gantt")
     # From a task's cell in the sheet, where plain letters are written.

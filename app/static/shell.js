@@ -743,7 +743,7 @@
   const goBack = () => {
     if (before()) sessionHistory.back();
   };
-  // Its key (Alt+Left), where the page has no use of its own for it (a
+  // Its keys (Alt+Left, Ctrl+Backspace), where the page has no use of its own for it (a
   // sheet moves its bars with it: keys.js lets the page go first), and the
   // mouse's back button. Forward has a key of its own.
   window.Keys.handle("app.back", goBack, () => !!before());

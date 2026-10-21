@@ -173,7 +173,8 @@ SCOPES: tuple[Scope, ...] = (
                menu=True, words="add write capture todo"),
         Action("event.new", "New event", ("E",), click="[data-new-event]", go="/calendar?new=1",
                menu=True, words="add calendar meeting"),
-        Action("app.back", "Back to the page before, as you left it", ("Alt+ArrowLeft",),
+        Action("app.back", "Back to the page before, as you left it",
+               ("Alt+ArrowLeft", "Ctrl+Backspace"),
                menu=True, words="previous history return"),
         Action("app.forward", "Forward again, to the page you came back from", ("Alt+ArrowRight",),
                menu=True, words="next history"),
@@ -455,8 +456,9 @@ SCOPES: tuple[Scope, ...] = (
               "hover); elsewhere: clear the priorities, bars or dues held"),
         Action("gantt.delete", "Delete the tasks held, or a workstream (its tasks stay), after "
                "asking", ("Ctrl+-", "Ctrl+Delete")),
-        Fixed("[Ctrl] [Enter]", "Open the cursor's task on its page (as on Projects; or the "
-              "arrow at its Task cell's end, on hover)"),
+        Fixed("[Ctrl] [Enter] or [Enter] [Enter]", "Open the cursor's task on its page (as on "
+              "Projects; Enter twice quickly on a cell written in; or the arrow at its Task "
+              "cell's end, on hover)"),
         Action("gantt.undo", "Undo", ("Ctrl+Z",)),
         Action("gantt.redo", "Redo", ("Ctrl+Y", "Ctrl+Shift+Z")),
         Fixed("[Ctrl] [C] [V]", "Copy cells; paste lines onto Task as new tasks (Task, Priority, "
