@@ -1,0 +1,59 @@
+{# The new project window's form, fetched each time it opens: its name,
+   the one thing it needs; its colour, the next one free already picked;
+   what it is for; and a repository, offered from his GitHub ones as on a
+   project's Overview when the code module is in, else written as a folder
+   or URL. Created, the browser goes to the new project's page. #}
+<form class="project-new" hx-post="/ui/projects" hx-swap="none" hx-disabled-elt="find button[type=submit]"
+      novalidate data-project-new-form>
+  <h2 class="confirm-title" id="project-dialog-title">New project</h2>
+  <p class="confirm-text">Its folder, project.md and AGENTS.md are made with it.</p>
+  <div class="project-new-fields">
+    <label class="field">
+      <span class="field-label">Name <span class="field-required" aria-hidden="true">*</span></span>
+      <span class="field-line"><input name="name" placeholder="Garden shed" autocomplete="off" required aria-describedby="project-new-name-error"></span>
+      <span class="field-error" id="project-new-name-error" hidden>A project needs a name.</span>
+    </label>
+    <fieldset class="field project-new-colour">
+      <legend class="field-label">Colour</legend>
+      <div class="swatches">
+        {% for n in range(1, 9) %}
+        <label class="swatch" style="--project: var(--hue-{{ n }})">
+          <input type="radio" name="color" value="{{ n }}"{% if next_color == n %} checked{% endif %} aria-label="Colour {{ n }}">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <label class="field">
+      <span class="field-label">Description <span class="field-optional">· optional</span></span>
+      <span class="field-line"><textarea name="notes" placeholder="What it is for" rows="2"></textarea></span>
+    </label>
+    {# The list drops from under the line, over what is below it; a pick
+       only fills the line (data-repo-fill), for Create project to send. #}
+    <div class="project-new-repo">
+      <label class="field">
+        <span class="field-label">Repository <span class="field-optional">· optional</span></span>
+        <span class="field-line">
+          {% if installed("code") %}
+          <input id="project-new-repo" name="location" autocomplete="off" spellcheck="false"
+                 placeholder="Find one of yours, or write its folder or URL"
+                 role="combobox" aria-expanded="false" aria-controls="project-new-repo-listbox" aria-autocomplete="list"
+                 aria-describedby="project-new-repo-error"
+                 hx-get="/ui/repo-options?box=project-new-repo-options" hx-trigger="focus, input changed delay:120ms"
+                 hx-target="#project-new-repo-options" hx-swap="outerHTML" hx-sync="this:replace"
+                 data-repo-picker data-repo-box="project-new-repo-options" data-repo-fill>
+          {% else %}
+          <input id="project-new-repo" name="location" autocomplete="off" spellcheck="false"
+                 placeholder="Its folder or its URL" aria-describedby="project-new-repo-error">
+          {% endif %}
+        </span>
+      </label>
+      {% if installed("code") %}<div class="repo-options" id="project-new-repo-options" hidden></div>{% endif %}
+      <span class="field-error" id="project-new-repo-error" hidden></span>
+    </div>
+  </div>
+  <div class="confirm-actions">
+    <button type="button" class="btn ghost" data-project-new-cancel>Cancel</button>
+    <button type="submit" class="btn primary">Create project</button>
+  </div>
+</form>

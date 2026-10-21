@@ -87,7 +87,8 @@
     if (!a) return false;
     const h = handlers.get(id);
     if (h) return !h.when || h.when();
-    const el = element(a.click || a.focus);
+    // One that clicks on one page and focuses on another (Shift+A) has either.
+    const el = element(a.click) || element(a.focus);
     if (el) return !el.disabled;
     return !!a.go;
   };

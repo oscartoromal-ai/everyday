@@ -858,14 +858,11 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 }
 
 .projects-page .page-header { margin-bottom: var(--s-6); }
-/* a new project: its name on a line at the header's right, out of the page's redraws */
-.new-project { flex: none; display: flex; align-items: flex-end; gap: var(--s-2); margin-top: var(--s-1); }
-.new-project .field-line { width: 200px; }
-.new-project .btn { height: 36px; padding-block: 0; }
-@media (max-width: 540px) {
-  .projects-page .page-header { flex-wrap: wrap; }
-  .new-project { flex: 1 1 100%; }
-  .new-project .field-line { flex: 1; width: auto; }
+/* New project at the header's right, a plus before its words: it opens the New project window */
+.new-project-open { flex: none; height: 36px; margin-top: var(--s-1); padding: 0 14px 0 12px; }
+.new-project-open svg {
+  width: 16px; height: 16px; fill: none; stroke: currentColor;
+  stroke-width: 1.6; stroke-linecap: round;
 }
 /* Projects lays its projects over weeks: the wider the window, the wider the weeks */
 .main:has(.projects-page) { max-width: 1600px; }
@@ -1562,7 +1559,7 @@ dialog.confirm::backdrop { background: var(--scrim); }
 /* a new task from Today or Calendar (N): the task sheet in a window, on the
    confirm dialog's paper, near the top where a quick note belongs */
 dialog.capture-dialog {
-  width: min(600px, calc(100vw - 32px)); margin: 15vh auto auto; padding: var(--s-2) 0;
+  width: min(600px, calc(100vw - 32px)); max-width: none; margin: 15vh auto auto; padding: var(--s-2) 0;
   color: var(--ink); background: var(--paper);
   border: 1px solid var(--hairline); border-radius: var(--r-ctl); box-shadow: var(--shadow-modal);
 }
@@ -1587,6 +1584,43 @@ dialog.capture-dialog::backdrop { background: var(--scrim); }
 .prop.file-into { margin: 0 0 0 -8px; padding: 2px 8px; gap: 6px; max-width: 100%; color: var(--graphite); font-variant-numeric: normal; }
 .prop.file-into .prop-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .prop.file-into.in-project { color: var(--ink); }
+
+/* a new project (project-new.js): the confirm dialog's paper, its fields
+   a form's, each its name over its line. The form holds the padding, so a
+   click on the dialog itself is one on the backdrop; the repositories'
+   list drops out of it, over what is below. */
+dialog.project-dialog {
+  width: min(460px, calc(100vw - 32px)); max-width: none; margin: 10vh auto auto; padding: 0; overflow: visible;
+  color: var(--ink); background: var(--paper);
+  border: 1px solid var(--hairline); border-radius: var(--r-ctl); box-shadow: var(--shadow-modal);
+}
+dialog.project-dialog[open] { animation: confirm-in 220ms var(--ease); }
+dialog.project-dialog::backdrop { background: var(--scrim); }
+.project-new { padding: var(--s-6); }
+.project-new-fields { display: flex; flex-direction: column; gap: 18px; margin-top: 20px; }
+.field-required { color: var(--spark-deep); }
+.field-optional { font-weight: 400; color: var(--pewter); }
+.field-error {
+  display: block; margin-top: var(--s-1);
+  font-size: var(--t-caption); line-height: 16px; color: var(--err-fg);
+}
+.field-error[hidden] { display: none; }
+/* a field refused: its line in the error's colour, at 2px, in use or not */
+.field-line:has(> [aria-invalid="true"]) { box-shadow: inset 0 -2px 0 var(--err-fg); }
+/* its colour: the Details card's flags at 32px, the first flag's pole (11px into
+   its swatch) in line with the fields' words */
+fieldset.project-new-colour { min-width: 0; margin: 0; padding: 0; border: none; }
+.project-new-colour > legend { padding: 0; }
+.project-new-colour .swatches { display: flex; flex-wrap: wrap; gap: 2px; margin-left: -11px; }
+/* the repositories, a dropdown under the line, their names in line with its words */
+.project-new-repo { position: relative; }
+.project-new-repo .repo-options {
+  --repo-indent: calc(var(--s-3) - 1px);
+  position: absolute; left: calc(-1 * var(--s-3)); right: calc(-1 * var(--s-3)); z-index: 1; margin-top: var(--s-1);
+  background: var(--paper); border: 1px solid var(--hairline); box-shadow: var(--shadow-dropdown);
+}
+.project-new-repo :is(.repo-option, .repo-options-note) { padding-right: var(--repo-indent); }
+.project-new-repo .repo-listbox { max-height: min(280px, 40vh); }
 
 /* the command menu (Ctrl+K, command.js): the capture window's paper, a line
    to write on, then what it finds, grouped, the one Enter opens in fog */

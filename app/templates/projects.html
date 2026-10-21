@@ -16,12 +16,13 @@
         {% if undated_count %}· {{ undated_count }} without a day{% endif %}
       </div>
     </div>
-    {# Outside the redrawn part, so a name being written survives a redraw. #}
-    <form class="new-project" hx-post="/ui/projects" hx-swap="none"
-          hx-on::after-request="if (event.detail.successful) this.reset()">
-      <span class="field-line"><input name="name" placeholder="New project…" aria-label="New project" autocomplete="off" required></span>
-      <button type="submit" class="btn quiet">Add</button>
-    </form>
+    {# The New project window (#project-dialog, project-new.js), as Shift+A
+       and the command menu open it. #}
+    <button type="button" class="btn quiet new-project-open" data-project-new aria-haspopup="dialog"
+            aria-keyshortcuts="{{ keys.aria('page.add') }}" title="{{ keys.title('New project', 'page.add') }}">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4.5v11"/><path d="M4.5 10h11"/></svg>
+      New project
+    </button>
   </header>
 
   {# Drawn again whenever a task or a project changes. A newer redraw

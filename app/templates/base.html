@@ -67,6 +67,7 @@
   <script src="{{ asset('task-sheet.js') }}" defer></script>
   <script src="{{ asset('tasks.js') }}" defer></script>
   <script src="{{ asset('repo-picker.js') }}" defer></script>
+  <script src="{{ asset('project-new.js') }}" defer></script>
   <script src="{{ asset('command.js') }}" defer></script>
   <script src="{{ asset('chat.js') }}" defer></script>
 </head>
@@ -254,6 +255,10 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
   {% endwith %}
   <ul id="capture-sink" hidden></ul>
 </dialog>
+{# The New project window: Projects' New project, Shift+A there, or "New
+   project" in the command menu on any page (project-new.js). Empty until it
+   opens, when its form (partials/project_new.html) is fetched afresh. #}
+<dialog id="project-dialog" class="project-dialog" aria-labelledby="project-dialog-title"></dialog>
 {# Ctrl+K (or Cmd+K) opens it anywhere, and Search in the rail (command.js). #}
 <dialog id="command-dialog" class="command-dialog" aria-label="Search, go or do">
   <input class="command-input" type="text" placeholder="Search tasks, events, notes; a page or a day; or a thing to do"
