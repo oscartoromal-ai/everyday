@@ -57,6 +57,9 @@ Per the planning model, decided against interactive prototypes:
   The keys he chooses over the defaults are kept in `keys.toml` in the app's home, written by Keyboard (from Settings, Ctrl+K or the keys dialog: + takes the next key pressed, × takes one away, Default puts them back) or by hand in any text editor, and read again as it changes; GET, PUT and DELETE `/ui/keys` read and set them too.
   The keys dialog (?), the pages' hints and titles and the command menu all say the keys as they are.
   Moving in a sheet, writing in a field and a list's Home and End stay as they are.
+- **Panes by the keyboard** (Oscar's call on 2026-10-21: "Anywhere we have panes I want to be able to move between panes by using ctrl + alt + arrow"): Ctrl+Alt and an arrow move the focus to the pane that way, wherever the focus is, in the notes or a description too.
+  The panes are those on screen: Today's, a task page's map and the task, the sidebar at the left, the agent window or a task's pane at the right, else the page between them.
+  Of a column's panes, the one the focus was in last is the one it goes back to, and in a pane, the focus goes back to where it was (the notes' caret), else to its first control.
 - **Triage by keyboard**: on a task list (a project's Tasks, Plan), arrow keys move a row cursor and single keys act on it (T today, M tomorrow, D pick a day, X done, E edit), the cursor moving on to the next row as each one is dated or finished; Ctrl+Enter opens the cursor's task on its page.
 - **A task's project is its colour** (Oscar's call on 2026-09-28, chosen from a prototype of four): each project has a colour, set on its page, and a task in it shows the project as its flag filled in that colour, the name only on hover, wherever tasks are listed.
   In Today's notes the task's rules take the colour too.

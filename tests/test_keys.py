@@ -3,6 +3,7 @@ key, every action's defaults, the keys chosen in keys.toml over them (by hand
 or by Keyboard's page), what in the file can't be used, and the routes that
 read and set them. `keys_file` is conftest.py's: each test's own keys.toml."""
 
+import json
 import os
 import time
 
@@ -210,6 +211,16 @@ def test_every_page_carries_the_keys_chosen(client, keys_file) -> None:
     assert "<dt><kbd>Ctrl</kbd> <kbd>P</kbd></dt><dd>Search tasks" in dialog
     # Not Alt+1 to Alt+9 any more: each page of the sidebar's its own line.
     assert "<dt><kbd>Alt</kbd> <kbd>Q</kbd></dt><dd>The sidebar&#39;s page 1" in dialog
+
+
+def test_the_pane_keys_are_heard_before_the_pages_own(client, keys_file) -> None:
+    page = client.get("/today").text
+    keymap = json.loads(
+        page.split('<script type="application/json" id="keymap">')[1].split("</script>")[0]
+    )
+    assert keymap["pane.left"]["keys"] == ["Ctrl+Alt+ArrowLeft"]
+    assert keymap["pane.left"]["first"] is True
+    assert "first" not in keymap["app.search"]
 
 
 def test_keyboards_page_lists_every_action_and_what_the_file_has_wrong(client, keys_file) -> None:

@@ -5,8 +5,9 @@
    that need none (click the page's button, focus its field, go to a page,
    or a handler a script hands over with Keys.handle) are done here, by the
    one listener on the window, after every page's own: a key a page took
-   is the page's. Single keys never fire while typing, nor anything over a
-   dialog. */
+   is the page's. An action marked first (moving between panes) is heard
+   before them all, so it works in an editor too. Single keys never fire
+   while typing, nor anything over a dialog. */
 
 (() => {
   let actions = {};
@@ -126,17 +127,20 @@
     Number(LAST.has(actions[a].scope)) - Number(LAST.has(actions[b].scope)));
   let paused = false;
 
-  window.addEventListener("keydown", (e) => {
+  const listen = (first) => (e) => {
     if (paused || e.defaultPrevented || e.isComposing || /^(Control|Alt|Shift|Meta)$/.test(e.key)) return;
     if (document.querySelector("dialog[open]")) return;
     const single = !e.ctrlKey && !e.metaKey && !e.altKey;
     if (single && e.target.closest?.(TYPING)) return;
     for (const id of ordered()) {
-      if (!is(e, id) || !run(id, e)) continue;
+      if (!!actions[id].first !== first || !is(e, id) || !run(id, e)) continue;
       e.preventDefault();
+      if (first) e.stopPropagation();
       return;
     }
-  });
+  };
+  window.addEventListener("keydown", listen(true), true);
+  window.addEventListener("keydown", listen(false));
 
   load(JSON.parse(document.getElementById("keymap")?.textContent || "{}"));
 

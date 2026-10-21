@@ -860,7 +860,7 @@ def test_health_is_its_own_nav_group_with_nutrition(client) -> None:
     link = group.split('href="/nutrition"')[1].split("</a>")[0]
     assert 'aria-keyshortcuts="Alt+5"' in link and 'aria-current="page"' in link
     # The day's log beside the day's chat with Claude (test_nutrition.py has the rest).
-    main = page.split('<main class="main">')[1]
+    main = page.split('<main class="main"')[1]
     assert 'class="chat-page nutrition-page"' in main and 'id="chat-composer"' in main
 
 

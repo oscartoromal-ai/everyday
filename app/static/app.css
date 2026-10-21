@@ -2287,6 +2287,17 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .pane-head h2, .pane-head .today-fold-label { margin: 0; font-family: var(--font-display); font-size: var(--t-body-sm); font-weight: 600; color: var(--ink); white-space: nowrap; }
 .pane-head .md-modes { margin: 0 0 0 auto; }
 
+/* a pane the focus moved into (Ctrl+Alt+arrows, panes.js): its edge lit
+   in the spark a moment, inside it so no scroller cuts it; the pane itself
+   in focus (with no control to take it) keeps it lit */
+[data-nav-pane]:focus-visible { outline: 2px solid var(--spark-deep); outline-offset: -2px; box-shadow: none; }
+[data-nav-pane]:not(.pane):focus-visible { border-radius: 0; }
+[data-nav-pane].is-lit { animation: pane-lit 700ms var(--ease); }
+@keyframes pane-lit {
+  from { outline: 2px solid var(--spark); outline-offset: -2px; }
+  to { outline: 2px solid transparent; outline-offset: -2px; }
+}
+
 /* the hours in what is left under the pane's title */
 .today-timeline .calendar-grid {
   flex: 1 1 auto; min-height: 240px; overflow-y: auto; overscroll-behavior: contain;

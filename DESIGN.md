@@ -525,6 +525,12 @@ The earlier checkbox draw-in, the breathing running dot and the row fade-in were
 Beyond that, only these move: the toast, the confirm dialog (an 8px rise with fade), the theme icon's morph, the sidebar's width when it collapses, its pages and projects making room for one dragged, and the system's two one-shot animations, the wordmark's `--spark-entrance` and a ticked box's `--check-pulse`.
 `prefers-reduced-motion` collapses every transition.
 
+**Moving between panes** (`app/static/panes.js`; Ctrl+Alt+arrows, `pane.left` to `pane.down`, heard by `keys.js` before any page's own listener, so a CodeMirror editor never takes them).
+A pane is a region marked `data-nav-pane`, its value what the focus lands on in it first (the notes' editor, the agent's message, the task on a task's map), unless it holds panes of its own, as the page does on Today and a task's page.
+The key goes to the pane showing nearest in its direction, measured on screen; of those as near (a column's panes, from the pane beside them), the one the focus was in last, else the top one.
+The focus goes back to where it was in that pane, else to what the attribute names, else to its first control past its title bar (never its grip or its eye), else to the pane itself, ringed in `--spark-deep` inside its edge.
+The pane's edge lights in `--spark`, 2px inside it, and fades over 700ms, a colour change alone; with no pane that way nothing happens.
+
 **Calendar drag** (`app/static/calendar.js`, vanilla, listeners on `document` so they survive htmx swaps).
 Oscar's own events move and resize, snapping to 15-minute increments, an item keeping the place it was held by, with a live preview; the resize grip is steel.
 A click on an event, or an all-day event, opens its card (380px, beside the item): a work meeting's title in 16px/600, its day and times, its place, its link as the primary "Join on zoom.us" and a pewter note that it is read-only; a cancelled one has the neutral Cancelled chip and no Join.

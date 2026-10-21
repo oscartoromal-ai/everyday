@@ -202,6 +202,37 @@ def test_a_second_click_before_the_first_is_saved_steps_on_from_it(
         assert db.query(Task).filter_by(title="Loose end").one().status == TaskStatus.needs_review
 
 
+def test_keys_pressed_while_an_edit_is_sent_land_where_the_cursor_went(
+    page, live, app_db, project
+) -> None:
+    page.goto(f"{live}/projects/{project}/gantt")
+    # The edit held on its way: Enter has moved the cursor down already, and
+    # Up brings it back to the cell just written, to be written again.
+    held, holding = [], [True]
+    page.route(
+        "**/ui/projects/*/gantt*",
+        lambda route: (
+            held.append(route) if holding and route.request.method == "POST" else route.continue_()
+        ),
+    )
+    _row(page, "Loose end").locator(".gantt-priority").click()
+    page.keyboard.type("4")
+    with page.expect_request(lambda r: r.method == "POST"):
+        page.keyboard.press("Enter")
+    page.keyboard.press("ArrowUp")
+    page.keyboard.type("1")
+    page.keyboard.press("Enter")
+    holding.clear()
+    for route in held:
+        route.continue_()
+    page.wait_for_function(
+        "document.querySelector('.gantt-row[data-title=\"Loose end\"]').dataset.priority"
+        " === 'urgent'"
+    )
+    with app_db() as db:
+        assert db.query(Task).filter_by(title="Loose end").one().priority.value == "urgent"
+
+
 def test_weeks_drill_down_to_days_and_back(page, live, project) -> None:
     with_bar = (THIS + timedelta(days=2)).isoformat()
     page.goto(f"{live}/projects/{project}/gantt")
