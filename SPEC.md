@@ -41,6 +41,7 @@ Per the planning model, decided against interactive prototypes:
   The app opens on Today (`/` goes there); dates are planned on Today and each project's Gantt.
 - **Tasks are planned in their lists** (Oscar's call on 2026-10-04): a project's on its Tasks tab, a list for each workstream with its own quick add, then the tasks in none, the finished workstreams on a line, and the Done fold; Oscar's open tasks without a day on Plan (`/plan`), those in no project first, with the page's quick add, then each project's.
   Each row names its do-date and has one-click Today and Tomorrow buttons and a date picker; rows go soonest first (do-date, then deadline, then priority, then oldest), and a repeating series shows only its next occurrence.
+  A project's Tasks tab is drawn in one of five views chosen from its gear and kept for every project's tab: the list (the default), a table, a list with the picked task in a pane beside it, a board of workstreams, and the open tasks by do-date; in the views but the list, the last two weeks' finished work is behind Show completed.
 - **Done folds away**: finished tasks leave their lists for a collapsed Done fold, at the foot of a project's Tasks (the last 14 days), where unticking one sends it back.
 - **Sub-tasks** live in their task's description and tick off on its row; workstreams hold tasks, never sub-tasks.
 - **A task is an object with its own page** (Oscar's call on 2026-10-03: "I'm writing very long tasks"): `/tasks/<id>` opens a task on a screen of its own, for one too complex for its row.

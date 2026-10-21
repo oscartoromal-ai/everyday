@@ -1111,8 +1111,10 @@
     const changed = snapshot(form) !== form._initial;
     if (keyboard) window.TaskCursor?.land((changed && form._quick?.landOnChange) || id);
     if (!changed) {
-      // Nothing changed: back to the row, without a save that re-renders the lists.
-      htmx.ajax("GET", `/ui/tasks/${id.slice(5)}/row`, { target: `#${id}`, swap: "outerHTML" });
+      // Nothing changed: back to the row, without a save that re-renders the
+      // lists. Asked from the sheet, so the request carries what its list
+      // sends (a Tasks view's X-Tasks-View) and the row comes back as that list's.
+      htmx.ajax("GET", `/ui/tasks/${id.slice(5)}/row`, { source: form, target: `#${id}`, swap: "outerHTML" });
     } else {
       form.requestSubmit();
     }

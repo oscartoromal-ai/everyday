@@ -24,6 +24,7 @@ from app.services import events as events_svc
 from app.services import projects as projects_svc
 from app.services import rail as rail_svc
 from app.services import recurrence as recurrence_svc
+from app.services import task_views as task_views_svc
 from app.services import tasks as tasks_svc
 from app.services import today_layout as today_layout_svc
 from app.ui.calendar_view import event_card_ctx
@@ -60,7 +61,21 @@ def _row_response(
     expanded: bool = False,
 ) -> HTMLResponse:
     task = tasks_svc.get_task(db, task_id)
-    context = {"request": request, "row": row_ctx(task, datetime.now()), "expanded": expanded}
+    # Its sub-tasks shown or not as the view keeps them: `expanded` when the
+    # change was to one of them, else as tasks-views.js shows them once it lands.
+    context = {
+        "request": request,
+        "row": row_ctx(task, datetime.now()),
+        "expanded": expanded,
+        "state": task_views_svc.State(),
+    }
+    # A row in a project's Tasks tab drawn in another view than the list
+    # (its part sends which, project_tasks.html) comes back as that view's row.
+    view = request.headers.get("X-Tasks-View", "")
+    if view in task_views_svc.ROW_VIEWS:
+        return templates.TemplateResponse(
+            request, f"partials/project_tasks/{view}_row.html", context
+        )
     return templates.TemplateResponse(request, "partials/task_row.html", context)
 
 
@@ -119,7 +134,9 @@ def quick_add(
         project_id=project_id, workstream_id=workstream_id, estimate=estimate, priority=priority,
     )
     db.commit()
-    if list_day and task.planned_for != date.fromisoformat(list_day):
+    if list_day and task.planned_for != (
+        None if list_day == "none" else date.fromisoformat(list_day)
+    ):
         # Dated away from the list it was written in: it does not join that
         # list, and the page regroups; tasks.js carries the composer.
         response = HTMLResponse("")

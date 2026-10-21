@@ -1,0 +1,10 @@
+{#- A workstream's circle, which marks it done (its tick once it is) or open
+    again: on its row (workstream_row.html), and on its head in a project's
+    Tasks views. `m` is a workstream as workstream_ctx() gives it. -#}
+{% macro workstream_check(m) -%}
+<button type="button" class="ws-check" aria-label="Mark “{{ m.workstream.name }}” {% if m.done %}open{% else %}done{% endif %}"
+        title="{{ 'Mark the workstream open' if m.done else 'Mark the workstream done' }}"
+        hx-post="/ui/workstreams/{{ m.workstream.id }}/toggle" hx-swap="none">
+  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="7"/>{% if m.done %}<path d="M6.8 10.2l2.2 2.2 4.2-5"/>{% endif %}</svg>
+</button>
+{%- endmacro %}

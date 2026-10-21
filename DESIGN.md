@@ -120,7 +120,7 @@ Every empty box (rows, sub-tasks, the description editor) is drawn in `--steel`,
 The box the user has just ticked plays the system's `--check-pulse` once (in Neon Signage, a ring of spark light that fades in 640ms); `tasks.js` marks the fresh row `.just-done` for it.
 The title is 14px/500 ink, and the meta line is 12px pewter.
 A do-date off Today is graphite.
-"Due soon" is a warn badge.
+"Due soon" is a warn badge, and a deadline past, while the task is open, an err badge: status colour lives in badges, never in a coloured run of text.
 The meta line sits 4px under the title, so the description disclosure can take a full 24px target (WCAG 2.5.8) without touching the title's.
 Claude's statuses are badges too: Queued neutral, Running ok (with a static dot), Needs review warn, Blocked err.
 A task with a description adds a pewter disclosure to the start of its meta line: a chevron and the sub-task count ("1/3"), or "Notes" when it has none.
@@ -261,12 +261,13 @@ The paused and done projects follow, a line each: "Paused" or "Done" in 12px/500
 Not ruled sheets (Oscar's call, 2026-10-04): glass list cards, a list each, 16px apart, their rows full-bleed between hairlines.
 A row is the task row (see Task rows), without its project's flag, since its list names the project; a meta line that would hold the flag alone is not drawn.
 Every row names its do-date, "today" included.
-Each row ends in quiet do-date buttons, always shown since dating is these lists' job: "Today" and "Tomorrow" in 12px pewter, and a calendar icon that opens the native date picker.
+In Plan and a project's Tasks as a List, each row ends in quiet do-date buttons, always shown since dating is these lists' job: "Today" and "Tomorrow" in 12px pewter, and a calendar icon that opens the native date picker.
 They darken to graphite on row hover and ink on their own hover; a button for the day the task already has leaves its slot empty, so the columns line up down the page.
 On phones they take their own line under the title's text, without empty slots.
+A project's Tasks in its other views keeps them out of the way of its denser rows: see A project's Tasks.
 Dating a task redraws the list from the server, which draws itself again whenever a task or a project changes.
 A task files by drag: onto a workstream's card, into that workstream; onto another project's list, into that project with no workstream; onto No project, out of any.
-The row in hand fades to 40%, and the list under it lights as a drop target, `--spark-tint` with an inset 1.5px spark ring.
+The row in hand fades to 40%, and a list that would take it lights as a drop target, `--spark-tint` with an inset 1.5px spark ring; its own list, and anywhere between lists, take nothing, and the pointer says so.
 The lists work from the keyboard alone (each page marks its lists' area `data-cursor`).
 A 12px pewter line under the header (and Today's) names the page's first keys and ends in "? all keys" (hidden on touch and phones); the focused row is the cursor, drawn as the nav's own marker, a 3px spark bar inset on its left edge with the spark glow, over the row hover fill.
 The bar shows for keyboard focus only (`:focus-visible`), never after a click.
@@ -457,11 +458,61 @@ Then its half year on the sheets' paper in a hairline card: at the left its figu
 Then its words as a document's: what it is, then "## Log" and its entries, the newest first.
 
 **A project's Tasks** (`project_tasks.html`, `/projects/<id>/tasks`, its second tab).
-Where a project's tasks are planned: under the shared header and the key line, a list card a workstream, in the project's order.
+Where a project's tasks are planned, in one of five views chosen from its gear: List, Table, List and details, Board and By do-date.
+Under the shared header is a 32px toolbar on one line: the view's first keys at the left, then Show completed and the gear at the right.
+As the toolbar narrows its hint lets go of the view's own keys first (the Board's arrows, what Space opens), then New, Done and Today, then the whole hint, as on a phone.
+The gear is the view's name in 12px/500 graphite and a 16px gear, never wrapping, on the glass hover when hovered or open.
+Its menu is the sheet menu: each view its name over a 12px pewter line saying what it is, the chosen one ticked, the keyboard's item on the spark bar.
+Choosing one keeps it for every project's tab on every device (the `tasks_view` setting); `?view=` shows a view without choosing it.
+Show completed, in every view but the List, is a sub-task's 14px box and "Show completed" with its count, 12px/500 graphite, ink on the glass hover, one focus ring round box and words.
+It shows the last 14 days' finished work where the view keeps it, and keeps its place in the toolbar while there is none, so nothing moves.
+What is folded, which tasks' sub-tasks are shown, Show completed and the task picked in List and details are kept per project and view on the device, in a cookie the server draws the page from, so the first paint is already as it was left.
+The views but the List are as wide as each other, 1360px at most, so the page keeps its width from view to view.
+
+What a task shows is the same in every view.
+Its do-date is plain graphite figures, past or not ("today", "Tue 2 Sep"), its first letter a capital where a column names it ("Today").
+Its deadline is plain too, a warn badge within three days and an err badge once past (18px tall, 6px in), the badge's words in line with the plain dates' down a column.
+Claude's run status is a badge after the title; the priority is its icon, and its word where there is room; the sub-tasks' count ("1/3" after a hooked arrow) is a pewter button that shows them under the task, its label saying whether a press shows or hides them.
+Space on a task shows what it folds away: its description on the Board, its sub-tasks in the tables; in List and details it goes into the pane.
+Its quick do-dates (Today, Tomorrow, a day picked, and its page, 24px each, a day it has left out) are out of sight until it is hovered or the keyboard is in it; Tab still reaches them, and Enter on one presses it, never the task's own Enter.
+On touch they stay away: the title opens the sheet that dates it.
+Delete asks in the confirm dialog, then deletes.
+A task dragged onto another list goes into it (By do-date's lists are days, and give theirs); between lists, or on its own, it stays where it was.
+
+**List.** A list card a workstream, in the project's order.
 A card's head is its workstream's row, over a stronger hairline: a steel circle that marks it done (ink on hover and once done), its name in 16px/600 ink, and its done count in 12px pewter; then its open tasks, then its composer, which files into it ("Add a task to Calls…").
 Then "No workstream" (or "Tasks", when the project has none), its tasks in none and the project's composer.
 A workstream marked done, or with every task done and none open, folds to a 12px line under the cards: "Finished" in pewter, then each its circle and its name in graphite, the circle marking it open again.
-Then the project's Done fold, the last 14 days; and last, outside what is redrawn, so a name being written survives, the line to add a workstream (a plus, then "New workstream: a lane of the project's work"), as the context's line to add a document is.
+Then the project's Done fold, the last 14 days, in place of Show completed; and last, outside what is redrawn, so a name being written survives, the line to add a workstream (a plus, then "New workstream: a lane of the project's work"), as the context's line to add a document is.
+
+**Table.** One glass card, as Asana's list: its columns' names on a sticky 32px line of opaque paper at its top, 12px/500 graphite: Task name (the rest, at least 240px), Do-date and Due (112px each), Priority (112px), Estimate (88px) and Owner (120px, Claude's tasks alone).
+A section a workstream, then No workstream ("Tasks" with none), then Completed while shown, each a 44px head (38px compact) over its rows: a 24px steel chevron centred over the rows' chevrons that folds it (as does a click anywhere on the head), its name in 16px/600 ink over the boxes, a 56px ink meter on a hairline and "2/4" in pewter figures, and at its right the workstream's circle, quiet until the head is hovered; Completed notes "last 14 days".
+A task is a 36px line (28px compact), its rule above it and its cells ruled apart by hairlines: a 20px steel chevron when it has sub-tasks, the 16px box at 34px, its title on one line from 60px, cut with an ellipsis and whole on hover, then its count and Claude's badge, and when hovered the quick do-dates at the cell's end.
+Hovered, the line takes the row hover fill; the keyboard's cursor is the line on that fill with the nav's 3px spark bar at its left.
+Its sub-tasks show under the line on an ink-faint wash, from the title's edge, the chevron turned.
+Each section ends in "Add task…", its plus where the boxes are and its words where the titles are, on the rows' exact line; a task's sheet takes its row's place across the columns.
+Under 900px the card keeps Task name, Do-date and Due; under 600px it has no columns, and what a task has goes on a line under its title from the title's edge, the do-date after a calendar and the deadline after "due".
+The finished workstreams sit on a line under the card.
+
+**List and details**, as Asana's list with its task pane: the list at the left and the picked task in a 380px pane beside it (320px in a view under 1000px), which stays in view as the list scrolls.
+The list is one glass card with the Table's sections and heads; a task is a 36px line (28px compact) with its box at 34px and its title at 60px, as the tables have them, then at its right, each in a slot of its own width so they line up down the list, Claude's badge, the priority's icon, the do-date and "due Fri 9 Oct" (the date alone where room is short); a slot no task fills takes no room, and hovered, the quick do-dates sit before them.
+A click on a line, or the cursor on it, picks it: the line on the spark tint with a 2px spark edge, and the pane draws it.
+The pane is Mark done, Open page and the bin on a 52px bar, the title in 20px/600 ink (a click edits it on its line), its fields as 36px rows (the name in a 96px column, 12px/500 graphite; the value in 14px ink, or "No priority" in pewter; the do-date's row ending in the quick days), then the description as the list draws it.
+Space on a line goes into the pane at its title, and Esc comes back to the line.
+Narrower than 880px there is no pane, and a click on a line opens its task's page.
+
+**Board.** A column a workstream across the page, 280px wide (on a phone, 85% of the screen, snapping), as tall as the window leaves it, each scrolling inside; the board scrolls sideways to the main column's edges.
+A column is a tinted lane on a strong hairline; its head is the workstream's circle over the cards' boxes, its name in 14px/600 ink cut with an ellipsis, "2/11" in pewter figures at its right, and a 2px ink meter along its foot.
+A card is a glass task: its box and its title (two lines at most), then, when it has any, a line of what it carries (Claude's badge, the priority's icon, the sub-tasks' count or the notes' mark, the estimate) with its dates at the right.
+Hovered, or with the keyboard in it, it goes to the fog on a steel edge and its quick do-dates float at its top right on paper with the dropdown shadow; its count, or Space, shows its whole description under it.
+Left and Right move the cursor to the card level with it in the next column that has one.
+Each column ends in "Add task…"; No workstream is there while it has tasks or a card is in hand; Completed is a column after them, the finished tasks and the workstreams marked done, shown with Show completed; the last column, dashed, names a new workstream.
+
+**By do-date**, as Asana's My Tasks: the Table's card, its sections stretches of days, soonest first: Overdue (only while something is), Today, Tomorrow, Next 7 days, Later, No do-date, then Completed while shown.
+Its columns are Task name, Workstream (a quiet tag, 200px), Do-date, Due, Priority and Estimate; the estimate goes under 920px, the workstream under 700px, and under 600px a task is the Table's line with its workstream last.
+A section with nothing in it and nothing to write there has no chevron, its place kept, and its name in graphite.
+Today, Tomorrow and No do-date end in "Add task for today…", "Add task for tomorrow…" and "Add task…", the task dated as its section; written there but dated otherwise, it goes where its day is.
+A task dragged onto a section takes its first day as the device has it at the drop (today, tomorrow, the day after tomorrow, eight days out, or none); Next 7 days and Later say which ("Do it Thu 29 Oct", 12px/500 spark-deep) while one is held over them, a folded section opens for it, and Overdue takes none.
 
 **Gantt** (a project's third tab, `/projects/<id>/gantt`, as wide as Calendar).
 A page header (a pewter "‹ Projects", the project's flag and name at 24px, the task counts and the plan's span, the project's tabs, the key line) with, at its right, the Weeks / Days segmented control and a quiet This week (or Today) button, then one sheet, ruled as Me's is (36px rows, 28px compact, the row numbers on the fog), that runs to the window's foot and scrolls both ways inside itself.

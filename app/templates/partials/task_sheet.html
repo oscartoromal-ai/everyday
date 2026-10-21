@@ -120,9 +120,10 @@
   {% elif file_into or workstream_id %}
   <input type="hidden" name="workstream_id" value="{{ s.workstream_id }}" data-default="{{ s.workstream_id }}">
   {% endif %}
-  {% if not editing and planned_for %}
-  {# The list's own day: a task dated elsewhere regroups the page instead of joining it. #}
-  <input type="hidden" name="list_day" value="{{ planned_for.isoformat() }}">
+  {% if not editing and (planned_for or undated) %}
+  {# The list's own day ("none" for a list of tasks with none): a task dated
+     elsewhere regroups the page instead of joining it. #}
+  <input type="hidden" name="list_day" value="{{ planned_for.isoformat() if planned_for else 'none' }}">
   {% endif %}
 
   {% if editing %}

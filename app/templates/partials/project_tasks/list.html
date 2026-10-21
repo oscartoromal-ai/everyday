@@ -1,0 +1,33 @@
+{# List, the Tasks tab's first view: a list card a workstream, each with its
+   own composer, then the tasks in none, the finished workstreams on a line,
+   and the last two weeks' finished work folded away. #}
+{% for group in groups %}{% include "partials/workstream_group.html" %}{% endfor %}
+
+<section class="list-section" id="no-workstream" data-task-group data-file-project="{{ project.id }}" aria-labelledby="no-workstream-head">
+  {% if groups %}<h2 id="no-workstream-head">No workstream {% if loose_rows %}<span class="count">{{ loose_rows | length }} open</span>{% endif %}</h2>
+  {% else %}<h2 id="no-workstream-head">Tasks {% if loose_rows %}<span class="count">{{ loose_rows | length }} open</span>{% endif %}</h2>{% endif %}
+  <ul class="task-list" id="project-tasks-{{ project.id }}">
+    {% for row in loose_rows %}{% include "partials/task_row.html" %}{% endfor %}
+  </ul>
+  {% with mode = "compose", target = "project-tasks-" ~ project.id, planned_for = None, project_id = project.id,
+          placeholder = "Add a task to " ~ project.name ~ "…" %}
+    {% include "partials/task_sheet.html" %}
+  {% endwith %}
+</section>
+
+{% if finished %}
+<section class="finished-workstreams" aria-label="Finished workstreams">
+  <span class="finished-label">Finished</span>
+  <ul class="workstreams">
+    {% for m in finished %}{% include "partials/workstream_row.html" %}{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if done_rows %}
+<section class="list-section done-section" data-task-group>
+  {% with fold_id = "project-done", fold_note = "last " ~ done_days ~ " days" %}
+    {% include "partials/done_fold.html" %}
+  {% endwith %}
+</section>
+{% endif %}

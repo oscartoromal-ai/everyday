@@ -1,0 +1,66 @@
+{#- List and details, as Asana's list with its task pane: at the left a
+    dense list, a section a workstream, then the tasks in none, a line a
+    task (pane_row.html); at the right the task picked on it, in full
+    (tasks-pane.js), drawn here as it was left. The finished workstreams sit
+    on a quiet line under the list, and the last two weeks' finished work
+    behind Show completed. -#}
+{% from "partials/project_tasks/macros.html" import section_head, composer with context %}
+{% from "partials/workstream_check.html" import workstream_check %}
+{% from "partials/keys_hint.html" import part %}
+
+<div class="lp-split">
+  <div class="lp-list">
+    {% for group in groups %}{% set w = group.m.workstream %}{% set key = "ws-" ~ w.id %}
+    <section class="tv-section{% if state.folded(key) %} folded{% endif %}" data-task-group data-fold-key="{{ key }}"
+             data-file-project="{{ project.id }}" data-file-workstream="{{ w.id }}" aria-labelledby="lp-ws-head-{{ w.id }}">
+      {% call section_head(w.name, "lp-ws-head-" ~ w.id, key, progress=group.m.progress) %}{{ workstream_check(group.m) }}{% endcall %}
+      <ul class="task-list lp-lines" id="lp-ws-{{ w.id }}">
+        {% for row in group.rows %}{% include "partials/project_tasks/pane_row.html" %}{% endfor %}
+      </ul>
+      {{ composer(project, "lp-ws-" ~ w.id, workstream_id=w.id) }}
+    </section>
+    {% endfor %}
+
+    <section class="tv-section{% if state.folded('loose') %} folded{% endif %}" data-task-group data-fold-key="loose"
+             data-file-project="{{ project.id }}" aria-labelledby="lp-loose-head">
+      {{ section_head("No workstream" if groups else "Tasks", "lp-loose-head", "loose", count=loose_rows | length) }}
+      <ul class="task-list lp-lines" id="lp-loose">
+        {% for row in loose_rows %}{% include "partials/project_tasks/pane_row.html" %}{% endfor %}
+      </ul>
+      {{ composer(project, "lp-loose") }}
+    </section>
+
+    {% if done_rows %}
+    <section class="tv-section tv-done{% if state.folded('done') %} folded{% endif %}" data-task-group data-fold-key="done"
+             data-done-part{% if not state.done %} hidden{% endif %} aria-labelledby="lp-done-head">
+      {{ section_head("Completed", "lp-done-head", "done", count=done_rows | length, note="last " ~ done_days ~ " days") }}
+      <ul class="task-list lp-lines">
+        {% for row in done_rows %}{% include "partials/project_tasks/pane_row.html" %}{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </div>
+
+  {#- The pane's column is as tall as the list; the pane stays in view in it. -#}
+  <div class="lp-column">
+    <aside class="lp-details" aria-label="Task details">
+      <div class="lp-empty">
+        <p>Pick a task to see it here.</p>
+        <p class="keys-hint">{{ part("move from task to task", "list.up", "list.down") }}{{ part("edit", "task.edit") }}</p>
+      </div>
+      {#- The task picked when the view was left, as tasks-pane.js draws it. -#}
+      {% if state.picked %}{% for row in (groups | map(attribute="rows") | sum(start=[])) + loose_rows + (done_rows if state.done else []) if row.task.id == state.picked %}
+      {% include "partials/project_tasks/pane_card.html" %}
+      {% endfor %}{% endif %}
+    </aside>
+  </div>
+
+  {% if finished %}
+  <section class="finished-workstreams lp-finished" aria-label="Finished workstreams">
+    <span class="finished-label">Finished</span>
+    <ul class="workstreams">
+      {% for m in finished %}{% include "partials/workstream_row.html" %}{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</div>

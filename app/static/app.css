@@ -812,6 +812,8 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
   font-size: var(--t-caption); font-weight: 500;
   color: var(--warn-fg); background: var(--badge-warn-glass);
 }
+/* past, while open: the err badge */
+.task-meta .due.over { color: var(--err-fg); background: var(--badge-err-glass); }
 
 /* Claude's work: status badges */
 .chip {
@@ -857,8 +859,8 @@ button.task-title-btn:hover .task-title { text-decoration: underline; text-under
 .plan-pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
 /* phone: the buttons take their own line, under the title's text */
 @media (max-width: 540px) {
-  .task-row:has(.task-plan) { flex-wrap: wrap; }
-  .task-row .task-plan { order: 3; flex-basis: 100%; margin: var(--s-1) 0 -4px 22px; }
+  .task-row:has(> .task-plan) { flex-wrap: wrap; }
+  .task-row > .task-plan { order: 3; flex-basis: 100%; margin: var(--s-1) 0 -4px 22px; }
   .plan-btn.slot { display: none; }
 }
 
@@ -1873,9 +1875,10 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .workstreams { list-style: none; margin: 0; padding: 0; }
 .workstream { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-4) var(--s-4) var(--s-3); }
 .workstream-group > .workstreams { border-bottom: 1px solid var(--hairline-on-glass-strong); }
-.workstream button { display: grid; place-content: center; width: 24px; height: 24px; margin: -4px; border-radius: 0; }
-.workstream svg { flex: none; stroke: var(--steel); }
-.workstream button:hover svg, .workstream.done svg { stroke: var(--ink); }
+/* a workstream's circle (partials/workstream_check.html): steel, ink on hover and once done */
+.ws-check { flex: none; display: grid; place-content: center; width: 24px; height: 24px; margin: -4px; border-radius: 0; color: var(--steel); }
+.ws-check svg { flex: none; stroke: currentColor; }
+.ws-check:hover, .done > .ws-check { color: var(--ink); }
 .workstream .name { flex: 1; min-width: 0; font-size: var(--t-body); font-weight: 600; color: var(--ink); }
 .workstream.done .name { color: var(--pewter); font-weight: 500; }
 .workstream .progress { font-size: var(--t-caption); color: var(--pewter); font-variant-numeric: tabular-nums; }
@@ -1886,9 +1889,664 @@ dialog.keys-dialog:focus-visible { outline: none; box-shadow: var(--shadow-modal
 .finished-workstreams .workstream { gap: var(--s-2); padding: 0; }
 .finished-workstreams .workstream .name { font-size: var(--t-caption); font-weight: 500; color: var(--graphite); }
 .new-workstream { margin-bottom: var(--s-8); }
-.project-tasks-page .keys-hint { margin: calc(-1 * var(--s-2)) 0 var(--s-4); }
-/* filing by drag: the list under the row in hand lights */
-:is([data-file-project], [data-file-workstream]).drop-over { background: var(--spark-tint); box-shadow: inset 0 0 0 1.5px var(--spark); }
+
+/* ---------- a project's Tasks: its toolbar, and what every view shares ---------- */
+
+/* Its toolbar: the view's keys at the left; at the right Show completed
+   (the views but the list) and the gear, the view it is in by name. */
+.tasks-toolbar {
+  container: tasks-toolbar / inline-size;
+  display: flex; align-items: center; gap: var(--s-4); margin: calc(-1 * var(--s-2)) 0 var(--s-4); min-height: 32px;
+}
+.project-tasks-page .tasks-toolbar .keys-hint { margin: 0; white-space: nowrap; }
+/* one line, as the toolbar narrows: the view's own keys go first, then new,
+   done and today, then the hint, as on a phone (widths measured on the
+   widest view's: the Board's keys, List and details' gear) */
+@container tasks-toolbar (width < 900px) { .tasks-toolbar .keys-more { display: none; } }
+@container tasks-toolbar (width < 710px) { .tasks-toolbar .keys-spare { display: none; } }
+@container tasks-toolbar (width < 530px) { .tasks-toolbar .keys-hint { display: none; } }
+.tasks-view-menu { margin-left: auto; }
+.tasks-view-open {
+  display: inline-flex; align-items: center; gap: var(--s-2); height: 32px; padding: 0 var(--s-2) 0 var(--s-3);
+  border-radius: var(--r-ctl); font-size: var(--t-caption); font-weight: 500; color: var(--graphite); white-space: nowrap;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.tasks-view-open svg { flex: none; stroke: currentColor; }
+.tasks-view-open:hover, .tasks-view-open[aria-expanded="true"] { color: var(--ink); background: var(--glass-hover); }
+.tasks-view-choices { min-width: 280px; max-width: 320px; }
+.tasks-view-choices .label { display: flex; flex-direction: column; gap: 1px; }
+.tasks-view-choices .tasks-view-about { font-size: var(--t-caption); font-weight: 400; color: var(--pewter); }
+/* Show completed: a sub-task's box and its words, one control with one
+   focus ring; its place kept while there is nothing finished to show */
+.tv-show-done {
+  flex: none; display: inline-flex; align-items: center; gap: var(--s-2); height: 32px; margin-left: auto; padding: 0 var(--s-2);
+  font-size: var(--t-caption); font-weight: 500; color: var(--graphite); white-space: nowrap; cursor: pointer; user-select: none;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.tv-show-done[data-none] { visibility: hidden; }
+.tv-show-done:hover { color: var(--ink); background: var(--glass-hover); }
+.tv-show-done .subtask-check { margin: 0; }
+.tv-show-done:hover .subtask-check:not(:checked) { border-color: var(--graphite); }
+.tv-show-done:has(:focus-visible) { box-shadow: 0 0 0 2px var(--spark-deep), var(--spark-glow); }
+.tv-show-done .subtask-check:focus-visible { box-shadow: none; }
+.tv-show-done + .tasks-view-menu { margin-left: calc(var(--s-1) - var(--s-4)); }
+
+/* The views but the list are as wide as each other, wider than a list
+   page, so the page keeps its width from view to view. */
+.main:has(.project-tasks-page:not([data-tasks-view="list"])) { max-width: 1360px; }
+
+/* The pieces of a task every view draws (partials/project_tasks/macros.html).
+   Its dates in figures, plain; urgency is a badge, never a coloured text
+   run: a deadline soon is a warn badge, one past an err badge, and they
+   and Claude's badge sit on a dense line's 18px. */
+.tv-date, .tv-due { font-family: var(--font-num); font-size: var(--t-caption); font-variant-numeric: tabular-nums; color: var(--graphite); white-space: nowrap; }
+:is(.tv-due, .tv-chip).chip { flex: none; padding: 0 6px; line-height: 18px; }
+/* a date as a column reads it: "Today", "Tue 2 Sep" */
+.tv-cap { display: inline-block; }
+.tv-cap::first-letter { text-transform: uppercase; }
+/* in a column, a badge's words line up with the plain dates', its box
+   hanging into the cell's padding */
+.tv-cell :is(.tv-due.chip, .sv-tag), .lp-fields dd .tv-due.chip { margin-left: -6px; }
+.lp-slot .tv-due.chip { margin-right: -6px; }
+.tv-priority { display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-caption); font-weight: 500; color: var(--graphite); white-space: nowrap; }
+.tv-priority .priority-icon { width: 14px; height: 14px; }
+.tv-estimate { font-family: var(--font-num); font-size: var(--t-caption); font-variant-numeric: tabular-nums; color: var(--graphite); white-space: nowrap; }
+.tv-owner { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--t-caption); color: var(--graphite); white-space: nowrap; }
+.tv-avatar {
+  flex: none; display: grid; place-content: center; width: 18px; height: 18px;
+  font-size: var(--t-caption); font-weight: 600; line-height: 1; color: var(--on-carbon); background: var(--carbon);
+}
+.tv-avatar.claude { color: var(--on-spark); background: var(--signal); }
+.tv-subcount {
+  flex: none; display: inline-flex; align-items: center; gap: 3px; padding: 0 2px;
+  border-radius: var(--r-tag); font-family: var(--font-num); font-size: var(--t-caption); color: var(--pewter);
+}
+button.tv-subcount:hover, button.tv-subcount[aria-expanded="true"] { color: var(--ink); background: var(--glass-hover); }
+.tv-subcount svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Its quick do-dates and its page (`quick`): 24px buttons, out of sight
+   until the row is hovered or the keyboard is in it, but not out of reach,
+   so Tab still finds them (and shows them); a day it has is not offered.
+   Each view places them; while a task is in hand, none show. */
+.tv-quick { flex: none; display: flex; align-items: center; gap: 2px; }
+.task-lists .task-row:not(:hover, :focus-visible, :has(:focus-visible)) .tv-quick,
+.task-lists:has(.task-row.dragging) .task-row .tv-quick {
+  position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+@media (hover: none) {
+  .task-lists .task-row:not(:focus-visible, :has(:focus-visible)) .tv-quick {
+    position: absolute; width: 1px; height: 1px; padding: 0; border: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+}
+.tv-quick .task-plan { margin: 0; gap: 2px; }
+.tv-quick .plan-btn { height: 24px; padding: 0 6px; color: var(--graphite); }
+.tv-quick .plan-btn.icon { width: 24px; padding: 0; }
+.tv-quick .plan-btn.slot { display: none; }
+.tv-quick .task-open { width: 24px; height: 24px; margin: 0; opacity: 1; }
+
+/* A part that folds to its head: its chevron, turned while folded; with
+   nothing to fold, its place. */
+.tv-fold { flex: none; display: grid; place-content: center; width: 24px; height: 24px; border-radius: var(--r-ctl); color: var(--steel); }
+button.tv-fold:hover { color: var(--ink); background: var(--glass-hover); }
+.tv-fold svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--dur) var(--ease); }
+.folded .tv-fold svg { transform: rotate(-90deg); }
+/* how far a workstream is: a thin ink meter on a hairline track, as the app's meters */
+.tv-meter { flex: none; display: block; width: 56px; height: 4px; background: var(--hairline); overflow: hidden; }
+.tv-meter i { display: block; height: 100%; background: var(--ink); }
+/* what a head says at its end ("last 14 days") */
+.tv-note { margin-left: auto; font-size: var(--t-caption); color: var(--pewter); white-space: nowrap; }
+
+/* A task dragged onto a list (tasks.js): the row in hand fades, and the
+   list under it that takes it lights, the drop target's spark tint and
+   ring; By do-date's says the day it would take. */
+:is([data-file-project], [data-drop-offset]).drop-over { background: var(--spark-tint); box-shadow: inset 0 0 0 1.5px var(--spark); }
+.tv-drop-note { display: none; margin-left: auto; padding-left: var(--s-2); font-size: var(--t-caption); font-weight: 500; color: var(--spark-deep); white-space: nowrap; }
+.drop-over .tv-drop-note { display: inline; }
+
+/* ---------- the dense lists: the tables (Table, By do-date) and List and details ---------- */
+
+/* Their geometry, shared: a line 35px and its rule (27px compact); in
+   it the sub-tasks' chevron (20px, 8px in), the 16px box at 34px and the
+   words at 60px. A section's head centres its fold over the chevrons and
+   puts its name over the boxes; its composer's plus is where the boxes are. */
+:is(.tv-grid, .lp-list) {
+  --tv-line: 35px; --tv-pad: 8px; --tv-expand: 20px; --tv-box: 16px;
+  --tv-box-at: calc(var(--tv-pad) + var(--tv-expand) + 6px);
+  --tv-text: calc(var(--tv-box-at) + var(--tv-box) + 10px);
+  margin-bottom: var(--s-4);
+  background: var(--glass-card); backdrop-filter: blur(20px) saturate(1.1);
+  border: 1px solid var(--glass-border);
+}
+:root[data-density="compact"] :is(.tv-grid, .lp-list) { --tv-line: 27px; }
+
+.tv-section + .tv-section { border-top: 1px solid var(--hairline-on-glass-strong); }
+.tv-section.folded > :not(.tv-head) { display: none; }
+/* a section's head: a click anywhere on it folds it, as its chevron does (tasks-views.js) */
+.tv-head {
+  display: flex; align-items: center; gap: var(--s-1);
+  min-height: 44px; padding: 0 var(--s-3) 0 calc(var(--tv-pad) + var(--tv-expand) / 2 - 12px);
+}
+.tv-head:has([data-fold]) { cursor: pointer; }
+:root[data-density="compact"] .tv-head { min-height: 38px; }
+.tv-head h2 {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin: 0 var(--s-2) 0 0;
+  font-family: var(--font-display); font-size: var(--t-body); font-weight: 600; color: var(--ink);
+}
+.tv-head .tv-meter { margin-right: var(--s-1); }
+.tv-head .count { flex: none; font-family: var(--font-num); }
+/* a workstream's circle at its end, quiet until the head is hovered */
+.tv-head .ws-check { margin: 0 -4px 0 auto; opacity: 0; transition: opacity var(--dur) var(--ease), color var(--dur) var(--ease); }
+.tv-head:hover .ws-check, .tv-head .ws-check:focus-visible { opacity: 1; }
+@media (hover: none) { .tv-head .ws-check { opacity: 1; } }
+
+/* the composer, a section's last line, and a task's sheet in place of its line */
+.tv-section > .compose-slot { border-top: 1px solid var(--hairline-on-glass); }
+.tv-section > .compose-slot .task-sheet,
+:is(.tv-rows, .lp-lines) > .sheet-item .task-sheet { gap: 10px; padding: 6.5px var(--s-3) 6.5px var(--tv-box-at); line-height: 22px; }
+:root[data-density="compact"] .tv-section > .compose-slot .task-sheet:not(.composing),
+:root[data-density="compact"] :is(.tv-rows, .lp-lines) > .sheet-item .task-sheet { padding-block: 2.5px; }
+:is(.tv-grid, .lp-list) .task-sheet .sheet-plus { width: var(--tv-box); height: var(--tv-box); margin-top: 3px; }
+:is(.tv-grid, .lp-list) .sheet-item .task-check { width: var(--tv-box); height: var(--tv-box); margin-top: 3px; }
+:is(.tv-grid, .lp-list) .sheet-item .task-check::before { width: 9px; height: 9px; }
+.tv-section > .compose-slot:hover { background: var(--glass-row-hover); }
+
+/* ---------- the tables: Table and By do-date ---------- */
+
+/* One glass card, its columns named on a sticky line at the top, each task
+   a line of cells ruled apart by hairlines, as Asana's lists; each view
+   names its columns (--tv-cols) and how they give way as the card narrows. */
+.tv-grid { container: tv-grid / inline-size; }
+.tv-line { display: grid; grid-template-columns: var(--tv-cols); align-items: stretch; min-height: var(--tv-line); }
+.tv-cell {
+  display: flex; align-items: center; gap: var(--s-2); min-width: 0;
+  padding: 0 var(--s-3); border-left: 1px solid var(--hairline-on-glass);
+}
+.tv-cell:not(.tv-name) > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* the name keeps what is in it: a long title is cut, never pushed out */
+.tv-cell.tv-name { gap: 0; padding: 0 var(--s-2) 0 var(--tv-pad); border-left: none; overflow: hidden; }
+/* the columns' names: on the page's paper, so rows pass under it unseen */
+.tv-columns {
+  position: sticky; top: 0; z-index: 2; min-height: 32px;
+  background: var(--paper); border-bottom: 1px solid var(--hairline-on-glass-strong);
+  font-size: var(--t-caption); font-weight: 500; color: var(--graphite); white-space: nowrap;
+}
+.tv-columns .tv-name { padding-left: var(--tv-text); }
+
+/* a task's row: its line, and under it its sub-tasks */
+.tv-rows { list-style: none; margin: 0; padding: 0; }
+.tv-row { display: block; padding: 0; gap: 0; border-top: 1px solid var(--hairline-on-glass); border-bottom: none; }
+.tv-rows > .sheet-item { border-top: none; }
+/* the line lights, not the sub-tasks under it; the keyboard's cursor is
+   the line on the hover fill, the spark bar at its left */
+.tv-row:hover, .tv-row[tabindex]:focus-visible { background: none; }
+.tv-row > .tv-line { transition: background-color var(--dur) var(--ease); }
+.tv-row > .tv-line:hover, .tv-row:focus-visible > .tv-line { background: var(--glass-row-hover); }
+.tv-row[tabindex]:focus-visible::before { top: 8px; bottom: auto; height: calc(var(--tv-line) - 16px); z-index: 1; }
+:root[data-density="compact"] .tv-row[tabindex]:focus-visible::before { top: 6px; height: calc(var(--tv-line) - 12px); }
+.task-lists:has(.task-row.dragging) .tv-row > .tv-line:hover { background: none; }
+@media (hover: none) { .tv-row > .tv-line:hover { background: none; } }
+
+.tv-expand {
+  flex: none; display: grid; place-content: center;
+  width: var(--tv-expand); height: var(--tv-expand); margin-right: 6px; color: var(--steel);
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+button.tv-expand:hover { color: var(--ink); background: var(--glass-hover); }
+.tv-expand svg {
+  width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+  transition: transform var(--dur) var(--ease);
+}
+.tv-expand[aria-expanded="true"] svg { transform: rotate(90deg); }
+.tv-row .task-check { width: var(--tv-box); height: var(--tv-box); margin: 0 10px 0 0; }
+.tv-row .task-check::before { width: 9px; height: 9px; }
+/* the title on one line, cut short with an ellipsis; then its sub-tasks'
+   count, Claude's badge, and at the cell's end the quick do-dates */
+.tv-title { display: flex; flex: 0 1 auto; min-width: 0; }
+.tv-name button.task-title-btn {
+  display: block; flex: 0 1 auto; width: auto; min-width: 0;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 22px;
+}
+.tv-name .task-title { overflow-wrap: normal; }
+.tv-name .tv-subcount { margin-left: var(--s-2); line-height: 20px; }
+.tv-name .chip { margin-left: var(--s-2); }
+.tv-name .tv-quick { margin-left: auto; padding-left: var(--s-2); }
+
+/* its sub-tasks, under the line, from the title's edge */
+.tv-subtasks {
+  padding: var(--s-1) var(--s-3) var(--s-2) var(--tv-text);
+  border-top: 1px solid var(--hairline-on-glass); background: var(--ink-tint-faint);
+}
+.tv-subtasks .subtask label { align-items: flex-start; gap: var(--s-2); padding: 4px 0; line-height: 20px; }
+.tv-subtasks .subtask-check { margin-top: 3px; }
+:root[data-density="compact"] .tv-subtasks .subtask label { padding: 2px 0; }
+
+/* a phone's width: no columns; the name has the line, and what the task
+   has is said on a line under it from the title's edge, the do-date with
+   its calendar and the deadline with its word, as the list's are */
+@container tv-grid (width < 600px) {
+  .tv-columns { display: none; }
+  .tv-head .tv-meter { display: none; }
+  .tv-row > .tv-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s-3); padding-left: var(--tv-text); }
+  .tv-row .tv-cell.tv-name { flex: 1 0 calc(100% + var(--tv-text)); min-height: var(--tv-line); margin-left: calc(-1 * var(--tv-text)); }
+  .tv-row .tv-cell:not(.tv-name) { display: flex; flex: none; min-width: 0; max-width: 100%; padding: 0 0 var(--s-2); border: none; }
+  /* a name with a line under it gives up 5px of its foot, its words where they were */
+  .tv-row > .tv-line:has(> .tv-cell:not(.tv-name) > :not(.visually-hidden)) > .tv-name { min-height: calc(var(--tv-line) - 5px); padding-top: 5px; }
+  /* only what it has: a cell with nothing seen goes */
+  .tv-row .tv-cell:not(.tv-name):not(:has(> :not(.visually-hidden))) { display: none; }
+  .tv-row .tv-date::before {
+    content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 4px; vertical-align: -1px;
+    background: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Crect x='3' y='4' width='14' height='13'/%3E%3Cpath d='M7 2.5v3M13 2.5v3M3 8.5h14'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .tv-row .tv-due::before { content: "due\00a0" / ""; }
+  .tv-row .tv-due.chip { gap: 0; }
+  .tv-row .tv-cap::first-letter { text-transform: none; }
+  /* the line's badges start with its words, as the list's do */
+  .tv-row .tv-cell :is(.tv-due.chip, .sv-tag) { margin-left: 0; }
+}
+
+/* ---------- Table ---------- */
+
+/* Task name, Do-date, Due, Priority, Estimate, Owner; narrower, the name,
+   its do-date and its deadline */
+.tasks-in-table .tv-line { --tv-cols: minmax(240px, 1fr) 112px 112px 112px 88px 120px; }
+@container tv-grid (width < 900px) {
+  .tasks-in-table .tv-line { --tv-cols: minmax(240px, 1fr) 112px 112px; }
+  .tasks-in-table .tt-wide { display: none; }
+}
+@container tv-grid (width < 600px) {
+  .tasks-in-table .tv-line { --tv-cols: minmax(0, 1fr); }
+}
+/* the finished workstreams, on a line under the card */
+.tasks-in-table .tv-finished { padding: 0 var(--tv-pad); }
+
+/* ---------- By do-date ---------- */
+
+/* Task name, Workstream, Do-date, Due, Priority, Estimate; the estimate
+   goes first as the card narrows, then the workstream */
+.tasks-in-schedule .tv-line { --tv-cols: minmax(0, 1fr) 200px 112px 112px 112px 88px; }
+@container tv-grid (width < 920px) {
+  .tasks-in-schedule .tv-line { --tv-cols: minmax(0, 1fr) 152px 112px 112px 104px; }
+  .tasks-in-schedule .sv-est { display: none; }
+}
+@container tv-grid (width < 700px) {
+  .tasks-in-schedule .tv-line { --tv-cols: minmax(0, 1fr) 112px 112px 104px; }
+  .tasks-in-schedule .sv-ws { display: none; }
+}
+@container tv-grid (width < 600px) {
+  .tasks-in-schedule .tv-line { --tv-cols: minmax(0, 1fr); }
+  /* its workstream last on the line, cut short */
+  .tasks-in-schedule .tv-row .sv-ws { order: 1; flex: 0 1 auto; }
+  .tasks-in-schedule .tv-row .tv-priority > span { display: none; }
+}
+/* a stretch with nothing in it: its name quieter */
+.tasks-in-schedule .sv-empty .tv-head h2 { color: var(--graphite); }
+/* its workstream, a quiet tag */
+.tasks-in-schedule .sv-tag {
+  flex: 0 1 auto; padding: 0 6px; line-height: 20px; white-space: nowrap;
+  font-size: var(--t-caption); font-weight: 500; color: var(--graphite); background: var(--ink-tint-tag);
+}
+
+/* ---------- List and details ---------- */
+
+/* A dense list at the left, a line a task, and the task picked on it in a
+   pane beside, which stays in view as the list scrolls; the page is the
+   container the view's widths ask of. Narrow, the pane goes and a task
+   opens on its page (tasks-pane.js). */
+.project-tasks-page:has(.tasks-in-pane) { container: tasks-pane / inline-size; }
+.tasks-in-pane, .project-tasks-page:has(.tasks-in-pane) > .new-workstream { --lp-w: 380px; }
+.tasks-in-pane .lp-split {
+  display: grid; grid-template-columns: minmax(0, 1fr) var(--lp-w); column-gap: var(--s-4);
+  grid-template-areas: "list pane" "finished pane"; grid-template-rows: auto 1fr;
+  align-items: start;
+}
+.tasks-in-pane .lp-list { grid-area: list; min-width: 0; margin-bottom: 0; }
+
+/* a task's line: its box, its title, then its fields in slots at the right */
+.tasks-in-pane .lp-line {
+  display: flex; align-items: center; gap: var(--s-2);
+  height: calc(var(--tv-line) + 1px); padding: 0 var(--s-3) 0 var(--tv-box-at);
+  border-top: 1px solid var(--hairline-on-glass);
+  cursor: default;
+}
+.tasks-in-pane .lp-line[draggable="true"] { cursor: grab; }
+:root[data-density="compact"] .tasks-in-pane .lp-line[tabindex]:focus-visible::before { top: 6px; bottom: 6px; }
+.tasks-in-pane .lp-line .task-check { width: var(--tv-box); height: var(--tv-box); margin: 0; }
+.tasks-in-pane .lp-line .task-check::before { width: 9px; height: 9px; }
+.tasks-in-pane .lp-line button.task-title-btn {
+  flex: 0 1 auto; width: auto; min-width: 0; margin-left: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tasks-in-pane .lp-line .tv-subcount { margin-left: -2px; }
+/* the room left goes after the title (and its count), where the quick
+   do-dates show, the slots keeping their place */
+.tasks-in-pane .lp-line > :has(+ .tv-quick) { margin-right: auto; }
+/* the picked task: the spark's tint, and its bar down the line's edge */
+.tasks-in-pane .lp-line.picked { background: var(--spark-tint); box-shadow: inset 2px 0 0 var(--spark); }
+.tasks-in-pane .lp-line.picked:focus-visible { box-shadow: none; }
+.tasks-in-pane .lp-line.picked:hover { background: var(--spark-tint); }
+.tasks-in-pane .lp-slots { flex: none; display: flex; align-items: center; gap: var(--s-3); padding-left: var(--s-2); }
+.tasks-in-pane .lp-slot { display: flex; align-items: center; justify-content: flex-end; }
+.tasks-in-pane .lp-slot-chip { width: 100px; }
+.tasks-in-pane .lp-slot-priority { width: 14px; }
+.tasks-in-pane .lp-slot-priority .priority-icon { display: block; }
+.tasks-in-pane .lp-slot-date { width: 72px; }
+.tasks-in-pane .lp-slot-due { width: 104px; }
+/* the deadline with its word; without it where room is short */
+.tasks-in-pane .lp-slot-due .tv-due + .tv-due { display: none; }
+/* a slot no task on the list fills takes no room */
+.tasks-in-pane .lp-list:not(:has(.lp-slot-chip .chip)) .lp-slot-chip,
+.tasks-in-pane .lp-list:not(:has(.lp-slot-priority .tv-priority)) .lp-slot-priority,
+.tasks-in-pane .lp-list:not(:has(.lp-slot-date .tv-date)) .lp-slot-date,
+.tasks-in-pane .lp-list:not(:has(.lp-slot-due .tv-due)) .lp-slot-due { display: none; }
+/* finished work keeps its dates quiet */
+.tasks-in-pane .lp-line.done :is(.tv-date, .tv-due) { color: var(--pewter); }
+
+/* the pane: the picked task in full. Its column takes the list's height,
+   not the pane's: a long task's pane runs on past a short list rather
+   than pushing what follows down. */
+.tasks-in-pane .lp-column { grid-area: pane; align-self: stretch; contain: size; }
+.tasks-in-pane .lp-details {
+  position: sticky; top: var(--s-6);
+  max-height: calc(100vh - 2 * var(--s-6)); overflow: auto; overscroll-behavior: contain;
+  background: var(--glass-card); backdrop-filter: blur(20px) saturate(1.1);
+  border: 1px solid var(--glass-border);
+}
+.tasks-in-pane .lp-empty { padding: var(--s-12) var(--s-6); text-align: center; }
+.tasks-in-pane .lp-empty p { margin: 0; color: var(--graphite); }
+.tasks-in-pane .lp-empty .keys-hint { margin-top: var(--s-2); color: var(--pewter); }
+.tasks-in-pane .lp-details:has(.lp-card) .lp-empty { display: none; }
+
+.tasks-in-pane .lp-card { padding: 0 var(--s-6) var(--s-6); }
+.tasks-in-pane .lp-actions {
+  display: flex; align-items: center; gap: var(--s-1);
+  height: 52px; margin: 0 calc(-1 * var(--s-6)); padding: 0 var(--s-4);
+  border-bottom: 1px solid var(--hairline-on-glass);
+}
+.tasks-in-pane .lp-done {
+  display: inline-flex; align-items: center; gap: var(--s-2); height: 32px; margin-right: auto; padding: 0 var(--s-3) 0 var(--s-2);
+  border: 1px solid var(--glass-border); background: var(--glass-btn);
+  font-size: var(--t-caption); font-weight: 500; color: var(--graphite); cursor: pointer;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.tasks-in-pane .lp-done:hover { color: var(--ink); background: var(--glass-hover); }
+.tasks-in-pane .lp-done .task-check { width: 16px; height: 16px; margin: 0; }
+.tasks-in-pane .lp-done .task-check::before { width: 9px; height: 9px; }
+.tasks-in-pane .lp-done:hover .task-check:not(:checked) { border-color: var(--graphite); }
+/* its focus ring rings the whole button, not its box */
+.tasks-in-pane .lp-done:has(:focus-visible) { box-shadow: 0 0 0 2px var(--spark-deep), var(--spark-glow); }
+.tasks-in-pane .lp-done .task-check:focus-visible { box-shadow: none; }
+.tasks-in-pane .lp-card.done .lp-done { color: var(--ok-fg); background: var(--badge-ok-glass); border-color: transparent; }
+.tasks-in-pane .lp-tool {
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 var(--s-2);
+  font-size: var(--t-caption); font-weight: 500; color: var(--graphite); text-decoration: none;
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.tasks-in-pane .lp-tool svg { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.tasks-in-pane .lp-tool:hover { color: var(--ink); background: var(--glass-hover); }
+.tasks-in-pane .lp-delete { width: 32px; justify-content: center; padding: 0; color: var(--steel); }
+.tasks-in-pane .lp-delete:hover { color: var(--err-fg); background: var(--err-bg); }
+
+.tasks-in-pane .lp-title { margin: var(--s-4) 0 var(--s-4); font-family: var(--font-display); font-size: var(--t-sub); line-height: 1.3; font-weight: 600; }
+.tasks-in-pane .lp-title-btn {
+  display: inline; margin: 0 -4px; padding: 1px 4px; text-align: left; overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+.tasks-in-pane .lp-title-btn:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.tasks-in-pane .lp-card.done .lp-title-btn { color: var(--pewter); text-decoration: line-through; text-decoration-thickness: 1px; }
+
+.tasks-in-pane .lp-fields { display: flex; flex-direction: column; margin: 0; }
+/* a field a 36px row, its name on the first baseline of its value; an
+   icon or a badge before a value is centred on the value's line, not set on it */
+.tasks-in-pane .lp-fields > div { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: first baseline; padding: 7px 0; }
+.tasks-in-pane .lp-fields dt { font-size: var(--t-caption); font-weight: 500; color: var(--graphite); }
+.tasks-in-pane .lp-fields dd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s-2); min-width: 0; min-height: 22px; margin: 0; line-height: 22px; color: var(--ink); }
+.tasks-in-pane .lp-fields dd :is(.tv-priority, .tv-owner) { align-items: baseline; }
+.tasks-in-pane .lp-fields dd :is(.priority-icon, .tv-avatar, .chip .dot) { align-self: center; }
+.tasks-in-pane .lp-fields dd :is(.tv-date, .tv-due, .tv-priority, .tv-owner, .tv-estimate) { font-size: var(--t-body-sm); }
+.tasks-in-pane .lp-fields dd :is(.tv-date, .tv-due:not(.chip), .tv-priority, .tv-owner) { color: var(--ink); font-weight: 400; }
+.tasks-in-pane .lp-fields dd .chip { align-self: center; }
+.tasks-in-pane .lp-none { color: var(--pewter); }
+/* the quick days at the row's right; where the pane is narrow, on a line of their own */
+.tasks-in-pane .lp-fields .task-plan { align-self: center; margin: -3px -6px -3px auto; }
+.tasks-in-pane .lp-fields .plan-btn { color: var(--graphite); }
+/* one task: its quick days need not keep a day it has in line with others */
+.tasks-in-pane .lp-fields .plan-btn.slot { display: none; }
+
+.tasks-in-pane .lp-description { margin-top: var(--s-4); padding-top: var(--s-4); border-top: 1px solid var(--hairline-on-glass); }
+.tasks-in-pane .lp-description h3 { display: flex; align-items: baseline; gap: var(--s-2); margin: 0; font-size: var(--t-caption); font-weight: 500; color: var(--graphite); }
+.tasks-in-pane .lp-description .task-notes { margin-top: var(--s-2); }
+.tasks-in-pane .lp-description p.lp-none { margin: var(--s-2) 0 0; }
+
+/* under the list, the finished workstreams on a quiet line; under the
+   view, a new workstream's line, as wide as the list */
+.tasks-in-pane .lp-finished { grid-area: finished; margin: var(--s-3) 0 0; padding: 0 var(--s-3) 0 11px; }
+.project-tasks-page:has(.tasks-in-pane) > .new-workstream { margin: var(--s-4) calc(var(--lp-w) + var(--s-4)) var(--s-8) 0; }
+.project-tasks-page:has(.tasks-in-pane) > .new-workstream .ov-add { gap: 11px; padding-left: 11px; }
+.project-tasks-page:has(.tasks-in-pane) > .new-workstream .item-icon { margin-right: 0; }
+
+:root[data-density="compact"] .tasks-in-pane .lp-fields > div { padding-block: 5px; }
+
+/* narrower, by the view's width: a narrower pane, its lines' fields
+   shorter; narrow, no pane, and a task opens on its page (tasks-pane.js) */
+@container tasks-pane (max-width: 999px) {
+  .tasks-in-pane, .project-tasks-page:has(.tasks-in-pane) > .new-workstream { --lp-w: 320px; }
+  .tasks-in-pane .lp-card { padding-inline: var(--s-4); }
+  .tasks-in-pane .lp-actions { margin-inline: calc(-1 * var(--s-4)); padding-inline: var(--s-3); }
+  .tasks-in-pane .lp-slot-date { display: none; }
+  .tasks-in-pane .lp-slot-due { width: 80px; }
+  .tasks-in-pane .lp-slot-due .tv-due:first-child { display: none; }
+  .tasks-in-pane .lp-slot-due .tv-due + .tv-due { display: inline-flex; }
+}
+@container tasks-pane (max-width: 879px) {
+  .tasks-in-pane .lp-split { grid-template-columns: minmax(0, 1fr); grid-template-areas: "list" "finished"; grid-template-rows: auto; }
+  .tasks-in-pane .lp-column { display: none; }
+  .tasks-in-pane .lp-line.picked { background: none; box-shadow: none; }
+  .tasks-in-pane .lp-line { cursor: pointer; }
+  .project-tasks-page:has(.tasks-in-pane) > .new-workstream { margin-right: 0; }
+  /* the list alone has the room for them again */
+  .tasks-in-pane .lp-slot-date { display: flex; }
+  .tasks-in-pane .lp-slot-due { width: 104px; }
+  .tasks-in-pane .lp-slot-due .tv-due:first-child { display: inline-flex; }
+  .tasks-in-pane .lp-slot-due .tv-due + .tv-due { display: none; }
+}
+@container tasks-pane (max-width: 520px) {
+  .tasks-in-pane .tv-head { gap: 4px; }
+  .tasks-in-pane .tv-head .tv-meter { display: none; }
+  /* a phone's line keeps its title, and its deadline: the rest is on the task's page */
+  .tasks-in-pane :is(.lp-slot-chip, .lp-slot-priority, .lp-slot-date) { display: none; }
+  .tasks-in-pane .lp-slot-due { width: auto; }
+  .tasks-in-pane .lp-slot-due .tv-due:first-child { display: none; }
+  .tasks-in-pane .lp-slot-due .tv-due + .tv-due { display: inline-flex; }
+}
+
+/* ---------- Board ---------- */
+
+/* A column a workstream across the page, a card a task; the page takes
+   what the header leaves of the window's height and does not scroll, each
+   column does. Its own column starts a workstream. --card-pad is a card's
+   padding at its sides, which the heads and the composers line up with. */
+.main:has(.tasks-in-board) { display: flex; flex-direction: column; height: max(100dvh, 560px); }
+.project-tasks-page:has(.tasks-in-board) { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.project-tasks-page:has(.tasks-in-board) .page-header { flex: none; }
+.project-tasks-page:has(.tasks-in-board) > .new-workstream { display: none; }
+.tasks-in-board { --card-pad: var(--s-3); flex: 1; min-height: 0; display: flex; flex-direction: column; }
+:root[data-density="compact"] .tasks-in-board { --card-pad: 10px; }
+
+/* the columns side by side, scrolling sideways, to the main column's
+   edges, so a column scrolls out of sight there rather than at the margin */
+.tasks-in-board .board {
+  flex: 1; min-height: 0;
+  display: flex; align-items: stretch; gap: var(--s-3);
+  margin-inline: calc(-1 * var(--s-8)); padding: 0 var(--s-8) var(--s-2);
+  overflow-x: auto; overflow-y: hidden; scroll-padding-inline: var(--s-8);
+}
+/* A column: the whole height is where a card lands, its lane (the tinted
+   card) as tall as what is in it, scrolling inside past the board's foot. */
+.tasks-in-board .board-column { flex: none; width: 280px; min-height: 0; display: flex; flex-direction: column; }
+.tasks-in-board .board-lane {
+  display: flex; flex-direction: column; min-height: 0;
+  background: var(--ink-tint-faint); border: 1px solid var(--hairline-on-glass-strong);
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+/* a card over it: the column lights to its foot */
+.tasks-in-board .board-column.drop-over { box-shadow: none; outline: 1.5px solid var(--spark); outline-offset: -1.5px; }
+.tasks-in-board .board-column.drop-over > .board-lane { background: transparent; border-color: transparent; }
+/* Completed, until Show completed; No workstream, empty: there only while
+   a card is in hand, a way out of its workstream */
+.tasks-in-board .board-column[hidden], .tasks-in-board .board-spare { display: none; }
+.tasks-in-board:has(.board-card.dragging) .board-spare { display: flex; }
+
+/* Its head: the workstream's circle over the cards' boxes and its name
+   over their titles, how far it is in figures at the right, and its meter
+   a thin bar along its foot, as wide as the cards. */
+.tasks-in-board .board-head {
+  position: relative; flex: none; display: flex; align-items: center; gap: var(--s-2);
+  min-height: 44px; padding: var(--s-2) calc(var(--s-2) + 1px + var(--card-pad));
+}
+:root[data-density="compact"] .tasks-in-board .board-head { min-height: 36px; padding-block: 6px; }
+.tasks-in-board .board-head h2 {
+  flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--font-display); font-size: var(--t-body-sm); font-weight: 600; color: var(--ink);
+}
+.tasks-in-board .board-head .count { flex: none; margin-left: auto; font-family: var(--font-num); }
+.tasks-in-board .board-head.done h2 { color: var(--pewter); font-weight: 500; }
+.tasks-in-board .board-head .tv-meter { position: absolute; left: var(--s-2); right: var(--s-2); bottom: 2px; width: auto; height: 2px; }
+
+/* its body, its cards and the composer after them, scrolls as one under the head */
+.tasks-in-board .board-body { flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.tasks-in-board .board-cards {
+  display: flex; flex-direction: column; gap: 6px;
+  list-style: none; margin: 0; padding: 0 var(--s-2) var(--s-2);
+}
+:root[data-density="compact"] .tasks-in-board .board-cards { gap: var(--s-1); }
+.tasks-in-board .board-cards:empty { padding-bottom: 0; }
+
+/* a card: its box and title, then its line */
+.tasks-in-board .board-card {
+  flex: none;
+  display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: start; gap: 6px var(--s-2);
+  padding: 10px var(--card-pad);
+  background: var(--glass-card); border: 1px solid var(--glass-border);
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+:root[data-density="compact"] .tasks-in-board .board-card { gap: 2px var(--s-2); padding-block: 6px; }
+.tasks-in-board .board-card[draggable="true"] { cursor: grab; }
+.tasks-in-board .board-card[draggable="true"]:active { cursor: grabbing; }
+/* hovered, or the keyboard's (never after a click): on the fog, its edge
+   in steel; the cursor's spark bar is the rows' own */
+.tasks-in-board .board-card:is(:hover, :focus-visible, :has(:focus-visible)) { background: var(--fog); border-color: var(--steel); }
+.tasks-in-board .board-card:focus-visible { border-radius: 0; box-shadow: none; }
+.tasks-in-board .board-card .task-check { grid-area: 1 / 1; width: 16px; height: 16px; margin: 2px 0 0; }
+.tasks-in-board .board-card .task-check::before { width: 9px; height: 9px; }
+.tasks-in-board .board-card .task-title-btn { grid-area: 1 / 2; min-width: 0; }
+/* the title: two lines at most, the rest on its sheet */
+.tasks-in-board .board-card .task-title {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden; line-height: 20px;
+}
+.tasks-in-board .board-card.dragging .task-title { text-decoration: none; }
+/* a finished task, in Completed: its title struck through, not dragged */
+.tasks-in-board .board-card.done { background: transparent; }
+.tasks-in-board .board-card.done:is(:hover, :focus-visible, :has(:focus-visible)) { background: var(--fog); }
+
+/* the line, when it has anything: what it carries at the left, its days
+   at the right (they wrap under, still at the right, when both cannot fit) */
+.tasks-in-board .board-meta {
+  grid-column: 2; min-width: 0;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s-2);
+  font-size: var(--t-caption); line-height: 18px; color: var(--pewter);
+}
+.tasks-in-board .board-meta .tv-priority .priority-icon { display: block; }
+.tasks-in-board .board-meta .tv-subcount { min-height: 20px; margin-inline: -2px; }
+.tasks-in-board .board-dates { display: inline-flex; align-items: center; gap: var(--s-2); margin-left: auto; }
+
+/* its quick do-dates and its page: a small toolbar floating at its top
+   right, on paper with the dropdown shadow as floating things are, over
+   the title's end and never over its days */
+.tasks-in-board .board-card .tv-quick {
+  position: absolute; top: 6px; right: 6px; z-index: 1; padding: 1px;
+  background: var(--paper); border: 1px solid var(--hairline); box-shadow: var(--shadow-dropdown);
+}
+:root[data-density="compact"] .tasks-in-board .board-card .tv-quick { top: 3px; right: 3px; }
+.tasks-in-board .board-card .tv-quick :is(.plan-btn, .task-open):hover { color: var(--ink); background: var(--fog); }
+
+/* its description, shown under it from its count or Space (tasks-views.js) */
+.tasks-in-board .board-notes { grid-column: 2; min-width: 0; margin: -2px 0 0; font-size: var(--t-caption); line-height: 18px; }
+.tasks-in-board .board-notes .subtask { padding-left: calc(var(--depth, 0) * 18px); }
+.tasks-in-board .board-notes .subtask label { gap: 6px; padding: 1px 0; }
+.tasks-in-board .board-notes .subtask-check { width: 12px; height: 12px; margin: 3px 0 0; }
+.tasks-in-board .board-notes .subtask-check::before { width: 7px; height: 7px; }
+.tasks-in-board .board-notes .subtask-bullet::before { margin: 0.6em 4px 0 3px; }
+.tasks-in-board .board-notes .subtask-note { margin-left: 18px; }
+
+/* writing: "Add task…" at a column's foot, a plus in the boxes' column and
+   its words in the titles'; a card while a task is written in it */
+.tasks-in-board .board-body > .compose-slot { padding: 0 var(--s-2) var(--s-2); }
+.tasks-in-board .compose-slot .task-sheet {
+  gap: var(--s-2); padding: 7px var(--card-pad); line-height: 20px;
+  border: 1px solid transparent;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+:root[data-density="compact"] .tasks-in-board .compose-slot .task-sheet { padding-block: 3px; }
+.tasks-in-board .compose-slot .task-sheet:hover { background: var(--glass-row-hover); }
+.tasks-in-board .compose-slot .task-sheet.composing { background: var(--glass-card); border-color: var(--ink); }
+.tasks-in-board .compose-slot .sheet-plus { width: 16px; height: 16px; margin-top: 2px; }
+/* a column is too narrow for the keys' hint beside Cancel and Add task;
+   they end the line, their words in line with the cards' right edge */
+.tasks-in-board .compose-slot .sheet-actions .hint { display: none; }
+.tasks-in-board .compose-slot .sheet-actions { margin-right: calc(-1 * var(--s-2)); }
+/* the sheet in place of a card: the card, ruled in ink, as the rows' is */
+.tasks-in-board .board-cards > .sheet-item { flex: none; background: var(--glass-card); border: 1px solid var(--ink); box-shadow: none; }
+.tasks-in-board .board-cards > .sheet-item .task-sheet { gap: var(--s-2); padding: 10px var(--card-pad); line-height: 20px; }
+.tasks-in-board .board-cards > .sheet-item .task-check { width: 16px; height: 16px; margin: 2px 0 0; }
+.tasks-in-board .board-cards > .sheet-item .task-check::before { width: 9px; height: 9px; }
+.tasks-in-board .task-sheet .notes-editor { max-height: 40vh; }
+/* its placeholder's "- [ ]" stays one piece (tasks-board.js joins it) */
+.tasks-in-board .task-sheet .notes-editor .cm-placeholder { overflow-wrap: normal; word-break: normal; white-space: normal; }
+/* a column is too narrow for the icons to trail the title's last word:
+   they take the line under it, flush with its words */
+.tasks-in-board .task-sheet .sheet-props { display: block; margin-top: 2px; }
+
+/* the finished workstreams, in Completed */
+.tasks-in-board .board-finished {
+  display: flex; flex-direction: column; gap: 2px;
+  margin: 0 var(--s-2) var(--s-2); padding: 0 calc(1px + var(--card-pad)) var(--s-2);
+  border-bottom: 1px solid var(--hairline-on-glass);
+}
+.tasks-in-board .board-finished .finished-label { padding: 0 0 2px; }
+.tasks-in-board .board-finished .workstream { gap: var(--s-2); min-height: 28px; padding: 0; }
+.tasks-in-board .board-finished .workstream .name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--font-sans); font-size: var(--t-body-sm); font-weight: 500; color: var(--graphite);
+}
+.tasks-in-board .board-finished .workstream .progress { flex: none; }
+
+/* a new workstream: a quiet last column, a dashed edge, the line to name one written on */
+.tasks-in-board .board-new {
+  align-self: flex-start; padding: 0;
+  border: 1px dashed var(--hairline-on-glass-strong);
+  transition: border-color var(--dur) var(--ease);
+}
+.tasks-in-board .board-new:hover { border-color: var(--steel); }
+.tasks-in-board .board-new:focus-within {
+  border-style: solid; border-color: transparent;
+  box-shadow: 0 0 0 2px var(--spark-deep), var(--spark-glow);
+}
+.tasks-in-board .board-new .ov-add { min-height: 42px; gap: var(--s-2); padding: 0 var(--s-3); }
+:root[data-density="compact"] .tasks-in-board .board-new .ov-add { min-height: 34px; }
+.tasks-in-board .board-new .ov-add .item-icon { margin: 0 4px 0 0; }
+
+/* a phone: a column nearly the screen's width, snapping */
+@media (max-width: 720px) {
+  .tasks-in-board .board {
+    margin-inline: calc(-1 * var(--s-4)); padding-inline: var(--s-4);
+    scroll-padding-inline: var(--s-4); scroll-snap-type: x mandatory;
+  }
+  .tasks-in-board .board-column { width: 85vw; max-width: 340px; scroll-snap-align: start; }
+}
+
 
 /* Plan reads as a list page: as wide as one */
 .plan-page .page-back { display: inline-block; margin-bottom: var(--s-1); }

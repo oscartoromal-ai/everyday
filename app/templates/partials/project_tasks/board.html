@@ -1,0 +1,100 @@
+{#- Board, a view of the Tasks tab: a column a workstream, its open tasks a
+    card each and a composer at its foot that files into it, then the tasks
+    in none, the finished work (shown while Show completed is ticked) and a
+    column to start a workstream. A workstream all of whose tasks are done
+    keeps its column, in its place, until it is marked done. A card dragged
+    onto a column files into it (tasks.js); the arrow keys move between
+    columns (tasks-board.js). -#}
+{% from "partials/project_tasks/macros.html" import meter, composer with context %}
+{% from "partials/workstream_check.html" import workstream_check %}
+{#- The workstreams' columns in their own order: those with open work,
+    and those finished by their tasks alone (empty); the ones marked done
+    go to Done. -#}
+{% set open_of = {} %}{% for group in groups %}{% set _ = open_of.update({group.m.workstream.id: group}) %}{% endfor %}
+{% set ended_of = {} %}{% for m in finished %}{% set _ = ended_of.update({m.workstream.id: m}) %}{% endfor %}
+{% set columns = [] %}
+{% for w in project.workstreams %}
+  {% if w.id in open_of %}{% set _ = columns.append(open_of[w.id]) %}
+  {% elif w.id in ended_of and not ended_of[w.id].done %}{% set _ = columns.append({"m": ended_of[w.id], "rows": []}) %}{% endif %}
+{% endfor %}
+
+<div class="board">
+  {% for group in columns %}{% set m = group.m %}{% set w = m.workstream %}{% set done, total = m.progress %}
+  <section class="board-column" id="workstream-group-{{ w.id }}" data-task-group
+           data-file-project="{{ project.id }}" data-file-workstream="{{ w.id }}" aria-labelledby="board-head-{{ w.id }}">
+    <div class="board-lane">
+      <div class="board-head{% if m.done %} done{% endif %}">
+        {{ workstream_check(m) }}
+        <h2 id="board-head-{{ w.id }}" title="{{ w.name }}">{{ w.name }}</h2>
+        {% if total %}
+        {#- How far it is: done of all its tasks, in figures, and as the meter along the head's foot. -#}
+        <span class="count" aria-hidden="true">{{ done }}/{{ total }}</span>
+        {{ meter(m.progress) }}
+        {% endif %}
+      </div>
+      <div class="board-body">
+        <ul class="board-cards" id="workstream-tasks-{{ w.id }}">
+          {% for row in group.rows %}{% include "partials/project_tasks/board_row.html" %}{% endfor %}
+        </ul>
+        {{ composer(project, "workstream-tasks-" ~ w.id, w.id) }}
+      </div>
+    </div>
+  </section>
+  {% endfor %}
+
+  {# The tasks in no workstream; with workstreams, only while it has some,
+     or while a card is in hand (a way out of its workstream). #}
+  <section class="board-column board-loose{% if columns and not loose_rows %} board-spare{% endif %}" id="board-loose" data-task-group
+           data-file-project="{{ project.id }}" aria-labelledby="board-loose-head">
+    <div class="board-lane">
+      <div class="board-head">
+        <h2 id="board-loose-head">{{ "No workstream" if columns else "Tasks" }}</h2>
+        {% if loose_rows %}<span class="count">{{ loose_rows | length }}</span>{% endif %}
+      </div>
+      <div class="board-body">
+        <ul class="board-cards" id="project-tasks-{{ project.id }}">
+          {% for row in loose_rows %}{% include "partials/project_tasks/board_row.html" %}{% endfor %}
+        </ul>
+        {{ composer(project, "project-tasks-" ~ project.id) }}
+      </div>
+    </div>
+  </section>
+
+  {# The finished work: the last two weeks' done tasks, and the workstreams
+     marked done, each a row that opens again. #}
+  {% if done_rows or marked_done %}
+  <section class="board-column board-done" id="board-done" data-task-group data-done-part{% if not state.done %} hidden{% endif %} aria-labelledby="board-done-head">
+    <div class="board-lane">
+      <div class="board-head">
+        <h2 id="board-done-head">Completed</h2>
+        {% if done_rows %}<span class="count">{{ done_rows | length }}</span>{% endif %}
+        <span class="tv-note">last {{ done_days }} days</span>
+      </div>
+      <div class="board-body">
+        {% if marked_done %}
+        <div class="board-finished" aria-label="Finished workstreams" role="group">
+          <span class="finished-label">Finished workstreams</span>
+          <ul class="workstreams">
+            {% for m in marked_done %}{% include "partials/workstream_row.html" %}{% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        <ul class="board-cards" id="board-done-tasks">
+          {% for row in done_rows %}{% include "partials/project_tasks/board_row.html" %}{% endfor %}
+        </ul>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {# A workstream started here: kept as it is through the board's redraws
+     (hx-preserve), so a name being written survives them. The page's own
+     line below the board gives way to it. #}
+  <section class="board-column board-new" id="board-new" aria-label="New workstream">
+    <form class="ov-add" id="board-new-workstream" hx-preserve hx-post="/ui/projects/{{ project.id }}/workstreams" hx-swap="none"
+          hx-on::after-request="if (event.detail.successful) this.reset()">
+      <svg class="item-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4.5v11"/><path d="M4.5 10h11"/></svg>
+      <input id="board-new-workstream-name" name="name" required autocomplete="off" aria-label="New workstream" placeholder="New workstream">
+    </form>
+  </section>
+</div>

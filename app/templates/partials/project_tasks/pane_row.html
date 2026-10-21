@@ -1,0 +1,24 @@
+{#- A task on List and details (pane.html): its line on the list, and in it,
+    unseen until the task is picked, its details for the pane beside
+    (tasks-pane.js shows the picked one's there). A change to the task draws
+    the whole of it again, line and details, in place. -#}
+{% from "partials/project_tasks/macros.html" import check, title, quick, subtask_count, priority, planned, due, chip with context %}
+{% set id = row.task.id %}
+{% set picked = state.picked == id %}
+<li class="task-row lp-line{% if row.done %} done{% endif %}{% if picked %} picked{% endif %}" id="task-{{ id }}"
+    data-task-id="{{ id }}" data-task-title="{{ row.task.title }}" tabindex="-1"{% if picked %} aria-current="true"{% endif %}>
+  {{ check(row) }}
+  {{ title(row) }}
+  {{ subtask_count(row) }}
+  {{ quick(row) }}
+  {#- Its fields at the right, each in a slot of its own width, so they line
+      up down the list. -#}
+  <span class="lp-slots">
+    <span class="lp-slot lp-slot-chip">{{ chip(row) }}</span>
+    <span class="lp-slot lp-slot-priority">{{ priority(row, bare=true) }}</span>
+    <span class="lp-slot lp-slot-date">{{ planned(row) }}</span>
+    {#- Its deadline "due Fri 9 Oct", or where room is short "Fri 9 Oct" (app.css shows one). -#}
+    <span class="lp-slot lp-slot-due">{{ due(row, word=true) }}{{ due(row) }}</span>
+  </span>
+  <template class="lp-source">{% include "partials/project_tasks/pane_card.html" %}</template>
+</li>

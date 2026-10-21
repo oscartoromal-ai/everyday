@@ -1,56 +1,46 @@
 {% extends "base.html" %}
 {% from "partials/keys_hint.html" import part %}
+{% from "partials/project_tasks/macros.html" import show_done with context %}
 {% block title %}{{ project.name }} · Tasks · Personal Calendar{% endblock %}
 {% block content %}
-{# A project's Tasks tab, where its tasks are planned: a list card a
-   workstream, each with its own composer, then the tasks in none, the
-   finished workstreams on a line, and the last two weeks' finished work
-   folded away. The page works from the keyboard (tasks.js). #}
-<div class="project-page project-tasks-page">
+{# A project's Tasks tab, where its tasks are planned, drawn in the view
+   chosen from its gear (app/services/task_views.py): each view is a
+   partial of partials/project_tasks/, drawn in the same redrawn part, as
+   it was left on this device (`state`). The page works from the keyboard
+   (tasks.js). #}
+<div class="project-page project-tasks-page" data-tasks-view="{{ view.key }}">
   <header class="page-header project-header">
     {% include "partials/project_head.html" %}
   </header>
-  <p class="keys-hint">
-    {{ part("move", "list.up", "list.down") }}{{ part("edit", "task.edit") }}{{ part("new", "task.new") }}{{ part("done", "task.done") }}{{ part("today", "task.today") }}{{ part("all keys", "app.keys") }}
-  </p>
+  <div class="tasks-toolbar">
+    {# The view's first keys; its own (the Board's arrows across its columns,
+       Space for what a task folds away there) only where the toolbar has the
+       room for them on its one line. #}
+    <p class="keys-hint">
+      {{ part("move", "list.up", "list.down") }}
+      {%- if view.key == "board" %}{{ part("column", "list.left", "list.right", more=true) }}{% endif %}
+      {{- part("edit", "task.edit") }}{{ part("new", "task.new", spare=true) }}{{ part("done", "task.done", spare=true) }}{{ part("today", "task.today", spare=true) }}
+      {%- if view.key in ("table", "schedule") %}{{ part("sub-tasks", "task.notes", more=true) }}
+      {%- elif view.key == "board" %}{{ part("description", "task.notes", more=true) }}
+      {%- elif view.key == "pane" %}{{ part("details", "task.notes", more=true) }}{% endif %}
+      {{- part("all keys", "app.keys") }}
+    </p>
+    {% if view.key != "list" %}{{ show_done(done_rows | length, done_rows or (view.key == "board" and marked_done)) }}{% endif %}
+    {% include "partials/project_tasks/view_menu.html" %}
+  </div>
 
-  {# Drawn again whenever a task or a project changes; task-sheet.js carries
-     a half-written composer across the swap. A newer redraw replaces one in
-     flight, as every list that redraws itself whole does. #}
-  <div id="project-tasks" class="task-lists" data-cursor data-file-project="{{ project.id }}"
-       hx-get="/projects/{{ project.id }}/tasks" hx-select="#project-tasks" hx-select-oob="#project-head" hx-swap="outerHTML"
+  {# Drawn again whenever a task or a project changes, in the same view;
+     task-sheet.js carries a half-written composer across the swap. A newer
+     redraw replaces one in flight, as every list that redraws itself whole
+     does. The page's head, and Show completed, come with it. #}
+  <div id="project-tasks" class="task-lists tasks-in-{{ view.key }}" data-cursor
+       data-fold-scope="{{ project.id }}:{{ view.key }}"
+       {%- if view.key != "list" %} hx-headers='{"X-Tasks-View": "{{ view.key }}"}'{% endif %}
+       hx-get="/projects/{{ project.id }}/tasks?view={{ view.key }}" hx-select="#project-tasks"
+       hx-select-oob="#project-head{% if view.key != 'list' %}, #tasks-show-done{% endif %}" hx-swap="outerHTML"
        hx-trigger="task:added from:body, tasks:changed from:body, calendar:refresh from:body"
        hx-sync="this:replace" hx-disinherit="hx-get hx-select hx-select-oob hx-swap hx-trigger hx-sync">
-    {% for group in groups %}{% include "partials/workstream_group.html" %}{% endfor %}
-
-    <section class="list-section" id="no-workstream" data-file-project="{{ project.id }}" aria-labelledby="no-workstream-head">
-      {% if groups %}<h2 id="no-workstream-head">No workstream {% if loose_rows %}<span class="count">{{ loose_rows | length }} open</span>{% endif %}</h2>
-      {% else %}<h2 id="no-workstream-head">Tasks {% if loose_rows %}<span class="count">{{ loose_rows | length }} open</span>{% endif %}</h2>{% endif %}
-      <ul class="task-list" id="project-tasks-{{ project.id }}">
-        {% for row in loose_rows %}{% include "partials/task_row.html" %}{% endfor %}
-      </ul>
-      {% with mode = "compose", target = "project-tasks-" ~ project.id, planned_for = None, project_id = project.id,
-              placeholder = "Add a task to " ~ project.name ~ "…" %}
-        {% include "partials/task_sheet.html" %}
-      {% endwith %}
-    </section>
-
-    {% if finished %}
-    <section class="finished-workstreams" aria-label="Finished workstreams">
-      <span class="finished-label">Finished</span>
-      <ul class="workstreams">
-        {% for m in finished %}{% include "partials/workstream_row.html" %}{% endfor %}
-      </ul>
-    </section>
-    {% endif %}
-
-    {% if done_rows %}
-    <section class="list-section done-section">
-      {% with fold_id = "project-done", fold_note = "last " ~ done_days ~ " days" %}
-        {% include "partials/done_fold.html" %}
-      {% endwith %}
-    </section>
-    {% endif %}
+    {% include "partials/project_tasks/" ~ view.key ~ ".html" %}
   </div>
 
   {# Outside the redrawn part, so a name being written survives a redraw. #}
@@ -62,4 +52,6 @@
     </form>
   </section>
 </div>
+<script src="{{ asset('tasks-views.js') }}" defer></script>
+{% if view.script %}<script src="{{ asset('tasks-' ~ view.key ~ '.js') }}" defer></script>{% endif %}
 {% endblock %}

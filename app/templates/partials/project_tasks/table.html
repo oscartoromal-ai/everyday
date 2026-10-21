@@ -1,0 +1,60 @@
+{#- Table, the Tasks tab as Asana's list: one card, its columns named at the
+    top (Task name, Do-date, Due, Priority, Estimate, Owner), a section a
+    workstream and then the tasks in none, each folding to its head and
+    ending in an "Add task…" that files into it. A task dragged onto a
+    section joins it (tasks.js). The finished workstreams follow on a line;
+    the last two weeks' finished work is a section of its own, shown while
+    Show completed is ticked (tasks-views.js). -#}
+{% from "partials/project_tasks/macros.html" import section_head, composer with context %}
+{% from "partials/workstream_check.html" import workstream_check %}
+
+<div class="tv-grid">
+  {# The columns' names, over every section; the cells say theirs to a reader. #}
+  <div class="tv-line tv-columns" aria-hidden="true">
+    <div class="tv-cell tv-name">Task name</div>
+    <div class="tv-cell">Do-date</div>
+    <div class="tv-cell">Due</div>
+    <div class="tv-cell tt-wide">Priority</div>
+    <div class="tv-cell tt-wide">Estimate</div>
+    <div class="tv-cell tt-wide">Owner</div>
+  </div>
+
+  {% for group in groups %}{% set w = group.m.workstream %}{% set key = "ws-" ~ w.id %}
+  <section class="tv-section{% if state.folded(key) %} folded{% endif %}" id="tt-ws-{{ w.id }}" data-task-group data-fold-key="{{ key }}"
+           data-file-project="{{ project.id }}" data-file-workstream="{{ w.id }}" aria-labelledby="tt-ws-{{ w.id }}-name">
+    {% call section_head(w.name, "tt-ws-" ~ w.id ~ "-name", key, progress=group.m.progress) %}{{ workstream_check(group.m) }}{% endcall %}
+    <ul class="tv-rows" id="tt-rows-ws-{{ w.id }}">
+      {% for row in group.rows %}{% include "partials/project_tasks/table_row.html" %}{% endfor %}
+    </ul>
+    {{ composer(project, "tt-rows-ws-" ~ w.id, workstream_id=w.id) }}
+  </section>
+  {% endfor %}
+
+  <section class="tv-section{% if state.folded('none') %} folded{% endif %}" id="tt-none" data-task-group data-fold-key="none"
+           data-file-project="{{ project.id }}" aria-labelledby="tt-none-name">
+    {{ section_head("No workstream" if groups else "Tasks", "tt-none-name", "none", count=loose_rows | length) }}
+    <ul class="tv-rows" id="tt-rows-none">
+      {% for row in loose_rows %}{% include "partials/project_tasks/table_row.html" %}{% endfor %}
+    </ul>
+    {{ composer(project, "tt-rows-none") }}
+  </section>
+
+  {% if done_rows %}
+  <section class="tv-section tv-done{% if state.folded('done') %} folded{% endif %}" id="tt-done" data-task-group data-fold-key="done"
+           data-done-part{% if not state.done %} hidden{% endif %} aria-labelledby="tt-done-name">
+    {{ section_head("Completed", "tt-done-name", "done", count=done_rows | length, note="last " ~ done_days ~ " days") }}
+    <ul class="tv-rows" id="tt-rows-done">
+      {% for row in done_rows %}{% include "partials/project_tasks/table_row.html" %}{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+
+{% if finished %}
+<section class="finished-workstreams tv-finished" aria-label="Finished workstreams">
+  <span class="finished-label">Finished</span>
+  <ul class="workstreams">
+    {% for m in finished %}{% include "partials/workstream_row.html" %}{% endfor %}
+  </ul>
+</section>
+{% endif %}

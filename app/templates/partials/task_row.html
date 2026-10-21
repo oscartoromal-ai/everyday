@@ -31,7 +31,7 @@
       {% if row.planned_label %}<span class="planned">{{ row.planned_label }}</span>{% endif %}
       {% if row.estimate_label %}<span class="estimate" title="Estimate">{{ row.estimate_label }}</span>{% endif %}
       {% if row.project %}{{ project_flag(row.project) }}{% endif %}
-      {% if row.due_label %}<span class="due{% if row.due_soon %} soon{% endif %}">{{ row.due_label }}</span>{% endif %}
+      {% if row.due_label %}<span class="due{% if row.due_over and not row.done %} soon over{% elif row.due_soon %} soon{% endif %}">{{ row.due_label }}</span>{% endif %}
     </div>
     {% endif %}
     {% if row.description %}
