@@ -86,7 +86,7 @@
 {% endfor %}
 {% endmacro %}
 
-<nav class="task-map" aria-label="Map" data-task-map{% if map.project %} data-project="{{ map.project.id }}"{% endif %}>
+<nav class="task-map" aria-label="Map" data-task-map data-nav-pane=".map-row.is-here"{% if map.project %} data-project="{{ map.project.id }}"{% endif %}>
   {% if map.project %}
   <a class="map-project" href="/projects/{{ map.project.id }}" style="--project: var(--hue-{{ map.project.color }})"
      title="{{ map.project.name }}: its page">

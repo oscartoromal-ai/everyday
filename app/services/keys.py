@@ -131,6 +131,9 @@ class Action:
     words: str = ""
     # The module it belongs to, for one a machine can be installed without.
     module: str = ""
+    # Done before the page's own keys (keys.js hears it first): a key that
+    # works wherever the focus is, in a field or an editor too.
+    first: bool = False
 
 
 @dataclass(frozen=True)
@@ -260,6 +263,15 @@ SCOPES: tuple[Scope, ...] = (
         Fixed("The eye", "Hides a page from the sidebar (its section goes once all its pages do); "
               "Settings brings it back"),
     ), where="With a page or project in the sidebar focused"),
+    Scope("panes", "Panes", (
+        Action("pane.left", "To the pane at the left", ("Ctrl+Alt+ArrowLeft",), first=True),
+        Action("pane.right", "To the pane at the right", ("Ctrl+Alt+ArrowRight",), first=True),
+        Action("pane.up", "To the pane above", ("Ctrl+Alt+ArrowUp",), first=True),
+        Action("pane.down", "To the pane below", ("Ctrl+Alt+ArrowDown",), first=True),
+        Fixed("Where it was", "The focus goes back to where it was in that pane (Today's notes, "
+              "at their caret), else to its first control, the pane's edge lit a moment"),
+    ), where="Anywhere: Today's panes, a task's map and page, the sidebar at the left and the "
+             "one at the right, the page between them"),
     Scope("writing", "Writing a task", (
         Fixed("[Enter]", "From the title to the description"),
         Fixed("[Ctrl] [Enter]", "Add the task, or save it"),
@@ -759,6 +771,7 @@ def client_map(keymap: KeyMap) -> dict:
             "scope": SCOPE_OF[action_id].id,
             **{k: v for k in ("click", "focus", "go", "words") if (v := getattr(action, k))},
             **({"menu": True} if action.menu else {}),
+            **({"first": True} if action.first else {}),
         }
     return out
 

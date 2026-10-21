@@ -76,7 +76,7 @@
            box writes them ticked, its calendar moves it to another day; Bring
            all writes every one (notepad.js). Each group folds to its name and
            count, and stays so (partials/today_fold.html). #}
-        <section class="pane today-pane today-plan" id="today-plan" data-pane="plan" aria-labelledby="today-plan-title"{% if placed.hidden %} hidden{% endif %}>
+        <section class="pane today-pane today-plan" id="today-plan" data-pane="plan" data-nav-pane aria-labelledby="today-plan-title"{% if placed.hidden %} hidden{% endif %}>
           <header class="pane-head">
             {{ pane_grip("Plan") }}
             <h2 id="today-plan-title">Plan</h2>
@@ -102,7 +102,7 @@
            (to its page), its comment, its last seven days, its streak and its
            days. A day of the seven picked, the boxes and comments are that
            day's. A habit begins at the pane's foot (habits.js). #}
-        <details class="pane today-pane today-habits today-fold" id="pad-habits" data-pane="habits" data-fold="habits" data-day="{{ day.isoformat() }}"{% if "habits" not in folded %} open{% endif %}{% if placed.hidden %} hidden{% endif %}>
+        <details class="pane today-pane today-habits today-fold" id="pad-habits" data-pane="habits" data-nav-pane data-fold="habits" data-day="{{ day.isoformat() }}"{% if "habits" not in folded %} open{% endif %}{% if placed.hidden %} hidden{% endif %}>
           <summary class="today-fold-summary pane-head">
             {{ pane_grip("Habits") }}
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>
@@ -132,7 +132,7 @@
            written in place. A day with none takes the last stay again; a
            day with one carries it on to the days after. An item begins at
            the pane's foot (stays.js). #}
-        <details class="pane today-pane today-stay today-fold" id="pad-stay" data-pane="stay" data-fold="stay" data-day="{{ day.isoformat() }}"{% if "stay" not in folded %} open{% endif %}{% if placed.hidden %} hidden{% endif %}>
+        <details class="pane today-pane today-stay today-fold" id="pad-stay" data-pane="stay" data-nav-pane data-fold="stay" data-day="{{ day.isoformat() }}"{% if "stay" not in folded %} open{% endif %}{% if placed.hidden %} hidden{% endif %}>
           <summary class="today-fold-summary pane-head">
             {{ pane_grip("Stay") }}
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>
@@ -162,7 +162,7 @@
         {# The notes, the keys' hint under them, and what says they were changed
            in another window. #}
         <div class="today-pane today-pad" data-pane="notes"{% if placed.hidden %} hidden{% endif %}>
-          <section class="pane notes-pane" aria-labelledby="today-notes-title">
+          <section class="pane notes-pane" aria-labelledby="today-notes-title" data-nav-pane=".cm-content">
             <header class="pane-head">
               {{ pane_grip("Notes") }}
               <h2 id="today-notes-title">Notes</h2>
@@ -227,7 +227,7 @@
         </div>
       {% elif placed.pane.key == "timeline" %}
         {# The day's hours, and what is on in them. #}
-        <section class="pane today-pane today-timeline" data-pane="timeline" aria-labelledby="today-timeline-title"{% if placed.hidden %} hidden{% endif %}>
+        <section class="pane today-pane today-timeline" data-pane="timeline" data-nav-pane aria-labelledby="today-timeline-title"{% if placed.hidden %} hidden{% endif %}>
           <header class="pane-head timeline-header">
             {{ pane_grip("Timeline") }}
             <h2 id="today-timeline-title">Timeline</h2>

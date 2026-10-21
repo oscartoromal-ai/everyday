@@ -60,6 +60,7 @@
   <script src="{{ asset('htmx.min.js') }}" defer></script>
   <script src="{{ asset('keys.js') }}" defer></script>
   <script src="{{ asset('shell.js') }}" defer></script>
+  <script src="{{ asset('panes.js') }}" defer></script>
   <script src="{{ asset('vendor/codemirror.js') }}" defer></script>
   <script src="{{ asset('markdown-live.js') }}" defer></script>
   <script src="{{ asset('notes-editor.js') }}" defer></script>
@@ -96,7 +97,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
     "goals": '<circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="3.75"/><circle cx="10" cy="10" r="1.1" fill="currentColor" stroke="none"/>',
     "repositories": '<path d="M4.5 16V4.5A1.5 1.5 0 0 1 6 3h9.5v11.5H6a1.5 1.5 0 0 0 0 3h1.5"/><path d="M15.5 14.5v3H14"/><path d="M9.5 14.5V18l1.5-1 1.5 1v-3.5"/>',
   } %}
-  <aside class="rail">
+  <aside class="rail" data-nav-pane=".nav a[aria-current]">
     <div class="rail-head">
       <div class="wordmark">
         <a href="/">Personal Calendar<span class="spark">.</span></a>
@@ -190,7 +191,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
       </button>
     </div>
   </aside>
-  <main class="main">
+  <main class="main" data-nav-pane>
     {% block content %}{% endblock %}
   </main>
   {# A page's own panes' icons, drawn in the sidebar's strip below (never here). #}
@@ -221,7 +222,7 @@ Switch with: node ../design-language/bin/design-language.mjs use <system> app/st
     {% endif %}
     <div class="side-panes">
       {% if agent_ctx %}
-      <section class="agent-panel side-pane" id="agent-panel" data-side-pane="chat" aria-label="Agent window"
+      <section class="agent-panel side-pane" id="agent-panel" data-side-pane="chat" aria-label="Agent window" data-nav-pane="textarea:not(:disabled)"
                {%- if side_tabs %} role="tabpanel" aria-labelledby="side-tab-chat" hidden{% endif %}>
         {% with window = agent_ctx %}{% include "partials/agent_panel.html" %}{% endwith %}
       </section>

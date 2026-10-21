@@ -17,7 +17,7 @@
    (below; task-page.js). #}
 <div class="task-page" data-task-id="{{ sheet.id }}" data-owner="{{ sheet.owner }}">
   {% include "partials/task_map.html" %}
-  <div class="task-doc">
+  <div class="task-doc" data-nav-pane=".cm-content">
     {% if file %}
     <div class="doc-page" data-save-url="/ui/tasks/{{ sheet.id }}/file" data-path="{{ file.path }}" data-version="{{ file.version }}">
       <header class="task-page-header">
@@ -90,7 +90,7 @@
 {% block side_panes %}
 {# Its agent work: only once it is Claude's task (Oscar's call on 2026-10-11);
    Oscar's own has a way to hand it to an agent, which makes it Claude's. #}
-<section class="side-pane" id="side-work" data-side-pane="work" role="tabpanel" aria-labelledby="side-tab-work"
+<section class="side-pane" id="side-work" data-side-pane="work" data-nav-pane role="tabpanel" aria-labelledby="side-tab-work"
          data-owner="{{ sheet.owner }}" hidden>
   <header class="side-head">
     <div>
@@ -110,7 +110,7 @@
     {% include "partials/task_run.html" %}
   </div>
 </section>
-<section class="side-pane" id="side-outline" data-side-pane="outline" role="tabpanel" aria-labelledby="side-tab-outline" hidden>
+<section class="side-pane" id="side-outline" data-side-pane="outline" data-nav-pane role="tabpanel" aria-labelledby="side-tab-outline" hidden>
   <header class="side-head">
     <div><h2 class="side-title">Outline</h2><p class="agent-model">{{ file.name ~ "'s headings" if file else "Its description's headings" }}</p></div>
     {{ collapse() }}
@@ -120,7 +120,7 @@
     <p class="side-empty" data-outline-empty>No headings yet: a line starting with # is one.</p>
   </div>
 </section>
-<section class="side-pane" id="side-history" data-side-pane="history" role="tabpanel" aria-labelledby="side-tab-history" hidden>
+<section class="side-pane" id="side-history" data-side-pane="history" data-nav-pane role="tabpanel" aria-labelledby="side-tab-history" hidden>
   <header class="side-head">
     <div><h2 class="side-title">History</h2><p class="agent-model">How it changed, newest first</p></div>
     {{ collapse() }}
