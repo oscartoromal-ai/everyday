@@ -420,6 +420,11 @@ input, select, textarea { font: inherit; letter-spacing: inherit; }
   .side[data-tabbed] { visibility: visible; }
   .side[data-tabbed] .side-panes { visibility: hidden; transition: visibility 0s linear 220ms; }
   :root[data-agent="open"] .side[data-tabbed] .side-panes { visibility: visible; transition-delay: 0s; }
+  /* collapsed with no strip, its column is none: nor is its edge, once the
+     column has closed, so the page is never a pixel wider than the window */
+  .side { transition: visibility 0s linear 220ms, border-left-width 0s linear 220ms; }
+  :root:not([data-agent="open"]) .side:not([data-tabbed]) { border-left-width: 0; }
+  :root[data-agent="open"] .side { transition-delay: 0s; }
 }
 
 /* the strip: a pane's icon each, the agent window's last, in steel; the
