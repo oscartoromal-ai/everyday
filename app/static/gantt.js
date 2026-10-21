@@ -807,6 +807,17 @@
       e.preventDefault();
       e.stopPropagation();
       const from = { key: editing.key, col: editing.col };
+      // On a row that is there already, the cursor moves on at once, so
+      // keys pressed while the edit is sent land where they are meant to;
+      // a new task's or workstream's row waits for it to be made, and Due's
+      // way into the row's days for the days the edit gives it.
+      const intoDays = !dRow && dCol === 1 && from.col === DUE;
+      if (!intoDays && !["add", "add-workstream"].includes(editing.cell.dataset.edit)) {
+        commit();
+        cursor = from;
+        step(dRow, dCol);
+        return;
+      }
       commit((made) => {
         // A task just written in its group's last row: Enter writes the next
         // (the row is still its group's last), Tab goes on to its Start.
