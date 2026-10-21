@@ -459,11 +459,43 @@ def _projects_changed() -> HTMLResponse:
     return response
 
 
+@router.get("/projects/new")
+def new_project(request: Request, db: DbSession):
+    """The new project window's form (project_new.html), drawn afresh each
+    time it opens, so the colour it starts on is the next one free."""
+    return templates.TemplateResponse(
+        request,
+        "partials/project_new.html",
+        {"request": request, "next_color": projects_svc.next_color(db)},
+    )
+
+
 @router.post("/projects")
-def create_project(db: DbSession, name: str = Form(...)):
-    projects_svc.create_project(db, name=name)
+def create_project(
+    db: DbSession,
+    name: Annotated[str, Form()] = "",
+    color: Annotated[int | None, Form()] = None,
+    notes: Annotated[str, Form()] = "",
+    location: Annotated[str, Form()] = "",
+):
+    """A project made, from the new project window or a name alone, with
+    its first repository when one is written; then its page opens. Refused,
+    none of it is kept, and the answer says which field was wrong: the
+    repository's, or else the name's (a colour out of range comes only from
+    a post made by hand)."""
+    field = "name"
+    try:
+        project = projects_svc.create_project(db, name=name, notes=notes.strip(), color=color)
+        if location.strip():
+            field = "location"
+            projects_svc.add_repo(db, project_id=project.id, location=location)
+    except DomainError as exc:
+        db.rollback()
+        return JSONResponse(status_code=422, content={"detail": str(exc), "field": field})
     db.commit()
-    return _projects_changed()
+    response = _projects_changed()
+    response.headers["HX-Redirect"] = f"/projects/{project.id}"
+    return response
 
 
 @router.get("/rail/projects")

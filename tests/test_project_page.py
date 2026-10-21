@@ -4,6 +4,7 @@ document on a page of its own; and the context handed to an agent, over
 MCP and the API."""
 
 import os
+import re
 import sqlite3
 from datetime import date, datetime, timedelta
 
@@ -252,6 +253,128 @@ def test_the_line_to_add_a_repository_offers_his_github_ones(client, db) -> None
     )
     assert "data-repo-picker data-quiet" in added.text
     assert ">repo-3<" not in client.get(url, params={"location": "repo-3"}).text
+
+
+def test_the_new_project_window_offers_his_github_ones_none_taken(client, db) -> None:
+    from github_fake import repo_payload
+
+    from app.models import GitHubSource
+    from app.services import github as github_svc
+
+    project = made(db)
+    link = github_svc.connect(db, {"id": 1, "login": "me", "name": "Me"}, GitHubSource.cli)
+    found = [repo_payload(1, "shed", owner="me"), repo_payload(2, "notes", owner="me")]
+    github_svc.keep_repositories(db, link, found)
+    projects_svc.add_repo(db, project_id=project.id, location="https://github.com/me/shed")
+    db.commit()
+
+    # The window's own box, its list and options named after it.
+    offered = client.get("/ui/repo-options", params={"box": "project-new-repo-options"}).text
+    assert offered.count('role="option"') == 2 and ">shed<" in offered
+    assert 'id="project-new-repo-options"' in offered
+    assert 'id="project-new-repo-listbox"' in offered
+    assert 'id="project-new-repo-option-1"' in offered
+    assert 'id="repo-options"' not in offered
+    found = client.get("/ui/repo-options", params={"location": "note"}).text
+    assert found.count('role="option"') == 1 and ">notes<" in found
+    # Words nothing holds go with the project, not added at once.
+    loose = {"location": "~/code/shed", "box": "project-new-repo-options"}
+    assert "goes with the project as written" in client.get("/ui/repo-options", params=loose).text
+    card_loose = f"/ui/projects/{project.id}/repo-options?location=~/code/shed"
+    assert "Enter adds “~/code/shed” as written." in client.get(card_loose).text
+
+    # The project card's, as they always were.
+    card = client.get(f"/ui/projects/{project.id}/repo-options").text
+    assert card.count('role="option"') == 1 and ">shed<" not in card
+    assert 'id="repo-options"' in card
+    assert 'id="repo-listbox"' in card
+    assert 'id="repo-option-1"' in card
+    page = client.get(f"/projects/{project.id}").text
+    assert 'aria-controls="repo-listbox"' in page and 'id="repo-options"' in page
+
+
+def checked_colour(html: str) -> str:
+    """The colour the form's swatches start on."""
+    (colour,) = re.findall(r'name="color" value="(\d)" checked', html)
+    return colour
+
+
+def test_the_new_project_window_starts_on_the_next_colour(client, db, monkeypatch) -> None:
+    from app.config import get_settings
+
+    made(db)  # colour 1
+    form = client.get("/ui/projects/new").text
+    assert checked_colour(form) == "2"
+    assert form.count('class="swatch"') == 8
+    assert 'hx-post="/ui/projects"' in form
+    # The code module in: the line offers his GitHub repositories.
+    assert 'hx-get="/ui/repo-options?box=project-new-repo-options"' in form
+    assert 'data-repo-box="project-new-repo-options"' in form
+    assert '<div class="repo-options" id="project-new-repo-options" hidden>' in form
+
+    # Installed without it: a line to write a folder or URL on, and no more.
+    monkeypatch.setattr(get_settings().install, "without", ["code"])
+    plain = client.get("/ui/projects/new").text
+    assert 'placeholder="Its folder or its URL"' in plain
+    assert "data-repo-picker" not in plain and "project-new-repo-options" not in plain
+
+
+def test_a_project_is_made_in_the_window_with_its_repository(client, db) -> None:
+    made_ = client.post(
+        "/ui/projects",
+        data={
+            "name": " Garden shed ",
+            "color": "5",
+            "notes": "Somewhere for the tools\n",
+            "location": r"C:\code\shed",
+        },
+    )
+    (project,) = projects_svc.list_projects(db)
+    assert made_.status_code == 200 and made_.text == ""
+    assert made_.headers["HX-Trigger"] == "tasks:changed, projects:changed"
+    assert made_.headers["HX-Redirect"] == f"/projects/{project.id}"
+    assert (project.name, project.color, project.notes) == (
+        "Garden shed",
+        5,
+        "Somewhere for the tools",
+    )
+    assert [r.location for r in project.repos] == [r"C:\code\shed"]
+    folder = project_files.folder_path(project)
+    assert folder is not None
+    assert everyday.read_manifest(folder).repos == [r"C:\code\shed"]
+    assert (folder / AGENTS_DOC).is_file()
+
+
+def test_a_project_is_made_from_its_name_alone(client, db) -> None:
+    made(db)  # colour 1
+    alone = client.post("/ui/projects", data={"name": "Shed", "location": "  "})
+    shed = next(p for p in projects_svc.list_projects(db) if p.name == "Shed")
+    assert alone.headers["HX-Redirect"] == f"/projects/{shed.id}"
+    assert (shed.color, shed.notes, shed.repos) == (2, "", [])
+
+
+def test_a_project_the_window_refuses_is_not_made(client, db, everyday_files) -> None:
+    for name in ("", "   "):
+        blank = client.post("/ui/projects", data={"name": name, "notes": "what for"})
+        assert blank.status_code == 422
+        assert blank.json() == {"detail": "Project name must not be empty", "field": "name"}
+    assert client.post("/ui/projects", data={}).json()["field"] == "name"
+
+    # A repository refused: neither the project nor its folder is kept.
+    refused = client.post("/ui/projects", data={"name": "Shed", "location": "x" * 1001})
+    assert refused.status_code == 422
+    assert refused.json() == {
+        "detail": "A repository's location is 1000 characters at most",
+        "field": "location",
+    }
+    assert projects_svc.list_projects(db) == []
+    projects = everyday_files / "projects"
+    assert not projects.exists() or list(projects.iterdir()) == []
+
+    # And the next one made is whole.
+    client.post("/ui/projects", data={"name": "Shed", "location": r"C:\code\shed"})
+    (shed,) = projects_svc.list_projects(db)
+    assert [r.location for r in shed.repos] == [r"C:\code\shed"]
 
 
 def test_a_document_is_added_written_renamed_and_deleted(client, db) -> None:

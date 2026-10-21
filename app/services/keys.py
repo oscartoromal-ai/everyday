@@ -187,15 +187,19 @@ SCOPES: tuple[Scope, ...] = (
                words="now current this week month"),
         Action("app.agent", "The agent window: open it, at its message, or collapse it", ("A",),
                menu=True, words="agent chat ask claude codex ai assistant expand collapse"),
-        Action("page.add", "Write a new one: a project, document, weigh-in, bill, goal, account "
-               "or category, in the page's own row for it", ("Shift+A",),
+        Action("page.add", "Write a new one: a project in its window, or a document, weigh-in, "
+               "bill, goal, account or category in the page's own row for it", ("Shift+A",),
+               # Projects' New project, which opens the window; else the page's row.
+               click="[data-project-new]",
                focus=", ".join((
-                   "form.new-project input[name=name]", "#doc-new", "#me-weigh-in",
+                   "#doc-new", "#me-weigh-in",
                    "form.money-bill-form input:not([type=hidden])",
                    "form[hx-post='/ui/money/goals'] input:not([type=hidden])",
                    "form[hx-post='/ui/money/accounts'] input:not([type=hidden])",
                    "form.money-add[hx-post$='/categories'] input:not([type=hidden])",
                )), menu=True, words="add create new project document weigh bill goal account"),
+        Action("project.new", "New project, in its window, from any page", menu=True,
+               words="add create new project"),
         Action("page.find", "Find on the page (Repositories), else search", ("/",),
                focus=".repos-find input[type=search]", menu=False, words="filter search"),
         Action("page.sync", "Sync now: the work calendar, Garmin, GitHub or the models", ("R",),

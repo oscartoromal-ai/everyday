@@ -52,13 +52,14 @@ def test_a_stay_is_written_in_its_pane(page, live, app_db) -> None:
     # Taken again, item for item; under the date, item by item.
     same.click()
     until(lambda: stay(app_db, TODAY) == stay(app_db, YESTERDAY))
-    assert same.is_hidden()
-    assert pane.locator(".stay-sum").inner_text() == "sorted"
+    # Saved before the answer reaches the page: the pane is drawn from it after.
+    same.wait_for(state="hidden")
+    until(lambda: pane.locator(".stay-sum").inner_text() == "sorted")
     assert [t.split() for t in facts.all_inner_texts()] == [["Place", "Leiden"], ["Accommodation"]]
     # Its box: not sorted after all, in amber.
     rows.nth(1).locator(".stay-box").click()
     until(lambda: stay(app_db, TODAY)[1] == ("accommodation", "", False))
-    assert pane.locator(".stay-sum").inner_text() == "not sorted"
+    until(lambda: pane.locator(".stay-sum").inner_text() == "not sorted")
     assert facts.nth(1).get_attribute("class") == "day-stay-item open"
     assert [t.split() for t in facts.all_inner_texts()][1] == ["Accommodation", "not", "sorted"]
 
@@ -93,10 +94,11 @@ def test_a_stay_is_written_in_its_pane(page, live, app_db) -> None:
     pane.locator(".stay-carry").click()
     page.locator(".stay-carry-menu [role=menuitem]", has_text="The next day").click()
     until(lambda: stay(app_db, TOMORROW) == stay(app_db, TODAY))
-    assert pane.locator(".stay-through").inner_text().startswith("Same to ")
+    through = pane.locator(".stay-through")
+    until(lambda: through.inner_text().startswith("Same to "))
     page.locator(".cal-toast.show .toast-action").click()
     until(lambda: stay(app_db, TOMORROW) == [])
-    assert pane.locator(".stay-through").is_hidden()
+    through.wait_for(state="hidden")
 
     # An item begun at the pane's foot, and taken away (Undo, back).
     pane.locator(".stay-new-open").click()

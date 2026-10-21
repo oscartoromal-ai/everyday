@@ -165,13 +165,19 @@ def repos_ctx(project: Project) -> dict[str, Any]:
 REPO_OPTIONS = 8
 
 
-def repo_options_ctx(db: Session, project: Project, query: str, now: datetime) -> dict[str, Any]:
+def repo_options_ctx(
+    db: Session, project: Project | None, query: str, now: datetime, box: str = "repo-options"
+) -> dict[str, Any]:
     """The GitHub repositories the line to add one offers as it is written
-    on, those already the project's left out: the active ones last pushed
-    first, before a word is written; then those holding its words, the
-    archived ones too, or the one its GitHub URL names."""
+    on, those already the project's left out (none, for a project not made
+    yet): the active ones last pushed first, before a word is written; then
+    those holding its words, the archived ones too, or the one its GitHub
+    URL names. `box` is the id of the box they are drawn in, its list's and
+    options' ids named after it, so two lines on a page never cross: the
+    project card's repo-options, repo-listbox and repo-option-1."""
     query = query.strip()
-    taken = {name for r in project.repos if (name := github_svc.full_name_of(r.location))}
+    repos = project.repos if project else []
+    taken = {name for r in repos if (name := github_svc.full_name_of(r.location))}
     named = github_svc.full_name_of(query)
     if named:
         found = [r for r in github_svc.repositories(db) if r.full_name.lower() == named]
@@ -182,6 +188,8 @@ def repo_options_ctx(db: Session, project: Project, query: str, now: datetime) -
     links = github_svc.links(db)
     first = links[0] if links else None
     return {
+        "box": box,
+        "stem": box.removesuffix("-options"),
         "query": query,
         "options": [
             {**repo_row(r, first, now), "archived": r.archived}

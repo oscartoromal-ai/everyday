@@ -216,8 +216,8 @@ def test_alt_and_a_number_go_to_the_module_showing_there(page, live) -> None:
     assert all(label - figure == 6 for figure, label in rows)
 
     # From a field too: what was being written saves as the page goes.
-    page.goto(f"{live}/projects")
-    page.get_by_label("New project").focus()
+    page.goto(f"{live}/me")
+    page.get_by_label("Weight (kg)").focus()
     page.keyboard.press("Alt+2")
     page.wait_for_url(f"{live}/calendar")
 

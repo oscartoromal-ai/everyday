@@ -138,13 +138,30 @@ def add_repo(request: Request, db: DbSession, project_id: int, location: Annotat
 
 
 @router.get("/ui/projects/{project_id}/repo-options")
-def repo_options(request: Request, db: DbSession, project_id: int, location: str = ""):
+def repo_options(
+    request: Request, db: DbSession, project_id: int, location: str = "", box: str = "repo-options"
+):
     """The GitHub repositories the line to add one offers, as it is written on."""
     project = _project(db, project_id)
+    return _repo_options(request, db, project, location, box)
+
+
+@router.get("/ui/repo-options")
+def new_repo_options(
+    request: Request, db: DbSession, location: str = "", box: str = "repo-options"
+):
+    """Those the new project window's line offers: none taken yet, as the
+    project is not made yet."""
+    return _repo_options(request, db, None, location, box)
+
+
+def _repo_options(
+    request: Request, db: DbSession, project: Project | None, location: str, box: str
+) -> Response:
     return templates.TemplateResponse(
         request,
         "partials/project_repo_options.html",
-        {"request": request, **repo_options_ctx(db, project, location, datetime.now())},
+        {"request": request, **repo_options_ctx(db, project, location, datetime.now(), box)},
     )
 
 

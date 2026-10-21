@@ -38,7 +38,9 @@ def test_keys_written_in_the_file_are_the_ones_that_work(page, live, keys_file) 
     page.locator("#command-dialog[open]").wait_for()
     page.keyboard.press("Escape")
     # Closed, the menu's field keeps focus until the browser's next frame.
-    page.wait_for_function("!document.getElementById('command-dialog').contains(document.activeElement)")
+    page.wait_for_function(
+        "!document.getElementById('command-dialog').contains(document.activeElement)"
+    )
 
     page.keyboard.press("c")
     assert not page.evaluate(DENSE)
@@ -149,10 +151,13 @@ def test_the_new_keys_do_what_was_the_mouses_alone(page, live, app_db) -> None:
     page.keyboard.press("Escape")
     page.locator("#settings-dialog[open]").wait_for(state="detached")
 
-    # Shift+A, on Projects: a new project's name.
+    # Shift+A, on Projects: the New project window, its name in hand.
     outside(page)
     page.keyboard.press("Shift+A")
-    assert page.evaluate("document.activeElement.matches('form.new-project input[name=name]')")
+    page.locator("#project-dialog[open]").wait_for()
+    page.wait_for_function("document.activeElement?.matches('#project-dialog input[name=name]')")
+    page.keyboard.press("Escape")
+    page.locator("#project-dialog[open]").wait_for(state="detached")
 
     # T, on another day: back to today.
     page.goto(f"{live}/day/{(TODAY - timedelta(days=3)).isoformat()}")

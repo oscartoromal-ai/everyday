@@ -224,6 +224,10 @@ def repo_name(location: str) -> str:
 
 def add_repo(db: Session, *, project_id: int, location: str) -> ProjectRepo:
     project = get_project(db, project_id)
+    # Checked before its folder is touched, so one refused makes nothing on
+    # disk (for a project made with it, not even its folder); then again
+    # against the repositories its project.toml holds.
+    _check_location(project, location)
     with project_files.held(db):
         project_files.sync_project(db, project)
         repo = ProjectRepo(location=_check_location(project, location))

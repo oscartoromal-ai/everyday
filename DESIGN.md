@@ -231,7 +231,7 @@ No border, no focus ring and no resize handle; the pewter placeholder "Anything 
 When the notes were saved in another window, a line under the card says so, with Show that version and Keep mine as secondary buttons.
 
 **Projects** (`/projects`; an overview since Oscar's call on 2026-10-04, the notepad gone from it).
-A page header ("Projects", "4 active · 37 tasks open · 32 without a day", and at its right a new project's name on its line, 200px, with a quiet Add), then what needs attention, then the timeline, then the paused and done projects.
+A page header ("Projects", "4 active · 37 tasks open · 32 without a day", and at its right New project, a quiet button 36px tall with a 16px plus before its words, which opens the New project window), then what needs attention, then the timeline, then the paused and done projects.
 It is as wide as the window allows, up to 1600px, so a wider window widens the weeks.
 It lists no tasks: a project's are planned on its Tasks tab, and those without a day on Plan.
 It is drawn again whenever a task or a project changes, its counts with it.
@@ -357,6 +357,17 @@ Words no name matches ("#42") close it and stay words; Esc closes the menu and l
 It stays open for the next task, filed where the last one went, and a toast says where each one went (its project, "Added “Call the plumber” to Home › Kitchen", else its day, "for Fri 2 Oct" or "to No date"), with Open for the task's page, since no list on the page shows it; over the window the toast is in it, so Open can be reached.
 Esc closes it and keeps a half-written draft for the next time; opened again empty, it starts afresh.
 The sheet's menus open inside the window, over its backdrop.
+
+**New project window.** Projects' New project opens it, and so do Shift+A there and "New project" in the command menu on any page; it was picked on 2026-10-21 from three prototypes (a popover, a sheet and this small form).
+It is the confirm dialog's paper, 460px wide (the window less 16px a side on a phone), 10vh from the top, drawn afresh each time it opens.
+Its title "New project" in 20px/600, under it in 14px graphite what comes with it ("Its folder, project.md and AGENTS.md are made with it."), then 20px down the fields, 18px apart, each its name over its line as a form's are: Name, Colour, Description and Repository.
+Name is the one required, a `--spark-deep` star after its name; Create project pressed with none sends nothing, turns its line `--err-fg` at 2px and says "A project needs a name." under it in 12px `--err-fg`, until a letter is written.
+The others say "· optional" after their names in pewter at 400.
+Colour is the Details card's eight flags as 32px swatches, the first flag's edge in line with the fields' words, the one fewest open projects have ringed to start.
+Description is a line that grows with what is written; Repository the project Overview's line to add one, his GitHub repositories dropping under it on paper with the dropdown shadow, over the fields below rather than pushing them, a pick filling the line without creating yet.
+At the foot, 24px under, a Ghost Cancel beside Create project, the primary.
+The name has the caret as it opens; Enter on a line, or Ctrl+Enter anywhere, creates; Esc, Cancel or a click outside closes it, and opened again it starts empty.
+Created, the project's page opens with everything written; what the app refuses is said under the field it is about, the window open with what was written, and no project is made.
 
 **Buttons.** `.btn.primary` is the spark primary, glowing at night, `.btn.quiet` the glass secondary, `.btn.danger-quiet` the destructive secondary with an err border.
 Week navigation and nudge actions are secondary-style controls.
