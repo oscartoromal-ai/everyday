@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
@@ -293,7 +294,10 @@ def row_ctx(task: Task, now: datetime) -> dict[str, Any]:
         "due_soon": bool(
             task.due and task.due <= today + timedelta(days=tasks_svc.DUE_SOON_DAYS)
         ),
+        # Its deadline past, while open: the Tasks tab's views say so in an err badge.
+        "due_over": bool(task.due and task.due < today),
         "project": task.project,
+        "workstream": task.workstream,
     }
 
 
@@ -516,10 +520,11 @@ def project_tasks_ctx(db: Session, project: Project, now: datetime) -> dict[str,
         tasks_svc.one_per_series([t for t in tasks if t.status in tasks_svc.OPEN_STATUSES], today),
         key=_plan_order,
     )
+    rows_of = {t.id: row_ctx(t, now) for t in open_tasks}
     groups, finished = [], []
     for workstream in project.workstreams:
         m = workstream_ctx(db, workstream)
-        rows = [row_ctx(t, now) for t in open_tasks if t.workstream_id == workstream.id]
+        rows = [rows_of[t.id] for t in open_tasks if t.workstream_id == workstream.id]
         # A finished workstream (marked done, or all its tasks done) folds to
         # its row, unless work was left open in it.
         done, total = m["progress"]
@@ -533,14 +538,73 @@ def project_tasks_ctx(db: Session, project: Project, now: datetime) -> dict[str,
         key=lambda t: t.status_changed_at,
         reverse=True,
     )
+    when: dict[str, list[dict[str, Any]]] = {b.key: [] for b in WHEN}
+    for task in open_tasks:
+        when[_when(task.planned_for, today)].append(rows_of[task.id])
     return {
         "groups": groups,
         "finished": finished,
-        "loose_rows": [row_ctx(t, now) for t in open_tasks if t.workstream_id is None],
+        # Of them, those marked done (the Board keeps the others' columns).
+        "marked_done": [m for m in finished if m["done"]],
+        "loose_rows": [rows_of[t.id] for t in open_tasks if t.workstream_id is None],
         "open_count": len(open_tasks),
         "done_rows": [row_ctx(t, now) for t in done],
         "done_days": DONE_DAYS,
+        # The open tasks by when they are to be done, soonest first (By do-date).
+        "when": [
+            {
+                "key": b.key,
+                "label": b.label,
+                "rows": when[b.key],
+                "drop": b.drop,
+                # "" for no do-date, as data-drop-offset says it (tasks.js).
+                "offset": "" if b.offset is None else b.offset,
+                "composer": b.composer,
+                "planned_for": None if b.offset is None else today + timedelta(days=b.offset),
+            }
+            for b in WHEN
+        ],
     }
+
+
+@dataclass(frozen=True)
+class When:
+    """A stretch of days By do-date groups the open tasks in (`_when`)."""
+
+    key: str
+    label: str
+    # A task dropped on it takes its first day (`offset`, in days from
+    # today as the device has it at the drop, so a page left open past
+    # midnight still means today; None for no do-date). Overdue takes none.
+    drop: bool
+    offset: int | None
+    # Its composer's placeholder, the task written there dated as a drop
+    # dates it; None for no composer.
+    composer: str | None = None
+
+
+# When an open task is to be done, as By do-date groups the tasks: its do-date
+# against today, the week from the day after tomorrow to a week out.
+WHEN = (
+    When("overdue", "Overdue", drop=False, offset=None),
+    When("today", "Today", drop=True, offset=0, composer="Add task for today…"),
+    When("tomorrow", "Tomorrow", drop=True, offset=1, composer="Add task for tomorrow…"),
+    When("week", "Next 7 days", drop=True, offset=2),
+    When("later", "Later", drop=True, offset=8),
+    When("none", "No do-date", drop=True, offset=None, composer="Add task…"),
+)
+
+
+def _when(planned_for: date | None, today: date) -> str:
+    if planned_for is None:
+        return "none"
+    if planned_for < today:
+        return "overdue"
+    if planned_for == today:
+        return "today"
+    if planned_for == today + timedelta(days=1):
+        return "tomorrow"
+    return "week" if planned_for <= today + timedelta(days=7) else "later"
 
 
 def plan_page_ctx(db: Session, now: datetime) -> dict[str, Any]:

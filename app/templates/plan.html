@@ -27,7 +27,7 @@
        hx-get="/plan" hx-select="#plan-lists" hx-select-oob="#plan-rest" hx-swap="outerHTML"
        hx-trigger="task:added from:body, tasks:changed from:body, calendar:refresh from:body"
        hx-sync="this:replace" hx-disinherit="hx-get hx-select hx-select-oob hx-swap hx-trigger hx-sync">
-    <section class="list-section" id="group-loose" data-file-project="" aria-labelledby="loose-head">
+    <section class="list-section" id="group-loose" data-task-group data-file-project="" aria-labelledby="loose-head">
       <h2 id="loose-head">No project {% if loose_rows %}<span class="count">{{ loose_rows | length }}</span>{% endif %}</h2>
       <ul class="task-list" id="loose-list">
         {% for row in loose_rows %}{% include "partials/task_row.html" %}{% endfor %}
@@ -39,7 +39,7 @@
 
     {% for group in groups %}
     {% set p = group.project %}
-    <section class="list-section plan-project" id="plan-project-{{ p.id }}" data-file-project="{{ p.id }}" aria-labelledby="plan-project-{{ p.id }}-head">
+    <section class="list-section plan-project" id="plan-project-{{ p.id }}" data-task-group data-file-project="{{ p.id }}" aria-labelledby="plan-project-{{ p.id }}-head">
       <h2 id="plan-project-{{ p.id }}-head">
         {{ project_flag(p) }}
         <a href="/projects/{{ p.id }}/tasks">{{ p.name }}</a>

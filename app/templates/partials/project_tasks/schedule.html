@@ -1,0 +1,51 @@
+{#- By do-date, the Tasks tab as Asana's My Tasks: one card, its columns named
+    at the top (Task name, Workstream, Do-date, Due, Priority, Estimate), and
+    the open tasks in a section by when they are to be done, soonest first:
+    Overdue (only while something is), Today, Tomorrow, the next seven days,
+    later, and no do-date (views.py's WHEN). A section with something in it,
+    or a composer, folds to its head; Today, Tomorrow and No do-date end in
+    an "Add task…" dated as they are. A task dragged onto a section takes
+    its first day (tasks.js, data-drop-offset). The last two weeks'
+    finished work is a section of its own, shown while Show completed is
+    ticked (tasks-views.js). -#}
+{% from "partials/project_tasks/macros.html" import section_head, composer with context %}
+
+<div class="tv-grid">
+  {# The columns' names, over every section; the cells say theirs to a reader. #}
+  <div class="tv-line tv-columns" aria-hidden="true">
+    <div class="tv-cell tv-name">Task name</div>
+    <div class="tv-cell sv-ws">Workstream</div>
+    <div class="tv-cell sv-do">Do-date</div>
+    <div class="tv-cell sv-due">Due</div>
+    <div class="tv-cell sv-prio">Priority</div>
+    <div class="tv-cell sv-est">Estimate</div>
+  </div>
+
+  {% for bucket in when if bucket.rows or bucket.key != "overdue" %}{% set key = "when-" ~ bucket.key %}
+  {% set folds = bucket.rows or bucket.composer %}
+  <section class="tv-section sv-{{ bucket.key }}{% if not bucket.rows %} sv-empty{% endif %}{% if folds and state.folded(key) %} folded{% endif %}"
+           id="sv-{{ bucket.key }}" data-task-group{% if folds %} data-fold-key="{{ key }}"{% endif %}
+           {%- if bucket.drop %} data-drop-offset="{{ bucket.offset }}"{% endif %} aria-labelledby="sv-{{ bucket.key }}-name">
+    {% call section_head(bucket.label, "sv-" ~ bucket.key ~ "-name", key if folds else none, count=bucket.rows | length) %}
+      {#- A stretch of days says the day a task dropped on it takes, while one is held over it (tasks.js). #}
+      {%- if bucket.drop and bucket.key in ("week", "later") %}<span class="tv-drop-note" data-drop-note aria-hidden="true"></span>{% endif %}
+    {% endcall %}
+    <ul class="tv-rows" id="sv-rows-{{ bucket.key }}">
+      {% for row in bucket.rows %}{% include "partials/project_tasks/schedule_row.html" %}{% endfor %}
+    </ul>
+    {% if bucket.composer %}
+    {{ composer(project, "sv-rows-" ~ bucket.key, planned_for=bucket.planned_for, undated=bucket.planned_for is none, placeholder=bucket.composer) }}
+    {% endif %}
+  </section>
+  {% endfor %}
+
+  {% if done_rows %}
+  <section class="tv-section tv-done{% if state.folded('when-done') %} folded{% endif %}" id="sv-done" data-task-group data-fold-key="when-done"
+           data-done-part{% if not state.done %} hidden{% endif %} aria-labelledby="sv-done-name">
+    {{ section_head("Completed", "sv-done-name", "when-done", count=done_rows | length, note="last " ~ done_days ~ " days") }}
+    <ul class="tv-rows" id="sv-rows-done">
+      {% for row in done_rows %}{% include "partials/project_tasks/schedule_row.html" %}{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</div>

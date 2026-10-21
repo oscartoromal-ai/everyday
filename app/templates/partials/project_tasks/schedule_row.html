@@ -1,0 +1,19 @@
+{#- A task's row in By do-date (partials/project_tasks/schedule.html): one
+    line of cells under the table's columns, the task's name first with what
+    acts on it, and its sub-tasks in a part under the line (tasks-views.js).
+    The row it comes back as when it changes, and the one its sheet goes
+    back to. -#}
+{% from "partials/project_tasks/macros.html" import name_cell, subtasks_part, planned, due, priority with context %}
+{% set shown = expanded or state.shows(row.task.id) %}
+<li class="task-row tv-row{% if row.done %} done{% endif %}" id="task-{{ row.task.id }}"
+    data-task-id="{{ row.task.id }}" data-task-title="{{ row.task.title }}" tabindex="-1">
+  <div class="tv-line">
+    {{ name_cell(row, shown) }}
+    <div class="tv-cell sv-ws">{% if row.workstream %}<span class="sv-tag" title="Workstream: {{ row.workstream.name }}"><span class="visually-hidden">Workstream </span>{{ row.workstream.name }}</span>{% endif %}</div>
+    <div class="tv-cell sv-do">{% if row.planned_label %}<span class="visually-hidden">Do-date </span>{{ planned(row, cap=true) }}{% endif %}</div>
+    <div class="tv-cell sv-due">{% if row.due_label %}<span class="visually-hidden">Due </span>{{ due(row, cap=true) }}{% endif %}</div>
+    <div class="tv-cell sv-prio">{{ priority(row) }}</div>
+    <div class="tv-cell sv-est">{% if row.estimate_label %}<span class="visually-hidden">Estimate </span><span class="tv-estimate">{{ row.estimate_label }}</span>{% endif %}</div>
+  </div>
+  {{ subtasks_part(row, shown) }}
+</li>

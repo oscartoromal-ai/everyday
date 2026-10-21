@@ -1,7 +1,7 @@
 {# A workstream on its project's Tasks: its row, its open tasks, and a
    composer that files into it. A task dragged onto it joins it (tasks.js). #}
 {% set w = group.m.workstream %}
-<section class="list-section workstream-group" id="workstream-group-{{ w.id }}" data-file-workstream="{{ w.id }}" aria-label="{{ w.name }}">
+<section class="list-section workstream-group" id="workstream-group-{{ w.id }}" data-task-group data-file-project="{{ w.project_id }}" data-file-workstream="{{ w.id }}" aria-label="{{ w.name }}">
   <ul class="workstreams">
     {% with m = group.m %}{% include "partials/workstream_row.html" %}{% endwith %}
   </ul>

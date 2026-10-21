@@ -1,0 +1,248 @@
+{#- The pieces of a task, and of the parts holding them, that the Tasks
+    tab's views draw, each once, so a task works and looks the same in
+    every view: its box, its title (a click, or Enter, edits it in place),
+    its quick do-dates, its dates and its sub-tasks; a section's head, its
+    meter, Show completed. A task's macros take a row from row_ctx().
+    tasks.js and tasks-views.js find them by their classes and data-
+    attributes, so their keys and folds work in every view. What is folded
+    or shown is drawn as the view was left (`state`, task_views.State). -#}
+{% from "partials/priority.html" import priority_icon %}
+{% from "partials/open_task.html" import open_icon %}
+
+{#- Its box: done, or not. The row comes back drawn in the view (X-Tasks-View). -#}
+{% macro check(row) -%}
+<input type="checkbox" class="task-check" {% if row.done %}checked{% endif %}
+       hx-post="/ui/tasks/{{ row.task.id }}/toggle"
+       hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML"
+       aria-label="Mark “{{ row.task.title }}” {% if row.done %}not done{% else %}done{% endif %}">
+{%- endmacro %}
+
+{#- Its title, which opens its sheet in place of its row. -#}
+{% macro title(row) -%}
+<button type="button" class="task-title-btn"
+        hx-get="/ui/tasks/{{ row.task.id }}/edit"
+        hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML"><span class="task-title">{{ row.task.title }}</span></button>
+{%- endmacro %}
+
+{#- The task on its own page (Ctrl+Enter on the row). -#}
+{% macro open_link(row) -%}
+<a class="task-open" href="/tasks/{{ row.task.id }}" data-open-task tabindex="-1"
+   title="{{ keys.title('Open the task on its page', 'task.openPage') }}" aria-label="Open “{{ row.task.title }}”">{{ open_icon() }}</a>
+{%- endmacro %}
+
+{#- Its quick do-dates: Today and Tomorrow (T and M are their keys), and a
+    day picked. A day it already has keeps its slot, empty, where buttons
+    line up down a list. -#}
+{% macro plan_buttons(row) -%}
+{% if not row.done %}
+<div class="task-plan" role="group" aria-label="Do-date for “{{ row.task.title }}”">
+  {% for day, label, key in [(row.plan_today, "Today", "today"), (row.plan_tomorrow, "Tomorrow", "tomorrow")] %}
+  {% if row.task.planned_for == day %}
+  <span class="plan-btn slot" aria-hidden="true">{{ label }}</span>
+  {% else %}
+  <button type="button" class="plan-btn" data-plan="{{ key }}"
+          hx-post="/ui/tasks/{{ row.task.id }}/plan" hx-vals='{"planned_for": "{{ day.isoformat() }}"}'
+          hx-swap="none">{{ label }}</button>
+  {% endif %}
+  {% endfor %}
+  <span class="plan-pick">
+    <button type="button" class="plan-btn icon" data-pick-date
+            title="Pick a day" aria-label="Pick a day for “{{ row.task.title }}”">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="14" height="13" rx="2.5"/><path d="M7 2.5v3"/><path d="M13 2.5v3"/><path d="M3 8.5h14"/></svg>
+    </button>
+    <input type="date" name="planned_for" tabindex="-1" aria-hidden="true"
+           value="{{ row.task.planned_for.isoformat() if row.task.planned_for else '' }}"
+           hx-post="/ui/tasks/{{ row.task.id }}/plan" hx-trigger="change" hx-swap="none">
+  </span>
+</div>
+{% endif %}
+{%- endmacro %}
+
+{#- Its quick do-dates and its page, together: out of sight until the row
+    is hovered or the keyboard is in it (Tab still finds them, and shows
+    them), each view placing them in its row. -#}
+{% macro quick(row) -%}
+<span class="tv-quick">{{ plan_buttons(row) }}{{ open_link(row) }}</span>
+{%- endmacro %}
+
+{#- A date as a column reads it, its first letter a capital ("Today", app.css,
+    so a phone's line, where it follows "due", keeps it small), or as a line
+    reads it ("today"). -#}
+{% macro _day(label, cap) -%}
+{% if cap %}<span class="tv-cap">{{ label }}</span>{% else %}{{ label }}{% endif %}
+{%- endmacro %}
+
+{#- Its do-date ("today", "Tue 2 Sep"), plain, past or not: Overdue says so. -#}
+{% macro planned(row, cap=false) -%}
+{% if row.planned_label %}<span class="tv-date">{{ _day(row.planned_label, cap) }}</span>{% endif %}
+{%- endmacro %}
+
+{#- Its deadline: the date alone ("Fri 9 Oct"), or with `word` "due Fri 9
+    Oct"; while it is open, soon a warn badge and past an err badge. -#}
+{% macro due(row, word=false, cap=false) -%}
+{% if row.due_label %}{% set urgent = "err" if row.due_over else "warn" if row.due_soon else "" -%}
+<span class="tv-due{% if urgent and not row.done %} chip {{ urgent }}{% endif %}">{{ _day(row.due_label if word else row.due_label[4:], cap) }}</span>
+{%- endif %}
+{%- endmacro %}
+
+{#- Its priority: the icon, and its word unless `bare`. -#}
+{% macro priority(row, bare=false) -%}
+{% if row.priority %}<span class="tv-priority" data-priority="{{ row.priority }}" title="Priority: {{ row.priority_label }}">{{ priority_icon(row.priority) }}{% if not bare %}<span>{{ row.priority_label }}</span>{% endif %}</span>{% endif %}
+{%- endmacro %}
+
+{#- Who does it: Oscar, or Claude. -#}
+{% macro owner(row) -%}
+{% set claude = row.task.owner.value == "claude" %}
+<span class="tv-owner"><span class="tv-avatar{% if claude %} claude{% endif %}" aria-hidden="true">{{ "C" if claude else "O" }}</span>{{ "Claude" if claude else "Oscar" }}</span>
+{%- endmacro %}
+
+{#- How Claude's run of it stands ("Needs review"), a badge, when it is Claude's. -#}
+{% macro chip(row) -%}
+{% if row.chip %}<span class="chip tv-chip {{ row.chip_class }}">{% if row.chip_class == "running" %}<span class="dot"></span>{% endif %}{{ row.chip }}</span>{% endif %}
+{%- endmacro %}
+
+{#- How far its sub-tasks are ("2/5"), or its notes' mark when it has words
+    but no sub-tasks. Given `controls`, the part under it that holds them,
+    it is the button that shows them, its label saying whether a press
+    shows or hides them (tasks-views.js keeps it so); `shown` as drawn. -#}
+{% macro subtask_count(row, controls=none, shown=false) -%}
+{% if row.subtasks_total or row.description %}
+{% set said = (row.subtasks_done ~ " of " ~ row.subtasks_total ~ " sub-tasks done") if row.subtasks_total else "It has notes" -%}
+{% if controls %}<button type="button" class="tv-subcount" data-subtasks data-label="{{ said }}" aria-expanded="{{ 'true' if shown else 'false' }}"
+        aria-controls="{{ controls }}" aria-label="{{ said }}: {{ 'hide' if shown else 'show' }} them">
+{%- else %}<span class="tv-subcount" title="{{ said }}">{% endif %}
+{%- if row.subtasks_total %}<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3.5v7a2 2 0 0 0 2 2h8"/><path d="m12 9.5 3 3-3 3"/></svg>{{ row.subtasks_done }}/{{ row.subtasks_total }}
+{%- else %}<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5.5h12"/><path d="M4 10h12"/><path d="M4 14.5h7"/></svg>{% endif %}
+{%- if controls %}</button>{% else %}</span>{% endif %}
+{% endif %}
+{%- endmacro %}
+
+{#- Its sub-tasks, each ticked where it stands; a tick comes back as the
+    row, drawn in the view, its sub-tasks still shown. -#}
+{% macro subtask_list(row) -%}
+<ul class="subtasks tv-subtasks-list">
+  {% for block in row.description if block.kind == "list" %}{% for entry in block.entries if entry.item.kind != "bullet" %}{% set item = entry.item %}
+  <li class="subtask{% if item.checked %} done{% endif %}"{% if item.depth %} style="--depth: {{ item.depth }}"{% endif %}>
+    <label>
+      <input type="checkbox" class="subtask-check" {% if item.checked %}checked{% endif %}
+             hx-post="/ui/tasks/{{ row.task.id }}/subtasks/{{ item.index }}/toggle"
+             hx-vals='{{ {"text": item.text} | tojson }}'
+             hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML">
+      <span>{{ item.text | note }}</span>
+    </label>
+  </li>
+  {% endfor %}{% endfor %}
+</ul>
+{%- endmacro %}
+
+{#- A task's whole description as the list's row draws it under the row:
+    its words, code and lists, sub-tasks ticked in place. -#}
+{% macro description(row) -%}
+{% for block in row.description %}
+{% if block.kind == "text" %}
+<p>{% for line in block.lines %}{{ line | note }}{% if not loop.last %}{{ "\n" }}{% endif %}{% endfor %}</p>
+{% elif block.kind == "code" %}
+<pre class="md-code">{{ block.lines | join("\n") }}</pre>
+{% elif block.kind == "list" %}
+<ul class="subtasks">
+  {% for entry in block.entries %}{% set item = entry.item %}
+  <li class="subtask{% if item.checked %} done{% endif %}{% if item.kind == "bullet" %} bullet{% endif %}"{% if item.depth %} style="--depth: {{ item.depth }}"{% endif %}>
+    {% if item.kind == "bullet" %}
+    <p class="subtask-bullet"><span>{{ item.text | note }}</span></p>
+    {% else %}
+    <label>
+      <input type="checkbox" class="subtask-check" {% if item.checked %}checked{% endif %}
+             hx-post="/ui/tasks/{{ row.task.id }}/subtasks/{{ item.index }}/toggle"
+             hx-vals='{{ {"text": item.text} | tojson }}'
+             hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML">
+      <span>{{ item.text | note }}</span>
+    </label>
+    {% endif %}
+    {% if entry.notes %}<p class="subtask-note">{% for line in entry.notes %}{{ line | note }}{% if not loop.last %}{{ "\n" }}{% endif %}{% endfor %}</p>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="gap"></div>
+{% endif %}
+{% endfor %}
+{%- endmacro %}
+
+{#- A table's row (Table, By do-date): the name's cell, first on its line:
+    the sub-tasks' chevron (a wider place to click than their count), the
+    box, the title, its sub-tasks' count, Claude's badge and the quick
+    do-dates; then, under the line, its sub-tasks (`shown` as drawn). -#}
+{% macro name_cell(row, shown=false) -%}
+{% set part = "tv-subtasks-" ~ row.task.id %}
+<div class="tv-cell tv-name">
+  {% if row.subtasks_total %}
+  <button type="button" class="tv-expand" data-subtasks aria-expanded="{{ 'true' if shown else 'false' }}" aria-controls="{{ part }}"
+          tabindex="-1" aria-hidden="true">
+    <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 3 7.5 6l-3 3"/></svg>
+  </button>
+  {% else %}<span class="tv-expand" aria-hidden="true"></span>{% endif %}
+  {{ check(row) }}
+  {#- Its whole title on hover, where the line cuts it short. #}
+  <span class="tv-title" title="{{ row.task.title }}">{{ title(row) }}</span>
+  {{ subtask_count(row, part if row.subtasks_total else none, shown) }}
+  {{ chip(row) }}
+  {{ quick(row) }}
+</div>
+{%- endmacro %}
+
+{% macro subtasks_part(row, shown=false) -%}
+{% if row.subtasks_total %}
+<div class="tv-subtasks" id="tv-subtasks-{{ row.task.id }}"{% if not shown %} hidden{% endif %}>{{ subtask_list(row) }}</div>
+{% endif %}
+{%- endmacro %}
+
+{#- How far a workstream is, done of all its tasks: a thin ink meter on a
+    hairline, as the app's meters. -#}
+{% macro meter(progress) -%}
+<span class="tv-meter" role="img" aria-label="{{ progress[0] }} of {{ progress[1] }} done"><i style="width: {{ (100 * progress[0] / progress[1]) | round(1) }}%"></i></span>
+{%- endmacro %}
+
+{#- A part that folds to its head (tasks-views.js): its chevron button. -#}
+{% macro fold_button(name, key) -%}
+<button type="button" class="tv-fold" data-fold aria-expanded="{{ 'false' if state.folded(key) else 'true' }}" aria-label="Fold {{ name }}">
+  <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5l3-3"/></svg>
+</button>
+{%- endmacro %}
+
+{#- A section's head (Table, List and details, By do-date): its fold, its
+    name, how far along it is (or how many it holds), a note, and what the
+    caller adds at its end (a workstream's circle). With no `key` there is
+    nothing to fold, and the chevron's place is kept so names line up. -#}
+{% macro section_head(name, id, key=none, progress=none, count=none, note=none) -%}
+<div class="tv-head">
+  {% if key %}{{ fold_button(name, key) }}{% else %}<span class="tv-fold" aria-hidden="true"></span>{% endif %}
+  <h2 id="{{ id }}">{{ name }}</h2>
+  {% if progress and progress[1] %}
+  {{ meter(progress) }}<span class="count" aria-hidden="true">{{ progress[0] }}/{{ progress[1] }}</span>
+  {% elif count %}<span class="count">{{ count }}</span>{% endif %}
+  {% if note %}<span class="tv-note">{{ note }}</span>{% endif %}
+  {{ caller() if caller }}
+</div>
+{%- endmacro %}
+
+{#- A composer filing into the project, and into a workstream if given,
+    with a do-date if given (`undated`: its list is the tasks with none);
+    its new row joins `target`. -#}
+{% macro composer(project, target, workstream_id=none, planned_for=none, undated=false, placeholder="Add task…") -%}
+{% with mode = "compose", target = target, planned_for = planned_for, project_id = project.id,
+        workstream_id = workstream_id, placeholder = placeholder, undated = undated %}
+  {% include "partials/task_sheet.html" %}
+{% endwith %}
+{%- endmacro %}
+
+{#- Show completed, in the toolbar beside the gear: the last two weeks'
+    finished work ([data-done-part]) shown while it is ticked: `count` its
+    tasks, `any` whether there is any at all (the Board's workstreams marked
+    done are some). Its place is kept while there is none, so the toolbar
+    never moves; the page's redraw brings it again (project_tasks.html). -#}
+{% macro show_done(count, any) -%}
+<label class="tv-show-done" id="tasks-show-done"{% if not any %} data-none{% endif %}>
+  <input type="checkbox" class="subtask-check" id="tasks-show-done-box" data-show-done{% if state.done %} checked{% endif %}>
+  Show completed{% if count %} <span class="count">{{ count }}</span>{% endif %}
+</label>
+{%- endmacro %}

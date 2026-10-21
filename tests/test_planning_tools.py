@@ -30,15 +30,18 @@ def test_task_lists_and_workstreams_are_drop_targets(client, db) -> None:
     tasks_svc.create_task(db, title="parse", project_id=p.id, workstream_id=m.id)
     tasks_svc.create_task(db, title="loose one")
 
-    # A project's Tasks: the project, and each of its workstreams.
+    # A project's Tasks: each of its workstreams, in the project, and the
+    # tasks in none; not the area round them, so a drop between them files
+    # nowhere.
     page = client.get(f"/projects/{p.id}/tasks").text
-    assert f'data-file-project="{p.id}"' in page
-    assert f'data-file-workstream="{m.id}"' in page
+    assert f'data-file-project="{p.id}" data-file-workstream="{m.id}"' in page
+    assert f'id="no-workstream" data-task-group data-file-project="{p.id}"' in page
+    assert "data-file-project" not in page.split('id="project-tasks"')[1].split(">")[0]
     # The list re-renders when a task is filed elsewhere.
     assert "tasks:changed from:body" in page.split('id="project-tasks"')[1][:600]
     # Plan: No project, and each project's list.
     plan = client.get("/plan").text
-    assert 'id="group-loose" data-file-project=""' in plan
+    assert 'id="group-loose" data-task-group data-file-project=""' in plan
     assert f'data-file-project="{p.id}"' in plan
     assert "tasks:changed from:body" in plan.split('id="plan-lists"')[1][:600]
 

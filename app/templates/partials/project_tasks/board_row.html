@@ -1,0 +1,29 @@
+{#- A task on the Board: a card, its box and its title (two lines at most),
+    then, when it has any, a line of what it carries: Claude's badge, its
+    priority, its sub-tasks or notes, its estimate, and at the right its
+    do-date and deadline. Hovered, or with the keyboard in it, its quick
+    do-dates and its page float at its top right; its description shows
+    under it from its count or notes' mark (tasks-views.js). The board
+    draws every card with this, and a card drawn again (ticked, edited)
+    comes back as it (X-Tasks-View). -#}
+{% from "partials/project_tasks/macros.html" import check, title, quick, planned, due, priority, chip, subtask_count, description with context %}
+{% set notes_id = "board-notes-" ~ row.task.id %}
+{% set shown = expanded or state.shows(row.task.id) %}
+<li class="task-row board-card{% if row.done %} done{% endif %}" id="task-{{ row.task.id }}"
+    data-task-id="{{ row.task.id }}" data-task-title="{{ row.task.title }}" tabindex="-1">
+  {{ check(row) }}
+  {{ title(row) }}
+  {% if row.chip or row.priority or row.description or row.estimate_label or row.planned_label or row.due_label %}
+  <div class="board-meta">
+    {{- chip(row) }}
+    {{- priority(row, bare=true) }}
+    {{- subtask_count(row, notes_id if row.description else none, shown) }}
+    {%- if row.estimate_label %}<span class="tv-estimate" title="Estimate">{{ row.estimate_label }}</span>{% endif %}
+    <span class="board-dates">{{ planned(row) }}{{ due(row, word=true) }}</span>
+  </div>
+  {% endif %}
+  {{ quick(row) }}
+  {% if row.description %}
+  <div class="task-notes board-notes" id="{{ notes_id }}"{% if not shown %} hidden{% endif %}>{{ description(row) }}</div>
+  {% endif %}
+</li>

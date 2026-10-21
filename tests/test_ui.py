@@ -266,9 +266,9 @@ def test_a_projects_tasks_tab_plans_its_tasks(client, db) -> None:
     assert "permits" in finished_line and 'id="workstream-group-' + str(shut.id) not in lists
     groups, fold = lists.split('class="done-fold" id="project-done"')
     assert "measure wall" not in groups and "measure wall" in fold and "last 14 days" in fold
-    # It works from the keyboard, and draws itself again as the plan changes.
+    # It works from the keyboard, and draws itself again, in its view, as the plan changes.
     head = lists.split(">")[0]
-    assert "data-cursor" in head and f'hx-get="/projects/{p.id}/tasks"' in head
+    assert "data-cursor" in head and f'hx-get="/projects/{p.id}/tasks?view=list"' in head
     assert "tasks:changed from:body" in head and "#project-head" in head
 
 

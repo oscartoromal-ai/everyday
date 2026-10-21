@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse, Response
 
 from app.db import DbSession
 from app.models import Project, ProjectStatus
-from app.services import DomainError, everyday, project_files
+from app.services import DomainError, everyday, project_files, task_views
 from app.services import projects as projects_svc
 from app.services.project_files import ContextDoc
 from app.ui.project_view import (
@@ -55,9 +55,17 @@ def project_page(request: Request, db: DbSession, project_id: int):
 
 
 @router.get("/projects/{project_id}/tasks")
-def project_tasks_page(request: Request, db: DbSession, project_id: int):
-    """Its Tasks tab: where its tasks are planned, a list a workstream."""
+def project_tasks_page(
+    request: Request, db: DbSession, project_id: int, view: str | None = None
+):
+    """Its Tasks tab: where its tasks are planned, in the view chosen from
+    its gear (app/services/task_views.py), or the one ?view= names, which
+    is shown without being chosen."""
     project = _project(db, project_id)
+    try:
+        shown = task_views.get(view) if view else task_views.current(db)
+    except DomainError:
+        raise HTTPException(404, "No such view") from None
     return templates.TemplateResponse(
         request,
         "project_tasks.html",
@@ -67,9 +75,25 @@ def project_tasks_page(request: Request, db: DbSession, project_id: int):
             "today": date.today(),
             **head_ctx(db, project),
             "tab": "tasks",
+            "view": shown,
+            "views": task_views.VIEWS,
+            # Drawn as it was left on this device: folds, sub-tasks shown,
+            # Show completed, the task picked.
+            "state": task_views.state(request.cookies.get(task_views.STATE_COOKIE), shown.key),
             **project_tasks_ctx(db, project, datetime.now()),
         },
     )
+
+
+@router.post("/ui/tasks-view", status_code=204)
+def choose_tasks_view(db: DbSession, view: Annotated[str, Form()]) -> None:
+    """The view every project's Tasks tab opens in, chosen from its gear;
+    the page draws itself again in it (tasks-views.js)."""
+    try:
+        task_views.choose(db, view)
+    except DomainError as e:
+        raise HTTPException(422, str(e)) from None
+    db.commit()
 
 
 @router.post("/ui/projects/{project_id}/about")

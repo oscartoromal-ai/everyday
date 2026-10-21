@@ -19,16 +19,20 @@
   /* ---- the keyboard cursor: the task lists (a project's Tasks, Plan) ---- */
 
   // A list works from the keyboard alone; it marks its area with
-  // data-cursor. The cursor is the focused row (or Done's header, which
-  // Enter or Space opens), drawn as the nav's spark bar. Its keys are
-  // keys.py's (the defaults said here): Up/Down or J/K move it, Shift jumps
-  // a list, Home/End go to the ends; Enter or E edits, N writes a new task
-  // (into the cursor's list), X done, T today, M tomorrow, D picks a day and
-  // P a project (the task sheet's menus), Space opens the description,
-  // Ctrl+Enter opens its page, Delete deletes after asking, Esc leaves. The lists re-render
-  // from the server after every change, and the cursor lands where it
-  // belongs: on the row that followed one acted on, and on the same task
-  // after an edit.
+  // data-cursor, and each of its lists (a workstream, a project, a stretch
+  // of days) with data-task-group. The cursor is the focused row (or Done's
+  // header, which Enter or Space opens), drawn as the nav's spark bar. Its
+  // keys are keys.py's (the defaults said here): Up/Down or J/K move it,
+  // Shift jumps a list, Home/End go to the ends; Enter or E edits, N writes
+  // a new task (into the cursor's list), X done, T today, M tomorrow, D
+  // picks a day and P a project (the task sheet's menus), Space shows what
+  // the row folds away under it (its .notes-toggle, or a view's
+  // [data-subtasks]), Ctrl+Enter opens its page, Delete deletes after
+  // asking, Esc leaves. A row's keys are the row's only while the row
+  // itself has the focus: a control in it keeps its own Enter and Space.
+  // The lists re-render from the server after every change, and the cursor
+  // lands where it belongs: on the row that followed one acted on, and on
+  // the same task after an edit.
   const TYPING = "input, textarea, select, [contenteditable]";
   const STOPS = [
     "[data-cursor] .task-row[tabindex]",
@@ -38,7 +42,7 @@
   const onCursorPage = () => !!document.querySelector("[data-cursor]");
   const shown = (el) => (el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null);
   const stops = () => [...document.querySelectorAll(STOPS)].filter(shown);
-  const groupOf = (stop) => stop.closest(".list-section");
+  const groupOf = (stop) => stop.closest("[data-task-group]");
   const isoDay = (offset) => {
     const d = new Date();
     d.setDate(d.getDate() + offset);
@@ -122,6 +126,10 @@
     // A task just added: the cursor's next stop.
     remember(id) { last = id; },
     compose,
+    // For the views' own keys (tasks-pane.js, tasks-board.js): the
+    // cursor's stops as they are now, and whether an element is drawn.
+    stops,
+    shown,
   };
 
   // What the keys do to the cursor's row (keys.py's ids).
@@ -139,7 +147,8 @@
       stop = byId(settling);
       stop.focus();
     }
-    const row = stop?.matches(".task-row") ? stop : null;
+    // The row's own keys, while it (not a control in it) has the focus.
+    const row = stop?.matches(".task-row") && (e.target === stop || e.target === document.body) ? stop : null;
     const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
 
     const down = keys.is(e, "list.down");
@@ -175,6 +184,20 @@
     act(row, action);
   });
 
+  // Delete, in the app's dialog (shell.js), then the row goes; the lists
+  // re-render. Answered after a redraw, it deletes the row drawn again.
+  function remove(row) {
+    const { id } = row;
+    window.confirmAction({
+      title: "Delete task?", name: row.dataset.taskTitle,
+      detail: "will be deleted. This can't be undone.", action: "Delete",
+    }).then((yes) => {
+      const now = yes && document.getElementById(id);
+      if (!now) return;
+      htmx.ajax("POST", `/ui/tasks/${now.dataset.taskId}/delete`, { source: now, target: `#${id}`, swap: "outerHTML" });
+    });
+  }
+
   function act(row, action) {
     const click = (selector) => {
       const target = row.querySelector(selector);
@@ -204,10 +227,10 @@
     } else if (action === "task.edit") {
       click(".task-title-btn");
     } else if (action === "task.notes") {
-      click(".notes-toggle");
+      click(".notes-toggle, [data-subtasks]");
     } else if (action === "task.delete") {
       leaving();
-      click(".task-delete"); // asks first; Cancel leaves the cursor where it was
+      remove(row); // asks first; Cancel leaves the cursor where it was
     } else if (action === "task.openPage") {
       window.location.href = `/tasks/${row.dataset.taskId}`;
     }
@@ -341,67 +364,109 @@
     });
   });
 
-  /* ---- task lists: drag a task onto a workstream, another project, or No project ---- */
+  /* ---- task lists: a task dragged onto another list ---- */
 
-  // A project's list files into the project with no workstream; a
-  // workstream's into that workstream; the No project list clears both. The server validates
-  // (a workstream must belong to the task's project) and the lists re-render.
-  const fileTarget = (el) => el?.closest?.("[data-file-workstream], [data-file-project]");
-  const filing = (target) => {
-    const card = target.closest("[data-file-project]");
-    const project = card?.dataset.fileProject ? Number(card.dataset.fileProject) : null;
-    const workstream = target.dataset.fileWorkstream ? Number(target.dataset.fileWorkstream) : null;
-    return { project_id: project, workstream_id: workstream };
+  // A list a task can be dropped on says what a drop there does:
+  // - filing: data-file-project (empty for No project) and, a workstream's,
+  //   data-file-workstream: the task goes into that project and workstream
+  //   (the server validates: a workstream must be in the task's project);
+  // - dating (By do-date): data-drop-offset, the do-date it takes in days
+  //   from today as this device has it at the drop, so a page left open
+  //   past midnight still means today ("" for none); a [data-drop-note] in
+  //   it says the day while a task is held over it.
+  // A task drops on a list of the kind it is in, but its own; anywhere else
+  // (its own list, between lists, the page) it stays where it was. A list
+  // folded opens to show it, and the lists re-render.
+  const TARGETS = "[data-file-project], [data-drop-offset]";
+  const ROWS = ":is([data-file-project], [data-drop-offset]) .task-row[data-task-id]";
+  const targetOf = (el) => el?.closest?.(TARGETS) ?? null;
+  const kindOf = (target) => (target.hasAttribute("data-drop-offset") ? "date" : "file");
+  const filing = (target) => ({
+    project_id: target.dataset.fileProject ? Number(target.dataset.fileProject) : null,
+    workstream_id: target.dataset.fileWorkstream ? Number(target.dataset.fileWorkstream) : null,
+  });
+  const dayOf = (target) => (target.dataset.dropOffset === "" ? "" : isoDay(Number(target.dataset.dropOffset)));
+  // As the app writes a day (app/dates.py): "Thu 29 Oct".
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const said = (iso) => {
+    const d = new Date(`${iso}T12:00`);
+    return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
   };
 
-  const armFiling = (root) => {
-    root.querySelectorAll?.("[data-file-project] .task-row[data-task-id]").forEach((row) => {
-      row.draggable = !row.classList.contains("done");
-    });
+  const armDrags = (root) => {
+    const rows = [...(root.querySelectorAll?.(ROWS) ?? [])];
+    if (root.matches?.(ROWS)) rows.push(root);
+    rows.forEach((row) => { row.draggable = !row.classList.contains("done"); });
   };
-  document.addEventListener("htmx:load", (e) => armFiling(e.detail.elt));
+  document.addEventListener("htmx:load", (e) => armDrags(e.detail.elt));
 
-  let filed = null; // {taskId, from: {project_id, workstream_id}}
-  let over = null;
-  const hover = (el) => {
-    if (over === el) return;
+  let held = null; // {row, home, kind}: the row in hand, the list it is in, and that list's kind
+  let over = null; // the list lit under it
+  const light = (target) => {
+    if (over === target) return;
     over?.classList.remove("drop-over");
-    over = el;
+    over = target;
     over?.classList.add("drop-over");
+  };
+  const dropOn = (el) => {
+    const target = targetOf(el);
+    return target && target !== held.home && kindOf(target) === held.kind ? target : null;
+  };
+  const letGo = () => {
+    held?.row.classList.remove("dragging");
+    held = null;
+    light(null);
   };
 
   document.addEventListener("dragstart", (e) => {
-    const row = e.target.closest?.("[data-file-project] .task-row[draggable='true']");
-    if (!row) return;
-    filed = { taskId: row.dataset.taskId, from: filing(fileTarget(row)) };
+    const row = e.target.closest?.(".task-row[draggable='true']");
+    const home = targetOf(row);
+    if (!row || !home) return;
+    held = { row, home, kind: kindOf(home) };
     e.dataTransfer.setData("text/plain", row.dataset.taskTitle);
     e.dataTransfer.effectAllowed = "move";
     row.classList.add("dragging");
+    if (held.kind === "date") {
+      document.querySelectorAll("[data-drop-offset] [data-drop-note]").forEach((note) => {
+        const day = dayOf(note.closest("[data-drop-offset]"));
+        note.textContent = day ? `Do it ${said(day)}` : "";
+      });
+    }
   });
 
-  document.addEventListener("dragover", (e) => {
-    if (!filed) return;
-    const target = fileTarget(e.target);
-    hover(target);
+  // Lit as the pointer enters a list, and every moment over it; where
+  // nothing takes it, the pointer says so.
+  const hover = (e) => {
+    if (!held) return;
+    const target = dropOn(e.target);
+    light(target);
     if (!target) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-  });
+  };
+  document.addEventListener("dragenter", hover);
+  document.addEventListener("dragover", hover);
 
   document.addEventListener("drop", async (e) => {
-    if (!filed) return;
-    const target = fileTarget(e.target);
-    const { taskId, from } = filed;
-    filed = null;
-    hover(null);
+    if (!held) return;
+    const target = dropOn(e.target);
+    const { row, kind } = held;
+    letGo();
     if (!target) return;
     e.preventDefault();
-    const to = filing(target);
-    if (to.project_id === from.project_id && to.workstream_id === from.workstream_id) return;
-    const res = await fetch(`/api/tasks/${taskId}`, {
+    window.TasksViews?.unfold(target);
+    if (kind === "date") {
+      // Dated, the lists are drawn again (tasks:changed), the row in its new list.
+      htmx.ajax("POST", `/ui/tasks/${row.dataset.taskId}/plan`, {
+        source: row, swap: "none", values: { planned_for: dayOf(target) },
+      });
+      return;
+    }
+    const res = await fetch(`/api/tasks/${row.dataset.taskId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "X-CSRF": window.csrfToken() },
-      body: JSON.stringify(to),
+      body: JSON.stringify(filing(target)),
     });
     if (!res.ok) {
       let detail = "Could not move that task.";
@@ -411,11 +476,7 @@
     htmx.trigger(document.body, "tasks:changed");
   });
 
-  document.addEventListener("dragend", () => {
-    filed = null;
-    hover(null);
-    document.querySelector(".task-row.dragging")?.classList.remove("dragging");
-  });
+  document.addEventListener("dragend", letGo);
 
   /* ---- a tick lands: the fresh row's box plays the system's --check-pulse once ---- */
 

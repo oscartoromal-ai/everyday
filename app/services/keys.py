@@ -393,6 +393,10 @@ SCOPES: tuple[Scope, ...] = (
         Action("list.nextProject", "The next list (a workstream, or a project on Plan)",
                ("Shift+ArrowDown", "Shift+J")),
         Action("list.prevProject", "The list before", ("Shift+ArrowUp", "Shift+K")),
+        Action("list.left", "On a Board, the card level with it in the column before",
+               ("ArrowLeft",)),
+        Action("list.right", "On a Board, the card level with it in the next column",
+               ("ArrowRight",)),
         Fixed("[Home] [End]", "First or last task"),
         Action("task.edit", "Edit", ("Enter", "E")),
         Fixed("[N]", "New task (as anywhere), in the cursor's list where it has its own, else "
@@ -405,7 +409,9 @@ SCOPES: tuple[Scope, ...] = (
         Action("task.priority", "Priority", ("!",)),
         Action("task.openPage", "Open the cursor's task on its own page (here, on a Gantt and "
                "on Calendar's sheet)", ("Ctrl+Enter",)),
-        Action("task.notes", "Show the description; opens Done", ("Space",)),
+        Action("task.notes", "Show what the task folds away under it: its description (a "
+               "table's rows, its sub-tasks); in List and details, go into its pane; opens Done",
+               ("Space",)),
         Action("task.delete", "Delete, after asking", ("Delete", "Backspace")),
         Fixed("[Esc]", "Leave the list"),
     ), column=2, where="On a project's Tasks and on Plan, with a task in the list focused"),
