@@ -93,6 +93,33 @@ def test_a_task_opened_from_the_gantt_comes_back_to_its_cursor(page, live, app_d
     assert _back(page).is_disabled()  # the Gantt was the window's first page
 
 
+def test_ctrl_backspace_goes_back_but_deletes_a_word_in_a_field(
+    page, live, app_db, project
+) -> None:
+    step = _task_id(app_db, "Step 30")
+    page.goto(f"{live}/projects/{project}/gantt")
+    page.locator('.gantt-row[data-title="Step 30"] .gantt-due').click()
+    page.keyboard.press("Control+Enter")
+    page.wait_for_url(f"{live}/tasks/{step}")
+    assert _back(page).get_attribute("aria-keyshortcuts") == "Alt+ArrowLeft Control+Backspace"
+
+    # Writing, it is the field's: the last word goes, the page stays.
+    page.locator(".main .sheet-title").click()
+    page.keyboard.press("End")
+    page.keyboard.type(" again")
+    page.keyboard.press("Control+Backspace")
+    page.wait_for_timeout(300)
+    assert page.url == f"{live}/tasks/{step}"
+    assert page.locator(".main .sheet-title").inner_text().strip() == "Step 30"
+
+    # Out of the field, back to the Gantt, its cursor where it was.
+    page.keyboard.press("Escape")
+    page.keyboard.press("Control+Backspace")
+    page.wait_for_url(f"{live}/projects/{project}/gantt*")
+    row = page.locator('.gantt-row[data-title="Step 30"]')
+    assert row.locator(".gantt-due").evaluate("c => c.classList.contains('is-cursor')")
+
+
 def test_a_pages_own_link_goes_back_when_it_names_the_page_before(page, live, project) -> None:
     page.goto(f"{live}/projects")
     page.locator("#rail-projects a", has_text="Beta").click()

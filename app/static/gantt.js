@@ -6,7 +6,8 @@
    moved among each other the same way and folded to their row, a task's status stepped on by its box or chosen
    from its menu, tasks shown by status (Ctrl+Tab steps through the usual choices), the time seen in weeks or drilled down to days,
    tasks deleted (their bin, or Delete on Task), and undo. A task opens on
-   its page from the way at its Task cell's end, or Ctrl+Enter on its row.
+   its page from the way at its Task cell's end, Ctrl+Enter on its row, or
+   Enter twice, quickly, on a cell it writes in.
    The keys named are the defaults: each action's are keys.py's.
 
    Every edit is one POST of ops (app.services.gantt.apply), answered with
@@ -350,7 +351,7 @@
 
   /* ---- writing in a cell ---- */
 
-  let editing = null; // {cell, input, key, col, original, typed}
+  let editing = null; // {cell, input, key, col, original, typed, entered}
 
   const cellText = (cell) => {
     const row = cell.closest(".gantt-row");
@@ -774,8 +775,11 @@
     if (key === "Enter" || key === "F2") {
       handled();
       if (cell.dataset.edit === "priority") openPriorityMenu(cell);
-      else if (cell.dataset.edit) edit(cell);
-      else if (isTime(cursor.col)) fill();
+      else if (cell.dataset.edit) {
+        edit(cell);
+        // When, for an Enter straight after it (writingKey).
+        if (editing && key === "Enter") editing.entered = e.timeStamp;
+      } else if (isTime(cursor.col)) fill();
       else if (cell.hasAttribute("data-toggle")) toggle(row);
       else if (key === "Enter") step(1, 0);
       return;
@@ -827,6 +831,12 @@
         step(dRow, dCol);
       });
     };
+    // Enter twice, quickly, nothing written between: the task on its page,
+    // as Ctrl+Enter.
+    const twice = key === "Enter" && !e.shiftKey && !e.repeat && editing.entered != null
+      && e.timeStamp - editing.entered < DOUBLE_CLICK_MS && editing.input.value === editing.original;
+    const link = twice && rowOf(editing.key)?.querySelector("[data-open-task]");
+    if (link) { e.preventDefault(); e.stopPropagation(); cancel(); openPage(link); return; }
     if (key === "Enter") { done(e.shiftKey ? -1 : 1, 0); return; }
     // The tasks shown (Ctrl+Tab), what is written kept.
     if (window.Keys.is(e, "gantt.shown") || window.Keys.is(e, "gantt.shownBack")) return;

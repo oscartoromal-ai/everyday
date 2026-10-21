@@ -7,7 +7,8 @@
    one listener on the window, after every page's own: a key a page took
    is the page's. An action marked first (moving between panes) is heard
    before them all, so it works in an editor too. Single keys never fire
-   while typing, nor anything over a dialog. */
+   while typing, nor Backspace and Delete with anything held (a field's
+   Ctrl+Backspace deletes a word), nor anything over a dialog. */
 
 (() => {
   let actions = {};
@@ -131,7 +132,8 @@
     if (paused || e.defaultPrevented || e.isComposing || /^(Control|Alt|Shift|Meta)$/.test(e.key)) return;
     if (document.querySelector("dialog[open]")) return;
     const single = !e.ctrlKey && !e.metaKey && !e.altKey;
-    if (single && e.target.closest?.(TYPING)) return;
+    const fields = single || e.key === "Backspace" || e.key === "Delete";
+    if (fields && e.target.closest?.(TYPING)) return;
     for (const id of ordered()) {
       if (!!actions[id].first !== first || !is(e, id) || !run(id, e)) continue;
       e.preventDefault();
