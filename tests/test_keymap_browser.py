@@ -189,11 +189,16 @@ def test_a_list_key_chosen_acts_on_the_cursors_row(page, live, app_db, keys_file
     page.locator(".task-row", has_text="Alpha").focus()
     page.keyboard.press("j")  # J no longer moves
     assert page.evaluate("document.activeElement.dataset.taskTitle") == "Alpha"
-    page.keyboard.press("x")  # nor X marks it done
+    page.keyboard.press("x")  # nor X steps its status on
     page.wait_for_timeout(200)
-    assert not page.locator(".task-row[data-task-title=Alpha] .task-check:checked").count()
+    box = ".task-row[data-task-title=Alpha] .task-check"
+    assert page.locator(f"{box}[data-status=todo]").count() == 1
     page.keyboard.press("y")
-    page.locator(".task-row[data-task-title=Alpha] .task-check:checked").wait_for()
+    page.locator(f"{box}[data-status=in_progress]").wait_for()
+    page.wait_for_function("!document.querySelector('.htmx-request')")
+    with app_db() as db:
+        alpha = next(t for t in tasks_svc.list_tasks(db) if t.title == "Alpha")
+        assert alpha.status.value == "in_progress"
 
 
 def test_a_calendar_key_chosen_switches_its_view(page, live, keys_file) -> None:

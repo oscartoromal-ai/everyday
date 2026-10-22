@@ -170,6 +170,8 @@ def test_a_row_drawn_again_in_the_table_is_its_line(client, db) -> None:
     assert row.lstrip().startswith(f'<li class="task-row tv-row" id="task-{task.id}"')
     assert row.count("<li") - row.count('<li class="subtask') == 1  # one row, its sub-tasks in it
 
+    # Its box stepped on from review: done.
+    tasks_svc.set_status(db, task.id, TaskStatus.needs_review)
     ticked = client.post(f"/ui/tasks/{task.id}/toggle", headers=TABLE).text
     assert 'class="task-row tv-row done"' in ticked
 

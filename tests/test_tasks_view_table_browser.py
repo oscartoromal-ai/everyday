@@ -8,6 +8,7 @@ from datetime import date
 
 import pytest
 
+from app.models import TaskStatus
 from app.services import projects as projects_svc
 from app.services import tasks as tasks_svc
 
@@ -107,6 +108,10 @@ def task(app_db, task_id: int):  # noqa: ANN201
 
 
 def test_a_tick_comes_back_as_the_tables_row_and_the_task_leaves(page, live, app_db, made) -> None:
+    # In review, its box's click makes it done.
+    with app_db() as db:
+        tasks_svc.set_status(db, made["fetch"], TaskStatus.needs_review)
+        db.commit()
     open_table(page, live, made)
     row = page.locator(f"#task-{made['fetch']}")
     # A click, not check(): the tick swaps the box out, and check() would read it again.
@@ -279,6 +284,10 @@ def test_a_row_dragged_onto_a_section_files_into_it(page, live, app_db, made) ->
 def test_the_keyboard_cursor_walks_the_rows_and_n_adds_into_its_section(
     page, live, app_db, made
 ) -> None:
+    # In review, X makes it done.
+    with app_db() as db:
+        tasks_svc.set_status(db, made["fetch"], TaskStatus.needs_review)
+        db.commit()
     open_table(page, live, made)
     order = [made["parse"], made["fetch"], made["draw"], made["tidy"]]
     for task_id in order:
@@ -295,7 +304,7 @@ def test_the_keyboard_cursor_walks_the_rows_and_n_adds_into_its_section(
     with app_db() as db:
         added = next(t for t in tasks_svc.list_tasks(db) if t.title == "colour")
         assert added.workstream_id == made["ui"]
-    # X on a row ticks it, and the cursor moves on.
+    # X on a row in review makes it done, and the cursor moves on.
     page.locator(f"#task-{made['fetch']}").focus()
     page.keyboard.press("x")
     page.locator(f"#tt-ws-{made['api']} #task-{made['fetch']}").wait_for(state="detached")

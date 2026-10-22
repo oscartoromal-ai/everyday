@@ -24,8 +24,9 @@
   // header, which Enter or Space opens), drawn as the nav's spark bar. Its
   // keys are keys.py's (the defaults said here): Up/Down or J/K move it,
   // Shift jumps a list, Home/End go to the ends; Enter or E edits, N writes
-  // a new task (into the cursor's list), X done, T today, M tomorrow, D
-  // picks a day and P a project (the task sheet's menus), Space shows what
+  // a new task (into the cursor's list), X steps its status on (its box's
+  // click), T today, M tomorrow, D picks a day and P a project (the task
+  // sheet's menus), Space shows what
   // the row folds away under it (its .notes-toggle, or a view's
   // [data-subtasks]), Ctrl+Enter opens its page, Delete deletes after
   // asking, Esc leaves. A row's keys are the row's only while the row
@@ -222,7 +223,9 @@
       // Its priority's menu; the cursor stays on the task.
       window.TaskSheet.edit(row, "priority", null);
     } else if (action === "task.done") {
-      leaving();
+      // Its status stepped on; once that makes it done, it leaves the list.
+      const box = row.querySelector(".task-check");
+      if (box && NEXT_STATUS[box.dataset.status] === "done") leaving();
       click(".task-check");
     } else if (action === "task.edit") {
       click(".task-title-btn");
@@ -477,6 +480,48 @@
   });
 
   document.addEventListener("dragend", letGo);
+
+  /* ---- a row's box steps its task on, as Gantt's does ---- */
+
+  // To do, in progress, review, done, and round to to do again; a blocked
+  // task starts (tasks.next_status). Drawn at once, as the row will come
+  // back drawn (macros.check). Each step is posted after the one before
+  // (the server steps the task from where the last left it), so two quick
+  // clicks are two steps; the row is drawn again from the last answer
+  // alone, and never shows a step it has already gone past.
+  const NEXT_STATUS = { todo: "in_progress", blocked: "in_progress", in_progress: "needs_review", needs_review: "done" };
+  const steps = new Map(); // task id -> {left: steps not yet answered, last: the last one's promise}
+  document.addEventListener("click", (e) => {
+    const box = e.target.closest?.(".task-check[data-step]");
+    if (!box) return;
+    box.dataset.status = NEXT_STATUS[box.dataset.status] || "todo";
+    box.checked = box.dataset.status === "done";
+    const id = box.dataset.step;
+    const at = steps.get(id) || { left: 0, last: Promise.resolve() };
+    at.left += 1;
+    // Asked from the row as it is then, so it carries what its list sends
+    // (a Tasks view's X-Tasks-View) and comes back as that list's row.
+    at.last = at.last.then(() => {
+      const row = `#task-${id}`;
+      if (!document.querySelector(row)) return null;
+      return htmx.ajax("POST", `/ui/tasks/${id}/toggle`, { source: row, target: row, swap: "outerHTML" }).catch(() => null);
+    }).then(() => {
+      at.left -= 1;
+      if (!at.left) steps.delete(id);
+    });
+    steps.set(id, at);
+  });
+  document.addEventListener("htmx:beforeSwap", (e) => {
+    const id = /^\/ui\/tasks\/(\d+)\/toggle$/.exec(e.detail.pathInfo?.requestPath || "")?.[1];
+    if (!id) return;
+    if (e.detail.isError) {
+      // Not taken: the row drawn again as the task stands.
+      window.toast("Could not change that task's status.");
+      htmx.ajax("GET", `/ui/tasks/${id}/row`, { source: `#task-${id}`, target: `#task-${id}`, swap: "outerHTML" });
+    } else if (steps.get(id)?.left > 1) {
+      e.detail.shouldSwap = false; // a later step's answer draws it
+    }
+  });
 
   /* ---- a tick lands: the fresh row's box plays the system's --check-pulse once ---- */
 

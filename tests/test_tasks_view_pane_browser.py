@@ -100,9 +100,11 @@ def test_a_click_on_a_line_picks_it_and_the_pick_is_kept(page, live, made) -> No
     assert shown_title(page) == "parse" and page.locator(".lp-line.picked").count() == 1
     page.reload()
     assert shown_title(page) == "parse"
-    # Its box ticks it, without picking it (a click: the tick swaps the box out).
+    # Its box steps it on, without picking it (a click: the step swaps the box out).
     page.locator(f"#task-{made['draw']} .task-check").click()
-    page.locator(f"#lp-ws-{made['ui']} #task-{made['draw']}").wait_for(state="detached")
+    page.wait_for_function("!document.querySelector('.htmx-request')")
+    box = f"#lp-ws-{made['ui']} #task-{made['draw']} .task-check"
+    page.locator(f"{box}[data-status=in_progress]").wait_for()
     assert shown_title(page) == "parse"
 
 
@@ -129,8 +131,14 @@ def test_the_pane_follows_the_keyboards_cursor(page, live, made) -> None:
 
 
 def test_done_from_the_pane_shows_it_done_then_the_next_is_picked(page, live, app_db, made) -> None:
+    # In review, its box (and X) makes it done.
+    with app_db() as db:
+        for name in ("parse", "fetch"):
+            tasks_svc.set_status(db, made[name], TaskStatus.needs_review)
+        db.commit()
     open_pane(page, live, made)
     click_line(page, made["parse"])
+    assert page.locator(".lp-details .lp-done").inner_text() == "Needs review"
     page.locator(".lp-details .lp-done").click()
     page.locator(f"#lp-ws-{made['api']} #task-{made['parse']}").wait_for(state="detached")
     assert task(app_db, made["parse"]).status == TaskStatus.done
@@ -261,6 +269,10 @@ def test_on_a_phone_a_line_opens_its_tasks_page(phone, live, made) -> None:
 
 
 def test_a_mouse_tick_on_the_picked_line_picks_the_next_task(page, live, app_db, made) -> None:
+    # In review, its box's click makes it done.
+    with app_db() as db:
+        tasks_svc.set_status(db, made["parse"], TaskStatus.needs_review)
+        db.commit()
     open_pane(page, live, made)
     click_line(page, made["parse"])
     page.locator(f"#task-{made['parse']} .task-check").click()

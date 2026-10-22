@@ -19,7 +19,7 @@
     <p class="keys-hint">
       {{ part("move", "list.up", "list.down") }}
       {%- if view.key == "board" %}{{ part("column", "list.left", "list.right", more=true) }}{% endif %}
-      {{- part("edit", "task.edit") }}{{ part("new", "task.new", spare=true) }}{{ part("done", "task.done", spare=true) }}{{ part("today", "task.today", spare=true) }}
+      {{- part("edit", "task.edit") }}{{ part("new", "task.new", spare=true) }}{{ part("status", "task.done", spare=true) }}{{ part("today", "task.today", spare=true) }}
       {%- if view.key in ("table", "schedule") %}{{ part("sub-tasks", "task.notes", more=true) }}
       {%- elif view.key == "board" %}{{ part("description", "task.notes", more=true) }}
       {%- elif view.key == "pane" %}{{ part("details", "task.notes", more=true) }}{% endif %}

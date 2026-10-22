@@ -146,7 +146,7 @@ def test_writing_in_the_sheet(client, db) -> None:
     assert habits_svc.list_habits(db)[0].slug == "morning-run"
 
 
-def test_a_tasks_box_goes_in_progress_then_done_and_its_menu_sets_either(client, db) -> None:
+def test_a_tasks_box_steps_it_on_as_gantts_and_its_menu_sets_any(client, db) -> None:
     task = tasks_svc.create_task(db, title="Send documents", planned_for=MONDAY)
     url = f"/ui/day-sheet?start={MONDAY.isoformat()}"
 
@@ -160,10 +160,21 @@ def test_a_tasks_box_goes_in_progress_then_done_and_its_menu_sets_either(client,
     answer = client.post(url, json={"ops": []}).text
     assert 'class="ds-task is-in-progress"' in answer
     assert f'data-status-menu="{task.id}" data-status="in_progress"' in answer
+    assert 'aria-checked="mixed"' in answer
+    assert 'title="In progress: a click puts it to review"' in answer
+    assert status_after(toggle) == TaskStatus.needs_review
+    answer = client.post(url, json={"ops": []}).text
+    assert 'class="ds-task is-needs-review"' in answer and 'aria-checked="mixed"' in answer
     assert status_after(toggle) == TaskStatus.done
     assert status_after(toggle) == TaskStatus.todo
-    assert status_after({"op": "status", "task": task.id, "status": "done"}) == TaskStatus.done
-    assert status_after({"op": "status", "task": task.id, "status": "todo"}) == TaskStatus.todo
+    # A blocked task starts.
+    status = {"op": "status", "task": task.id}
+    assert status_after({**status, "status": "blocked"}) == TaskStatus.blocked
+    assert 'class="ds-task is-blocked"' in client.post(url, json={"ops": []}).text
+    assert status_after(toggle) == TaskStatus.in_progress
+    assert status_after({**status, "status": "needs_review"}) == TaskStatus.needs_review
+    assert status_after({**status, "status": "done"}) == TaskStatus.done
+    assert status_after({**status, "status": "todo"}) == TaskStatus.todo
     bad = client.post(url, json={"ops": [{"op": "status", "task": task.id, "status": "nope"}]})
     assert bad.status_code == 422
 

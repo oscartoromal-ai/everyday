@@ -168,7 +168,8 @@ def test_a_row_drawn_again_in_the_view_is_its_row(client, db) -> None:
     )
     again = client.get(f"/ui/tasks/{task.id}/row", headers=VIEW).text
     assert again.lstrip().startswith(f'<li class="task-row tv-row" id="task-{task.id}"')
-    # Ticked, it comes back done, with no do-dates.
+    # Its box stepped on from review, it comes back done, with no do-dates.
+    tasks_svc.set_status(db, task.id, TaskStatus.needs_review)
     done = client.post(f"/ui/tasks/{task.id}/toggle", headers=VIEW).text
     assert 'class="task-row tv-row done"' in done
     assert "task-plan" not in done

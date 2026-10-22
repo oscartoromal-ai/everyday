@@ -4,8 +4,8 @@
 
    Where he stays is written in its cells (an item a column), accommodation
    a checkbox, sorted or not; a Plan cell writes a task for its day, whose
-   box a click starts (in progress) and a second click makes done, its
-   chevron a menu of the statuses it can be given; a
+   box a click steps on, as Gantt's does (to do, in progress, review,
+   done, and round again), its chevron a menu of those statuses; a
    habit's cell, or accommodation's, is ticked by a click or Space, and a
    drag down its column paints the days it crosses. Ctrl+D fills the range
    from its first row (one cell, from the row above), Ctrl+C and Ctrl+V
@@ -334,15 +334,15 @@
 
   /* ---- a task's status, from the menu under its chevron ---- */
 
-  // The statuses a day's task can be given here; the one it has, chosen
-  // again, takes it back to to do.
-  const STATUSES = [["in_progress", "In progress"], ["done", "Done"]];
+  // The statuses a day's task can be given here, Gantt's: a blocked one
+  // shows as to do; the one it has, chosen again, leaves it so.
+  const STATUSES = [["todo", "To do"], ["in_progress", "In progress"], ["needs_review", "Review"], ["done", "Done"]];
   const TICK = '<svg class="tick" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.5 3.5 7.5-8"/></svg>';
   let statusMenu = null; // {button, el, task}
 
   const openStatusMenu = (button) => {
     const task = Number(button.dataset.statusMenu);
-    const current = button.dataset.status;
+    const current = button.dataset.status === "blocked" ? "todo" : button.dataset.status;
     const el = document.createElement("div");
     el.className = "sheet-menu";
     el.setAttribute("role", "menu");
@@ -381,9 +381,9 @@
 
   const chooseStatus = (item) => {
     const { task, button } = statusMenu;
-    const status = item.dataset.status === button.dataset.status ? "todo" : item.dataset.status;
+    const { status } = item.dataset;
     closeStatusMenu();
-    send([{ op: "status", task, status }]);
+    if (status !== button.dataset.status) send([{ op: "status", task, status }]);
   };
 
   document.addEventListener("click", (e) => {

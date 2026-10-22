@@ -9,12 +9,14 @@
 {% from "partials/priority.html" import priority_icon %}
 {% from "partials/open_task.html" import open_icon %}
 
-{#- Its box: done, or not. The row comes back drawn in the view (X-Tasks-View). -#}
+{#- Its box, as Gantt's: a click steps it on (to do, in progress, review,
+    done, and round again), drawn by its status (app.css); tasks.js draws
+    it at once and posts each step after the one before. The row comes back
+    drawn in the view (X-Tasks-View); every task row, a project's or
+    Plan's, draws this one. -#}
 {% macro check(row) -%}
-<input type="checkbox" class="task-check" {% if row.done %}checked{% endif %}
-       hx-post="/ui/tasks/{{ row.task.id }}/toggle"
-       hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML"
-       aria-label="Mark “{{ row.task.title }}” {% if row.done %}not done{% else %}done{% endif %}">
+<input type="checkbox" class="task-check" data-step="{{ row.task.id }}" data-status="{{ row.status }}" {% if row.done %}checked{% endif %}
+       title="{{ row.check_title }}" aria-label="Status of “{{ row.task.title }}”: {{ row.status_label }}">
 {%- endmacro %}
 
 {#- Its title, which opens its sheet in place of its row. -#}

@@ -4,7 +4,8 @@
    column per habit. A cell names what it writes (data-kind) and its column
    (data-col); day-sheet.js moves a cursor over them and writes in them. A
    stay item that is a checkbox (accommodation) is its box alone, ticked once
-   sorted. A task in the plan is its box (a click: in progress, then done),
+   sorted. A task in the plan is its box (a click steps it on, as on Gantt: in
+   progress, review, done, and to do again),
    its status menu's chevron, its priority's bars when it has one, its title
    (which opens its page), "overdue" on its deadline once that is past with
    the task still open (a deadline to come is not flagged), and at the end
@@ -66,10 +67,10 @@
             {# Folded, the first line says how many more it holds. #}
             {% set more %}{% if row.plan_count > 1 %}<span class="ds-more">+{{ row.plan_count - 1 }}</span>{% endif %}{% endset %}
             {% for t in row.tasks %}
-            <li class="ds-task{% if t.done %} is-done{% elif t.status == 'in_progress' %} is-in-progress{% endif %}{% if t.project %} in-project{% endif %}"
+            <li class="ds-task{% if t.done %} is-done{% elif t.status != 'todo' %} is-{{ t.status | replace('_', '-') }}{% endif %}{% if t.project %} in-project{% endif %}"
                 {%- if t.project %} style="--project: var(--hue-{{ t.project.color }})" title="Project: {{ t.project.name }}"{% endif %}>
               {% if t.project %}<span class="visually-hidden">Project: {{ t.project.name }}</span>{% endif %}
-              <span class="ds-check" role="checkbox" aria-checked="{{ 'true' if t.done else ('mixed' if t.status == 'in_progress' else 'false') }}" data-task="{{ t.id }}" aria-label="{{ t.title }}" title="{{ 'Done' if t.done else ('In progress: a click makes it done' if t.status == 'in_progress' else 'A click starts it') }}"></span>
+              <span class="ds-check" role="checkbox" aria-checked="{{ 'true' if t.done else ('mixed' if t.status in ('in_progress', 'needs_review') else 'false') }}" data-task="{{ t.id }}" aria-label="{{ t.title }}" title="{{ t.check_title }}"></span>
               <button type="button" class="ds-status" data-status-menu="{{ t.id }}" data-status="{{ t.status }}" tabindex="-1" aria-haspopup="menu" aria-expanded="false" title="Status" aria-label="Status of “{{ t.title }}”">{{ chevron() }}</button>
               {% if t.priority %}<span class="ds-priority" role="img" title="Priority: {{ t.priority_label }}" aria-label="Priority: {{ t.priority_label }}">{{ priority_icon(t.priority) }}</span>
               {%- else %}<span class="ds-priority" aria-hidden="true"></span>{% endif %}

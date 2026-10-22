@@ -132,15 +132,32 @@ def test_a_task_is_written_for_its_day_and_ticked(page, live, app_db) -> None:
     with app_db() as db:
         [made] = db.query(Task).all()
         assert (made.title, made.planned_for) == (words.strip(), TODAY)
-    # A click starts it, a second makes it done.
-    cell(page, TODAY, ".ds-check").click()
-    cell(page, TODAY, ".ds-task.is-in-progress").wait_for()
+    # Its box steps it on, as Gantt's does: a click starts it, a second puts
+    # it to review, a third makes it done, a fourth opens it again.
+    check = cell(page, TODAY, ".ds-check")
+    for shown, status in [
+        ("is-in-progress", TaskStatus.in_progress), ("is-needs-review", TaskStatus.needs_review),
+        ("is-done", TaskStatus.done),
+    ]:
+        check.click()
+        cell(page, TODAY, f".ds-task.{shown}").wait_for()
+        with app_db() as db:
+            assert db.query(Task).one().status == status
+        if status == TaskStatus.needs_review:
+            # In review, its box is edged and filled in amber, as on Gantt.
+            assert check.evaluate("""box => {
+                const amber = document.createElement("i");
+                amber.style.color = "var(--warn-fg)";
+                document.body.append(amber);
+                const want = getComputedStyle(amber).color;
+                amber.remove();
+                return getComputedStyle(box).borderTopColor === want
+                    && getComputedStyle(box, "::before").backgroundColor === want;
+            }""")
+    check.click()
+    cell(page, TODAY, ".ds-task.is-done").wait_for(state="detached")
     with app_db() as db:
-        assert db.query(Task).one().status == TaskStatus.in_progress
-    cell(page, TODAY, ".ds-check").click()
-    cell(page, TODAY, ".ds-task.is-done").wait_for()
-    with app_db() as db:
-        assert db.query(Task).one().status == TaskStatus.done
+        assert db.query(Task).one().status == TaskStatus.todo
 
 
 def test_a_double_click_writes_in_a_cell_and_on_a_plan_opens_its_day(page, live, app_db) -> None:
@@ -166,29 +183,36 @@ def test_a_tasks_status_is_chosen_from_its_menu(page, live, app_db) -> None:
         db.commit()
     open_sheet(page, live)
     menu = page.locator(".sheet-menu")
-    # Its chevron opens the statuses, none chosen while it is to do.
+    # Its chevron opens Gantt's statuses, the one it has chosen.
     cell(page, TODAY, ".ds-status").click()
-    assert menu.get_by_role("menuitemradio").all_inner_texts() == ["In progress", "Done"]
-    assert menu.locator('[aria-checked="true"]').count() == 0
+    items = menu.get_by_role("menuitemradio")
+    assert items.all_inner_texts() == ["To do", "In progress", "Review", "Done"]
+    assert menu.locator('[aria-checked="true"]').inner_text() == "To do"
     menu.get_by_role("menuitemradio", name="Done").click()
     cell(page, TODAY, ".ds-task.is-done").wait_for()
     assert menu.count() == 0
     with app_db() as db:
         assert db.query(Task).one().status == TaskStatus.done
-    # From the keys: In progress; Esc closes it, the cursor back on its cell.
+    # From the keys: up from Done, Review; Esc closes it, the cursor back on its cell.
     cell(page, TODAY, ".ds-status").click()
     page.keyboard.press("ArrowUp")
     page.keyboard.press("Enter")
-    cell(page, TODAY, ".ds-task.is-in-progress").wait_for()
+    cell(page, TODAY, ".ds-task.is-needs-review").wait_for()
     cell(page, TODAY, ".ds-status").click()
-    assert menu.locator('[aria-checked="true"]').inner_text() == "In progress"
+    assert menu.locator('[aria-checked="true"]').inner_text() == "Review"
     page.keyboard.press("Escape")
     assert menu.count() == 0
     assert page.evaluate("document.activeElement.dataset.kind") == "plan"
-    # The status it has, chosen again, takes it back to to do.
+    with app_db() as db:
+        assert db.query(Task).one().status == TaskStatus.needs_review
+    # The status it has, chosen again, leaves it so; To do opens it again.
     cell(page, TODAY, ".ds-status").click()
-    menu.get_by_role("menuitemradio", name="In progress").click()
-    cell(page, TODAY, ".ds-task.is-in-progress").wait_for(state="detached")
+    menu.get_by_role("menuitemradio", name="Review").click()
+    assert menu.count() == 0
+    cell(page, TODAY, ".ds-task.is-needs-review").wait_for()
+    cell(page, TODAY, ".ds-status").click()
+    menu.get_by_role("menuitemradio", name="To do").click()
+    cell(page, TODAY, ".ds-task.is-needs-review").wait_for(state="detached")
     with app_db() as db:
         assert db.query(Task).one().status == TaskStatus.todo
 
