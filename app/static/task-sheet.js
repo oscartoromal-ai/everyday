@@ -498,6 +498,8 @@
   const CHECK = '<svg class="tick" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.5 3.5 7.5-8"/></svg>';
   // A project's flag, before its name, in its colour (an outline for none).
   const FLAG = '<svg class="flag" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 17.5V3.5"/><path d="M5 4h9.5l-2.2 3.25L14.5 10.5H5"/></svg>';
+  // A project's chevron, folding its workstreams away or out.
+  const FOLD = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 3 7.5 6 4.5 9"/></svg>';
   const ITEMS = "[role='menuitemradio'], [role='menuitemcheckbox']";
 
   // Items are buttons, except one that holds the date picker's input (a
@@ -643,7 +645,9 @@
     }
     if (name === "project") {
       // Each item knows the words it is found by (filterMenu): a workstream
-      // its project's name and its own, and its project, shown above it.
+      // its project's name and its own, and its project, shown above it. A
+      // project with workstreams is a row with a chevron at its right that
+      // folds them out; they start folded, but for the task's own project.
       const project = valueOf(form, "project_id");
       const workstream = valueOf(form, "workstream_id");
       const none = item("No project", { flag: true, checked: project === "", pick: () => setField(form, "project_id", "") });
@@ -657,7 +661,22 @@
           pick: () => setField(form, "project_id", String(p.id)),
         });
         head._words = p.name.toLowerCase();
-        items.push(head);
+        if (p.workstreams.length) {
+          const row = document.createElement("div");
+          row.className = "sheet-menu-head";
+          const fold = document.createElement("button");
+          fold.type = "button";
+          fold.className = "sheet-menu-fold";
+          fold.tabIndex = -1;
+          fold.innerHTML = FOLD;
+          fold._head = head;
+          head._fold = fold;
+          row.append(head, fold);
+          setFold(head, String(p.id) === project);
+          items.push(row);
+        } else {
+          items.push(head);
+        }
         for (const m of p.workstreams) {
           const el = item(m.name, {
             indent: true,
@@ -700,6 +719,14 @@
      match shows: a workstream with its project above it. */
 
   let itemIds = 0;
+  const setFold = (head, open) => {
+    head._open = open;
+    const name = head.querySelector(".label").textContent;
+    const label = `${open ? "Hide" : "Show"} the workstreams of ${name}`;
+    head._fold.setAttribute("aria-expanded", String(open));
+    head._fold.setAttribute("aria-label", label);
+    head._fold.title = label;
+  };
   const shownItems = () => [...menu.el.querySelectorAll(ITEMS)].filter((el) => !el.hidden);
   const setActive = (el) => {
     const { el: box, find } = menu;
@@ -727,12 +754,30 @@
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
     const items = [...menu.el.querySelectorAll(ITEMS)];
     const found = new Set(items.filter((el) => words.every((w) => el._words.includes(w))));
-    for (const el of items) el.hidden = !found.has(el) && ![...found].some((f) => f._head === el);
+    for (const el of items) el._found = found.has(el) || [...found].some((f) => f._head === el);
+    menu.filtering = words.length > 0;
+    showFound();
     const empty = menu.el.querySelector(".sheet-menu-empty");
     if (empty) empty.hidden = found.size > 0;
+    // The current choice, or its project while that is folded.
     const current = !words.length && items.find((el) => el.getAttribute("aria-checked") === "true");
-    setActive(current || items.find((el) => found.has(el)));
+    setActive((current?.hidden ? current._head : current) || items.find((el) => found.has(el)));
     return found.size;
+  };
+  // What the words find shows; with none typed, a folded project's
+  // workstreams stay out of sight (and its chevron goes while words are).
+  const showFound = () => {
+    for (const el of menu.el.querySelectorAll(ITEMS)) {
+      el.hidden = !el._found || (!menu.filtering && !!el._head && !el._head._open);
+      if (!el._fold) continue;
+      el.parentElement.hidden = el.hidden;
+      el._fold.hidden = menu.filtering;
+    }
+  };
+  const foldProject = (head, open) => {
+    setFold(head, open);
+    showFound();
+    if (menu.el.querySelector("[data-active]")?.hidden) setActive(head);
   };
   const takeActive = () => {
     const el = menu?.el.querySelector("[data-active]");
@@ -758,7 +803,6 @@
     const filters = button.dataset.prop === "project";
     let find = null;
     if (filters) {
-      items.forEach((i) => { i.id = `sheet-item-${++itemIds}`; });
       if (!inline) {
         find = document.createElement("input");
         find.type = "text";
@@ -772,6 +816,7 @@
     }
     el.append(...items);
     if (filters) {
+      el.querySelectorAll(ITEMS).forEach((i) => { i.id = `sheet-item-${++itemIds}`; });
       const empty = document.createElement("p");
       empty.className = "sheet-menu-empty";
       empty.textContent = "No project or workstream by that name";
@@ -823,9 +868,10 @@
   };
 
   // Pressing an icon keeps focus (and the caret) where it was writing; so
-  // does pressing an item of a menu dropped down from the title's "#".
+  // does pressing an item of a menu dropped down from the title's "#", and
+  // a project's chevron in any.
   document.addEventListener("pointerdown", (e) => {
-    if (e.target.closest?.(".task-sheet .prop, .sheet-actions button, .sheet-menu.inline")) e.preventDefault();
+    if (e.target.closest?.(".task-sheet .prop, .sheet-actions button, .sheet-menu.inline, .sheet-menu-fold")) e.preventDefault();
   });
 
   document.addEventListener("click", (e) => {
@@ -834,6 +880,11 @@
       const open = menu?.button === button && !menu.inline;
       closeMenu(open);
       if (!open) openMenu(sheetOf(button), button);
+      return;
+    }
+    const fold = e.target.closest?.(".sheet-menu-fold");
+    if (fold && menu) {
+      foldProject(fold._head, !fold._head._open);
       return;
     }
     const chosen = e.target.closest?.(`.sheet-menu :is(${ITEMS})`);
@@ -871,6 +922,16 @@
         closeMenu();
       } else if (inline && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {
         closeMenu(false);
+      } else if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && !menu.filtering) {
+        // Nothing written on the line yet: Right folds the active project's
+        // workstreams out, Left folds them away (from one of them too).
+        const active = menu.el.querySelector("[data-active]");
+        const head = active?._fold ? active : active?._head;
+        if (head && (e.key === "ArrowLeft" || head === active)) {
+          e.preventDefault();
+          foldProject(head, e.key === "ArrowRight");
+          setActive(head);
+        }
       }
       return;
     }
@@ -898,8 +959,11 @@
   }, true);
 
   window.addEventListener("resize", () => closeMenu(false));
+  // A scroll that moves what the menu drops down from closes it; one elsewhere
+  // (Today's calendar keeping to the hour as it loads) leaves it be.
   document.addEventListener("scroll", (e) => {
-    if (menu && !menu.el.contains(e.target)) closeMenu(false);
+    if (!menu || menu.el.contains(e.target)) return;
+    if (e.target === document || e.target.contains?.(menu.button)) closeMenu(false);
   }, true);
 
   /* ---- writing: keys shared by both modes ---- */

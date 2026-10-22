@@ -95,10 +95,11 @@ def test_a_hash_files_it_and_backspace_takes_it_back(page, live, app_db, places)
     page.keyboard.press("n")
     page.locator(f"{WINDOW}[open]").wait_for()
 
-    # "#" drops the projects down; the words after it narrow them.
+    # "#" drops the projects down, their workstreams folded; the words after
+    # it narrow them, and find workstreams too.
     page.keyboard.type("Call the plumber #")
     page.locator(".sheet-menu.inline").wait_for()
-    assert page.evaluate(SHOWN) == ["No project", "Home", "Garden", "Kitchen", "Work", "Release"]
+    assert page.evaluate(SHOWN) == ["No project", "Home", "Work"]
     page.keyboard.type("work rel")
     assert page.evaluate(SHOWN) == ["Work", "Release"]
     assert page.evaluate(ACTIVE) == "Release"
@@ -132,6 +133,53 @@ def test_a_hash_files_it_and_backspace_takes_it_back(page, live, app_db, places)
     page.locator(".cal-toast.show", has_text="to Work › Release").wait_for()
     filed = task_named(app_db, "Call the plumber about leak #42")
     assert filed == (places["work"], places["release"])
+
+
+def test_a_projects_workstreams_fold_out_from_its_chevron(page, live, app_db, places) -> None:
+    page.goto(f"{live}/today")
+    page.keyboard.press("n")
+    page.locator(f"{WINDOW}[open]").wait_for()
+    page.locator(f"{WINDOW} .file-into").click()
+    page.wait_for_function("document.activeElement?.matches('.sheet-menu-find')")
+    # Every project folded, its chevron at its right.
+    assert page.evaluate(SHOWN) == ["No project", "Home", "Work"]
+    home = page.locator(".sheet-menu-head", has_text="Home").locator(".sheet-menu-fold")
+    assert home.get_attribute("aria-label") == "Show the workstreams of Home"
+    assert home.get_attribute("aria-expanded") == "false"
+
+    # The chevron folds them out, and the writing stays on the line.
+    home.click()
+    assert page.evaluate(SHOWN) == ["No project", "Home", "Garden", "Kitchen", "Work"]
+    assert home.get_attribute("aria-label") == "Hide the workstreams of Home"
+    assert page.evaluate("document.activeElement.matches('.sheet-menu-find')")
+    home.click()
+    assert page.evaluate(SHOWN) == ["No project", "Home", "Work"]
+
+    # The keys: Right folds the active project out, Left away again, from one
+    # of its workstreams too.
+    page.keyboard.press("ArrowDown")
+    page.keyboard.press("ArrowDown")
+    assert page.evaluate(ACTIVE) == "Work"
+    page.keyboard.press("ArrowRight")
+    assert page.evaluate(SHOWN) == ["No project", "Home", "Work", "Release"]
+    page.keyboard.press("ArrowDown")
+    assert page.evaluate(ACTIVE) == "Release"
+    page.keyboard.press("ArrowLeft")
+    assert page.evaluate(SHOWN) == ["No project", "Home", "Work"]
+    assert page.evaluate(ACTIVE) == "Work"
+
+    # Words find a folded project's workstreams; the chevrons go meanwhile.
+    page.keyboard.type("kit")
+    assert page.evaluate(SHOWN) == ["Home", "Kitchen"]
+    assert page.locator(".sheet-menu-fold:visible").count() == 0
+    page.keyboard.press("Enter")
+    assert page.locator(CHIP).text_content() == "Home › Kitchen"
+
+    # Opened again, the task's own project is the one folded out.
+    page.locator(f"{WINDOW} .file-into").click()
+    page.wait_for_function("document.activeElement?.matches('.sheet-menu-find')")
+    assert page.evaluate(SHOWN) == ["No project", "Home", "Garden", "Kitchen", "Work"]
+    assert page.evaluate(ACTIVE) == "Kitchen"
 
 
 def test_a_hash_files_a_task_on_its_own_page(page, live, app_db, places) -> None:
