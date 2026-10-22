@@ -81,6 +81,10 @@ def open_tab(page, live, home) -> None:
 def test_a_tick_is_drawn_in_the_view_and_the_task_leaves_its_section(
     page, live, app_db, home
 ) -> None:
+    # In review, its box's click makes it done.
+    with app_db() as db:
+        tasks_svc.set_status(db, home["now"], TaskStatus.needs_review)
+        db.commit()
     open_tab(page, live, home)
     # A click, not check(): the tick swaps the box out, and check() would read it again.
     page.locator("#sv-today .tv-row", has_text="Now").locator(".task-check").click()
@@ -288,7 +292,14 @@ def test_the_cursor_moves_over_the_rows_section_by_section(page, live, app_db, h
     page.wait_for_function("document.activeElement?.dataset.taskTitle === 'Paint'", timeout=5000)
     # Its do-date buttons show on the row the cursor is on.
     assert page.locator(f"#task-{home['paint']} [data-plan='today']").is_visible()
-    # X finishes it, and the cursor goes on to the next row.
+    # X steps it on, as its box does, the cursor staying on it: in progress,
+    # then review; then done, and the cursor goes on to the next row.
+    for status in (TaskStatus.in_progress, TaskStatus.needs_review):
+        page.keyboard.press("x")
+        page.locator(f"#task-{home['paint']} .task-check[data-status={status.value}]").wait_for()
+        page.wait_for_function("!document.querySelector('.htmx-request')")
+        assert task_of(app_db, home["paint"]).status == status
+        assert page.evaluate("document.activeElement?.dataset.taskTitle") == "Paint"
     page.keyboard.press("x")
     page.wait_for_function("document.activeElement?.dataset.taskTitle === 'Rest'", timeout=5000)
     assert task_of(app_db, home["paint"]).status == TaskStatus.done

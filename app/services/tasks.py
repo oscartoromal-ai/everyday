@@ -181,6 +181,36 @@ def set_status(db: Session, task_id: int, status: TaskStatus) -> Task:
     return task
 
 
+# A task's box steps it on, wherever it is ticked (as Gantt's does): to do,
+# in progress, review, done, and round to to do again; a blocked task
+# starts, a cancelled one opens again.
+_NEXT_STATUS = {
+    TaskStatus.todo: TaskStatus.in_progress,
+    TaskStatus.blocked: TaskStatus.in_progress,
+    TaskStatus.in_progress: TaskStatus.needs_review,
+    TaskStatus.needs_review: TaskStatus.done,
+}
+# The box's words: where its task stands, and where a click takes it
+# (task-sheet.js says the same on a task's page).
+CHECK_TITLES = {
+    TaskStatus.todo: "To do: a click starts it",
+    TaskStatus.in_progress: "In progress: a click puts it to review",
+    TaskStatus.needs_review: "Needs review: a click makes it done",
+    TaskStatus.done: "Done: a click opens it again",
+    TaskStatus.blocked: "Blocked: a click starts it",
+    TaskStatus.cancelled: "Cancelled: a click opens it again",
+}
+
+
+def next_status(status: TaskStatus) -> TaskStatus:
+    return _NEXT_STATUS.get(status, TaskStatus.todo)
+
+
+def step_status(db: Session, task_id: int) -> Task:
+    """A task's box clicked: its status stepped on (next_status)."""
+    return set_status(db, task_id, next_status(get_task(db, task_id).status))
+
+
 def toggle_subtask(db: Session, task_id: int, index: int, expected_text: str) -> bool:
     """Tick or untick one sub-task in the description; False when the
     description changed under the caller and that sub-task is no longer there."""

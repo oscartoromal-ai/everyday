@@ -668,15 +668,15 @@ label.me-row:hover, .weight-log .me-row:hover { background: var(--glass-row-hove
 }
 .task-check:checked { background: var(--ink); border-color: var(--ink); }
 .task-check:checked::before { visibility: visible; }
-/* a sheet's box steps its task on (task-sheet.js): in progress, as on Gantt,
-   edged in blue and filled inside, a paper gap between; in review the same
-   in amber; blocked, edged in red */
-.task-sheet .task-check:indeterminate::before { visibility: visible; clip-path: inset(10%); }
-.task-sheet .task-check:indeterminate[data-status="in_progress"] { border-color: var(--hue-6); }
-.task-sheet .task-check:indeterminate[data-status="in_progress"]::before { background: var(--hue-6); }
-.task-sheet .task-check:indeterminate[data-status="needs_review"] { border-color: var(--warn-fg); }
-.task-sheet .task-check:indeterminate[data-status="needs_review"]::before { background: var(--warn-fg); }
-.task-sheet .task-check:not(:checked)[data-status="blocked"] { border-color: var(--err-fg); }
+/* a task's box steps it on, as Gantt's does (a row's, tasks.js; a sheet's,
+   task-sheet.js): in progress, edged in blue and filled inside, a paper gap
+   between; in review the same in amber; blocked, edged in red */
+.task-check:not(:checked):is([data-status="in_progress"], [data-status="needs_review"])::before { visibility: visible; clip-path: inset(10%); }
+.task-check:not(:checked)[data-status="in_progress"] { border-color: var(--hue-6); }
+.task-check:not(:checked)[data-status="in_progress"]::before { background: var(--hue-6); }
+.task-check:not(:checked)[data-status="needs_review"] { border-color: var(--warn-fg); }
+.task-check:not(:checked)[data-status="needs_review"]::before { background: var(--warn-fg); }
+.task-check:not(:checked)[data-status="blocked"] { border-color: var(--err-fg); }
 /* the box just ticked (tasks.js marks it): one beat, if the system has one */
 .task-row.just-done .task-check { animation: var(--check-pulse); }
 
@@ -3137,7 +3137,7 @@ button.tv-expand:hover { color: var(--ink); background: var(--glass-hover); }
 .plan-move-all:hover, .plan-move-all[aria-expanded="true"] { color: var(--ink); text-decoration-color: currentColor; }
 .plan-list { margin: 0; padding: 0; list-style: none; }
 
-/* a task offered: its box (written in the notes, ticked), its title (written
+/* a task offered: its box (written in the notes, stepped on), its title (written
    there), after its project's flag and its priority's bars, when it was
    meant for, and its calendar (another day), quiet until the row is hovered */
 .plan-item {
@@ -3148,6 +3148,15 @@ button.tv-expand:hover { color: var(--ink); background: var(--glass-hover); }
 .plan-tick { flex: none; display: grid; place-content: center; width: 24px; height: 24px; cursor: pointer; }
 .plan-tick::before { content: ""; width: 14px; height: 14px; border: 1.5px solid var(--steel); transition: border-color var(--dur) var(--ease); }
 .plan-tick:hover::before { border-color: var(--ink); }
+/* in progress, as on Gantt: edged in blue and filled inside, a paper gap
+   between; in review the same in amber; blocked, edged in red */
+.plan-tick::after { content: none; grid-area: 1 / 1; place-self: center; width: 6px; height: 6px; }
+.plan-tick::before { grid-area: 1 / 1; }
+.plan-tick[data-status="in_progress"]::before { border-color: var(--hue-6); }
+.plan-tick[data-status="needs_review"]::before { border-color: var(--warn-fg); }
+.plan-tick[data-status="blocked"]::before { border-color: var(--err-fg); }
+.plan-tick:is([data-status="in_progress"], [data-status="needs_review"])::after { content: ""; background: var(--hue-6); }
+.plan-tick[data-status="needs_review"]::after { background: var(--warn-fg); }
 .pad-carry-write {
   flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; padding: 8px 0;
   font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); text-align: left; cursor: pointer;
@@ -3565,6 +3574,13 @@ button.stay-box::before {
   content: ""; width: 4px; height: 7px; margin-top: -2px;
   border: solid var(--paper); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg);
 }
+/* in progress, as on Gantt: edged in blue and filled inside, a paper gap
+   between; in review the same in amber; blocked, edged in red */
+.pad-check[data-status="in_progress"] { border-color: var(--hue-6); }
+.pad-check[data-status="needs_review"] { border-color: var(--warn-fg); }
+.pad-check[data-status="blocked"] { border-color: var(--err-fg); }
+.pad-check:is([data-status="in_progress"], [data-status="needs_review"])::after { content: ""; width: 6px; height: 6px; background: var(--hue-6); }
+.pad-check[data-status="needs_review"]::after { background: var(--warn-fg); }
 .pad-kind-name { font-size: var(--t-caption); color: var(--graphite); }
 .pad-kind.done .pad-kind-name { color: var(--pewter); text-decoration: line-through; }
 /* at the right of a task's title, after its last word: its controls, the
@@ -4569,9 +4585,13 @@ tr.is-folded .ds-plan-list li:first-child .ds-title { min-width: 0; overflow: hi
 }
 .ds-check:hover { border-color: var(--ink); }
 .ds-task.is-done .ds-check { background: var(--ok-fg); border-color: var(--ok-fg); }
-/* in progress: the box edged in blue and filled inside, a paper gap between */
+/* in progress, as on Gantt: the box edged in blue and filled inside, a
+   paper gap between; in review the same in amber; blocked, edged in red */
 .ds-task.is-in-progress .ds-check { border-color: var(--hue-6); }
-.ds-task.is-in-progress .ds-check::before { content: ""; width: 6px; height: 6px; background: var(--hue-6); }
+.ds-task.is-needs-review .ds-check { border-color: var(--warn-fg); }
+.ds-task.is-blocked .ds-check { border-color: var(--err-fg); }
+.ds-task:is(.is-in-progress, .is-needs-review) .ds-check::before { content: ""; width: 6px; height: 6px; background: var(--hue-6); }
+.ds-task.is-needs-review .ds-check::before { background: var(--warn-fg); }
 /* the status menu's chevron, hugging the box */
 .ds-status {
   flex: none; align-self: center; display: grid; place-content: center;

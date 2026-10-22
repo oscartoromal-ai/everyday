@@ -125,7 +125,16 @@ def test_keys_act_on_the_row_and_the_cursor_moves_on(page, live, app_db, tasks) 
     press(page, "ArrowDown", "Enter")
     cursor_on(page, after)
 
+    # X steps it on, as its box does: the cursor stays on it through in
+    # progress and review, and goes on once it is done.
     finished, after = cursor(page), following(page)
+    for status in ("in_progress", "needs_review"):
+        press(page, "x")
+        page.wait_for_function(
+            f"document.activeElement?.querySelector('.task-check')?.dataset.status === {status!r}"
+            " && !document.querySelector('.htmx-request')", timeout=5000
+        )
+        cursor_on(page, finished)
     press(page, "x")
     cursor_on(page, after)
 

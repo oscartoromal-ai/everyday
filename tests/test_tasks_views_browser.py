@@ -102,6 +102,46 @@ def test_a_task_dropped_between_lists_stays_where_it_was(page, live, app_db, mad
 
 
 @pytest.mark.parametrize("view", VIEWS)
+def test_a_tasks_box_steps_it_on_as_gantts(page, live, app_db, made, view) -> None:
+    open_view(page, live, made, view)
+    box = f"#task-{made['fetch']} .task-check"
+    # Its colours, as the Gantt's: in progress blue, in review amber, edged
+    # and filled inside.
+    colours = """box => {
+        const probe = (hue) => {
+            const i = document.createElement("i");
+            i.style.color = `var(${hue})`;
+            document.body.append(i);
+            const c = getComputedStyle(i).color;
+            i.remove();
+            return c;
+        };
+        const want = box.dataset.status === "in_progress" ? probe("--hue-6") : probe("--warn-fg");
+        return getComputedStyle(box).borderTopColor === want
+            && getComputedStyle(box, "::before").backgroundColor === want
+            && getComputedStyle(box, "::before").visibility === "visible";
+    }"""
+    for status in (TaskStatus.in_progress, TaskStatus.needs_review):
+        page.locator(box).click()
+        page.wait_for_function("!document.querySelector('.htmx-request')")
+        page.locator(f"{box}[data-status={status.value}]").wait_for()
+        assert task(app_db, made["fetch"]).status == status
+        assert not page.locator(box).is_checked()
+        page.mouse.move(0, 0)
+        assert page.locator(box).evaluate(colours)
+    page.locator(box).click()
+    page.wait_for_function("!document.querySelector('.htmx-request')")
+    assert task(app_db, made["fetch"]).status == TaskStatus.done
+    # Two quick clicks are two steps.
+    other = f"#task-{made['draw']} .task-check"
+    page.locator(other).click()
+    page.locator(other).click()
+    page.locator(f"{other}[data-status=needs_review]").wait_for()
+    page.wait_for_function("!document.querySelector('.htmx-request')")
+    assert task(app_db, made["draw"]).status == TaskStatus.needs_review
+
+
+@pytest.mark.parametrize("view", VIEWS)
 def test_a_control_in_a_row_keeps_its_own_enter(page, live, app_db, made, view) -> None:
     open_view(page, live, made, view)
     row = f"#task-{made['tidy']}"

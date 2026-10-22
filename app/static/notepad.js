@@ -40,8 +40,10 @@
    and stays so; an edit that would reach its hidden rows unfolds it first.
    Ctrl+Enter or Esc in a task saves it (adds it for the day, with what its
    controls set, or writes its title and description to the task it made),
-   Ctrl+Enter then going on to a fresh plain row. Ticking a task's box ticks
-   its task; its controls write to it straight away once it is added.
+   Ctrl+Enter then going on to a fresh plain row. A task's box steps its
+   task on, as Gantt's does (to do, in progress, review, done, and round
+   again), drawn by its status, its row ticked once done; its controls
+   write to it straight away once it is added.
    Delete takes its rows out of the notes, and an added task, once
    confirmed, out of the plan. An added task's Open control, after its
    icons, opens it on its page (Ctrl+Shift+Enter in it too, adding it first
@@ -61,9 +63,9 @@
    those for the day and those carried over from before (on today's page,
    overdue ones and those still open from the last page before it). A title
    writes its rows at the end of the notes, its title row making that same
-   task, and moves its do-date to this day; its box writes them ticked; its
-   calendar moves it to another day (Reschedule moves every one carried
-   over); Bring all writes every one.
+   task, and moves its do-date to this day; its box writes them, its
+   status stepped on; its calendar moves it to another day (Reschedule
+   moves every one carried over); Bring all writes every one.
 
    Where Oscar stays is not written here: it has a pane of its own
    (stays.js), as the habits have.
@@ -250,30 +252,50 @@
     return { title: doc.line(block.first).text.slice(BOX).trim(), notes: notes.join("\n") };
   };
   const isDone = (block) => TASK.exec(view.state.doc.line(block.first).text)[1] !== " ";
+  // A task's status, as its box shows it: the notes say done or not (its
+  // row's "- [x] " or "- [ ] "), its task the rest (in progress, review).
+  const shownStatus = (done, m) => (done ? "done" : m.fields.status === "done" ? "todo" : m.fields.status);
+  const statusOf = (block) => shownStatus(isDone(block), block.m);
+  // A task's box steps it on, as Gantt's does: to do, in progress, review,
+  // done, and round to to do again; a blocked task starts.
+  const NEXT_STATUS = { todo: "in_progress", blocked: "in_progress", in_progress: "needs_review", needs_review: "done" };
+  const CHECK_TITLES = {
+    todo: "To do: a click starts it", in_progress: "In progress: a click puts it to review",
+    needs_review: "Needs review: a click makes it done", done: "Done: a click opens it again",
+    blocked: "Blocked: a click starts it", cancelled: "Cancelled: a click opens it again",
+  };
+  const STATUS_LABELS = {
+    todo: "To do", in_progress: "In progress", blocked: "Blocked",
+    needs_review: "Needs review", done: "Done", cancelled: "Cancelled",
+  };
 
   /* ---- how the rows are drawn ---- */
 
-  // In a task's row: its checkbox and the word Task.
+  // In a task's row: its checkbox, drawn by its status, and the word Task.
   // A task with rows under its title has its chevron after Task, to fold
   // it to its title (fold: null without rows, else whether it is folded).
   class Kind extends WidgetType {
-    constructor(done, name = "Task", fold = null) {
+    constructor(status, name = "Task", fold = null) {
       super();
-      this.done = done;
+      this.status = status;
       this.name = name;
       this.fold = fold;
     }
     eq(other) {
-      return other.done === this.done && other.name === this.name && other.fold === this.fold;
+      return other.status === this.status && other.name === this.name && other.fold === this.fold;
     }
     toDOM() {
+      const done = this.status === "done";
       const kind = document.createElement("span");
-      kind.className = this.done ? "pad-kind done" : "pad-kind";
+      kind.className = done ? "pad-kind done" : "pad-kind";
       kind.innerHTML = '<button type="button" class="pad-check" role="checkbox"></button><span class="pad-kind-name"></span>';
       kind.lastElementChild.textContent = this.name;
       const box = kind.firstElementChild;
-      box.setAttribute("aria-checked", String(this.done));
-      box.setAttribute("aria-label", "Done");
+      box.dataset.status = this.status;
+      const started = this.status === "in_progress" || this.status === "needs_review";
+      box.setAttribute("aria-checked", done ? "true" : started ? "mixed" : "false");
+      box.setAttribute("aria-label", `Status: ${STATUS_LABELS[this.status]}`);
+      box.title = CHECK_TITLES[this.status];
       if (this.fold !== null) {
         const fold = document.createElement("button");
         fold.type = "button";
@@ -595,7 +617,8 @@
         atomic.push(label.range(line.from, line.from + lead));
       } else if (task) {
         const fold = b.last > b.first ? folded(b) : null;
-        const box = Decoration.replace({ widget: new Kind(TASK.exec(line.text)[1] !== " ", "Task", fold) });
+        const status = shownStatus(TASK.exec(line.text)[1] !== " ", b.m);
+        const box = Decoration.replace({ widget: new Kind(status, "Task", fold) });
         decos.push(box.range(line.from, line.from + BOX));
         atomic.push(box.range(line.from, line.from + BOX));
         let end = line.to;
@@ -1180,8 +1203,7 @@
     const content = contentOf(block);
     content.title ||= m.saved?.title || "";
     if (!content.title) return false;
-    const status = isDone(block) ? "done" : m.fields.status === "done" ? "todo" : m.fields.status;
-    const fields = { ...m.fields, status };
+    const fields = { ...m.fields, status: statusOf(block) };
     const was = m.known ? { ...m.known, ...m.saved } : {};
     const changed = Object.entries({ ...fields, ...content }).filter(([name, value]) => was[name] !== value);
     if (!changed.length) return true;
@@ -1232,9 +1254,9 @@
     told(`Task added: ${title}`);
     htmx.trigger(document.body, "calendar:refresh");
     schedule();
-    // What adding leaves out: its workstream, and a box ticked before it was added.
+    // What adding leaves out: its workstream, and a box stepped on before it was added.
     const now = blocks().find((b) => b.m === m);
-    if (m.id && now && (isDone(now) || m.fields.workstream_id)) writeTask(now);
+    if (m.id && now && (statusOf(now) !== "todo" || m.fields.workstream_id)) writeTask(now);
   }
 
   // A task's controls changed a field: kept for its adding, or written to it.
@@ -1275,7 +1297,7 @@
     view.dispatch({ changes: { from: at, to: at + 1, insert: done ? "x" : " " }, annotations: Transaction.addToHistory.of(false) });
   };
 
-  // Ticking a task's box ticks its task (and its row, in the notes).
+  // A task's box steps its task on (and, once done, ticks its row in the notes).
   document.addEventListener("click", async (e) => {
     const box = e.target.closest?.(".pad-check");
     if (!box || !view?.dom.contains(box)) return;
@@ -1291,21 +1313,38 @@
     }
     const m = taskOfBox(box);
     const block = m && blocks().find((b) => b.m === m);
-    if (block) setDone(m, !isDone(block));
+    if (block) setStatus(m, NEXT_STATUS[statusOf(block)] || "todo");
   });
-  // A task ticked (or unticked): its row's box, then the task itself.
-  async function setDone(m, done) {
-    mark(m, done);
+  // A task's status shown: its box drawn by it, its row ticked once done.
+  const show = (m, status) => {
+    const block = blocks().find((b) => b.m === m);
+    if (!block) return;
+    m.fields.status = status;
+    if (isDone(block) !== (status === "done")) mark(m, status === "done");
+    else view.dispatch({ effects: redraw.of(null) });
+  };
+  // A task's status stepped on: shown at once, then written to the task
+  // (after `first`, when given), each write after the one before it, so two
+  // quick clicks land as two steps. A task not yet added takes it as it is.
+  const statusWrites = new WeakMap(); // task -> its last write
+  function setStatus(m, status, first = null) {
+    const block = blocks().find((b) => b.m === m);
+    if (!block) return;
+    const before = statusOf(block);
+    show(m, status);
     if (!m.id) return;
-    const res = await post(`/ui/tasks/${m.id}/toggle`).catch(() => null);
-    if (!res?.ok) {
-      mark(m, !done);
-      window.toast("Could not tick that task.");
-      return;
-    }
-    m.fields.status = done ? "done" : "todo";
-    if (m.known) m.known.status = m.fields.status;
-    htmx.trigger(document.body, "calendar:refresh");
+    const write = (statusWrites.get(m) || Promise.resolve()).then(async () => {
+      await first;
+      const res = await post(`/ui/tasks/${m.id}`, new URLSearchParams({ status })).catch(() => null);
+      if (!res?.ok) {
+        show(m, before);
+        window.toast("Could not change that task's status.");
+        return;
+      }
+      if (m.known) m.known.status = status;
+      htmx.trigger(document.body, "calendar:refresh");
+    });
+    statusWrites.set(m, write);
   }
 
   // Delete: an added task goes from the plan (asked first), and its rows
@@ -1433,14 +1472,16 @@
     const item = document.createElement("li");
     item.className = "plan-item";
     item.dataset.task = String(t.id);
-    // Its box: written in the notes, done.
+    // Its box, drawn by its status: written in the notes, stepped on.
+    const status = t.fields.status || "todo";
     const tick = document.createElement("button");
     tick.type = "button";
     tick.className = "plan-tick";
+    tick.dataset.status = status;
     tick.setAttribute("role", "checkbox");
-    tick.setAttribute("aria-checked", "false");
-    tick.setAttribute("aria-label", `Done: ${t.title}`);
-    tick.title = "Done: written in the notes, ticked";
+    tick.setAttribute("aria-checked", status === "in_progress" || status === "needs_review" ? "mixed" : "false");
+    tick.setAttribute("aria-label", `Status of ${t.title}: ${STATUS_LABELS[status]}`);
+    tick.title = `${CHECK_TITLES[status]}, written in the notes`;
     const write = document.createElement("button");
     write.type = "button";
     write.className = "pad-carry-write";
@@ -1560,15 +1601,13 @@
     if (write) bring(offered(write.dataset.task));
     else if (e.target.closest?.(".pad-carry-all")) bring(toBring(view.state));
     else if (tick) {
-      // Written, ticked there at once: done this day, in the notes; the
-      // task itself ticked once it is moved to the day.
+      // Written, its status stepped on there at once (ticked, once that
+      // makes it done); the task itself stepped once it is moved to the day.
       const id = tick.closest(".plan-item").dataset.task;
       const moving = bring(offered(id));
       const block = blocks().find((b) => String(b.m.id) === id);
       if (!block) return;
-      mark(block.m, true);
-      await moving;
-      setDone(block.m, true);
+      setStatus(block.m, NEXT_STATUS[statusOf(block)] || "todo", moving);
     }
   });
 

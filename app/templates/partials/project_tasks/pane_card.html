@@ -6,7 +6,7 @@
 {% set id = row.task.id %}
 <article class="lp-card{% if row.done %} done{% endif %}" data-lp-for="{{ id }}" aria-labelledby="lp-title-{{ id }}">
   <div class="lp-actions">
-    <label class="lp-done">{{ check(row) }}<span>{{ "Done" if row.done else "Mark done" }}</span></label>
+    <label class="lp-done">{{ check(row) }}<span>{{ row.status_label }}</span></label>
     <a class="lp-tool" href="/tasks/{{ id }}" title="{{ keys.title('Open the task on its page', 'task.openPage') }}">{{ open_icon() }}<span>Open page</span></a>
     <button type="button" class="lp-tool lp-delete" title="Delete task" aria-label="Delete “{{ row.task.title }}”"
             hx-post="/ui/tasks/{{ id }}/delete" hx-target="#task-{{ id }}" hx-swap="outerHTML"

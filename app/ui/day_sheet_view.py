@@ -72,6 +72,7 @@ def _tasks(
         done = task.status == TaskStatus.done
         entry = {
             "id": task.id, "title": task.title, "done": done, "status": task.status.value,
+            "check_title": tasks_svc.CHECK_TITLES[task.status],
             "priority": task.priority.value if task.priority else "",
             "priority_label": task.priority.label if task.priority else "",
             "rank": tasks_svc.priority_rank(task),

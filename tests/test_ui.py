@@ -498,12 +498,24 @@ def test_a_task_without_description_has_no_toggle(client, db) -> None:
     assert "notes-toggle" not in row and "task-notes" not in row
 
 
-def test_toggle_marks_done_and_back(client, db) -> None:
+def test_a_rows_box_steps_its_task_on_as_gantts(client, db) -> None:
     task = tasks_svc.create_task(db, title="flip me")
+    steps = [
+        ("in_progress", "In progress: a click puts it to review"),
+        ("needs_review", "Needs review: a click makes it done"),
+        ("done", "Done: a click opens it again"),
+        ("todo", "To do: a click starts it"),
+    ]
+    for status, title in steps:
+        row = client.post(f"/ui/tasks/{task.id}/toggle").text
+        assert f'data-status="{status}"' in row and f'title="{title}"' in row
+        assert ("checked" in row) == (status == "done")
+        assert ('class="task-row done"' in row) == (status == "done")
+    assert "Status of “flip me”: To do" in row
+    # A blocked task starts.
+    tasks_svc.set_status(db, task.id, TaskStatus.blocked)
     row = client.post(f"/ui/tasks/{task.id}/toggle").text
-    assert "done" in row and "checked" in row
-    row = client.post(f"/ui/tasks/{task.id}/toggle").text
-    assert "checked" not in row
+    assert 'data-status="in_progress"' in row
 
 
 def test_editor_roundtrip(client, db) -> None:

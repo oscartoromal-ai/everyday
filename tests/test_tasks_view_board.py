@@ -175,7 +175,9 @@ def test_a_card_drawn_again_is_the_card_the_board_draws(client, db) -> None:
     again = client.get(f"/ui/tasks/{task.id}/row", headers=BOARD).text.strip()
     assert again == drawn
 
-    # Ticked, it comes back a card, done; a sub-task ticked, with its sub-tasks shown.
+    # Its box stepped on from review, it comes back a card, done; a sub-task
+    # ticked, with its sub-tasks shown.
+    tasks_svc.set_status(db, task.id, TaskStatus.needs_review)
     ticked = client.post(f"/ui/tasks/{task.id}/toggle", headers=BOARD).text.strip()
     assert ticked.startswith('<li class="task-row board-card done"')
     assert ticked.count('<li class="task-row') == 1

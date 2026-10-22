@@ -1,13 +1,11 @@
 {% from "partials/project_flag.html" import project_flag %}
 {% from "partials/priority.html" import priority_tag %}
 {% from "partials/open_task.html" import open_icon %}
+{% from "partials/project_tasks/macros.html" import check %}
 <li class="task-row{% if row.done %} done{% endif %}{% if row.project %} in-project{% endif %}" id="task-{{ row.task.id }}"
     {%- if row.project %} style="--project: var(--hue-{{ row.project.color }})"{% endif %}
     data-task-id="{{ row.task.id }}" data-task-title="{{ row.task.title }}" tabindex="-1">
-  <input type="checkbox" class="task-check" {% if row.done %}checked{% endif %}
-         hx-post="/ui/tasks/{{ row.task.id }}/toggle"
-         hx-target="#task-{{ row.task.id }}" hx-swap="outerHTML"
-         aria-label="Mark “{{ row.task.title }}” {% if row.done %}not done{% else %}done{% endif %}">
+  {{ check(row) }}
   <div class="task-body">
     <button type="button" class="task-title-btn"
             hx-get="/ui/tasks/{{ row.task.id }}/edit"

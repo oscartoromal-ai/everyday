@@ -128,8 +128,22 @@ def test_a_task_is_written_in_the_notes(page, live, app_db) -> None:
     with app_db() as db:
         assert tasks_svc.get_task(db, task_id).notes == "- ask about the crown and the cleaning"
 
-    # Its box ticks the task; the row keeps its task after a reload.
-    titles.first.locator(".pad-check").click()
+    # Its box steps the task on, as Gantt's does: in progress, then review,
+    # the row's box left as it is in the notes, drawn by the task's status.
+    box = titles.first.locator(".pad-check")
+    for status in (TaskStatus.in_progress, TaskStatus.needs_review):
+        box.click()
+        titles.first.locator(f'.pad-check[data-status="{status.value}"][aria-checked=mixed]').wait_for()
+        end = time.monotonic() + 5
+        while True:
+            with app_db() as db:
+                if tasks_svc.get_task(db, task_id).status == status:
+                    break
+            assert time.monotonic() < end
+            time.sleep(0.1)
+    assert text_of(page).startswith("Morning.\n- [ ] Call the dentist\n")
+    # Then done, the row ticked; it keeps its task after a reload.
+    box.click()
     titles.first.locator(".pad-check[aria-checked=true]").wait_for()
     ticked = "Morning.\n- [x] Call the dentist\n\t- ask about the crown and the cleaning\nAfter."
     saved_as(app_db, [{"kind": "text", "text": ticked, "links": {"1": task_id}}])
@@ -465,9 +479,11 @@ def test_a_task_has_sub_tasks(page, live, app_db) -> None:
         assert time.monotonic() < end, notes()
         time.sleep(0.1)
 
-    # Ticked, the task is crossed out, title and rows.
+    # Stepped on to done (three quick clicks: in progress, review, done),
+    # the task is crossed out, title and rows.
     title = page.locator(".pad-editor .cm-line.pad-title")
-    title.locator(".pad-check").first.click()
+    for _ in range(3):
+        title.locator(".pad-check").first.click()
     rows = page.locator(".pad-editor .cm-line")
     for i in range(4):
         assert "pad-struck" in rows.nth(i).get_attribute("class")
@@ -578,8 +594,10 @@ def test_tasks_still_open_yesterday_are_brought_to_today(page, live, app_db) -> 
         assert time.monotonic() < end, planned()
         time.sleep(0.1)
 
-    # Ticked here, it is done; yesterday's page keeps what was written there.
-    title.locator(".pad-check").first.click()
+    # Stepped on to done here, it is done; yesterday's page keeps what was
+    # written there.
+    for _ in range(3):
+        title.locator(".pad-check").first.click()
     end = time.monotonic() + 5
     while True:
         with app_db() as db:
@@ -634,10 +652,13 @@ def test_the_plan_ticks_and_moves_its_tasks(page, live, app_db) -> None:
     assert carried() == ["Call the bank", "Pay rent"]
     assert page.locator(".plan-empty").is_hidden()
 
-    # Its box: written in the notes, ticked, and the task done.
+    # Its box: written in the notes, the task stepped on, as Gantt's box
+    # steps it: started, its box in the notes drawn so.
+    assert today.locator(".plan-tick").get_attribute("data-status") == "todo"
     today.locator(".plan-tick").click()
-    assert text_of(page) == "- [x] File the report"
-    until(lambda: task("report")[0] == TaskStatus.done)
+    assert text_of(page) == "- [ ] File the report"
+    page.locator('.pad-editor .pad-check[data-status="in_progress"]').wait_for()
+    until(lambda: task("report")[0] == TaskStatus.in_progress)
     assert today.is_hidden()
 
     # Its calendar moves it to another day: off the plan, Undo puts it back.
@@ -669,7 +690,7 @@ def test_the_plan_ticks_and_moves_its_tasks(page, live, app_db) -> None:
     stretch = page.locator(f"#pad-habits .habit-row[data-habit='{stretch_id}']")
     stretch.locator(".habit-box").click()
     until(lambda: "done" in stretch.get_attribute("class").split())
-    assert text_of(page) == "- [x] File the report"
+    assert text_of(page) == "- [ ] File the report"
     assert not page.evaluate("Notepad.view.hasFocus")
 
 

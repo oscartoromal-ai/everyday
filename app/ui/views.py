@@ -281,6 +281,9 @@ def row_ctx(task: Task, now: datetime) -> dict[str, Any]:
         "planned_label": short_date(task.planned_for, today) if task.planned_for else None,
         "task": task,
         "done": task.status == TaskStatus.done,
+        "status": task.status.value,
+        "status_label": STATUS_WORDS[task.status.value],
+        "check_title": tasks_svc.CHECK_TITLES[task.status],
         # The quick do-date buttons.
         "plan_today": today,
         "plan_tomorrow": today + timedelta(days=1),

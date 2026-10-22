@@ -121,7 +121,7 @@ def test_a_line_is_its_box_title_and_fields_in_slots(client, made) -> None:
 def test_a_line_carries_its_details_for_the_pane(client, made) -> None:
     parse = line(pane_page(client, made), made["parse"])
     details = parse[parse.index('<template class="lp-source">') : parse.index("</template>")]
-    assert "Mark done" in details and f'href="/tasks/{made["parse"]}"' in details
+    assert "<span>To do</span>" in details and f'href="/tasks/{made["parse"]}"' in details
     assert "data-lp-edit" in details and ">parse</button></h2>" in details
     for field in ("Workstream", "Do-date", "Due", "Priority", "Estimate", "Owner"):
         assert f"<dt>{field}</dt>" in details
@@ -152,7 +152,7 @@ def test_finished_workstreams_on_a_line_finished_work_behind_show_completed(clie
     assert 'class="task-row lp-line done"' in done
 
 
-def test_a_line_drawn_again_is_one_line_with_its_details(client, made) -> None:
+def test_a_line_drawn_again_is_one_line_with_its_details(client, db, made) -> None:
     for got in (
         client.get(f"/ui/tasks/{made['parse']}/row", headers=PANE).text,
         client.post(
@@ -164,6 +164,11 @@ def test_a_line_drawn_again_is_one_line_with_its_details(client, made) -> None:
         assert got.count('class="task-row') == 1 and f'id="task-{made["parse"]}"' in got
         assert '<template class="lp-source">' in got
     assert "2/2" in got  # the sub-task ticked, in its count and its details
+    # Its box steps it on, its words beside it saying where it stands; from
+    # review, done.
+    started = client.post(f"/ui/tasks/{made['tidy']}/toggle", headers=PANE).text
+    assert 'data-status="in_progress"' in started and "<span>In progress</span>" in started
+    tasks_svc.set_status(db, made["tidy"], TaskStatus.needs_review)
     ticked = client.post(f"/ui/tasks/{made['tidy']}/toggle", headers=PANE).text
     assert 'class="task-row lp-line done"' in ticked and ">Done</span>" in ticked
 

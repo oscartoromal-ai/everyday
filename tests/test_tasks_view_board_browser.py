@@ -71,6 +71,10 @@ def quick_shown(card) -> bool:
 
 
 def test_a_tick_redraws_the_board_and_show_completed_shows_done(page, live, app_db, home) -> None:
+    # In review, its box's click makes it done.
+    with app_db() as db:
+        tasks_svc.set_status(db, home["weed"], TaskStatus.needs_review)
+        db.commit()
     page.goto(f"{live}{home['url']}")
     garden = column(page, home["garden"])
     assert garden.locator(".board-card").evaluate_all("cs => cs.map(c => c.dataset.taskTitle)") == [

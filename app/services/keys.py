@@ -401,7 +401,7 @@ SCOPES: tuple[Scope, ...] = (
         Action("task.edit", "Edit", ("Enter", "E")),
         Fixed("[N]", "New task (as anywhere), in the cursor's list where it has its own, else "
               "the page's"),
-        Action("task.done", "Done, or not done", ("X",)),
+        Action("task.done", "Step its status on: in progress, review, done, to do", ("X",)),
         Action("task.today", "Do today", ("T",)),
         Action("task.tomorrow", "Do tomorrow", ("M",)),
         Action("task.pickDay", "Pick a day, or none", ("D",)),

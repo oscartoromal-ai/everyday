@@ -178,9 +178,8 @@ def toggle_subtask(
 
 @router.post("/tasks/{task_id}/toggle")
 def toggle_task(request: Request, db: DbSession, task_id: int):
-    task = tasks_svc.get_task(db, task_id)
-    new_status = TaskStatus.todo if task.status == TaskStatus.done else TaskStatus.done
-    tasks_svc.set_status(db, task_id, new_status)
+    """A task row's box clicked: its status stepped on."""
+    tasks_svc.step_status(db, task_id)
     db.commit()
     response = _row_response(request, db, task_id)
     response.headers["HX-Trigger"] = "calendar:refresh"  # keeps Today's open count honest
@@ -689,7 +688,8 @@ def day_sheet_edit(
         {"op": "stay", "day", "name", "value"?, "done"?}   an item of its stay
         {"op": "task", "day", "title"}            a task planned for the day
         {"op": "toggle", "task"}                  a task's box clicked: to do, in
-                                                  progress, done, then to do again
+                                                  progress, review, done, then to
+                                                  do again (tasks.next_status)
         {"op": "status", "task", "status"}        a task's status, from its menu
         {"op": "delete", "task"}                  a task deleted
     applied in order, as the habits' and stay's panes and the day's tasks
@@ -724,9 +724,7 @@ def _apply_sheet_ops(db: Session, ops: list) -> Task | None:
             raise DomainError(f"Not an op: {op!r}")
         kind = op.get("op")
         if kind == "toggle":
-            task = tasks_svc.get_task(db, int(op["task"]))
-            following = {TaskStatus.in_progress: TaskStatus.done, TaskStatus.done: TaskStatus.todo}
-            tasks_svc.set_status(db, task.id, following.get(task.status, TaskStatus.in_progress))
+            tasks_svc.step_status(db, int(op["task"]))
             continue
         if kind == "status":
             try:
