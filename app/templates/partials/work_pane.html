@@ -1,0 +1,72 @@
+{# The work seen in herdr, in Today's Work pane (work_view.pane_ctx): on
+   today's page what is going on in herdr now, an agent a row (waiting on
+   Oscar first; Show brings its pane to the front of herdr, and herdr's
+   screen to the front), then the day's work, a row for each thing worked
+   on: a task, a project, or a terminal filed under nothing, written under a
+   task in its row. Drawn again every few seconds on today's page, unless
+   something in it is being written. #}
+{% if work.live is not none %}
+<section class="work-group" aria-labelledby="work-now">
+  <h3 class="work-head" id="work-now">Now</h3>
+  {% if work.live.agents %}
+  <ul class="work-list">
+    {% for a in work.live.agents %}
+    <li class="work-item">
+      <span class="chip {{ a.chip }}">{{ a.state }}</span>
+      <span class="work-name">
+        {% if a.task %}<a href="/tasks/{{ a.task.id }}">{{ a.task.title }}</a>
+        {% elif a.project %}<a href="/projects/{{ a.project.id }}">{{ a.project.name }}</a>
+        {% else %}<span title="{{ a.where }}">{{ a.place }}</span>{% endif %}
+      </span>
+      <button type="button" class="work-show" title="Show it in herdr"
+              hx-post="/ui/work/show" hx-vals='{{ {"terminal": a.terminal} | tojson }}' hx-swap="none">Show</button>
+      <span class="work-meta">{{ a.agent }}{% if a.title %} · {{ a.title }}{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% elif work.live.running is false %}
+  <p class="work-empty">herdr is not running. Start it in WezTerm, or launch a task from its page.</p>
+  {% elif work.live.running is none %}
+  <p class="work-empty" title="{{ work.live.error }}">herdr did not answer. Trying again shortly.</p>
+  {% else %}
+  <p class="work-empty">No agents in herdr.</p>
+  {% endif %}
+</section>
+{% endif %}
+<section class="work-group" aria-labelledby="work-day">
+  <h3 class="work-head" id="work-day">{{ "Today" if work.is_today else "The day" }}</h3>
+  {% if work.lines %}
+  <ul class="work-list">
+    {% for line in work.lines %}
+    <li class="work-item">
+      <span class="work-name">
+        {% if line.task %}
+          {% if line.task.project %}<span class="plan-flag" style="--project: var(--hue-{{ line.task.project.color }})" title="{{ line.task.project.name }}"></span>{% endif %}
+          <a href="/tasks/{{ line.task.id }}">{{ line.task.title }}</a>
+        {% elif line.project %}
+          <span class="plan-flag" style="--project: var(--hue-{{ line.project.color }})"></span>
+          <a href="/projects/{{ line.project.id }}">{{ line.project.name }}</a><span class="work-aside">no task</span>
+        {% else %}
+          <span title="{{ line.where }}">{{ line.place }}</span>
+        {% endif %}
+      </span>
+      <span class="work-meta">{{ line.totals }}{% if line.count > 1 %} · {{ line.count }} terminals{% endif %}</span>
+      {% if line.kind == "session" %}
+      <form class="work-file" hx-post="/ui/work/sessions/{{ line.session_id }}/file" hx-target="closest .work-body" hx-swap="innerHTML">
+        <input type="hidden" name="day" value="{{ work.day.isoformat() }}">
+        <input name="task" list="work-tasks" autocomplete="off" spellcheck="false"
+               aria-label="File it under a task" placeholder="File it under a task: #12, or its title">
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% if work.tasks %}
+  <datalist id="work-tasks">
+    {% for t in work.tasks %}<option value="#{{ t.id }} {{ t.title }}"></option>{% endfor %}
+  </datalist>
+  {% endif %}
+  {% else %}
+  <p class="work-empty">Nothing recorded{{ " yet today" if work.is_today else "" }}. Your time at herdr's panes, and your agents', shows here, filed under the task each was for.</p>
+  {% endif %}
+</section>

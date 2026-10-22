@@ -13,8 +13,8 @@
    (renamed in place, its bin at the right), where it is on disk, then its
    Markdown, saved as it is written over the version it was read at
    (doc-editor.js; one written elsewhere since asks which to keep). Its agent
-   work, its outline and its history are panes of the sidebar at the right
-   (below; task-page.js). #}
+   work, its work in herdr, its outline and its history are panes of the
+   sidebar at the right (below; task-page.js). #}
 <div class="task-page" data-task-id="{{ sheet.id }}" data-owner="{{ sheet.owner }}">
   {% include "partials/task_map.html" %}
   <div class="task-doc" data-nav-pane=".cm-content">
@@ -77,6 +77,10 @@
         aria-controls="side-work" aria-selected="false" title="Agent work">
   <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="6.5" width="12" height="9" rx="2.5"/><path d="M10 3.5v3"/><circle cx="7.75" cy="11" r=".9"/><circle cx="12.25" cy="11" r=".9"/></svg>
 </button>
+<button type="button" class="side-tab" role="tab" id="side-tab-time" data-side-tab="time"
+        aria-controls="side-time" aria-selected="false" title="Work in herdr">
+  <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2"/><path d="M6.5 8.5 9 10.5l-2.5 2"/><path d="M10.5 13h3"/></svg>
+</button>
 <button type="button" class="side-tab" role="tab" id="side-tab-outline" data-side-tab="outline"
         aria-controls="side-outline" aria-selected="false" title="Outline">
   <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5h13"/><path d="M6.5 10h10"/><path d="M6.5 15h10"/></svg>
@@ -109,6 +113,15 @@
     </div>
     {% include "partials/task_run.html" %}
   </div>
+</section>
+{# Its work seen in herdr, Oscar's and its agents' (partials/task_work.html),
+   whoever's task it is; read as the pane is shown. #}
+<section class="side-pane" id="side-time" data-side-pane="time" data-nav-pane role="tabpanel" aria-labelledby="side-tab-time" hidden>
+  <header class="side-head">
+    <div><h2 class="side-title">Work</h2><p class="agent-model">Its time in herdr, yours and its agents'</p></div>
+    {{ collapse() }}
+  </header>
+  <div class="side-body" hx-get="/ui/tasks/{{ sheet.id }}/work" hx-trigger="side:shown from:closest .side-pane" hx-swap="innerHTML"></div>
 </section>
 <section class="side-pane" id="side-outline" data-side-pane="outline" data-nav-pane role="tabpanel" aria-labelledby="side-tab-outline" hidden>
   <header class="side-head">

@@ -309,13 +309,19 @@ def test_the_page_launches_a_task_and_shows_its_runs(client, db, tmp_path, monke
     from app.ui import task_run as ui_task_run
 
     runner = FakeRunner()
-    monkeypatch.setattr(ui_task_run, "get_runner", lambda name=None: runner)
+    asked: list[str | None] = []
+    monkeypatch.setattr(
+        ui_task_run, "get_runner", lambda name=None: asked.append(name) or runner
+    )
     task = a_task(db, a_repo(tmp_path, "app"))
     db.commit()
     page = client.get(f"/tasks/{task.id}").text
-    assert "Launch on T3 Code" in page
-    launched = client.post(f"/ui/tasks/{task.id}/launch")
+    # herdr's first, T3 Code offered beside it.
+    assert "Launch on herdr" in page and "or on T3 Code" in page
+    launched = client.post(f"/ui/tasks/{task.id}/launch", data={"runner": "t3"})
     assert launched.headers["HX-Refresh"] == "true"
+    assert asked == ["t3"]
     page = client.get(f"/tasks/{task.id}").text
-    assert "Launch again on T3 Code" in page and "It has a run going." in page
+    assert "Launch again on herdr" in page and "It has a run going." in page
+    assert "or on T3 Code" not in page
     assert 'class="chip running">Working' in page

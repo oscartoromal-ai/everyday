@@ -11,8 +11,8 @@ from typing import Any
 from app.config import get_settings
 from app.dates import short_date, upper_first
 from app.models import PullRequestState, Task, TaskRun, TaskUpdate
+from app.services import agent_runs, task_launch, task_runs
 from app.services import projects as projects_svc
-from app.services import task_launch, task_runs
 from app.ui.views import ACTOR_WORDS
 
 # A pull request's state in words, and its chip's look (app.css, .chip).
@@ -92,6 +92,12 @@ def run_ctx(task: Task, today: date) -> dict[str, Any]:
             for r in reversed(task.runs)
         ],
         "runner": task_launch.runner_name(get_settings().runs.runner),
+        # The other agent systems it may be launched on, by name and in words.
+        "other_runners": [
+            {"name": name, "label": task_launch.runner_name(name)}
+            for name in agent_runs.RUNNERS
+            if name != get_settings().runs.runner
+        ],
         "why_not": _why_not(task),
         "updates": [
             {"when": _when(u, today), "who": ACTOR_WORDS.get(u.actor, u.actor), "text": u.text}

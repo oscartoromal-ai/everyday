@@ -39,6 +39,12 @@
       <span class="run-launch-idle">{{ 'Launch again' if run.runs else 'Launch' }} on {{ run.runner }}</span>
       <span class="run-launch-busy">Launching…</span>
     </button>
+    {% if not run.why_not %}
+    {% for r in run.other_runners %}
+    <button type="button" class="run-check run-launch-other" hx-post="/ui/tasks/{{ run.task.id }}/launch"
+            hx-vals='{{ {"runner": r.name} | tojson }}' hx-swap="none" hx-disabled-elt="this, .run-launch">or on {{ r.label }}</button>
+    {% endfor %}
+    {% endif %}
     {% if run.why_not %}<span class="run-empty">{{ run.why_not }}</span>{% endif %}
   </div>
 

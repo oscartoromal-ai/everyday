@@ -326,6 +326,58 @@ class TaskUpdate(Base):
     text: Mapped[str] = mapped_column(Text)
 
 
+class WorkSession(Base):
+    """A terminal seen in herdr (app.services.work_log), from when it was
+    first seen to when it went: the herdr workspace it is in, its folder, the
+    agent in it (its kind, its own session id, what it calls its work), and
+    the task or project its work is filed under, with how that was told
+    (work_log.FILED_BY). Records, so the database's, with no file."""
+
+    __tablename__ = "work_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    terminal_id: Mapped[str] = mapped_column(String(80), unique=True)
+    workspace: Mapped[str] = mapped_column(String(255), default="")
+    cwd: Mapped[str] = mapped_column(Text, default="")
+    agent: Mapped[str] = mapped_column(String(40), default="")
+    agent_session: Mapped[str] = mapped_column(String(120), default="")
+    title: Mapped[str] = mapped_column(String(255), default="")
+    task_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tasks.id", ondelete="SET NULL"), default=None, index=True
+    )
+    project_id: Mapped[int | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), default=None, index=True
+    )
+    filed_by: Mapped[str] = mapped_column(String(20), default="")
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+    task: Mapped[Task | None] = relationship()
+    project: Mapped[Project | None] = relationship()
+    spans: Mapped[list[WorkSpan]] = relationship(
+        back_populates="session", cascade="all, delete-orphan", order_by="WorkSpan.started_at"
+    )
+
+
+class WorkSpan(Base):
+    """A stretch of a terminal's work: Oscar at it ("you"), its agent working
+    ("working"), or its agent waiting on him ("blocked")."""
+
+    __tablename__ = "work_spans"
+    __table_args__ = (Index("ix_work_spans_started_at", "started_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("work_sessions.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20))
+    started_at: Mapped[datetime] = mapped_column(DateTime)
+    ended_at: Mapped[datetime] = mapped_column(DateTime)
+
+    session: Mapped[WorkSession] = relationship(back_populates="spans")
+
+
 class Event(Base):
     __tablename__ = "events"
     __table_args__ = (

@@ -30,6 +30,12 @@ TABLES = {
     "task_pull_requests": "A task's pull requests, as GitHub last had them.",
     "task_runs": "A task launched as an agent run: runner, branch, workspace, state.",
     "task_updates": "What was reported of a task's work as it went: when, who, a note.",
+    "work_sessions": "A terminal seen in herdr: its workspace, folder, agent (kind, "
+    "its own session id, what it calls its work), the task or project it is filed "
+    "under and how (`filed_by`), when it was first seen and when it went.",
+    "work_spans": "A stretch of a terminal's work: `you` (Oscar at it), `working` (its "
+    "agent working) or `blocked` (its agent waiting on him), from `started_at` to "
+    "`ended_at`.",
     "task_revisions": "Every change to a task, the task as it stood after it, and who "
     "made it (oscar, claude, agent, system, or file).",
     "notebook_pages": "A day's page: its blocks (the day's file read in), version.",

@@ -41,11 +41,11 @@ def kept(
 
 
 def stay_hidden(app_db) -> None:  # noqa: ANN001
-    """The panes as they start, the stay hidden: the plan and the habits
-    alone in the left column."""
+    """The panes as they start, the stay and the work hidden: the plan and
+    the habits alone in the left column."""
     with app_db() as db:
         today_layout_svc.save_layout(
-            db, columns=today_layout_svc.default_columns(), hidden=["stay"]
+            db, columns=today_layout_svc.default_columns(), hidden=["stay", "work"]
         )
         db.commit()
 
@@ -73,14 +73,14 @@ def test_a_pane_dragged_to_another_column_lands_where_the_line_says(page, live, 
     assert columns(page) == {"left": ["plan"], "center": ["notes"], "right": ["habits", "timeline"]}
     # The press on the habits' title bar was a drag, not a click folding them.
     assert page.locator("#pad-habits").evaluate("d => d.open")
-    kept(app_db, [["plan", "stay"], ["notes"], ["habits", "timeline"]], {"stay"})
+    kept(app_db, [["plan", "stay", "work"], ["notes"], ["habits", "timeline"]], {"stay", "work"})
 
     # Over the timeline's bottom half: after it.
     drag(page, "Plan", timeline["x"] + 100, timeline["y"] + timeline["height"] - 20)
     assert columns(page) == {"center": ["notes"], "right": ["habits", "timeline", "plan"]}
     # With no left column showing, the notes take its room, and its fold goes.
     assert page.locator("[data-fold-col=left]").is_hidden()
-    kept(app_db, [["stay"], ["notes"], ["habits", "timeline", "plan"]], {"stay"})
+    kept(app_db, [["stay", "work"], ["notes"], ["habits", "timeline", "plan"]], {"stay", "work"})
 
     page.reload()
     assert columns(page) == {"center": ["notes"], "right": ["habits", "timeline", "plan"]}
@@ -100,7 +100,9 @@ def test_a_pane_dragged_to_another_column_lands_where_the_line_says(page, live, 
 def test_a_column_not_showing_is_made_by_dropping_on_its_zone(page, live, app_db) -> None:
     with app_db() as db:
         today_layout_svc.save_layout(
-            db, columns=[["stay"], ["notes"], ["plan", "habits", "timeline"]], hidden=["stay"]
+            db,
+            columns=[["stay", "work"], ["notes"], ["plan", "habits", "timeline"]],
+            hidden=["stay", "work"],
         )
         db.commit()
     page.set_viewport_size({"width": 1600, "height": 900})
@@ -117,7 +119,7 @@ def test_a_column_not_showing_is_made_by_dropping_on_its_zone(page, live, app_db
     assert "is-over" in zone.get_attribute("class")
     page.mouse.up()
     assert columns(page) == {"left": ["plan"], "center": ["notes"], "right": ["habits", "timeline"]}
-    kept(app_db, [["stay", "plan"], ["notes"], ["habits", "timeline"]], {"stay"})
+    kept(app_db, [["stay", "work", "plan"], ["notes"], ["habits", "timeline"]], {"stay", "work"})
 
 
 def test_the_grip_moves_its_pane_by_the_arrow_keys_and_hides_it_by_delete(
@@ -137,16 +139,20 @@ def test_the_grip_moves_its_pane_by_the_arrow_keys_and_hides_it_by_delete(
     page.keyboard.press("ArrowRight")
     assert columns(page) == {"left": ["plan"], "center": ["notes"], "right": ["habits", "timeline"]}
     assert page.evaluate("document.activeElement.closest('.today-pane').dataset.pane") == "habits"
-    kept(app_db, [["plan", "stay"], ["notes"], ["habits", "timeline"]], {"stay"})
+    kept(app_db, [["plan", "stay", "work"], ["notes"], ["habits", "timeline"]], {"stay", "work"})
 
     # Delete hides it, focus on Panes, the toast offering it back.
     page.keyboard.press("Delete")
     assert columns(page)["right"] == ["timeline"]
     assert page.evaluate("document.activeElement.className") == "panes-open"
-    kept(app_db, [["plan", "stay"], ["notes"], ["habits", "timeline"]], {"habits", "stay"})
+    kept(
+        app_db,
+        [["plan", "stay", "work"], ["notes"], ["habits", "timeline"]],
+        {"habits", "stay", "work"},
+    )
     page.locator(".cal-toast .toast-action", has_text="Undo").click()
     assert columns(page)["right"] == ["habits", "timeline"]
-    kept(app_db, [["plan", "stay"], ["notes"], ["habits", "timeline"]], {"stay"})
+    kept(app_db, [["plan", "stay", "work"], ["notes"], ["habits", "timeline"]], {"stay", "work"})
 
 
 def test_panes_shows_a_hidden_pane_in_its_place_and_sets_them_back(page, live, app_db) -> None:
@@ -154,29 +160,34 @@ def test_panes_shows_a_hidden_pane_in_its_place_and_sets_them_back(page, live, a
     page.goto(f"{live}/today")
     page.locator("#today-plan .pane-head h2").hover()
     page.locator("#today-plan [data-pane-hide]").click()
-    assert columns(page)["left"] == ["habits", "stay"]
+    assert columns(page)["left"] == ["habits", "stay", "work"]
     page.locator(".today-timeline .pane-head h2").hover()
     page.locator(".today-timeline [data-pane-hide]").click()
-    assert columns(page) == {"left": ["habits", "stay"], "center": ["notes"]}
-    kept(app_db, [["plan", "habits", "stay"], ["notes"], ["timeline"]], {"plan", "timeline"})
+    assert columns(page) == {"left": ["habits", "stay", "work"], "center": ["notes"]}
+    kept(
+        app_db, [["plan", "habits", "stay", "work"], ["notes"], ["timeline"]], {"plan", "timeline"}
+    )
 
     page.reload()
-    assert columns(page) == {"left": ["habits", "stay"], "center": ["notes"]}
+    assert columns(page) == {"left": ["habits", "stay", "work"], "center": ["notes"]}
     page.locator(".panes-open").click()
     menu = page.locator(".panes-menu")
     assert menu.locator("[role=menuitemcheckbox]").all_inner_texts() == [
         "Plan",
         "Habits",
         "Stay",
+        "Work",
         "Notes",
         "Timeline",
     ]
-    assert menu.locator("[aria-checked=true]").all_inner_texts() == ["Habits", "Stay", "Notes"]
+    assert menu.locator("[aria-checked=true]").all_inner_texts() == [
+        "Habits", "Stay", "Work", "Notes",
+    ]
     # Shown again where it was, the menu staying open for the next.
     menu.locator("[role=menuitemcheckbox]", has_text="Plan").click()
-    assert columns(page)["left"] == ["plan", "habits", "stay"]
+    assert columns(page)["left"] == ["plan", "habits", "stay", "work"]
     assert menu.locator("[aria-checked=true]").all_inner_texts() == [
-        "Plan", "Habits", "Stay", "Notes",
+        "Plan", "Habits", "Stay", "Work", "Notes",
     ]
     page.keyboard.press("Escape")
     assert menu.count() == 0
@@ -186,9 +197,9 @@ def test_panes_shows_a_hidden_pane_in_its_place_and_sets_them_back(page, live, a
     page.locator(".panes-open").click()
     page.locator(".panes-menu .panes-reset").click()
     assert columns(page) == {
-        "left": ["plan", "habits", "stay"], "center": ["notes"], "right": ["timeline"],
+        "left": ["plan", "habits", "stay", "work"], "center": ["notes"], "right": ["timeline"],
     }
-    kept(app_db, [["plan", "habits", "stay"], ["notes"], ["timeline"]])
+    kept(app_db, [["plan", "habits", "stay", "work"], ["notes"], ["timeline"]])
     page.locator(".cal-toast .toast-action", has_text="Undo").click()
     assert columns(page) == {"center": ["notes"]}
-    kept(app_db, [["plan", "habits", "stay"], ["notes"], ["timeline"]], {"timeline"})
+    kept(app_db, [["plan", "habits", "stay", "work"], ["notes"], ["timeline"]], {"timeline"})

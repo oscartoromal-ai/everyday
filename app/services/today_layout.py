@@ -1,9 +1,9 @@
-"""Today's layout: its panes (the plan, the habits, the stay, the notes, the
-timeline) in three columns, at the left, in the middle and at the right, in
-the order Oscar dragged them, and the panes he hid. Kept as the "today"
-setting, so it holds on every device and on every day's page. A hidden pane
-keeps its place, and comes back to it; a pane the code adds later joins its
-own column's end."""
+"""Today's layout: its panes (the plan, the habits, the stay, the work, the
+notes, the timeline) in three columns, at the left, in the middle and at
+the right, in the order Oscar dragged them, and the panes he hid. Kept as
+the "today" setting, so it holds on every device and on every day's page. A
+hidden pane keeps its place, and comes back to it; a pane the code adds
+later joins its own column's end."""
 
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ PANES: tuple[Pane, ...] = (
     Pane("plan", "Plan", 0),
     Pane("habits", "Habits", 0),
     Pane("stay", "Stay", 0),
+    Pane("work", "Work", 0),
     Pane("notes", "Notes", 1),
     Pane("timeline", "Timeline", 2),
 )

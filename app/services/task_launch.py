@@ -52,7 +52,7 @@ from app.sources.github import GitHubError, find_cli
 log = logging.getLogger(__name__)
 
 # The agent systems by name, as Oscar knows them.
-RUNNER_NAMES = {"t3": "T3 Code"}
+RUNNER_NAMES = {"herdr": "herdr", "t3": "T3 Code"}
 
 
 def runner_name(name: str) -> str:

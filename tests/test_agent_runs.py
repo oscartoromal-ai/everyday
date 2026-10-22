@@ -213,3 +213,81 @@ def test_a_branch_already_there_is_not_taken_over(repo, tmp_path) -> None:
 
     with pytest.raises(RunError):
         agent_runs.prepare_worktree(repo, tmp_path / "b", "improve/x")
+
+
+# ---- herdr ----
+
+
+@pytest.fixture
+def herdr(tmp_path):  # noqa: ANN201
+    from herdr_fake import FakeHerdr
+
+    fake = FakeHerdr(tmp_path / "fake-herdr.sock")
+    yield fake
+    fake.stop()
+
+
+def test_a_run_in_herdr_is_an_agent_in_a_workspace_named_after_its_task(herdr, tmp_path) -> None:
+    worktree = tmp_path / "work" / "12-fix-the-build"
+    worktree.mkdir(parents=True)
+    runner = agent_runs.HerdrRunner(herdr.herdr, model="claude-opus-5-5", agent="claude", args=[])
+    brief = Brief("Fix the build", "The brief's words.", tmp_path / "repo", worktree,
+                  "task/12-fix-the-build")
+    run = runner.launch(brief)
+    # The brief beside the worktree, never in it.
+    written = tmp_path / "work" / ".briefs" / "12-fix-the-build.md"
+    assert written.read_text(encoding="utf-8") == "The brief's words."
+    asked = dict(herdr.asked)
+    assert asked["workspace.create"] == {
+        "cwd": str(worktree), "label": "#12 Fix the build", "focus": False,
+    }
+    start = asked["agent.start"]
+    assert (start["name"], start["kind"]) == ("task-12", "claude")
+    assert start["args"] == [
+        "--model", "claude-opus-5-5",
+        f"Your brief is in {written}: read it first, then do what it says.",
+    ]
+    assert run == Run("herdr", "term_1")
+    # Launched again while its first agent lives: a name of its own.
+    runner.launch(brief)
+    assert [p["name"] for m, p in herdr.asked if m == "agent.start"] == ["task-12", "task-12-2"]
+
+
+def test_an_agent_waiting_at_its_first_screen_is_launched(herdr, tmp_path) -> None:
+    herdr.refuse["agent.start"] = "agent_not_ready"
+    runner = agent_runs.HerdrRunner(herdr.herdr, agent="codex", args=["--full-auto"])
+    run = runner.launch(Brief("Fix", "b", tmp_path, None, "main"))
+    assert run.id == "term_1"
+    start = dict(herdr.asked)["agent.start"]
+    # No model for an agent other than Claude; its name from its folder.
+    assert start["args"][:1] == ["--full-auto"] and len(start["args"]) == 2
+    assert start["name"] == agent_runs.HerdrRunner._agent_name(
+        Brief("Fix", "b", tmp_path, None, "main"), set()
+    )
+    herdr.refuse["agent.start"] = "pane_busy"
+    with pytest.raises(RunError):
+        runner.launch(Brief("Fix", "b", tmp_path, None, "main"))
+
+
+def test_runs_states_are_read_from_their_terminals_in_herdr(herdr, tmp_path) -> None:
+    working = herdr.workspace("a", str(tmp_path / "a"), agent="claude", status="working")
+    blocked = herdr.workspace("b", str(tmp_path / "b"), agent="claude", status="blocked")
+    idle = herdr.workspace("c", str(tmp_path / "c"), agent="claude", status="idle")
+    shell = herdr.workspace("d", str(tmp_path / "d"))  # its agent gone, back at its shell
+    runner = agent_runs.HerdrRunner(herdr.herdr)
+    ids = [p["terminal_id"] for p in (working, blocked, idle, shell)] + ["term_gone"]
+    states = runner.states([Run("herdr", i) for i in ids])
+    assert [states[i] for i in ids] == [
+        RunState.working, RunState.waiting, RunState.finished, RunState.finished, RunState.gone,
+    ]
+    # herdr's server stopped: every terminal went with it.
+    stopped = agent_runs.HerdrRunner(agent_runs.Herdr(tmp_path / "no-server.sock"))
+    assert stopped.states([Run("herdr", ids[0])]) == {ids[0]: RunState.gone}
+
+
+def test_an_agent_at_rest_before_its_session_began_is_starting() -> None:
+    pane = {"terminal_id": "term_1"}
+    starting = {"agent_status": "done", "agent": "claude"}
+    assert agent_runs.herdr_state(pane, starting) == RunState.working
+    ran = {**starting, "agent_session": {"kind": "id", "value": "abc"}}
+    assert agent_runs.herdr_state(pane, ran) == RunState.finished

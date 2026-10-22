@@ -55,13 +55,15 @@ def test_today_moves_between_its_panes_and_back_to_where_it_was(page, live) -> N
     page.keyboard.press("Control+Alt+ArrowDown")
     assert at(page) == "stay"
     page.keyboard.press("Control+Alt+ArrowDown")
-    assert at(page) == "stay"  # nothing below: it stays
+    assert at(page) == "work"
+    page.keyboard.press("Control+Alt+ArrowDown")
+    assert at(page) == "work"  # nothing below: it stays
 
     # From the notes, back to the pane of the column it was in last.
     page.keyboard.press("Control+Alt+ArrowRight")
     assert at(page) == "notes"
     page.keyboard.press("Control+Alt+ArrowLeft")
-    assert at(page) == "stay"
+    assert at(page) == "work"
 
     # Further left, the sidebar, at the page showing.
     page.keyboard.press("Control+Alt+ArrowLeft")

@@ -146,9 +146,30 @@ class RunsConfig(BaseModel):
     # A task launched as an agent run (SPEC.md, Agent runs): the agent system
     # it is handed to (app/services/agent_runs.py's RUNNERS), the model it
     # runs, and how often runs are looked at (their state, their pull requests).
-    runner: str = "t3"
+    runner: str = "herdr"
     model: str = "claude-opus-5-5"
     follow_minutes: int = 2
+
+
+class HerdrConfig(BaseModel):
+    # herdr, the terminal multiplexer for coding agents (SPEC.md, Work in
+    # herdr): its session ("" for herdr's default), its socket when not where
+    # herdr keeps it, and its command line ("" finds it).
+    session: str = ""
+    socket: str = ""
+    cli: str = ""
+    # The agent a run starts in herdr (one of `herdr agent`'s kinds) and the
+    # arguments it is given before its opening prompt.
+    agent: str = "claude"
+    agent_args: list[str] = []
+    # The work in herdr recorded (app/services/work_log.py): looked at every
+    # watch_seconds; Oscar is at a pane while herdr's screen, in one of the
+    # terminals named, is the window in front, the pane focused in it, and he
+    # has used the keyboard or mouse in the last away_minutes.
+    watch: bool = True
+    watch_seconds: int = 5
+    terminals: list[str] = ["wezterm-gui.exe"]
+    away_minutes: int = 3
 
 
 class EverydayFilesConfig(BaseModel):
@@ -198,6 +219,7 @@ class Settings(BaseSettings):
     improve: ImproveConfig = ImproveConfig()
     everyday_files: EverydayFilesConfig = EverydayFilesConfig()
     runs: RunsConfig = RunsConfig()
+    herdr: HerdrConfig = HerdrConfig()
     install: InstallConfig = InstallConfig()
 
     @classmethod

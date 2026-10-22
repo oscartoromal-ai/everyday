@@ -173,6 +173,50 @@ class LaunchIn(BaseModel):
     runner: str | None = None
 
 
+class WorkLineOut(BaseModel):
+    # What it was: a task (with its project), else a project (its work on no
+    # task of its), else a terminal filed under nothing (its session).
+    task_id: int | None
+    project_id: int | None
+    session_id: int | None
+    # Oscar at it, its agents working, and its agents waiting on him.
+    you_seconds: int
+    working_seconds: int
+    blocked_seconds: int
+    # The terminals it was worked in.
+    sessions: int
+
+
+class WorkDayOut(BaseModel):
+    day: date
+    lines: list[WorkLineOut]
+
+
+class WorkFileIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # The task to file it under; null, under none.
+    task_id: int | None
+
+
+class WorkSessionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    terminal_id: str
+    workspace: str
+    cwd: str
+    agent: str
+    agent_session: str
+    title: str
+    task_id: int | None
+    project_id: int | None
+    filed_by: str
+    started_at: datetime
+    seen_at: datetime
+    ended_at: datetime | None
+
+
 class EventIn(BaseModel):
     title: str
     start: datetime

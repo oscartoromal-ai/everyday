@@ -503,7 +503,7 @@ Built in three steps, all on 2026-10-04 and 05: the everyday files and the conte
   The task keeps its runs (`task_runs`): the runner, the run's id there, its branch and workspace, when it started, and how it stands; the page lists them, newest first.
 - **Any agent system, behind one interface** (`app/services/agent_runs.py`, shared with the daily improvement scan).
   A runner launches a brief (a title, its text, the folder worked in and, for a repository, its worktree and branch) and answers how its runs stand: working, waiting on Oscar, finished, failed, or gone.
-  T3 Code is the first; headless Claude Code or the Codex CLI would be others (`[runs] runner`), with nothing else changing.
+  T3 Code was the first, and herdr, where Oscar works, the second ([Work in herdr](#work-in-herdr)); headless Claude Code or the Codex CLI would be others (`[runs] runner`), with nothing else changing.
 - **T3 Code, the first runner** (`app/sources/t3.py`; its API tried against T3 Code 0.0.45 on 2026-10-04).
   Each use takes a token T3's own command line issues (`auth session issue`) and revokes after, traded for a WebSocket ticket (`POST /api/auth/websocket-ticket`), and speaks T3's RPC over `/ws` (Effect RPC, in JSON).
   `orchestration.dispatchCommand` with `thread.create`, then `thread.turn.start`, launches a thread on the T3 project whose folder is the one worked in, made with `project.create` when T3 has none (a repository's main clone, or a workspace of several, which T3 works in as a plain folder); `orchestration.subscribeShell` reads every thread as it stands.
@@ -517,6 +517,32 @@ Built in three steps, all on 2026-10-04 and 05: the everyday files and the conte
   An agent takes a task as far as needs review (in progress, blocked, needs review), never to done or cancelled: a report saying so is refused whole, and a task already done or cancelled keeps its status whatever is reported.
 - **Done when its pull requests merge.** Done is the app's to say: a task whose pull requests are all merged is done, with an update saying so, and one without any is done when Oscar says so; a closed or draft one keeps its task open.
   A job reads every open task's pull requests not merged yet from GitHub every `[github].pull_request_minutes` (3), whether Code is installed or not: asked as each connected account that reaches the repository first, then as the others, then as no one (a public repository), so a pull request GitHub will not show says why under it.
+
+### Work in herdr
+
+Oscar's call on 2026-10-22: he works in herdr (a terminal multiplexer for coding agents) inside WezTerm, and the app should record what he actually does there, filed under the task each piece of work was for, and launch tasks into it.
+herdr runs as a server of its own (`%APPDATA%\herdr\herdr.sock`, a named pipe on Windows, `[herdr] session` naming another of its sessions), keeping its terminals going while its screen, in WezTerm, comes and goes; the app speaks its API (`app/sources/herdr.py`: newline-delimited JSON, one request a connection, tried against herdr 0.9 on 2026-10-22).
+
+- **herdr, a runner** (`app/services/agent_runs.py`'s `HerdrRunner`, `[runs] runner = "herdr"`, the default since 2026-10-22).
+  Launch starts herdr's server when it is not running, then makes a herdr workspace named after the task ("#12 Fix the build") in the run's workspace, and starts the agent in it (`[herdr] agent`, Claude to begin with, `[herdr] agent_args` before its prompt, Claude given `[runs] model`).
+  The brief is written beside the workspace, `work/.briefs/<id>-<words>.md`, never in a repository's worktree, and the agent's opening prompt says to read it; so the agent's first screens (a folder to trust) are Oscar's to answer in herdr, and the brief waits for them.
+  A run's id is its terminal's, which stays as its pane is moved about.
+  Its state is herdr's: its agent working is working, blocked (an approval, a question) is waiting on Oscar, at rest (idle, done) in a session of its own or gone from the terminal is finished, and the terminal closed is gone; at rest before its session began it is still starting (herdr says done for a moment as a first screen is answered).
+  T3 Code stays the other runner: the Agent work pane's Launch is herdr's, with "or on T3 Code" beside it.
+- **The work recorded** (`app/services/work_log.py`, a thread of the app's own looking at herdr every `[herdr] watch_seconds`, 5; `[herdr] watch` turns it off).
+  Each terminal seen in herdr is a session (`work_sessions`): its herdr workspace, its folder, its agent (its kind, its own session id, what it calls its work), from when it was first seen to when it went.
+  Its spans (`work_spans`) are the stretches of it: Oscar at it ("you": herdr's screen, in one of `[herdr] terminals`, WezTerm, the window in front with the pane focused in it, and the keyboard or mouse used in the last `[herdr] away_minutes`, 3), its agent working, and its agent waiting on him.
+  Open spans are written every 30 seconds, and a span or session starting or ending at once; what a gap leaves (the machine asleep, herdr or the app not running) is not counted, what was going on ending where it was last seen.
+- **Filed under what it was for.**
+  A session is filed under a task by the run launched in it, its herdr workspace's name ("#12 ..."), its folder (a run's workspace in `work/`, a task's folder in the everyday files) or its git branch (`task/12-...`); else under a project, by its folder (the project's, or one of its repositories'); else under nothing.
+  It is filed when first seen and again when its name or folder changes, and, while under no task, every 30 seconds (a run's row comes a moment after its terminal).
+  Oscar files one under a task himself, on Today's Work pane or over the API, and it stays as he filed it.
+- **Seen on Today and on a task's page.**
+  Today's Work pane (in the left column at first) has, on today's page, what is going on in herdr now: an agent a row, waiting on Oscar first, then working, then at rest, each with the task it is for and Show, which brings its pane to the front of herdr and WezTerm to the front of the desktop.
+  Under it the day's work, a row for each thing worked on (a task, a project, a terminal filed under nothing), Oscar's time, the agents' and their waiting on him; a terminal filed under nothing has a line to write the task it was for, offering the open tasks.
+  It is drawn again every 15 seconds on today's page, unless something in it is being written.
+  A task's page has a Work pane in its sidebar, whoever's task it is: its time all told, then each terminal filed under it, with its agent, where it was, how it was filed and its time.
+- **The API.** `GET /api/work?day=` gives a day's lines (a task with its project, a project, or a terminal's session, each with `you_seconds`, `working_seconds` and `blocked_seconds`); `PATCH /api/work/sessions/<id>` (`task_id`, or null) files a terminal.
 
 ### Files first
 
