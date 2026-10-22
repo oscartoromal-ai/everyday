@@ -1144,6 +1144,23 @@ a.attention-link:hover { text-decoration: underline; text-underline-offset: 3px;
 .sheet-menu-empty { margin: 0; padding: 6px 10px; color: var(--pewter); font-size: var(--t-caption); }
 /* the native picker anchors to its input, which sits unseen under the item */
 .sheet-menu .pick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+/* a project with workstreams: its chevron at the row's right folds them out (task-sheet.js) */
+.sheet-menu-head { position: relative; }
+.sheet-menu-head > [role] { padding-right: 36px; }
+.sheet-menu-head:hover > [role] { background: var(--fog); }
+.sheet-menu-fold {
+  position: absolute; top: 50%; right: 4px; translate: 0 -50%;
+  display: grid; place-content: center; width: 24px; height: 24px;
+  border-radius: var(--r-tag); color: var(--steel); cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+.sheet-menu-fold:hover { color: var(--ink); }
+.sheet-menu-fold svg {
+  width: 12px; height: 12px; fill: none; stroke: currentColor;
+  stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+  transition: transform var(--dur) var(--ease);
+}
+.sheet-menu-fold[aria-expanded="true"] svg { transform: rotate(90deg); }
 
 /* ---------- a task's page: its project's map, and its sheet as a document (task.html) ---------- */
 

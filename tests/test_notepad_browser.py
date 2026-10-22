@@ -227,6 +227,8 @@ def test_a_task_row_sets_its_fields_from_its_controls(page, live, app_db) -> Non
     home = page.locator(".sheet-menu [role=menuitemradio]", has_text="Home")
     assert home.locator(".flag").count() == 1
     assert home.evaluate("e => e.style.getPropertyValue('--project')") == "var(--hue-1)"
+    # Its workstreams folded out from its chevron.
+    page.locator(".sheet-menu-head", has_text="Home").locator(".sheet-menu-fold").click()
     page.locator(".sheet-menu [role=menuitemradio]", has_text="Garden").click()
     assert flag.get_attribute("title") == "Project: Home › Garden"
     assert flag.locator(".prop-value").inner_text() == ""
