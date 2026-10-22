@@ -1448,9 +1448,11 @@ a.map-project:hover { background: var(--glass-hover); }
 .cm-content .cm-line.cm-md-li { padding-left: calc((var(--md-depth, 0) + 1) * 22px); text-indent: -22px; color: var(--ink); }
 .cm-content .cm-line.cm-md-indented { padding-left: calc(var(--md-depth, 0) * 22px); }
 .cm-content .cm-line.cm-md-done { color: var(--pewter); text-decoration: line-through; text-decoration-thickness: 1px; }
+/* the box or bullet's 22px, the caret after it at the words (markdown-live.js) */
+.cm-md-lead { display: inline-block; width: 22px; text-indent: 0; }
 .cm-md-box {
-  display: inline-grid; place-content: center; width: 14px; height: 14px; margin: 0 8px 0 0; padding: 0;
-  box-sizing: border-box; vertical-align: -2px; text-indent: 0;
+  display: inline-grid; place-content: center; width: 14px; height: 14px; margin: 0; padding: 0;
+  box-sizing: border-box; vertical-align: -2px;
   border: 1.5px solid var(--steel); border-radius: 0; background: transparent; cursor: pointer;
   transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
@@ -1460,7 +1462,6 @@ a.map-project:hover { background: var(--glass-hover); }
   content: ""; width: 4px; height: 7px; margin-top: -2px;
   border: solid var(--paper); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg);
 }
-.cm-md-bullet { display: inline-block; width: 22px; text-indent: 0; }
 .cm-md-bullet::before {
   content: ""; display: inline-block; width: 5px; height: 5px; margin-left: 4px;
   border-radius: 50%; background: var(--graphite); vertical-align: 0.2em;

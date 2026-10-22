@@ -203,3 +203,92 @@ def test_ctrl_enter_in_the_description_adds_the_task(page, live, app_db) -> None
     row = page.locator(".task-row", has_text="Pack")
     row.locator(".notes-toggle").click()
     assert row.locator(".subtask strong", has_text="adapters").count() == 1
+
+
+def caret(page) -> dict:
+    """Where the drawn caret stands, and where the words of the line with
+    `adapters` start, for the caret on an item's line to stand at."""
+    return page.evaluate(
+        """async () => {
+            // The caret is drawn a frame after the selection moves.
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+            const ed = document.querySelector(".main [data-notes-editor]");
+            const c = ed.querySelector(".cm-cursor").getBoundingClientRect();
+            const view = window.NotesEditor.viewOf(ed);
+            const at = view.state.doc.toString().indexOf("adapters");
+            const words = view.coordsAtPos(at, 1);
+            return { left: c.left, height: c.height, words: words.left,
+                     tall: words.bottom - words.top };
+        }"""
+    )
+
+
+def test_the_caret_shows_after_a_box_or_a_bullet(page, live, app_db) -> None:
+    open_task(page, live, app_db)
+    page.keyboard.type("- [ ] adapters")
+    # A new sub-task, its words still to write: the caret stands where they
+    # will, its full height, not on the box's edge.
+    page.keyboard.press("Enter")
+    at = caret(page)
+    assert abs(at["left"] - at["words"]) <= 1.5
+    assert at["height"] >= at["tall"] - 1
+    # Back up onto a written sub-task's first word: the same.
+    page.keyboard.type("yen")
+    page.keyboard.press("Home")
+    page.keyboard.press("ArrowUp")
+    at = caret(page)
+    assert abs(at["left"] - at["words"]) <= 1.5
+    assert at["height"] >= at["tall"] - 1
+    # A bullet's new item too.
+    page.keyboard.press("End")
+    page.keyboard.press("Control+l")
+    page.keyboard.press("Control+l")
+    page.keyboard.press("Control+End")
+    page.keyboard.press("Enter")
+    page.keyboard.press("Enter")
+    page.keyboard.type("- ")
+    assert page.locator(".cm-md-bullet").count() == 1
+    at = caret(page)
+    assert abs(at["left"] - at["words"]) <= 1.5
+    assert at["height"] >= at["tall"] - 1
+
+
+def editor_focused(page) -> bool:
+    return page.evaluate("() => !!document.activeElement?.closest('.main [data-notes-editor]')")
+
+
+def test_tab_indents_and_shift_tab_steps_out_of_the_editor(page, live, app_db) -> None:
+    open_task(page, live, app_db, "Pack\nadapters")
+    page.locator(".cm-line", has_text="adapters").click()
+    # Tab indents a plain line under the one above, and never leaves.
+    page.keyboard.press("Tab")
+    assert field(page) == "Pack\n  adapters"
+    assert editor_focused(page)
+    # As deep as it can go, Tab does nothing, and still stays.
+    page.keyboard.press("Tab")
+    assert field(page) == "Pack\n  adapters"
+    assert editor_focused(page)
+    # On a blank line it indents what will be written there.
+    page.keyboard.press("End")
+    page.keyboard.press("Enter")
+    page.keyboard.press("Enter")
+    page.keyboard.press("Tab")
+    page.keyboard.type("- yen")
+    assert field(page) == "Pack\n  adapters\n\n  - yen"
+    # Shift+Tab steps an indented line back out ...
+    page.keyboard.press("Shift+Tab")
+    assert field(page) == "Pack\n  adapters\n\n- yen"
+    assert editor_focused(page)
+    # ... and at the left, out of the editor.
+    page.keyboard.press("Shift+Tab")
+    assert field(page) == "Pack\n  adapters\n\n- yen"
+    assert not editor_focused(page)
+
+
+def test_tab_indents_code_as_deep_as_it_needs(page, live, app_db) -> None:
+    open_task(page, live, app_db, "```py\nif x:\nreturn\n```")
+    page.locator(".cm-line", has_text="return").click()
+    page.keyboard.press("Tab")
+    page.keyboard.press("Tab")
+    assert field(page) == "```py\nif x:\n    return\n```"
+    assert editor_focused(page)

@@ -97,10 +97,16 @@ def test_editing_saves_when_focus_leaves_the_sheet(page, live, app_db) -> None:
     page.keyboard.type(" the lawn")
     page.locator(".main .prop[data-prop=project]").click()
     page.locator(".sheet-menu [role=menuitemradio]", has_text="Garden").click()
-    # Tab walks the icons (estimate the last), the description, and the end line
-    # (its Open among them), then out: a save.
+    # Tab walks the icons to the description, and stays in it: there Tab
+    # indents. Shift+Tab walks back out of it and the sheet: a save.
+    in_notes = "() => !!document.activeElement.closest('.task-sheet [data-notes-editor]')"
     for _ in range(12):
         page.keyboard.press("Tab")
+    assert page.evaluate(in_notes)
+    for _ in range(12):
+        page.keyboard.press("Shift+Tab")
+        if not sheet.count():
+            break
     sheet.wait_for(state="detached")
 
     with app_db() as db:
@@ -168,7 +174,6 @@ def test_an_edit_goes_with_a_page_chosen_from_the_keys(page, live, app_db, leave
         assert tasks_svc.get_task(db, task_id).title == "Mow the lawn"
 
 
-
 def test_spelling_is_marked_only_in_the_line_being_written(page, live) -> None:
     page.goto(f"{live}/plan")
     sheet = page.locator(".main .task-sheet[data-sheet=compose]")
@@ -184,6 +189,7 @@ def test_spelling_is_marked_only_in_the_line_being_written(page, live) -> None:
     page.keyboard.type("frst lin")
     page.keyboard.press("Enter")
     page.keyboard.type("secnd lin")
+
     # The editor's lines are unmarked but for the caret's (spellcheck="true").
     def marked(expected: list) -> None:
         page.wait_for_function(
@@ -191,7 +197,8 @@ def test_spelling_is_marked_only_in_the_line_being_written(page, live) -> None:
                 '.main .task-sheet[data-sheet=compose] [data-notes-editor] .cm-line')]
                 .map(e => e.closest('[spellcheck]').getAttribute('spellcheck') === 'true'))
                 === JSON.stringify(expected)""",
-            arg=expected, timeout=3000,
+            arg=expected,
+            timeout=3000,
         )
 
     marked([False, True])

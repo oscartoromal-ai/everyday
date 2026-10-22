@@ -1830,7 +1830,7 @@
     EditorView.contentAttributes.of({ "aria-label": "Notes", spellcheck: "true" }),
     escape,
     keys,
-    window.MarkdownLive.extensions({ mode: modeNow(), owns, plain: isTask }),
+    window.MarkdownLive.extensions({ mode: modeNow(), owns, plain: isTask, ownsTab: true }),
     keepTab,
     keymap.of([...defaultKeymap, ...historyKeymap]),
     autocompletion({ override: [offer], icons: false }),
