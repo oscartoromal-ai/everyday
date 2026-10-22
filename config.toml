@@ -66,3 +66,24 @@ max_open = 1
 tokens_dir = "local/github-tokens"
 cli = ""
 sync_minutes = 60
+
+[herdr]
+# herdr, the terminal multiplexer for coding agents (SPEC.md, Work in herdr):
+# its session ("" for herdr's default), its socket when not where herdr
+# keeps it, and its command line ("" finds it), to start its server when a
+# run is launched and it is not running.
+session = ""
+socket = ""
+cli = ""
+# The agent a run starts in herdr (one of `herdr agent`'s kinds) and the
+# arguments it is given before its opening prompt.
+agent = "claude"
+agent_args = []
+# The work in herdr recorded: looked at every watch_seconds; Oscar is at a
+# pane while herdr's screen, in one of the terminals named (their programs),
+# is the window in front, the pane focused in it, and he has used the
+# keyboard or mouse in the last away_minutes.
+watch = true
+watch_seconds = 5
+terminals = ["wezterm-gui.exe"]
+away_minutes = 3

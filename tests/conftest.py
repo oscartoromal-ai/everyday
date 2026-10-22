@@ -38,6 +38,18 @@ def everyday_files(tmp_path, monkeypatch):  # noqa: ANN201
     return root
 
 
+@pytest.fixture(autouse=True)
+def no_herdr(tmp_path, monkeypatch):  # noqa: ANN201
+    """herdr as not running (no server at its socket), never the machine's
+    own (app/ui/work_view.py)."""
+    from app.sources.herdr import Herdr
+    from app.ui import work_view
+
+    nowhere = Herdr(tmp_path / "herdr.sock")
+    monkeypatch.setattr(work_view, "herdr", lambda: nowhere)
+    return nowhere
+
+
 @pytest.fixture
 def db(tmp_path) -> Generator[Session, None, None]:
     engine = make_engine(f"sqlite:///{tmp_path / 'test.db'}")

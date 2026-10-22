@@ -87,9 +87,10 @@ def remove_pull_request(request: Request, db: DbSession, pr_id: int):
 
 
 @router.post("/ui/tasks/{task_id}/launch")
-def launch(db: DbSession, task_id: int):
-    """The task handed to an agent: the page drawn again, its status moved."""
-    task_launch.launch(db, task_id, get_runner())
+def launch(db: DbSession, task_id: int, runner: Annotated[str | None, Form()] = None):
+    """The task handed to an agent, on the agent system named or the one set
+    ([runs] runner): the page drawn again, its status moved."""
+    task_launch.launch(db, task_id, get_runner(runner or None))
     db.commit()
     response = Response(status_code=204)
     response.headers["HX-Refresh"] = "true"

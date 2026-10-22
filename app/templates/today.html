@@ -158,6 +158,21 @@
           </div>
           <script type="application/json" class="stay-data">{{ stay | tojson }}</script>
         </details>
+      {% elif placed.pane.key == "work" %}
+        {# The work seen in herdr (partials/work_pane.html): on today's page
+           what is going on in herdr now, then the day's work, filed under
+           the task each was for; drawn again every 15 seconds on today's
+           page, unless something in it is being written. #}
+        <section class="pane today-pane today-work" id="today-work" data-pane="work" data-nav-pane aria-labelledby="today-work-title"{% if placed.hidden %} hidden{% endif %}>
+          <header class="pane-head">
+            {{ pane_grip("Work") }}
+            <h2 id="today-work-title">Work</h2>
+            {{ pane_hide("Work") }}
+          </header>
+          <div class="work-body"{% if is_today %} hx-get="/ui/work/{{ day.isoformat() }}" hx-trigger="every 15s [!document.hidden && !this.closest('[hidden]') && !this.contains(document.activeElement)]" hx-swap="innerHTML"{% endif %}>
+            {% include "partials/work_pane.html" %}
+          </div>
+        </section>
       {% elif placed.pane.key == "notes" %}
         {# The notes, the keys' hint under them, and what says they were changed
            in another window. #}

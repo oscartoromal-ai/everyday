@@ -16,28 +16,30 @@ def hidden(db) -> set[str]:
     return {p.pane.key for c in today_layout_svc.layout(db) for p in c.panes if p.hidden}
 
 
-def test_today_starts_with_the_plan_habits_and_stay_the_notes_and_the_timeline(db) -> None:
+def test_today_starts_with_the_plan_habits_stay_and_work_the_notes_and_the_timeline(db) -> None:
     assert placed(db) == [
-        ("left", ["plan", "habits", "stay"]),
+        ("left", ["plan", "habits", "stay", "work"]),
         ("center", ["notes"]),
         ("right", ["timeline"]),
     ]
     assert hidden(db) == set()
     assert placed(None) == placed(db)
     assert today_layout_svc.default_columns() == [
-        ["plan", "habits", "stay"], ["notes"], ["timeline"],
+        ["plan", "habits", "stay", "work"], ["notes"], ["timeline"],
     ]
 
 
 def test_panes_keep_the_columns_and_order_they_are_dragged_to(db) -> None:
     today_layout_svc.save_layout(
-        db, columns=[["notes"], [], ["habits", "timeline", "plan", "stay"]], hidden=["timeline"]
+        db,
+        columns=[["notes"], [], ["habits", "timeline", "plan", "stay", "work"]],
+        hidden=["timeline"],
     )
     db.commit()
     assert placed(db) == [
         ("left", ["notes"]),
         ("center", []),
-        ("right", ["habits", "timeline", "plan", "stay"]),
+        ("right", ["habits", "timeline", "plan", "stay", "work"]),
     ]
     # A hidden pane keeps its place; a column with none showing is empty.
     assert hidden(db) == {"timeline"}
@@ -52,7 +54,7 @@ def test_a_pane_not_placed_joins_its_own_column_and_one_placed_twice_counts_once
     today_layout_svc.save_layout(db, columns=[["timeline", "notes"], ["notes"], []], hidden=[])
     db.commit()
     assert placed(db) == [
-        ("left", ["timeline", "notes", "plan", "habits", "stay"]),
+        ("left", ["timeline", "notes", "plan", "habits", "stay", "work"]),
         ("center", []),
         ("right", []),
     ]
@@ -71,7 +73,7 @@ def test_the_day_page_draws_its_panes_where_they_were_left(client, db) -> None:
     response = client.put(
         "/ui/today/layout",
         json={
-            "columns": [["timeline"], ["notes"], ["plan", "habits", "stay"]],
+            "columns": [["timeline"], ["notes"], ["plan", "habits", "stay", "work"]],
             "hidden": ["habits"],
         },
     )
@@ -94,11 +96,11 @@ def test_a_column_folded_or_with_nothing_showing_is_not_drawn(client, db) -> Non
     client.put(
         "/ui/today/layout",
         json={
-            "columns": [["plan", "habits", "stay"], ["notes"], ["timeline"]],
+            "columns": [["plan", "habits", "stay", "work"], ["notes"], ["timeline"]],
             "hidden": ["timeline"],
         },
     )
     client.cookies.set("today_folded", "left.habits")
     html = client.get("/today").text
     assert 'data-cols="c"' in html
-    assert 'aria-label="Show Plan, Habits and Stay"' in html
+    assert 'aria-label="Show Plan, Habits, Stay and Work"' in html

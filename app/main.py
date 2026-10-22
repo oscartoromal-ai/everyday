@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api import calendar as calendar_api
 from app.api import projects as projects_api
 from app.api import tasks as tasks_api
+from app.api import work as work_api
 from app.config import get_settings
 from app.db import get_session_factory
 from app.fresh import FreshPagesMiddleware
@@ -36,6 +37,7 @@ from app.ui import repositories as ui_repositories
 from app.ui import stays as ui_stays
 from app.ui import task_files as ui_task_files
 from app.ui import task_run as ui_task_run
+from app.ui import work as ui_work
 from app.ui.views import keep_db
 from app.usage import UsageMiddleware
 
@@ -76,6 +78,13 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
             threading.Thread(
                 target=settling.watch, args=(watching,), name="everyday-files", daemon=True
             ).start()
+            # The work seen in herdr, recorded as it goes (app/services/work_log.py).
+            if settings.herdr.watch:
+                from app.services import work_log
+
+                threading.Thread(
+                    target=work_log.watch, args=(watching,), name="herdr-work", daemon=True
+                ).start()
         async with mcp_app.lifespan(app):
             yield
         watching.set()
@@ -95,6 +104,7 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     app.include_router(tasks_api.router)
     app.include_router(projects_api.router)
     app.include_router(calendar_api.router)
+    app.include_router(work_api.router)
     # Every page's sidebar lists the projects, from the request's session.
     ui = [Depends(keep_db)]
     app.include_router(ui_pages.router, dependencies=ui)
@@ -105,6 +115,7 @@ def create_app(*, with_scheduler: bool = False) -> FastAPI:
     app.include_router(ui_stays.router, dependencies=ui)
     app.include_router(ui_task_run.router, dependencies=ui)
     app.include_router(ui_task_files.router, dependencies=ui)
+    app.include_router(ui_work.router, dependencies=ui)
     app.include_router(ui_models.router, dependencies=ui)
     app.include_router(ui_agent_window.router, dependencies=ui)
     app.include_router(ui_keys.router, dependencies=ui)

@@ -11,7 +11,7 @@ from fastapi.responses import RedirectResponse
 from app.db import DbSession
 from app.models import Task
 from app.services import today_layout as today_layout_svc
-from app.ui import changelog_view
+from app.ui import changelog_view, work_view
 from app.ui.calendar_view import (
     VIEWS,
     calendar_nav,
@@ -89,6 +89,8 @@ def _day_page(request: Request, db: DbSession, day: date):
             # Its panes in their columns (app/services/today_layout.py).
             "columns": today_layout_svc.layout(db),
             "default_columns": today_layout_svc.default_columns(),
+            # The work seen in herdr, for the work's pane (app/ui/work_view.py).
+            "work": work_view.pane_ctx(db, day, now.date()),
             "nudges": [
                 {"id": n.id, "type": n.type.value, "task_id": n.task_id,
                  "message": nudges_svc.wording(db, n, day)}

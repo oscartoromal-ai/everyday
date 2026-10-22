@@ -1,0 +1,22 @@
+{# A task's work seen in herdr (work_view.task_ctx), in its page's Work
+   pane: its time all told, then each terminal filed under it, newest
+   first, with its agent, where it was, how it was filed, and its time. #}
+{% if work.sessions %}
+<p class="work-total">{{ work.total or "Under a minute so far" }}</p>
+<ul class="work-list">
+  {% for s in work.sessions %}
+  <li class="work-item">
+    {% if s.live %}<span class="chip running">In herdr</span>{% endif %}
+    <span class="work-name">{{ s.agent or "Terminal" }}{% if s.title %} · {{ s.title }}{% endif %}</span>
+    {% if s.live %}
+    <button type="button" class="work-show" title="Show it in herdr"
+            hx-post="/ui/work/show" hx-vals='{{ {"terminal": s.terminal} | tojson }}' hx-swap="none">Show</button>
+    {% endif %}
+    <span class="work-meta" title="{{ s.where }}">{{ s.when }} · {{ s.place }}</span>
+    <span class="work-meta">{{ s.totals or "Under a minute" }}{% if s.filed %} · {{ s.filed }}{% endif %}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="side-empty">Nothing recorded yet. Work on it in herdr shows here: a run launched from this page, a herdr workspace named #{{ work.task_id }}, or a terminal in its folder or on its branch.</p>
+{% endif %}

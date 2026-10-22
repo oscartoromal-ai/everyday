@@ -1344,6 +1344,7 @@ a.map-project:hover { background: var(--glass-hover); }
 .run-launch { padding: 4px 14px; }
 .btn.primary.run-launch:disabled { opacity: 0.55; box-shadow: none; cursor: default; }
 .run-launch .run-launch-busy, .run-launch.htmx-request .run-launch-idle { display: none; }
+.run-launch-other:disabled { opacity: 0.55; cursor: default; }
 .run-launch.htmx-request .run-launch-busy { display: inline; }
 .run-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s-2); }
 .run-item { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s-2); min-height: 26px; font-size: var(--t-body-sm); }
@@ -3170,6 +3171,57 @@ button.tv-expand:hover { color: var(--ink); background: var(--glass-hover); }
 /* the menu of days: the sheet's own, with the day in words at the right */
 .plan-move-menu .aside { margin-left: auto; font-size: var(--t-caption); color: var(--pewter); }
 .plan-move-pick { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+
+/* ---- the work seen in herdr: Now (each agent its chip, what it is for,
+   Show, and its kind and what it calls its work under them), then the
+   day's (each thing worked on, its time under it, and, filed under
+   nothing, a line to write it under a task); the same rows on a task's
+   Work pane ---- */
+.today-work { flex: 0 1 auto; }
+.work-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.work-head {
+  display: flex; align-items: center; min-height: 32px; margin: 0; padding: 0 var(--s-3);
+  font-size: var(--t-caption); font-weight: 500; color: var(--graphite);
+  background: color-mix(in srgb, var(--fog) 45%, transparent);
+  border-bottom: 1px solid var(--hairline-on-glass);
+}
+.work-list { margin: 0; padding: 0; list-style: none; }
+.work-item {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--s-2);
+  padding: 7px var(--s-2) 7px var(--s-3); border-bottom: 1px solid var(--hairline-on-glass);
+  font-size: var(--t-body-sm);
+}
+.work-item:hover, .work-item:focus-within { background: var(--glass-row-hover); }
+.work-item .chip { flex: none; justify-content: center; min-width: 96px; }
+.work-name {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 500; color: var(--ink);
+}
+.work-name a { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: inherit; text-decoration: none; }
+.work-name a:hover { text-decoration: underline; text-decoration-color: var(--mist); text-underline-offset: 3px; }
+.work-name > span:not(.plan-flag) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.work-aside { flex: none; font-weight: 400; color: var(--pewter); }
+.work-meta {
+  flex: 0 0 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--t-caption); line-height: 18px; color: var(--graphite); font-variant-numeric: tabular-nums;
+}
+.work-show {
+  flex: none; padding: 2px 6px; font-size: var(--t-caption); color: var(--graphite); cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--mist); text-underline-offset: 3px;
+}
+.work-show:hover { color: var(--ink); text-decoration-color: currentColor; }
+.work-file { flex: 0 0 100%; }
+.work-file input {
+  width: 100%; padding: 2px 0; border: none; border-bottom: 1px solid var(--chrome-flank-border); background: none; outline: none;
+  font: inherit; font-size: var(--t-caption); line-height: 20px; color: var(--ink);
+}
+.work-file input::placeholder { color: var(--pewter); opacity: 1; }
+.work-file input:is(:focus, :focus-visible) { outline: none; box-shadow: none; border-bottom-color: var(--ink); }
+.work-empty { margin: 0; padding: var(--s-3) var(--s-4) var(--s-3) var(--s-3); font-size: var(--t-caption); line-height: 20px; color: var(--pewter); }
+/* on a task's page: its sidebar's own spacing, its rows without the pane's bands */
+.side-body > .work-list .work-item { padding: var(--s-2) 0; }
+.side-body > .work-list .work-item:hover { background: none; }
+.work-total { margin: 0 0 var(--s-2); font-size: var(--t-body-sm); font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
 
 /* ---- the habits: each its box, its name, its comment, its week, its
    streak, its days; a comment's drawer under its row ---- */
