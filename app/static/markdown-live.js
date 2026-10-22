@@ -46,8 +46,12 @@
    - plain(line): whether a line the page owns is drawn exactly as written,
      no Markdown in it at all (Today's task titles: a title is plain words
      wherever it shows).
-   Its keys: Enter, Shift+Enter, Backspace, Tab and Shift+Tab for lists,
-   Ctrl+L an item's box, Ctrl+B, Ctrl+I, Ctrl+Shift+X and Ctrl+` the marks.
+   - ownsTab: whether Tab, beyond nesting a list, is the page's (Today's
+     notepad steps into its tasks with it). Else it is the editor's: Tab
+     indents and never leaves, and Shift+Tab, from a line at the left,
+     steps out of the editor.
+   Its keys: Enter, Shift+Enter, Backspace, Tab and Shift+Tab for lists
+   and indentation, Ctrl+L an item's box, Ctrl+B, Ctrl+I, Ctrl+Shift+X and Ctrl+` the marks.
    Ctrl+E (toggleReading) is the page's to bind: reading is not editable, so
    the editor cannot hear the key back out of it. bindSwitch binds it, with
    a page's Live Preview, Source and Reading buttons (partials/md_modes.html),
@@ -137,8 +141,22 @@
     return { item: false, lead, indent, marker: null, box: null, depth: lead ? depthOf(indent) : 0 };
   };
 
+  // Whether a line is a fenced block's code, between its fences.
+  const inCode = (state, line) => {
+    for (let node = syntaxTree(state).resolveInner(line.from, 1); node; node = node.parent) {
+      if (node.name !== "FencedCode") continue;
+      const { doc } = state;
+      const close = doc.lineAt(node.to);
+      return line.number > doc.lineAt(node.from).number
+        && (line.number < close.number || !/^\s*(`{3,}|~{3,})/.test(close.text));
+    }
+    return false;
+  };
+
   /* ---- widgets ---- */
 
+  // A box (or a bullet) is drawn in a lead as wide as the gap before the
+  // words, so the caret after it stands where the words do, not on its edge.
   class Box extends WidgetType {
     constructor(checked) {
       super();
@@ -148,7 +166,9 @@
       return other.checked === this.checked;
     }
     toDOM(view) {
-      const box = document.createElement("button");
+      const lead = document.createElement("span");
+      lead.className = "cm-md-lead";
+      const box = lead.appendChild(document.createElement("button"));
       box.type = "button";
       box.tabIndex = -1; // Ctrl+L ticks it from the keyboard
       box.className = "cm-md-box";
@@ -159,9 +179,9 @@
       box.addEventListener("mousedown", (e) => e.preventDefault());
       box.addEventListener("click", (e) => {
         e.preventDefault();
-        if (!view.state.readOnly) tick(view, view.state.doc.lineAt(view.posAtDOM(box)));
+        if (!view.state.readOnly) tick(view, view.state.doc.lineAt(view.posAtDOM(lead)));
       });
-      return box;
+      return lead;
     }
     ignoreEvent() {
       return true;
@@ -178,7 +198,7 @@
     }
     toDOM() {
       const bullet = document.createElement("span");
-      bullet.className = "cm-md-bullet";
+      bullet.className = "cm-md-lead cm-md-bullet";
       bullet.setAttribute("aria-hidden", "true");
       return bullet;
     }
@@ -856,29 +876,15 @@
       return true;
     };
 
-    // Tab nests items and their notes, like an outline: at most one level
-    // under the line above. Where nothing can nest (a plain line at the left,
-    // or one as deep as it can go) Tab keeps its usual job of moving focus
-    // on, so the keyboard never gets stuck in the editor.
-    const nest = (delta) => (view) => {
-      const { state } = view;
-      const { doc } = state;
-      const firstLine = doc.lineAt(state.selection.main.from);
-      const lastLine = doc.lineAt(state.selection.main.to);
-      const here = leadOf(firstLine.text);
-      if (delta > 0) {
-        if (firstLine.number === 1 || !firstLine.text.trim()) return false;
-        const above = leadOf(doc.line(firstLine.number - 1).text);
-        const nestable = here.depth <= above.depth && here.depth < MAX_DEPTH
-          && (here.item || here.depth > 0 || above.item);
-        if (!nestable) return false;
-      } else if (here.depth === 0) {
-        return false;
-      }
+    // firstLine..lastLine a level deeper (delta 1) or shallower (-1): the
+    // lines with words, or the one line the caret is on, blank or not.
+    const indent = (view, delta, firstLine, lastLine) => {
+      const { doc } = view.state;
+      const single = firstLine.number === lastLine.number;
       const changes = [];
       for (let n = firstLine.number; n <= lastLine.number; n++) {
         const line = doc.line(n);
-        if (!line.text.trim()) continue;
+        if (!single && !line.text.trim()) continue;
         if (delta > 0) {
           changes.push({ from: line.from, insert: INDENT_UNIT });
         } else {
@@ -886,8 +892,53 @@
           if (drop) changes.push({ from: line.from, to: line.from + drop[0].length });
         }
       }
-      view.dispatch({ changes, userEvent: delta > 0 ? "input.indent" : "delete.dedent" });
+      view.dispatch({ changes, scrollIntoView: true, userEvent: delta > 0 ? "input.indent" : "delete.dedent" });
       return true;
+    };
+    const lines = (state) => [state.doc.lineAt(state.selection.main.from), state.doc.lineAt(state.selection.main.to)];
+
+    // Tab nests items and their notes, like an outline: at most one level
+    // under the line above. Where nothing can nest (a plain line at the left,
+    // or one as deep as it can go), Tab is the page's (the notepad's), or
+    // the editor's own (tab, untab).
+    const nest = (delta) => (view) => {
+      const { state } = view;
+      const [firstLine, lastLine] = lines(state);
+      const here = leadOf(firstLine.text);
+      if (delta > 0) {
+        if (firstLine.number === 1 || !firstLine.text.trim()) return false;
+        const above = leadOf(state.doc.line(firstLine.number - 1).text);
+        const nestable = here.depth <= above.depth && here.depth < MAX_DEPTH
+          && (here.item || here.depth > 0 || above.item);
+        if (!nestable) return false;
+      } else if (here.depth === 0) {
+        return false;
+      }
+      return indent(view, delta, firstLine, lastLine);
+    };
+
+    // The editor's own Tab never leaves it: any line nests under the line
+    // above as an outline's does (a blank one for what will be written on
+    // it, a fenced block's code as deep as it needs), and where it cannot,
+    // Tab does nothing. Shift+Tab steps a line back out, and from a line at
+    // the left steps out of the editor.
+    const tab = (view) => {
+      const { state } = view;
+      const [firstLine, lastLine] = lines(state);
+      if (inCode(state, firstLine)) return indent(view, 1, firstLine, lastLine);
+      if (firstLine.number === 1) return true;
+      const depth = depthOf(/^[ \t]*/.exec(firstLine.text)[0]);
+      const above = leadOf(state.doc.line(firstLine.number - 1).text);
+      if (depth > above.depth || depth >= MAX_DEPTH) return true;
+      return indent(view, 1, firstLine, lastLine);
+    };
+    const untab = (view) => {
+      const { state } = view;
+      const [firstLine, lastLine] = lines(state);
+      for (let n = firstLine.number; n <= lastLine.number; n++) {
+        if (/^[ \t]/.test(state.doc.line(n).text)) return indent(view, -1, firstLine, lastLine);
+      }
+      return false;
     };
 
     // Ctrl+L: a line becomes an item, an item's box is ticked, a ticked one
@@ -902,7 +953,7 @@
       return true;
     };
 
-    return { enter, softEnter, backspace, nest, cycle };
+    return { enter, softEnter, backspace, nest, tab, untab, cycle };
   };
 
   // The engine's keys, then lang-markdown's (Enter going on with a quote or
@@ -912,7 +963,7 @@
   // (keys.py, keys.js), else the defaults.
   const bound = (action, otherwise, run) =>
     (window.Keys ? window.Keys.cm(action) : [otherwise]).map((key) => ({ key, run, preventDefault: true }));
-  const writingKeys = (owns) => {
+  const writingKeys = (owns, ownsTab) => {
     const c = commands();
     const free = (run) => run && ((view) => !owns(view.state.doc.lineAt(view.state.selection.main.head)) && run(view));
     const leads = [
@@ -920,6 +971,7 @@
       { key: "Shift-Enter", run: c.softEnter },
       { key: "Backspace", run: c.backspace },
       { key: "Tab", run: c.nest(1), shift: c.nest(-1) },
+      ...(ownsTab ? [] : [{ key: "Tab", run: c.tab, shift: c.untab }]),
       ...bound("editor.checklist", "Mod-l", c.cycle),
       ...markdownKeymap,
     ].map((b) => ({ ...b, run: free(b.run), shift: free(b.shift) }));
@@ -1002,6 +1054,7 @@
       imageSrc: options.imageSrc || ((url) => (/^(https?:|data:image\/)/i.test(url) ? url : null)),
       owns: options.owns || NONE,
       plain: options.plain || NONE,
+      ownsTab: Boolean(options.ownsTab),
     };
     const mode = MODES.includes(options.mode) ? options.mode : "live";
     const tables = tableField(opts);
@@ -1016,7 +1069,7 @@
       tables,
       livePlugin(opts, tables),
       offTheLead(opts.owns),
-      writingKeys(opts.owns),
+      writingKeys(opts.owns, opts.ownsTab),
       handlers(opts),
       EditorView.lineWrapping,
       EditorView.contentAttributes.of({ spellcheck: "false" }),
